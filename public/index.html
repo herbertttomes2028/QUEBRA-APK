@@ -1,457 +1,332 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Cantos · Livreto litúrgico</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#eaeeff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Quebra-Cabeça">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Quebra-Cabeça a Dois</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script>
+    /* aplica o tema e o tamanho do texto antes de desenhar a tela (evita piscar) */
+    try {
+      var s = JSON.parse(localStorage.getItem('qc.settings') || '{}'), d = document.documentElement;
+      if (s.text) d.setAttribute('data-text', s.text);
+      var dark = s.theme === 'dark' || (s.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
+    } catch (e) { /* ignora */ }
+  </script>
+  <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar"><a class="brand" href="./">✦ CANTOS</a><span>Seu livreto litúrgico</span><button id="print">Imprimir / PDF</button></header>
-  <main>
-    <section class="intro"><span class="eyebrow">PALAVRAS QUE SE TORNAM ORAÇÃO</span><h1>Um livro para cantar juntos.</h1><p>Organize os cantos da celebração e dê à sua comunidade uma capa especial.</p></section>
-    <div class="workspace">
-      <aside class="editor">
-        <div class="tabs" role="tablist" aria-label="Editar livreto"><button role="tab" id="cover-tab" aria-controls="cover-panel" aria-selected="true">Capa</button><button role="tab" id="songs-tab" aria-controls="songs-panel" aria-selected="false">Músicas</button></div>
-        <section id="cover-panel" role="tabpanel" aria-labelledby="cover-tab">
-          <label for="title">Título do livreto</label><input id="title" maxlength="100" value="Cantos da celebração">
-          <label for="subtitle">Comunidade ou ocasião</label><input id="subtitle" maxlength="140" value="Um encontro de fé e música">
-          <label class="upload" for="image">＋ Importar imagem de capa<input id="image" type="file" accept="image/png,image/jpeg,image/webp"></label>
-          <p class="hint">PNG, JPG ou WebP, até 10 MB. Arraste a imagem na capa para posicioná-la.</p>
-          <label for="opacity">Opacidade <output id="opacity-value">65%</output></label><input id="opacity" type="range" min="0" max="100" value="65">
-          <label for="zoom">Tamanho <output id="zoom-value">100%</output></label><input id="zoom" type="range" min="30" max="250" value="100">
-          <label for="effect">Tratamento da imagem</label><select id="effect"><option value="original">Original</option><option value="gray">Preto e branco</option><option value="outline">Contorno</option><option value="sketch">Desenho a lápis</option></select>
-          <button id="reset" class="secondary">Centralizar imagem</button><button id="remove" class="text-button">Remover imagem</button>
-        </section>
-        <section id="songs-panel" role="tabpanel" aria-labelledby="songs-tab" hidden>
-          <p class="hint">Adicione as letras que sua comunidade utiliza. Os exemplos são textos de demonstração.</p>
-          <div id="song-list"></div><button id="add-song" class="secondary">＋ Adicionar música</button>
-        </section>
-        <p id="status" role="status" aria-live="polite"></p>
-        <section class="print-settings" aria-label="Configuração de impressão">
-          <label for="print-format">Formato de impressão</label>
-          <select id="print-format"><option value="a5">PDF A5 · ordem de leitura</option><option value="booklet">Livreto A4 · dobrar ao meio</option></select>
-          <p id="print-help" class="hint"></p>
-        </section>
-        <div class="project-actions"><button id="export" class="secondary">Salvar projeto</button><label class="import-project" for="project-file">Abrir projeto<input id="project-file" type="file" accept="application/json,.json"></label></div>
-        <p class="hint">As alterações ficam neste navegador. Salve um arquivo para guardar ou compartilhar o projeto.</p>
-      </aside>
-      <section class="preview" aria-label="Prévia do livreto">
-        <div class="preview-heading"><span>PRÉVIA DO LIVRETO</span><span>A5 · vertical</span></div>
-        <div class="book" id="book"><div class="binding"></div><article id="page" class="page"></article></div>
-        <nav class="page-nav" aria-label="Navegar páginas"><button id="prev" aria-label="Página anterior">←</button><span id="page-count" aria-live="polite"></span><button id="next" aria-label="Próxima página">→</button></nav>
-        <p class="preview-note">Folheie com as setas. Na capa, arraste sua imagem.</p>
+  <div id="app">
+
+    <!-- ========== INÍCIO ========== -->
+    <section id="screen-home" class="screen active">
+      <!-- peças de quebra-cabeça decorativas, bem discretas, só nas laterais -->
+      <svg class="bg-deco" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <defs>
+          <path id="pz" d="M14 14H40A11 11 0 1 1 60 14H86V40A11 11 0 1 1 86 60V86H60A11 11 0 1 0 40 86H14V60A11 11 0 1 0 14 40Z"/>
+        </defs>
+        <use href="#pz" class="bgp bgp-a" transform="translate(-34 96) rotate(-18) scale(1.15)"/>
+        <use href="#pz" class="bgp bgp-b" transform="translate(318 34) rotate(20) scale(.95)"/>
+        <use href="#pz" class="bgp bgp-c" transform="translate(334 318) rotate(-12) scale(.7)"/>
+        <use href="#pz" class="bgp bgp-d" transform="translate(-26 520) rotate(16) scale(.9)"/>
+        <use href="#pz" class="bgp bgp-e" transform="translate(310 640) rotate(-22) scale(1.2)"/>
+        <use href="#pz" class="bgp bgp-f" transform="translate(10 330) rotate(30) scale(.5)"/>
+      </svg>
+
+      <div class="home-inner">
+        <div class="logo" id="logo" aria-hidden="true">
+          <span class="lg a"></span><span class="lg b"></span>
+          <span class="lg c"></span><span class="lg d"></span>
+        </div>
+        <h1>Quebra‑cabeça<br><span class="h1-two">a dois</span></h1>
+        <p class="lead">Cada um no seu celular, montando a mesma imagem ao mesmo tempo.</p>
+
+        <div class="id-card">
+          <div class="name-card">
+            <label for="input-name">Seu nome</label>
+            <input id="input-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words"
+                   spellcheck="false" placeholder="Como você se chama?" aria-label="Seu nome">
+          </div>
+          <div class="avatar-card">
+            <span id="avatar-label" class="avatar-label">Seu avatar</span>
+            <div id="avatar-grid" class="avatar-grid" role="radiogroup" aria-labelledby="avatar-label"></div>
+          </div>
+        </div>
+        <p id="home-invite" class="invite" hidden></p>
+
+        <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
+
+        <div class="join-card">
+          <label for="input-code"><span class="key" aria-hidden="true">🔑</span> Já tem um código?</label>
+          <div class="join-row">
+            <input id="input-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+                   autocorrect="off" spellcheck="false" maxlength="4" placeholder="ABCD" aria-label="Código da sala">
+            <button id="btn-join" class="btn btn-secondary" type="button">Entrar</button>
+          </div>
+          <p id="home-error" class="error" role="alert" hidden></p>
+        </div>
+
+        <div class="home-links">
+          <button id="link-help" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.3 1-1.3 1.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1.3" fill="currentColor"/></svg><span>Como jogar</span></button>
+          <button id="link-settings" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.5-1.9-3.3-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.2 2.6h-3.8l-.3 2.5A7.5 7.5 0 0 0 7.500 6.600l-2.300-.9-1.900 3.300 1.900 1.500a7.600 7.600 0 0 0 0 3l-1.900 1.500 1.900 3.300 2.300-.9c.8.6 1.700 1.100 2.600 1.500l.3 2.500h3.800l.3-2.500c.9-.4 1.800-.9 2.600-1.500l2.300.9 1.900-3.300-1.900-1.500Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Ajustes</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ESCOLHA DA IMAGEM ========== -->
+    <section id="screen-pick" class="screen">
+      <div class="pick-inner">
+        <button id="btn-pick-back" class="btn btn-ghost" type="button">‹ Voltar</button>
+        <h2 id="pick-title">Escolha a imagem</h2>
+        <p class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+        <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis"></div>
+
+        <h3 class="pick-sub">Quantas peças?</h3>
+        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
+        <p id="size-note" class="size-note"></p>
+
+        <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
+        <p id="pick-error" class="error" role="alert" hidden></p>
+      </div>
+    </section>
+
+    <!-- ========== JOGO ========== -->
+    <section id="screen-game" class="screen">
+      <header class="hud">
+        <div class="hud-time" aria-label="Tempo de jogo"><span id="hud-time">00:00</span></div>
+        <div id="hud-progress" class="hud-progress" role="progressbar" aria-label="Peças encaixadas" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0">
+          <div class="bar"><div id="hud-bar" class="bar-fill"></div><span id="hud-count">0/12</span></div>
+        </div>
+        <div class="hud-players">
+          <button id="av-me" class="avatar" type="button" aria-label="Você"><span class="av-face">V</span><i class="av-dot" aria-hidden="true"></i></button>
+          <button id="av-friend" class="avatar off" type="button" aria-label="Amigo: aguardando"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></button>
+        </div>
+        <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Lâmpada: mostrar a imagem no tabuleiro por 4 segundos">
+          <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
+        </button>
+        <button id="btn-chat" class="icon-btn chat" type="button" aria-label="Conversa" hidden>
+          <span aria-hidden="true">💬</span><span id="chat-badge" class="badge" hidden>0</span>
+        </button>
+        <button id="btn-menu" class="icon-btn" type="button" aria-label="Menu">☰</button>
+      </header>
+
+      <div id="banner-wait" class="code-strip" hidden>
+        <span class="code-label">Código da sala</span>
+        <strong id="room-code">----</strong>
+        <span id="wait-msg" class="code-msg">aguardando o amigo…</span>
+      </div>
+      <div id="banner-conn" class="banner warn" hidden>Reconectando…</div>
+
+      <main id="stage">
+        <div id="fieldWrap">
+          <div id="field"></div>
+        </div>
+      </main>
+
+      <div id="milestone" class="milestone" hidden aria-hidden="true"></div>
+
+      <button id="chat-pop" class="chat-pop" type="button" hidden></button>
+
+      <section id="chat-panel" class="chat-panel" hidden aria-label="Conversa">
+        <header class="chat-head">
+          <strong>Conversa</strong>
+          <button id="chat-close" class="chat-x" type="button" aria-label="Fechar conversa">✕</button>
+        </header>
+        <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
+        <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
+          <button type="button" data-t="👍">👍</button>
+          <button type="button" data-t="😂">😂</button>
+          <button type="button" data-t="👏">👏</button>
+          <button type="button" data-t="😮">😮</button>
+          <button type="button" data-t="🤔">🤔</button>
+          <button type="button" data-t="❤️">❤️</button>
+          <button type="button" data-t="🎉">🎉</button>
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" maxlength="200" placeholder="Escreva uma mensagem" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" aria-label="Mensagem">
+          <button id="chat-send" class="btn btn-primary" type="button">Enviar</button>
+        </div>
       </section>
+
+    </section>
+
+    <!-- ========== MENU ========== -->
+    <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <div class="sheet">
+        <h3 id="menu-title">Menu</h3>
+        <button id="menu-help" class="btn btn-secondary btn-block" type="button">Como jogar</button>
+        <button id="menu-settings" class="btn btn-secondary btn-block" type="button"><span aria-hidden="true">⚙</span> Ajustes</button>
+        <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
+        <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
+        <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
+        <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
+        <button id="menu-close" class="btn btn-primary btn-block" type="button">Continuar jogando</button>
+      </div>
     </div>
-  </main>
-  <div id="print-pages"></div>
 
-<script>
-'use strict';
-const $ = id => document.getElementById(id);
-const initial = {title:'Cantos da celebração',subtitle:'Um encontro de fé e música',image:null,opacity:65,zoom:100,x:0,y:0,effect:'original',songs:[{title:'Canto de entrada',kind:'Entrada',lyrics:'Texto de demonstração\n\nReunidos em comunidade,\npreparamos o coração.\n\nSubstitua este exemplo pela letra\ndo canto escolhido para a celebração.'},{title:'Canto de comunhão',kind:'Comunhão',lyrics:'Texto de demonstração\n\nInsira aqui a letra da música\nutilizada pela sua comunidade.'}]};
-let state = structuredClone(initial), current = 0, pages = [], source = null, processed = null, busy = false, drag = null;
+    <!-- ========== COMO JOGAR (tutorial animado) ========== -->
+    <div id="modal-help" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="sheet tut-sheet">
+        <h3 id="tut-title">Como jogar</h3>
 
-function message(text){$('status').textContent=text;}
+        <div class="tut-stage" aria-hidden="true">
+          <!-- 1: arrastar -->
+          <div class="tut-scene" data-scene="0">
+            <div class="tb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="tp t-drag"><span class="tri"></span></div>
+            <div class="tf f-drag">👆</div>
+          </div>
+          <!-- 2: girar tocando -->
+          <div class="tut-scene" data-scene="1">
+            <div class="tp t-rot"><span class="pi"><span class="tri"></span></span><b class="tl l1">↻ 3</b><b class="tl l2">↻ 2</b></div>
+            <div class="tf f-tap">👆</div>
+          </div>
+          <!-- 3: pinça -->
+          <div class="tut-scene" data-scene="2">
+            <div class="tp t-zoom"><span class="tri"></span></div>
+            <i class="tdot d1"></i><i class="tdot d2"></i>
+          </div>
+          <!-- 4: ajudas -->
+          <div class="tut-scene" data-scene="3">
+            <div class="tut-icons">
+              <span><b>💡</b><small>Imagem</small></span>
+              <span><b>📍</b><small>Lugar</small></span>
+              <span><b>💬</b><small>Conversa</small></span>
+              <span><b>🔔</b><small>Avisos</small></span>
+            </div>
+          </div>
+        </div>
 
-try {
-  const saved=localStorage.getItem('cantos-project');
-  if(saved) state=validate(JSON.parse(saved));
-} catch {
-  message('Não foi possível recuperar o projeto salvo.');
-}
+        <h4 id="tut-head" class="tut-head">Arrastar</h4>
+        <p id="tut-text" class="tut-text">Segure a peça com o dedo e arraste até o lugar dela no tabuleiro.</p>
+        <div id="tut-dots" class="tut-dots" aria-label="Passos do tutorial">
+          <button type="button" data-i="0" aria-label="Passo 1: arrastar"></button>
+          <button type="button" data-i="1" aria-label="Passo 2: girar"></button>
+          <button type="button" data-i="2" aria-label="Passo 3: zoom"></button>
+          <button type="button" data-i="3" aria-label="Passo 4: ajudas"></button>
+        </div>
+        <button id="tut-push" class="btn btn-secondary btn-block" type="button" hidden>🔔 Ativar avisos com o app fechado</button>
+        <div class="tut-actions">
+          <button id="tut-skip" class="btn btn-ghost" type="button">Pular</button>
+          <button id="tut-prev" class="btn btn-secondary" type="button" aria-label="Passo anterior">‹</button>
+          <button id="tut-next" class="btn btn-primary" type="button">Próximo</button>
+        </div>
+      </div>
+    </div>
 
-function validate(p){
-  if(!p || typeof p.title!=='string' || typeof p.subtitle!=='string' || !Array.isArray(p.songs) || p.songs.length>100) throw Error('Projeto inválido.');
-  if(p.image!==null && (typeof p.image!=='string' || !/^data:image\/(png|jpeg|webp);base64,/.test(p.image) || p.image.length>15000000)) throw Error('Imagem inválida no projeto.');
-  for(const song of p.songs) if(!song || ['title','kind','lyrics'].some(k=>typeof song[k]!=='string') || song.lyrics.length>50000) throw Error('Música inválida.');
-  const number=(v,min,max,def)=>Number.isFinite(v)?Math.min(max,Math.max(min,v)):def;
-  return {title:p.title.slice(0,100),subtitle:p.subtitle.slice(0,140),songs:p.songs.map(s=>({title:s.title.slice(0,100),kind:s.kind.slice(0,60),lyrics:s.lyrics})),image:p.image,opacity:number(p.opacity,0,100,65),zoom:number(p.zoom,30,250,100),x:number(p.x,-2,2,0),y:number(p.y,-2,2,0),effect:['original','gray','outline','sketch'].includes(p.effect)?p.effect:'original'};
-}
+    <!-- ========== AJUSTES ========== -->
+    <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+      <div class="sheet set-sheet">
+        <h3 id="set-title">Ajustes</h3>
 
-function save(){
-  try{
-    localStorage.setItem('cantos-project',JSON.stringify(state));
-  }catch{
-    message('O navegador não conseguiu salvar automaticamente. Use “Salvar projeto”.');
-  }
-}
+        <div class="set-row">
+          <span id="lbl-text" class="set-label">Tamanho do texto</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-text" data-setting="text">
+            <button type="button" role="radio" data-v="normal" aria-checked="true">A</button>
+            <button type="button" role="radio" data-v="large" aria-checked="false">A+</button>
+            <button type="button" role="radio" data-v="xlarge" aria-checked="false">A++</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-theme" class="set-label">Aparência</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-theme" data-setting="theme">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automática</button>
+            <button type="button" role="radio" data-v="light" aria-checked="false">Clara</button>
+            <button type="button" role="radio" data-v="dark" aria-checked="false">Escura</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-motion" class="set-label">Movimento</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-motion" data-setting="motion">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automático</button>
+            <button type="button" role="radio" data-v="reduce" aria-checked="false">Reduzido</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-sound" class="set-label">Sons</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-vib" class="set-label">Vibração</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-vib" aria-checked="true" data-setting="vibrate"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-push" class="set-label">🔔 Avisos com o app fechado</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
+        </div>
+        <p id="push-note" class="set-note"></p>
+        <button id="set-close" class="btn btn-primary btn-block" type="button">Pronto</button>
+      </div>
+    </div>
 
-function element(tag,className,text){
-  const el=document.createElement(tag);
-  if(className)el.className=className;
-  if(text!==undefined)el.textContent=text;
-  return el;
-}
+    <!-- ========== VITÓRIA ========== -->
+    <div id="modal-win" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
+      <div id="confetti" aria-hidden="true"></div>
+      <div class="sheet win">
+        <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
+        <h3 id="win-title">Vocês conseguiram! 🎉</h3>
+        <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
+        <p id="win-best" class="win-best" hidden></p>
+        <div class="win-split">
+          <span class="win-p me"><span id="win-me-av" class="avatar sm"><span class="av-face">V</span></span><span id="win-me-name" class="win-name">Você</span><b id="win-me">0</b> peças</span>
+          <span class="win-p friend"><span id="win-friend-av" class="avatar sm"><span class="av-face">A</span></span><span id="win-friend-name" class="win-name">Amigo</span><b id="win-friend">0</b> peças</span>
+        </div>
+        <div class="win-share">
+          <button id="win-save" class="btn btn-secondary" type="button">⬇ Salvar imagem</button>
+          <button id="win-share" class="btn btn-secondary" type="button">↗ Compartilhar</button>
+        </div>
+        <button id="win-again" class="btn btn-primary btn-block" type="button">Jogar de novo</button>
+        <button id="win-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
+      </div>
+    </div>
 
-function paginate(){
-  pages=[{cover:true}];
-  state.songs.forEach(song=>{
-    const lines=[];
-    song.lyrics.split('\n').forEach(line=>{
-      if(!line){lines.push('');return;}
-      while(line.length>44){
-        let cut=line.lastIndexOf(' ',44);
-        if(cut<1)cut=44;
-        lines.push(line.slice(0,cut));
-        line=line.slice(cut).trimStart();
-      }
-      lines.push(line);
-    });
-    const capacity=Math.max(12,22-Math.floor(song.title.length/25));
-    for(let i=0;i<Math.max(lines.length,1);i+=capacity){
-      pages.push({song,lyrics:lines.slice(i,i+capacity).join('\n'),continuation:i>0});
-    }
-  });
-  current=Math.min(current,pages.length-1);
-}
+    <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
+    <div id="modal-rematch" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="rm-title">
+      <div class="sheet">
+        <div class="rm-emoji" aria-hidden="true">🧩</div>
+        <h3 id="rm-title">Ana quer recomeçar</h3>
+        <p id="rm-text" class="rm-text"></p>
+        <div class="rm-bar" aria-hidden="true"><i id="rm-bar"></i></div>
+        <button id="rm-accept" class="btn btn-primary btn-block" type="button">Aceitar</button>
+        <button id="rm-decline" class="btn btn-secondary btn-block" type="button">Agora não</button>
+      </div>
+    </div>
+    <div id="rematch-wait" class="rematch-wait" hidden role="status">
+      <span id="rw-text">Esperando o amigo aceitar…</span>
+      <button id="rw-cancel" class="rw-btn" type="button">Cancelar</button>
+    </div>
 
-function fillPage(target,page,index){
-  target.replaceChildren();
-  if(page.cover){
-    const canvas=element('canvas','cover-art'+(source?'':' empty'));
-    target.append(canvas);
-    if(!source)target.append(element('div','ornament','✦'));
-    target.append(element('div','cover-frame'),element('div','cover-label','LIVRETO LITÚRGICO'));
-    const text=element('div','cover-text');
-    text.append(element('h2','',state.title),element('p','',state.subtitle));
-    target.append(text);
-    draw(canvas);
-    if(target===$('page')){
-      canvas.addEventListener('pointerdown',startDrag);
-      canvas.addEventListener('pointermove',moveDrag);
-      canvas.addEventListener('pointerup',endDrag);
-      canvas.addEventListener('pointercancel',endDrag);
-    }
-  } else {
-    const content=element('div','song-page');
-    content.append(
-      element('div','song-kind',page.song.kind),
-      element('h2','',page.song.title+(page.continuation?' · continuação':'')),
-      element('div','lyrics',page.lyrics),
-      element('div','folio',String(index))
-    );
-    target.append(content);
-  }
-}
+    <!-- ========== CARREGANDO / AVISOS ========== -->
+    <div id="loading" class="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text">Preparando as peças…</p>
+    </div>
+    <!-- abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!" -->
+    <div id="go-splash" class="go-splash" hidden aria-hidden="true">
+      <div class="go-rays"></div>
+      <div class="go-stage">
+        <div class="go-card"><span id="go-img" class="go-img"></span></div>
+        <p class="go-text">VAMOS LÁ!</p>
+        <p id="go-sub" class="go-sub"></p>
+        <button id="go-cancel" class="btn btn-secondary go-cancel" type="button" hidden>Cancelar</button>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  </div>
 
-function render(){
-  paginate();
-  fillPage($('page'),pages[current],current);
-  $('page-count').textContent=`${current===0?'Capa':'Página '+current} · ${current+1} de ${pages.length}`;
-  $('prev').disabled=current===0||busy;
-  $('next').disabled=current===pages.length-1||busy;
-}
-
-function draw(canvas){
-  canvas.width=740;
-  canvas.height=1050;
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,740,1050);
-  if(!processed)return;
-  const scale=Math.min(740/processed.width,1050/processed.height)*state.zoom/100;
-  const w=processed.width*scale,h=processed.height*scale;
-  ctx.globalAlpha=state.opacity/100;
-  ctx.drawImage(processed,(740-w)/2+state.x*740,(1050-h)/2+state.y*1050,w,h);
-}
-
-function startDrag(event){
-  if(!source)return;
-  event.currentTarget.setPointerCapture(event.pointerId);
-  drag={px:event.clientX,py:event.clientY,x:state.x,y:state.y};
-}
-
-function moveDrag(event){
-  if(!drag)return;
-  const rect=event.currentTarget.getBoundingClientRect();
-  state.x=Math.max(-2,Math.min(2,drag.x+(event.clientX-drag.px)/rect.width));
-  state.y=Math.max(-2,Math.min(2,drag.y+(event.clientY-drag.py)/rect.height));
-  draw(event.currentTarget);
-}
-
-function endDrag(){drag=null;save();}
-
-function processImage(){
-  if(!source){processed=null;return;}
-  const canvas=document.createElement('canvas');
-  const scale=Math.min(1,1000/Math.max(source.width,source.height));
-  canvas.width=Math.max(1,Math.round(source.width*scale));
-  canvas.height=Math.max(1,Math.round(source.height*scale));
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  ctx.drawImage(source,0,0,canvas.width,canvas.height);
-  if(state.effect!=='original'){
-    const data=ctx.getImageData(0,0,canvas.width,canvas.height);
-    const pixels=data.data,w=canvas.width,h=canvas.height,gray=new Float32Array(w*h);
-    for(let i=0;i<gray.length;i++){
-      gray[i]=.299*pixels[i*4]+.587*pixels[i*4+1]+.114*pixels[i*4+2];
-    }
-    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-      const i=y*w+x;
-      let value=gray[i];
-      if(state.effect==='outline'||state.effect==='sketch'){
-        const at=(dx,dy)=>gray[Math.max(0,Math.min(h-1,y+dy))*w+Math.max(0,Math.min(w-1,x+dx))];
-        const gx=-at(-1,-1)+at(1,-1)-2*at(-1,0)+2*at(1,0)-at(-1,1)+at(1,1);
-        const gy=-at(-1,-1)-2*at(0,-1)-at(1,-1)+at(-1,1)+2*at(0,1)+at(1,1);
-        const edge=Math.hypot(gx,gy);
-        value=state.effect==='outline'?(edge>65?25:255):Math.max(0,255-edge*.7-(255-gray[i])*.18);
-      }
-      pixels[i*4]=pixels[i*4+1]=pixels[i*4+2]=value;
-    }
-    ctx.putImageData(data,0,0);
-  }
-  processed=canvas;
-}
-
-async function loadImage(data){
-  if(!data){source=null;processed=null;return;}
-  const img=new Image();
-  img.src=data;
-  await img.decode();
-  if(img.width*img.height>40000000)throw Error('Imagem muito grande. Use uma versão com até 40 megapixels.');
-  source=img;
-  processImage();
-}
-
-function sync(){
-  for(const key of ['title','subtitle','opacity','zoom','effect'])$(key).value=state[key];
-  $('opacity-value').value=state.opacity+'%';
-  $('zoom-value').value=state.zoom+'%';
-  renderSongs();
-  render();
-}
-
-function renderSongs(){
-  $('song-list').replaceChildren();
-  state.songs.forEach((song,index)=>{
-    const box=element('div','song-editor');
-    for(const [key,label] of [['title','Título'],['kind','Momento da celebração'],['lyrics','Letra']]){
-      const id=`song-${index}-${key}`,caption=element('label','',label);
-      caption.htmlFor=id;
-      const field=element(key==='lyrics'?'textarea':'input');
-      field.id=id;
-      field.value=song[key];
-      field.maxLength=key==='lyrics'?50000:key==='kind'?60:100;
-      field.addEventListener('input',()=>{
-        song[key]=field.value;
-        save();
-        render();
-      });
-      box.append(caption,field);
-    }
-    const tools=element('div','song-tools');
-    for(const [label,delta] of [['↑',-1],['↓',1]]){
-      const b=element('button','',label);
-      b.setAttribute('aria-label',delta<0?'Mover música para cima':'Mover música para baixo');
-      b.disabled=index+delta<0||index+delta>=state.songs.length;
-      b.onclick=()=>{
-        [state.songs[index],state.songs[index+delta]]=[state.songs[index+delta],state.songs[index]];
-        save();
-        renderSongs();
-        render();
-      };
-      tools.append(b);
-    }
-    const remove=element('button','','Excluir');
-    remove.onclick=()=>{
-      if(!confirm('Excluir esta música?'))return;
-      state.songs.splice(index,1);
-      save();
-      renderSongs();
-      render();
-    };
-    tools.append(remove);
-    box.append(tools);
-    $('song-list').append(box);
-  });
-}
-
-for(const tab of ['cover','songs'])$(tab+'-tab').onclick=()=>{
-  for(const name of ['cover','songs']){
-    $(name+'-tab').setAttribute('aria-selected',String(name===tab));
-    $(name+'-panel').hidden=name!==tab;
-  }
-  if(tab==='cover'){current=0;render();}
-};
-
-for(const key of ['title','subtitle','opacity','zoom','effect'])$(key).addEventListener('input',()=>{
-  state[key]=['opacity','zoom'].includes(key)?Number($(key).value):$(key).value;
-  if(key==='effect')processImage();
-  $('opacity-value').value=state.opacity+'%';
-  $('zoom-value').value=state.zoom+'%';
-  save();
-  render();
-});
-
-$('image').onchange=async event=>{
-  const file=event.target.files[0];
-  if(!file)return;
-  try{
-    if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024){
-      throw Error('Escolha PNG, JPG ou WebP de até 10 MB.');
-    }
-    const data=await new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onload=()=>resolve(reader.result);
-      reader.onerror=reject;
-      reader.readAsDataURL(file);
-    });
-    await loadImage(data);
-    state.image=data;
-    state.x=state.y=0;
-    current=0;
-    save();
-    render();
-    message('Imagem importada. Arraste-a na capa para ajustar.');
-  }catch(error){
-    message(error.message||'Não foi possível abrir a imagem.');
-  }finally{
-    event.target.value='';
-  }
-};
-
-$('reset').onclick=()=>{
-  state.x=state.y=0;
-  state.zoom=100;
-  save();
-  sync();
-};
-
-$('remove').onclick=()=>{
-  state.image=null;
-  source=processed=null;
-  save();
-  render();
-};
-
-$('add-song').onclick=()=>{
-  if(state.songs.length>=100){
-    message('Limite de 100 músicas por projeto.');
-    return;
-  }
-  state.songs.push({title:'Nova música',kind:'',lyrics:''});
-  save();
-  renderSongs();
-  current=pages.length;
-  render();
-};
-
-function turn(delta){
-  if(busy||current+delta<0||current+delta>=pages.length)return;
-  busy=true;
-  $('prev').disabled=$('next').disabled=true;
-  $('page').classList.add(delta>0?'turn-next':'turn-prev');
-  setTimeout(()=>{
-    current+=delta;
-    render();
-  },220);
-  setTimeout(()=>{
-    busy=false;
-    $('page').classList.remove('turn-next','turn-prev');
-    render();
-  },460);
-}
-
-$('prev').onclick=()=>turn(-1);
-$('next').onclick=()=>turn(1);
-
-document.addEventListener('keydown',event=>{
-  if(['INPUT','TEXTAREA','SELECT','BUTTON'].includes(event.target.tagName))return;
-  if(event.key==='ArrowRight')turn(1);
-  if(event.key==='ArrowLeft')turn(-1);
-});
-
-$('export').onclick=()=>{
-  const url=URL.createObjectURL(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}));
-  const a=element('a');
-  a.href=url;
-  a.download='livreto-cantos.json';
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-  message('Projeto exportado com músicas e imagem de capa.');
-};
-
-$('project-file').onchange=async event=>{
-  try{
-    const file=event.target.files[0];
-    if(!file)return;
-    if(file.size>20*1024*1024)throw Error('Projeto maior que 20 MB.');
-    const next=validate(JSON.parse(await file.text()));
-    if(!confirm('Abrir este projeto e substituir o conteúdo atual?'))return;
-    await loadImage(next.image);
-    state=next;
-    processImage();
-    current=0;
-    save();
-    sync();
-    message('Projeto aberto.');
-  }catch(error){
-    message(error.message||'Arquivo inválido.');
-  }finally{
-    event.target.value='';
-  }
-};
-
-function bookletOrder(count){
-  const total=Math.ceil(count/4)*4, sides=[];
-  for(let sheet=0;sheet<total/4;sheet++){
-    sides.push([total-1-sheet*2,sheet*2],[sheet*2+1,total-2-sheet*2]);
-  }
-  return sides;
-}
-
-function printSummary(){
-  const count=pages.length,total=Math.ceil(count/4)*4;
-  $('print-help').textContent=$('print-format').value==='booklet'
-    ? `${count} páginas de conteúdo + ${total-count} em branco. ${total/4} folha(s) A4. Imprima em paisagem, frente e verso, virando pela borda curta, escala 100%. Não ative “Livreto” na impressora: as páginas já estarão ordenadas. Teste uma folha primeiro.`
-    : 'Páginas A5 em ordem de leitura. Use escala 100%, sem cabeçalhos/rodapés e com gráficos de fundo.';
-}
-
-function preparePrint(){
-  paginate();
-  $('print-pages').replaceChildren();
-  const booklet=$('print-format').value==='booklet';
-  document.body.classList.toggle('print-booklet',booklet);
-  let style=$('print-page-size');
-  if(!style){
-    style=element('style');
-    style.id='print-page-size';
-    document.head.append(style);
-  }
-  style.textContent=`@media print { @page { size: ${booklet?'A4 landscape':'A5 portrait'}; margin: 0; } }`;
-  const makePage=index=>{
-    const el=element('article','print-page');
-    el.dataset.page=String(index+1);
-    if(pages[index])fillPage(el,pages[index],index);
-    else el.setAttribute('aria-label','Página em branco');
-    return el;
-  };
-  if(booklet){
-    for(const pair of bookletOrder(pages.length)){
-      const side=element('section','print-sheet');
-      side.append(...pair.map(makePage));
-      $('print-pages').append(side);
-    }
-  }else{
-    pages.forEach((page,index)=>$('print-pages').append(makePage(index)));
-  }
-  printSummary();
-}
-
-$('print-format').onchange=printSummary;
-new MutationObserver(printSummary).observe($('page-count'),{childList:true});
-window.addEventListener('beforeprint',preparePrint);
-$('print').onclick=()=>{
-  preparePrint();
-  window.print();
-};
-
-sync();
-loadImage(state.image).then(render).catch(()=>{
-  state.image=null;
-  source=processed=null;
-  render();
-  message('A imagem salva não pôde ser recuperada. Importe novamente.');
-});
-</script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
