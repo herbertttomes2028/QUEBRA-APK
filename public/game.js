@@ -8,7 +8,7 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
-  var PLAYER_COLORS = ['#2f6bff', '#ff4f8b'];
+  var PLAYER_COLORS = ['#2a5ee8', '#d1245f'];   // azul e rosa um pouco mais fortes: texto branco legível (≥ 4,5:1)
   var HINT_MS = 4000;      // quanto tempo a imagem fica visível atrás das peças
   var HELD_SCALE = 1.04;   // peça na mão fica um pouquinho maior
   var ZOOM_MAX = 6;        // limite do zoom por pinça (também limitado pela largura da tela)
@@ -63,6 +63,35 @@
   var imgCache = {};
   var wakeLock = null;
 
+  /* ---------------------------------------------------------
+   * Preferências guardadas só neste aparelho (nome, avatar, ajustes, melhores tempos)
+   * --------------------------------------------------------- */
+  var store = (function () {
+    var mem = {}, ok = false;
+    try { localStorage.setItem('qc.t', '1'); localStorage.removeItem('qc.t'); ok = true; } catch (e) { ok = false; }
+    return {
+      get: function (k, d) { try { var v = ok ? localStorage.getItem('qc.' + k) : mem[k]; return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+      set: function (k, v) { try { var s = JSON.stringify(v); if (ok) localStorage.setItem('qc.' + k, s); else mem[k] = s; } catch (e) { /* sem espaço: ignora */ } }
+    };
+  })();
+
+  var DEFAULT_SETTINGS = { text: 'normal', theme: 'auto', motion: 'auto', sound: true, vibrate: true, push: false };
+  state.settings = (function () {
+    var saved = store.get('settings', {}) || {}, o = {};
+    Object.keys(DEFAULT_SETTINGS).forEach(function (k) { o[k] = saved[k] !== undefined ? saved[k] : DEFAULT_SETTINGS[k]; });
+    return o;
+  })();
+  state.avatar = store.get('avatar', '') || '';
+  state.bests = store.get('best', {}) || {};
+  state.avatars = ['🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🐵', '🦄', '🐙', '🦋', '⭐', '🚀', '🌈', '🍀'];
+  state.spots = 5;
+  state.spotActive = false;
+  state.spotTimer = null;
+  state.spotPiece = null;
+  state.milestones = {};
+  state.pushKey = null;
+  state.winBlob = null;
+
   // sem internet a biblioteca de tempo real não carrega: avisa em vez de quebrar
   if (typeof io === 'undefined') {
     var ld = document.querySelector('#loading');
@@ -109,7 +138,7 @@
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, ms || 2200);
   }
 
-  function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignora */ } }
+  function vibrate(ms) { try { if (state.settings.vibrate && navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignora */ } }
 
   function showScreen(name) {
     ['home', 'pick', 'game'].forEach(function (n) {
@@ -198,6 +227,9 @@
         state.pickPieces = state.defaultPieces;
         state.hints = c.hints || 10;
         state.chatOn = c.chat !== false;
+        if (Array.isArray(c.avatars) && c.avatars.length) state.avatars = c.avatars;
+        state.spots = c.spots || 5;
+        state.pushKey = c.push && c.push.key ? c.push.key : null;
       })
       .catch(function () { state.images = []; });
     return imagesReady;
@@ -271,6 +303,8 @@
     var note = p.pieces + ' peças (' + p.cols + ' × ' + p.rows + ').';
     if (p.pieces >= 48) note += ' As peças ficam pequenas no celular: melhor para telas grandes.';
     else if (p.pieces <= 6) note += ' Peças grandes, ótimas para começar.';
+    var bt = state.bests[state.pickChoice + '|' + state.pickPieces];
+    if (typeof bt === 'number') note += ' 🏆 Seu melhor tempo: ' + fmtTime(bt) + '.';
     $('#size-note').textContent = note;
   }
 
@@ -286,12 +320,13 @@
 
   function readName() {
     state.name = $('#input-name').value.replace(/\s+/g, ' ').trim().slice(0, 12);
+    store.set('name', state.name);
     return state.name;
   }
 
   function doCreate(imageId, pieces) {
     setLoading(true, 'Criando a sala…');
-    socket.emit('create', { pid: state.pid, imageId: imageId, pieces: pieces, name: readName() }, function (res) {
+    socket.emit('create', { pid: state.pid, imageId: imageId, pieces: pieces, name: readName(), avatar: state.avatar }, function (res) {
       if (!res || !res.ok) {
         setLoading(false);
         showError($('#pick-error'), errorText(res && res.error));
@@ -303,7 +338,7 @@
 
   function doJoin(code) {
     setLoading(true, 'Entrando na sala…');
-    socket.emit('join', { pid: state.pid, code: code, name: readName() }, function (res) {
+    socket.emit('join', { pid: state.pid, code: code, name: readName(), avatar: state.avatar }, function (res) {
       if (!res || !res.ok) {
         setLoading(false);
         showScreen('home');
@@ -339,18 +374,21 @@
       setChatAvailability(snap.chatOn !== false);
       setChatHistory(snap.chat || []);
       $('#room-code').textContent = snap.code;
-      $('#modal-win').hidden = true;
-      $('#modal-menu').hidden = true;
-      $('#modal-help').hidden = true;
+      ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch'].forEach(closeModal);
+      hideRematchWait();
+      $('#field').classList.remove('won');
       $('#confetti').innerHTML = '';
       closeHint();
+      clearSpot();
+      markMilestones();
       try { history.replaceState(null, '', '?sala=' + snap.code); } catch (e) { /* ignora */ }
       state.inGame = true;
       showScreen('game');
       if (!state.tipShown) {
         state.tipShown = true;
-        setTimeout(function () { toast('Arraste · toque de novo para girar · pinça para zoom', 5200); }, 900);
+        if (!store.get('tutorial', 0)) setTimeout(openTutorial, 800);    // primeira vez neste aparelho
       }
+      ensurePush();
       layout();
       updateUi();
       setLoading(false);
@@ -392,7 +430,7 @@
 
   function paintLabel(p) {
     if (!p.tag) return;
-    if (p.theirs) p.tag.textContent = state.names[p.heldBy] || 'Amigo';
+    if (p.theirs) p.tag.textContent = displayName(p.heldBy) || 'Amigo';
     else if (p.mine) p.tag.textContent = '↻ ' + Math.max(0, state.cfg.MAX_ROT - p.rotUsed);
     p.tag.classList.toggle('mine-tag', !!p.mine);
   }
@@ -424,6 +462,7 @@
     state.pieces = snap.pieces.map(function (d) {
       var el = document.createElement('div');
       el.className = 'piece';
+      el.setAttribute('role', 'img');
       el.dataset.id = d.id;
       el.style.width = T + 'px';
       el.style.height = T + 'px';
@@ -466,7 +505,14 @@
     if (!mine) p.zoomAbs = null;          // o zoom acaba quando a peça é solta
     paintLabel(p);
     paintTag(p);
+    labelPiece(p);
     p.dirty = true;
+  }
+
+  function labelPiece(p) {
+    var where = p.locked ? 'encaixada no lugar certo' : (p.y > state.cfg.TRAY_LINE ? 'na bandeja' : 'solta no tabuleiro');
+    var total = state.cfg ? state.cfg.COLS * state.cfg.ROWS : state.pieces.length;
+    p.el.setAttribute('aria-label', 'Peça ' + (p.id + 1) + ' de ' + total + ', ' + where + (!p.locked && p.rot ? ', girada ' + p.rot * 90 + ' graus' : ''));
   }
 
   function setAngle(p, rot) {
@@ -804,7 +850,7 @@
     if (!mine) {
       var who = document.createElement('span');
       who.className = 'who';
-      who.textContent = m.name || 'Amigo';
+      who.textContent = (state.players && state.players[m.idx] && state.players[m.idx].avatar ? state.players[m.idx].avatar + ' ' : '') + (m.name || 'Amigo');
       li.appendChild(who);
     }
     var tx = document.createElement('span');
@@ -852,6 +898,7 @@
     state.chat.push(m);
     if (state.chat.length > 50) { state.chat.shift(); if ($('#chat-list').firstChild) $('#chat-list').removeChild($('#chat-list').firstChild); }
     $('#chat-list').appendChild(chatEl(m));
+    if (m.idx !== state.idx) { playSound('msg'); announce((m.name || 'Amigo') + ' escreveu: ' + m.text); }
     if (state.chatOpen) { scrollChat(); return; }
     if (m.idx !== state.idx) {               // chegou do amigo com a conversa fechada
       state.unread++;
@@ -905,22 +952,20 @@
   function updateUi() {
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
     if (sel) paintLabel(sel);                // "↻ n" = giros que ainda restam
-    $('#hint-badge').textContent = state.hints;
-    $('#btn-hint').disabled = state.hints <= 0 || state.hintActive;
+    refreshLamp();
     updateHud();
   }
 
   function updateHud() {
     $('#hud-count').textContent = state.locked + '/' + state.total;
     $('#hud-bar').style.width = (state.total ? (100 * state.locked) / state.total : 0) + '%';
-    var me = $('#chip-me'), fr = $('#chip-friend');
+    var pg = $('#hud-progress');
+    pg.setAttribute('aria-valuemax', String(state.total));
+    pg.setAttribute('aria-valuenow', String(state.locked));
     if (state.idx !== null) {
-      me.style.setProperty('--c', PLAYER_COLORS[state.idx]);
-      fr.style.setProperty('--c', PLAYER_COLORS[1 - state.idx]);
+      paintAvatar($('#av-me'), state.idx, true);
+      paintAvatar($('#av-friend'), 1 - state.idx, false);
     }
-    me.querySelector('.chip-name').textContent = myName();
-    fr.querySelector('.chip-name').textContent = (state.idx !== null && state.names[1 - state.idx]) || 'Aguardando…';
-    fr.classList.toggle('off', !state.friendOnline);
     // faixa com o código: só aparece enquanto o amigo não está na sala
     var fp = state.idx !== null && state.players ? state.players[1 - state.idx] : null;
     $('#banner-wait').hidden = !(state.inGame && !state.friendOnline && state.status !== 'won');
@@ -933,8 +978,10 @@
     state.players = m.players || [];
     state.names = [(state.players[0] && state.players[0].name) || '', (state.players[1] && state.players[1].name) || ''];
     if (m.hints && state.idx !== null) state.hints = m.hints[state.idx];
+    if (m.spots && state.idx !== null) state.spots = m.spots[state.idx];
     if (state.inGame && online !== state.friendOnline) {
       toast(online ? friendName() + ' entrou!' : friendName() + ' saiu da sala');
+      announce(online ? friendName() + ' entrou na sala.' : friendName() + ' saiu da sala.');
     }
     state.friendOnline = online;
     state.pieces.forEach(function (p) { if (p.heldBy !== null && p.heldBy !== undefined) classify(p); });
@@ -954,27 +1001,519 @@
   function showWin(data) {
     state.finalMs = data.elapsedMs;
     $('#win-time').textContent = fmtTime(data.elapsedMs);
-    var mine = data.counts[state.idx] || 0;
-    var theirs = data.counts[1 - state.idx] || 0;
-    $('#win-me').textContent = mine;
-    $('#win-friend').textContent = theirs;
+    $('#win-me').textContent = data.counts[state.idx] || 0;
+    $('#win-friend').textContent = data.counts[1 - state.idx] || 0;
     $('#win-me-name').textContent = myName();
     $('#win-friend-name').textContent = friendName();
-    $('.chip.big.me').style.setProperty('--c', PLAYER_COLORS[state.idx]);
-    $('.chip.big.friend').style.setProperty('--c', PLAYER_COLORS[1 - state.idx]);
+    paintAvatar($('#win-me-av'), state.idx, true, false);
+    paintAvatar($('#win-friend-av'), 1 - state.idx, false, false);
+    var art = $('#win-art');
+    art.style.backgroundImage = 'url("' + state.imageUrl + '")';
+    art.style.setProperty('--ar', state.cfg.COLS / state.cfg.ROWS);
+    var best = recordTime(data.elapsedMs);
+    var b = $('#win-best');
+    b.textContent = best.text;
+    b.className = 'win-best' + (best.record ? ' record' : '');
+    b.hidden = !best.text;
+    $('#field').classList.add('won');            // some as linhas entre as peças
+    state.winBlob = null;
     var box = $('#confetti');
     box.innerHTML = '';
-    var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
-    for (var i = 0; i < 44; i++) {
-      var c = document.createElement('i');
-      c.style.left = Math.random() * 100 + '%';
-      c.style.background = colors[i % colors.length];
-      c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
-      c.style.animationDelay = Math.random() * 0.8 + 's';
-      box.appendChild(c);
+    if (!reducedMotion()) {
+      var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
+      for (var i = 0; i < 44; i++) {
+        var c = document.createElement('i');
+        c.style.left = Math.random() * 100 + '%';
+        c.style.background = colors[i % colors.length];
+        c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
+        c.style.animationDelay = Math.random() * 0.8 + 's';
+        box.appendChild(c);
+      }
     }
-    $('#modal-win').hidden = false;
+    openModal('#modal-win', '#win-again');
     vibrate([40, 60, 40]);
+    playSound('win');
+    announce('Vocês conseguiram! Tempo: ' + fmtTime(data.elapsedMs) + '. ' + best.text);
+  }
+
+
+  /* ---------------------------------------------------------
+   * Ajustes: texto maior, modo escuro, movimento reduzido, sons, vibração, avisos
+   * --------------------------------------------------------- */
+  function prefersDark() { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  function reducedMotion() {
+    return state.settings.motion === 'reduce' || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+
+  function applySettings() {
+    var h = document.documentElement, s = state.settings;
+    h.setAttribute('data-text', s.text);
+    var dark = s.theme === 'dark' || (s.theme === 'auto' && prefersDark());
+    h.setAttribute('data-theme', dark ? 'dark' : 'light');
+    h.setAttribute('data-motion', s.motion === 'reduce' ? 'reduce' : 'auto');
+    var mt = document.querySelector('meta[name="theme-color"]');
+    if (mt) mt.setAttribute('content', dark ? '#111733' : '#eaeeff');
+    Array.prototype.forEach.call(document.querySelectorAll('#modal-settings [data-setting]'), function (el) {
+      var k = el.getAttribute('data-setting');
+      if (el.classList.contains('seg')) {
+        Array.prototype.forEach.call(el.querySelectorAll('button'), function (b) {
+          b.setAttribute('aria-checked', b.getAttribute('data-v') === String(s[k]) ? 'true' : 'false');
+        });
+      } else {
+        el.setAttribute('aria-checked', s[k] ? 'true' : 'false');
+      }
+    });
+    var on = !!s.sound;
+    $('#menu-sound').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('#menu-sound-icon').textContent = on ? '🔊' : '🔇';
+    $('#menu-sound-text').textContent = on ? 'Som: ligado' : 'Som: desligado';
+    updatePushNote();
+  }
+
+  function saveSettings() { store.set('settings', state.settings); applySettings(); }
+
+  function toggleSetting(key) {
+    if (key === 'push') { if (state.settings.push) disablePush(); else enablePush(); return; }
+    state.settings[key] = !state.settings[key];
+    saveSettings();
+    if (key === 'sound' && state.settings.sound) playSound('snap');
+    if (key === 'vibrate' && state.settings.vibrate) vibrate(40);
+  }
+
+  /* Janelas: abrem com o foco no botão certo e devolvem o foco ao fechar (leitores de tela e teclado) */
+  var lastBtn = null;   // último botão tocado: é para ele que o foco volta quando a janela fecha
+  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (b) lastBtn = b; }, true);
+  function openModal(sel, focusSel) {
+    var m = $(sel);
+    if (!m) return;
+    if (m.hidden) {
+      var usable = lastBtn && document.contains(lastBtn) && !(lastBtn.closest && lastBtn.closest('[hidden]'));
+      m._ret = usable ? lastBtn : document.activeElement;
+    }
+    m.hidden = false;
+    var f = focusSel ? m.querySelector(focusSel) : m.querySelector('button');
+    try { if (f) f.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+  }
+  function closeModal(sel) {
+    var m = $(sel);
+    if (!m || m.hidden) return;
+    m.hidden = true;
+    var r = m._ret;
+    m._ret = null;
+    try { if (r && r.focus && document.contains(r)) r.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+  }
+
+  // anúncio para leitores de tela
+  function announce(text) {
+    var el = $('#sr-live');
+    if (!el) return;
+    el.textContent = '';
+    setTimeout(function () { el.textContent = text; }, 60);
+  }
+
+  /* ---------------------------------------------------------
+   * Sons (gerados pelo navegador, sem arquivos)
+   * --------------------------------------------------------- */
+  var audio = { ctx: null, last: {} };
+  function getAudio() {
+    if (!state.settings.sound) return null;
+    try {
+      if (!audio.ctx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audio.ctx = new AC();
+      }
+      if (audio.ctx.state === 'suspended' && audio.ctx.resume) audio.ctx.resume();
+      return audio.ctx;
+    } catch (e) { return null; }
+  }
+  function tone(ctx, freq, start, dur, type, vol) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    var t0 = ctx.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.1, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.03);
+  }
+  var SOUNDS = {
+    snap: function (c) { tone(c, 523, 0, .09, 'triangle', .13); tone(c, 784, .07, .15, 'triangle', .13); },
+    win: function (c) { [523, 659, 784, 1047].forEach(function (f, i) { tone(c, f, i * .13, .28, 'triangle', .15); }); tone(c, 1319, .55, .5, 'sine', .12); },
+    msg: function (c) { tone(c, 880, 0, .1, 'sine', .09); tone(c, 1175, .09, .16, 'sine', .09); },
+    chime: function (c) { tone(c, 659, 0, .12, 'triangle', .11); tone(c, 988, .1, .22, 'triangle', .11); },
+    ping: function (c) { tone(c, 740, 0, .1, 'sine', .1); tone(c, 740, .2, .1, 'sine', .1); },
+    blip: function (c) { tone(c, 1046, 0, .08, 'sine', .07); }
+  };
+  function playSound(name) {
+    var now = Date.now();
+    if (audio.last[name] && now - audio.last[name] < 90) return;
+    audio.last[name] = now;
+    var c = getAudio();
+    if (!c || !SOUNDS[name]) return;
+    try { SOUNDS[name](c); } catch (e) { /* ignora */ }
+  }
+  // navegadores só liberam o som depois de um toque: prepara no primeiro toque
+  document.addEventListener('pointerdown', function () { if (state.settings.sound) getAudio(); }, { passive: true });
+
+  /* ---------------------------------------------------------
+   * Avatares: círculo na cor do jogador, com a inicial do nome ou o emoji escolhido
+   * --------------------------------------------------------- */
+  function initialOf(name) {
+    var a = Array.from(String(name || '').trim());
+    return a.length ? a[0].toUpperCase() : '';
+  }
+  function displayName(idx) {
+    var pl = state.players && state.players[idx];
+    var n = state.names[idx] || '';
+    return (pl && pl.avatar ? pl.avatar + ' ' : '') + n;
+  }
+  function paintAvatar(el, idx, isMe, withStatus) {
+    if (!el) return;
+    var pl = (state.players && state.players[idx]) || {};
+    var name = state.names[idx] || (isMe ? 'Você' : '');
+    var joined = isMe || !!pl.joined;
+    var online = isMe ? true : !!pl.connected;
+    var face = pl.avatar || initialOf(name) || '?';
+    el.style.setProperty('--c', PLAYER_COLORS[idx]);
+    el.classList.toggle('emoji', !!pl.avatar);
+    el.classList.toggle('p1', idx === 1);
+    var f = el.querySelector('.av-face');
+    if (f) f.textContent = face;
+    if (withStatus !== false) {
+      el.classList.toggle('off', !online);
+      el.setAttribute('aria-label', isMe ? name + ' (você)' : (joined ? name + (online ? '' : ' (fora da sala)') : 'Amigo: aguardando'));
+    }
+  }
+
+  function renderAvatarPicker() {
+    var grid = $('#avatar-grid');
+    grid.innerHTML = '';
+    function add(face, val, label, cls) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', state.avatar === val ? 'true' : 'false');
+      b.setAttribute('aria-label', label);
+      b.dataset.v = val;
+      if (cls) b.className = cls;
+      b.textContent = face;
+      grid.appendChild(b);
+      return b;
+    }
+    var letter = add(initialOf($('#input-name').value) || 'A', '', 'Usar a inicial do meu nome', 'letter');
+    letter.id = 'avatar-letter';
+    state.avatars.forEach(function (e) { add(e, e, 'Avatar ' + e); });
+  }
+
+  /* ---------------------------------------------------------
+   * Tutorial animado (abre sozinho na primeira vez; também em Menu > Como jogar)
+   * --------------------------------------------------------- */
+  var TUT = [
+    { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela cresce enquanto você a move.' },
+    { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar. O ▲ é o lado de cima e ↻ mostra quantos giros restam.' },
+    { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
+    { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos. Com uma peça escolhida, vira 📍 e mostra o lugar dela. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
+  ];
+  var tut = { i: 0, timer: null };
+
+  function showTut(i) {
+    tut.i = Math.max(0, Math.min(TUT.length - 1, i));
+    Array.prototype.forEach.call(document.querySelectorAll('.tut-scene'), function (s) { s.classList.toggle('on', Number(s.getAttribute('data-scene')) === tut.i); });
+    $('#tut-head').textContent = TUT[tut.i].h;
+    $('#tut-text').textContent = TUT[tut.i].t;
+    Array.prototype.forEach.call(document.querySelectorAll('#tut-dots button'), function (b) {
+      if (Number(b.getAttribute('data-i')) === tut.i) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    });
+    var last = tut.i === TUT.length - 1;
+    $('#tut-next').textContent = last ? 'Entendi' : 'Próximo';
+    $('#tut-skip').hidden = last;
+    $('#tut-prev').disabled = tut.i === 0;
+    $('#tut-push').hidden = !(last && pushSupported() && !state.settings.push && !(typeof Notification !== 'undefined' && Notification.permission === 'denied'));
+  }
+  function startTutTimer() {
+    clearInterval(tut.timer);
+    tut.timer = setInterval(function () { if (tut.i < TUT.length - 1) showTut(tut.i + 1); else clearInterval(tut.timer); }, 5200);
+  }
+  function openTutorial() {
+    showTut(0);
+    openModal('#modal-help', '#tut-next');
+    startTutTimer();
+  }
+  function closeTutorial() {
+    clearInterval(tut.timer);
+    closeModal('#modal-help');
+    store.set('tutorial', 1);
+  }
+
+  /* ---------------------------------------------------------
+   * Marcos de progresso: 25%, 50% e 75%
+   * --------------------------------------------------------- */
+  var MILESTONES = [{ pct: 75, text: 'Falta pouco! 💪' }, { pct: 50, text: 'Metade! 🔥' }, { pct: 25, text: 'Um quarto! 🎯' }];
+  function markMilestones() {
+    var pct = state.total ? (100 * state.locked) / state.total : 0;
+    state.milestones = {};
+    MILESTONES.forEach(function (m) { if (pct >= m.pct) state.milestones[m.pct] = true; });
+  }
+  function checkMilestones() {
+    if (!state.total || state.locked >= state.total) return;
+    var pct = (100 * state.locked) / state.total, hit = null;
+    MILESTONES.forEach(function (m) {
+      if (pct >= m.pct && !state.milestones[m.pct]) { state.milestones[m.pct] = true; if (!hit) hit = m; }
+    });
+    if (hit) showMilestone(hit.text);
+  }
+  function showMilestone(text) {
+    var el = $('#milestone');
+    el.textContent = text;
+    el.hidden = false;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    if (reducedMotion()) { el.style.opacity = '1'; el.style.transform = 'translateX(-50%)'; }
+    else { el.style.opacity = ''; el.style.transform = ''; el.style.animation = ''; }
+    clearTimeout(state.msTimer);
+    state.msTimer = setTimeout(function () { el.hidden = true; }, 2300);
+    playSound('chime');
+    announce(text);
+  }
+
+  /* ---------------------------------------------------------
+   * 📍 Dica de lugar: pisca a casa certa da peça escolhida (só um destaque; não mexe na peça)
+   * --------------------------------------------------------- */
+  function clearSpot() {
+    clearTimeout(state.spotTimer);
+    var old = document.querySelector('#field .spot');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    state.spotActive = false;
+    state.spotPiece = null;
+    $('#btn-hint').classList.remove('lit');
+  }
+  function showSpot(col, row, pieceId) {
+    clearSpot();
+    var cfg = state.cfg, el = document.createElement('div');
+    el.className = 'spot';
+    el.style.left = cfg.BOARD_X + col * cfg.TILE + 'px';
+    el.style.top = cfg.BOARD_Y + row * cfg.TILE + 'px';
+    el.style.width = cfg.TILE + 'px';
+    el.style.height = cfg.TILE + 'px';
+    $('#field').appendChild(el);
+    state.spotActive = true;
+    state.spotPiece = pieceId;
+    $('#btn-hint').classList.add('lit');
+    state.spotTimer = setTimeout(function () { clearSpot(); updateUi(); }, 3600);
+    playSound('blip');
+    announce('Mostrando onde a peça encaixa: coluna ' + (col + 1) + ', linha ' + (row + 1) + '.');
+  }
+  function useSpot() {
+    var p = state.selectedId !== null ? state.pieces[state.selectedId] : null;
+    if (!p || p.locked || state.spotActive) return;
+    if (state.spots <= 0) { toast('Acabaram as dicas de lugar'); return; }
+    socket.emit('spot', { id: p.id }, function (res) {
+      if (!res || !res.ok) {
+        if (res && res.left === 0) state.spots = 0;
+        updateUi();
+        toast(res && res.error === 'invalid' ? 'Essa peça já está no lugar.' : 'Acabaram as dicas de lugar');
+        return;
+      }
+      state.spots = res.left;
+      showSpot(res.col, res.row, p.id);
+      resetIdle();
+      if (state.spots === 0) toast('Essa foi a sua última dica de lugar');
+      updateUi();
+    });
+  }
+  // o mesmo botão: sem peça escolhida mostra a imagem (💡); com peça escolhida mostra o lugar dela (📍)
+  function useLamp() { if (state.selectedId !== null && state.pieces[state.selectedId] && !state.pieces[state.selectedId].locked) useSpot(); else useHint(); }
+  function refreshLamp() {
+    var btn = $('#btn-hint'), sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
+    var spotMode = !!(sel && !sel.locked);
+    btn.querySelector('.bulb').textContent = spotMode ? '📍' : '💡';
+    $('#hint-badge').textContent = spotMode ? state.spots : state.hints;
+    btn.disabled = spotMode ? (state.spots <= 0 || state.spotActive) : (state.hints <= 0 || state.hintActive);
+    btn.setAttribute('aria-label', spotMode
+      ? 'Mostrar onde a peça escolhida encaixa. Restam ' + state.spots
+      : 'Lâmpada: mostrar a imagem no tabuleiro por 4 segundos. Restam ' + state.hints);
+  }
+
+  /* ---------------------------------------------------------
+   * Recomeçar com a confirmação do amigo
+   * --------------------------------------------------------- */
+  function hideRematchWait() { $('#rematch-wait').hidden = true; }
+  function hideRematchRequest() { closeModal('#modal-rematch'); }
+  function requestRestart(imageId, pieces) {
+    if (!state.friendOnline && state.status !== 'won' && state.locked > 0) {
+      if (!window.confirm('Recomeçar? O progresso será perdido.')) return;
+    }
+    socket.emit('restart', { imageId: imageId, pieces: pieces }, function (res) {
+      if (res && res.ok && res.pending) {
+        $('#rw-text').textContent = 'Esperando ' + friendName() + '…';
+        $('#rematch-wait').hidden = false;
+      } else if (res && res.error === 'pending') {
+        toast(friendName() + ' já pediu para recomeçar. Responda ao pedido.');
+      } else if (!res || !res.ok) {
+        toast('Não foi possível pedir agora. Tente de novo.');
+      }
+    });
+  }
+  function showRematchRequest(d) {
+    var img = state.images.filter(function (i) { return i.file === d.imageId; })[0];
+    $('#rm-title').textContent = (d.byName || 'Seu amigo') + ' quer recomeçar';
+    $('#rm-text').textContent = 'Nova partida: ' + (img ? img.label : d.imageId) + ' · ' + d.pieces + ' peças';
+    var bar = $('#rm-bar');
+    bar.style.animation = 'none';
+    void bar.offsetWidth;
+    bar.style.animation = 'rm-run ' + (d.ms || 30000) + 'ms linear forwards';
+    openModal('#modal-rematch', '#rm-accept');
+    playSound('ping');
+    vibrate([30, 40, 30]);
+    announce((d.byName || 'Seu amigo') + ' quer recomeçar a partida. Aceitar?');
+  }
+
+  /* ---------------------------------------------------------
+   * Avisos com o aplicativo fechado (Web Push)
+   * --------------------------------------------------------- */
+  function pushSupported() { return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window); }
+  function urlB64ToU8(b64) {
+    var pad = '='.repeat((4 - (b64.length % 4)) % 4);
+    var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    var out = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function sameBytes(a, b) {
+    if (!a || !b || a.byteLength !== b.byteLength) return false;
+    var x = new Uint8Array(a), y = new Uint8Array(b);
+    for (var i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+    return true;
+  }
+  function updatePushNote() {
+    var sw = document.querySelector('.switch[data-setting="push"]'), note = $('#push-note');
+    if (!sw || !note) return;
+    var denied = typeof Notification !== 'undefined' && Notification.permission === 'denied';
+    var supported = pushSupported() && !!state.pushKey;
+    sw.disabled = !supported;
+    if (!pushSupported()) note.textContent = 'Este aparelho ou navegador não aceita avisos. No iPhone, adicione o jogo à tela de início primeiro.';
+    else if (!state.pushKey) note.textContent = 'Os avisos não estão disponíveis neste servidor.';
+    else if (denied) note.textContent = 'Os avisos estão bloqueados nas configurações do celular. Libere as notificações do aplicativo para usar.';
+    else if (state.settings.push) note.textContent = 'Ligado: você recebe um aviso quando o amigo entrar ou escrever, mesmo com o aplicativo fechado.';
+    else note.textContent = 'Receba um aviso quando o amigo entrar ou escrever, mesmo com o aplicativo fechado.';
+  }
+  function ensurePush() {
+    if (!pushSupported() || !state.settings.push || !state.pushKey || Notification.permission !== 'granted') return Promise.resolve();
+    var key = urlB64ToU8(state.pushKey);
+    return navigator.serviceWorker.ready.then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        if (sub && sub.options && !sameBytes(sub.options.applicationServerKey, key.buffer)) {
+          return sub.unsubscribe().then(function () { return null; }, function () { return null; });   // chave do servidor mudou
+        }
+        return sub;
+      }).then(function (sub) {
+        return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      });
+    }).then(function (sub) {
+      if (state.inGame) socket.emit('push:subscribe', { sub: sub.toJSON() });
+    }).catch(function () { /* sem permissão ou sem suporte: segue sem avisos */ });
+  }
+  function enablePush() {
+    if (!pushSupported()) { toast('Este aparelho não aceita avisos.'); return Promise.resolve(false); }
+    if (!state.pushKey) { toast('Os avisos não estão disponíveis neste servidor.'); return Promise.resolve(false); }
+    var ask = Notification.permission === 'default' ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+    return Promise.resolve(ask).then(function (perm) {
+      if (perm !== 'granted') {
+        state.settings.push = false;
+        saveSettings();
+        toast('Permissão negada. Libere as notificações do aplicativo nas configurações do celular.', 3600);
+        return false;
+      }
+      state.settings.push = true;
+      saveSettings();
+      toast('Avisos ligados! 🔔');
+      return ensurePush().then(function () { return true; });
+    });
+  }
+  function disablePush() {
+    state.settings.push = false;
+    saveSettings();
+    if (state.inGame) socket.emit('push:unsubscribe');
+    if (pushSupported()) {
+      navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
+        .then(function (sub) { if (sub) return sub.unsubscribe(); }).catch(function () { /* ignora */ });
+    }
+    toast('Avisos desligados.');
+  }
+
+  /* ---------------------------------------------------------
+   * Vitória: imagem pronta, melhor tempo, salvar e compartilhar
+   * --------------------------------------------------------- */
+  function bestKey() { return state.imageId + '|' + state.cfg.PIECES; }
+  function recordTime(ms) {
+    var key = bestKey(), prev = state.bests[key], out = { record: false, text: '' };
+    if (typeof prev !== 'number') out.text = 'Primeiro tempo registrado para esta imagem com ' + state.cfg.PIECES + ' peças.';
+    else if (ms < prev) { out.record = true; out.text = '🏆 Novo recorde! Antes: ' + fmtTime(prev); }
+    else out.text = 'Seu melhor: ' + fmtTime(prev);
+    if (typeof prev !== 'number' || ms < prev) { state.bests[key] = ms; store.set('best', state.bests); }
+    return out;
+  }
+
+  function fitText(cx, text, maxW) {
+    if (cx.measureText(text).width <= maxW) return text;
+    var a = Array.from(text);
+    while (a.length > 1 && cx.measureText(a.join('') + '…').width > maxW) a.pop();
+    return a.join('') + '…';
+  }
+  function buildWinCard() {
+    if (state.winBlob) return Promise.resolve(state.winBlob);
+    return loadImage(state.imageUrl).then(function (img) {
+      var W = img.naturalWidth || 720, H = img.naturalHeight || 960, F = Math.round(W * 0.2), u = W / 720;
+      var cv = document.createElement('canvas');
+      cv.width = W; cv.height = H + F;
+      var cx = cv.getContext('2d');
+      cx.drawImage(img, 0, 0, W, H);
+      cx.fillStyle = '#1b2559';
+      cx.fillRect(0, H, W, F);
+      cx.textBaseline = 'middle';
+      cx.textAlign = 'left';
+      var fam = 'system-ui, "Segoe UI", Roboto, sans-serif';
+      cx.fillStyle = '#ffcf33';
+      cx.font = '800 ' + Math.round(30 * u) + 'px ' + fam;
+      cx.fillText('🧩 Quebra-Cabeça a Dois', 28 * u, H + F * 0.27);
+      cx.fillStyle = '#ffffff';
+      cx.font = '700 ' + Math.round(25 * u) + 'px ' + fam;
+      cx.fillText(fitText(cx, 'Montado por ' + displayName(0) + ' e ' + displayName(1), W - 56 * u), 28 * u, H + F * 0.55);
+      cx.fillStyle = '#c9d1f5';
+      cx.fillText(state.cfg.PIECES + ' peças · ' + fmtTime(state.finalMs), 28 * u, H + F * 0.8);
+      return new Promise(function (res) { cv.toBlob(function (b) { state.winBlob = b; res(b); }, 'image/jpeg', 0.92); });
+    });
+  }
+  function winFileName() { return 'quebra-cabeca-' + new Date().toISOString().slice(0, 10) + '.jpg'; }
+  function saveWinImage() {
+    buildWinCard().then(function (blob) {
+      if (!blob) { toast('Não foi possível criar a imagem.'); return; }
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = winFileName();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) { /* ignora */ } }, 15000);
+      toast('Imagem salva. Veja em Downloads ou na Galeria.', 3200);
+    }).catch(function () { toast('Não foi possível salvar a imagem.'); });
+  }
+  function shareWinImage() {
+    buildWinCard().then(function (blob) {
+      if (!blob) throw new Error('sem imagem');
+      var file = null;
+      try { file = new File([blob], winFileName(), { type: 'image/jpeg' }); } catch (e) { file = null; }
+      var text = 'Montamos juntos o quebra-cabeça em ' + fmtTime(state.finalMs) + '! 🧩';
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        return navigator.share({ files: [file], title: 'Quebra-Cabeça a Dois', text: text });
+      }
+      saveWinImage();
+      toast('Este aparelho não compartilha direto. A imagem foi salva para você enviar.', 3600);
+    }).catch(function (e) { if (e && e.name === 'AbortError') return; toast('Não foi possível compartilhar agora.'); });
   }
 
   /* ---------------------------------------------------------
@@ -1041,12 +1580,26 @@
     state.counts = d.counts;
     state.locked = d.locked;
     if (d.by === state.idx) vibrate(25);
+    if (state.spotPiece === p.id) { clearSpot(); }
     updateUi();
+    if (state.locked < state.total) { playSound('snap'); announce('Peça encaixada. ' + state.locked + ' de ' + state.total + '.'); }
+    checkMilestones();
   });
 
   socket.on('meta', function (m) { applyMeta(m); updateUi(); });
 
   socket.on('state', function (snap) { startGame(snap); });
+
+  socket.on('rematch', function (d) {
+    if (!d) return;
+    if (d.state === 'request') { showRematchRequest(d); return; }
+    var hadWait = !$('#rematch-wait').hidden, hadAsk = !$('#modal-rematch').hidden;
+    hideRematchWait();
+    hideRematchRequest();
+    if (d.state === 'declined') toast((d.byName || friendName()) + ' não quis recomeçar agora.');
+    else if (d.state === 'cancelled' && hadAsk) toast('O pedido para recomeçar foi cancelado.');
+    else if (d.state === 'expired' && (hadWait || hadAsk)) toast('O pedido para recomeçar venceu.');
+  });
 
   socket.on('won', function (d) {
     setTimeout(function () { showWin(d); }, 650);
@@ -1055,7 +1608,7 @@
   socket.on('connect', function () {
     $('#banner-conn').hidden = true;
     if (state.code && state.inGame) {
-      socket.emit('join', { pid: state.pid, code: state.code }, function (res) {
+      socket.emit('join', { pid: state.pid, code: state.code, name: state.name, avatar: state.avatar }, function (res) {
         if (res && res.ok) {
           state.idx = res.idx;
           resync(res.snapshot);
@@ -1094,8 +1647,10 @@
       if (p.heldBy === state.idx && !p.locked) state.selectedId = p.id;
     });
     applyMeta(snap);
+    markMilestones();
     setChatHistory(snap.chat || []);
     updateUi();
+    ensurePush();
   }
 
   function goHome() {
@@ -1107,8 +1662,9 @@
     state.pieces = [];
     try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
     $('#banner-conn').hidden = true;
-    $('#modal-win').hidden = true;
-    $('#modal-menu').hidden = true;
+    ['#modal-win', '#modal-menu', '#modal-settings', '#modal-help', '#modal-rematch'].forEach(closeModal);
+    hideRematchWait();
+    clearSpot();
     showScreen('home');
   }
 
@@ -1136,6 +1692,7 @@
     var card = e.target.closest('.pick-card');
     if (!card) return;
     state.pickChoice = card.dataset.file;
+    updateSizeNote();
     Array.prototype.forEach.call(document.querySelectorAll('.pick-card'), function (c) {
       c.setAttribute('aria-selected', c === card ? 'true' : 'false');
     });
@@ -1160,12 +1717,12 @@
     if (state.pickMode === 'create') {
       doCreate(state.pickChoice, state.pickPieces);
     } else {
-      socket.emit('restart', { imageId: state.pickChoice, pieces: state.pickPieces });
+      requestRestart(state.pickChoice, state.pickPieces);
       showScreen('game');
     }
   });
 
-  $('#btn-hint').addEventListener('click', useHint);
+  $('#btn-hint').addEventListener('click', useLamp);
 
   $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
   $('#chat-close').addEventListener('click', closeChat);
@@ -1190,18 +1747,16 @@
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
   }
 
-  $('#btn-menu').addEventListener('click', function () { $('#modal-menu').hidden = false; });
-  $('#menu-close').addEventListener('click', function () { $('#modal-menu').hidden = true; });
-  $('#modal-menu').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
-  $('#menu-help').addEventListener('click', function () { $('#modal-menu').hidden = true; $('#modal-help').hidden = false; });
-  $('#help-close').addEventListener('click', function () { $('#modal-help').hidden = true; });
-  $('#modal-help').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
-  $('#menu-change').addEventListener('click', function () { $('#modal-menu').hidden = true; openPick('change'); });
+  $('#btn-menu').addEventListener('click', function () { openModal('#modal-menu', '#menu-close'); });
+  $('#menu-close').addEventListener('click', function () { closeModal('#modal-menu'); });
+  $('#modal-menu').addEventListener('click', function (e) { if (e.target === this) closeModal('#modal-menu'); });
+  $('#menu-help').addEventListener('click', function () { closeModal('#modal-menu'); openTutorial(); });
+  $('#menu-settings').addEventListener('click', function () { closeModal('#modal-menu'); applySettings(); openModal('#modal-settings', '#set-close'); });
+  $('#menu-sound').addEventListener('click', function () { toggleSetting('sound'); });
+  $('#menu-change').addEventListener('click', function () { closeModal('#modal-menu'); openPick('change'); });
   $('#menu-restart').addEventListener('click', function () {
-    $('#modal-menu').hidden = true;
-    if (window.confirm('Recomeçar esta imagem? O progresso será perdido para os dois.')) {
-      socket.emit('restart', { imageId: state.imageId, pieces: state.cfg.PIECES });
-    }
+    closeModal('#modal-menu');
+    requestRestart(state.imageId, state.cfg.PIECES);
   });
   $('#menu-leave').addEventListener('click', function () {
     if (window.confirm('Sair da partida?')) {
@@ -1210,8 +1765,54 @@
     }
   });
 
-  $('#win-again').addEventListener('click', function () { socket.emit('restart', { imageId: state.imageId, pieces: state.cfg.PIECES }); });
-  $('#win-change').addEventListener('click', function () { $('#modal-win').hidden = true; openPick('change'); });
+  $('#win-again').addEventListener('click', function () { requestRestart(state.imageId, state.cfg.PIECES); });
+  $('#win-change').addEventListener('click', function () { closeModal('#modal-win'); openPick('change'); });
+  $('#win-save').addEventListener('click', saveWinImage);
+  $('#win-share').addEventListener('click', shareWinImage);
+
+  // pedido de recomeçar (revanche)
+  $('#rm-accept').addEventListener('click', function () { socket.emit('rematch:answer', { accept: true }); hideRematchRequest(); });
+  $('#rm-decline').addEventListener('click', function () { socket.emit('rematch:answer', { accept: false }); hideRematchRequest(); });
+  $('#rw-cancel').addEventListener('click', function () { socket.emit('rematch:cancel'); hideRematchWait(); });
+
+  // tutorial
+  $('#link-help').addEventListener('click', openTutorial);
+  $('#tut-next').addEventListener('click', function () { clearInterval(tut.timer); if (tut.i >= TUT.length - 1) closeTutorial(); else showTut(tut.i + 1); });
+  $('#tut-prev').addEventListener('click', function () { clearInterval(tut.timer); showTut(tut.i - 1); });
+  $('#tut-skip').addEventListener('click', closeTutorial);
+  $('#tut-dots').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (b) { clearInterval(tut.timer); showTut(Number(b.getAttribute('data-i'))); } });
+  $('#tut-push').addEventListener('click', function () { enablePush().then(function (ok) { if (ok) showTut(tut.i); }); });
+  $('#modal-help').addEventListener('click', function (e) { if (e.target === this) closeTutorial(); });
+
+  // ajustes
+  $('#link-settings').addEventListener('click', function () { applySettings(); openModal('#modal-settings', '#set-close'); });
+  $('#set-close').addEventListener('click', function () { closeModal('#modal-settings'); });
+  $('#modal-settings').addEventListener('click', function (e) {
+    if (e.target === this) { closeModal('#modal-settings'); return; }
+    var seg = e.target.closest && e.target.closest('.seg button');
+    if (seg) { state.settings[seg.parentNode.getAttribute('data-setting')] = seg.getAttribute('data-v'); saveSettings(); layout(); return; }
+    var sw = e.target.closest && e.target.closest('.switch');
+    if (sw && !sw.disabled) toggleSetting(sw.getAttribute('data-setting'));
+  });
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onMq = function () { if (state.settings.theme === 'auto') applySettings(); };
+    if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+  }
+
+  // avatares no cabeçalho: tocar mostra o nome
+  $('#av-me').addEventListener('click', function () { toast(this.getAttribute('aria-label')); });
+  $('#av-friend').addEventListener('click', function () { toast(this.getAttribute('aria-label')); });
+
+  // avatar da tela inicial
+  $('#avatar-grid').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button');
+    if (!b) return;
+    state.avatar = b.dataset.v || '';
+    store.set('avatar', state.avatar);
+    Array.prototype.forEach.call($('#avatar-grid').children, function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
+  });
+  $('#input-name').addEventListener('input', function () { var l = $('#avatar-letter'); if (l) l.textContent = initialOf(this.value) || 'A'; });
 
   var stageEl = $('#stage');
   stageEl.addEventListener('pointerdown', onPointerDown);
@@ -1223,6 +1824,11 @@
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
 
   document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (!$('#modal-settings').hidden) { closeModal('#modal-settings'); return; }
+      if (!$('#modal-help').hidden) { closeTutorial(); return; }
+      if (!$('#modal-menu').hidden) { closeModal('#modal-menu'); return; }
+    }
     if (!state.inGame || e.target.tagName === 'INPUT') return;
     if (e.key === 'r' || e.key === 'R') rotateSelected();
     if (e.key === 'Escape') dropSelected();
@@ -1243,11 +1849,20 @@
   /* ---------------------------------------------------------
    * Início
    * --------------------------------------------------------- */
+  // nome e avatar lembrados neste aparelho
+  state.name = store.get('name', '') || '';
+  $('#input-name').value = state.name;
+  applySettings();
+  renderAvatarPicker();
+
   fetchConfig().then(function () {
+    renderAvatarPicker();
+    updatePushNote();
     var param = '';
     try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); } catch (e) { /* ignora */ }
     if (param.length === 4) {
       $('#input-code').value = param;
+      if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
       var inv = $('#home-invite');
       inv.innerHTML = 'Você foi convidado para a sala <strong></strong>.<br>Digite seu nome e toque em <b>Entrar</b>.';
       inv.querySelector('strong').textContent = param;

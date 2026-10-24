@@ -5,9 +5,10 @@
  * - Páginas, scripts e estilos: "rede primeiro" (você sempre recebe a versão mais nova;
  *   o que foi guardado só serve se a internet cair).
  * - Imagens: usa a guardada e atualiza em segundo plano.
+ * - Avisos (push): mostra "fulano entrou" / "nova mensagem" quando o aplicativo está fechado.
  * O jogo em si precisa de internet: sem ela aparece um aviso simples.
  */
-const CACHE = 'quebra-cabeca-v1';
+const CACHE = 'quebra-cabeca-v2';
 const SHELL = ['/', '/style.css', '/game.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
@@ -64,5 +65,36 @@ self.addEventListener('fetch', (event) => {
       if (req.mode === 'navigate') return new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       return Response.error();
     }
+  })());
+});
+
+/* ---------- Avisos com o aplicativo fechado ---------- */
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) { data = { title: 'Quebra-Cabeça a Dois', body: event.data ? event.data.text() : '' }; }
+  event.waitUntil((async () => {
+    // se a pessoa já está olhando o jogo, não precisa de aviso
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (wins.some((w) => w.visibilityState === 'visible' && w.focused)) return;
+    await self.registration.showNotification(data.title || 'Quebra-Cabeça a Dois', {
+      body: data.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/favicon-48.png',
+      tag: data.tag || 'quebra-cabeca',
+      renotify: true,
+      data: { url: data.url || '/' }
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if ('focus' in w) { await w.focus(); return; }     // o jogo já está aberto: só traz para a frente
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(url);
   })());
 });

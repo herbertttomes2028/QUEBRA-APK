@@ -13,6 +13,16 @@
   <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script>
+    /* aplica o tema e o tamanho do texto antes de desenhar a tela (evita piscar) */
+    try {
+      var s = JSON.parse(localStorage.getItem('qc.settings') || '{}'), d = document.documentElement;
+      if (s.text) d.setAttribute('data-text', s.text);
+      var dark = s.theme === 'dark' || (s.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
+    } catch (e) { /* ignora */ }
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,6 +43,10 @@
           <input id="input-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words"
                  spellcheck="false" placeholder="Como você se chama?" aria-label="Seu nome">
         </div>
+        <div class="avatar-card">
+          <span id="avatar-label" class="avatar-label">Seu avatar</span>
+          <div id="avatar-grid" class="avatar-grid" role="radiogroup" aria-labelledby="avatar-label"></div>
+        </div>
         <p id="home-invite" class="invite" hidden></p>
 
         <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
@@ -45,6 +59,11 @@
             <button id="btn-join" class="btn btn-secondary" type="button">Entrar</button>
           </div>
           <p id="home-error" class="error" role="alert" hidden></p>
+        </div>
+
+        <div class="home-links">
+          <button id="link-help" class="btn btn-ghost" type="button">Como jogar</button>
+          <button id="link-settings" class="btn btn-ghost" type="button"><span aria-hidden="true">⚙</span> Ajustes</button>
         </div>
       </div>
     </section>
@@ -69,16 +88,13 @@
     <!-- ========== JOGO ========== -->
     <section id="screen-game" class="screen">
       <header class="hud">
-        <div class="hud-time" aria-label="Tempo"><span class="hud-icon" aria-hidden="true">⏱</span><span id="hud-time">00:00</span></div>
-        <div class="hud-progress">
-          <div class="bar-row" aria-label="Progresso">
-            <div class="bar"><div id="hud-bar" class="bar-fill"></div></div>
-            <span id="hud-count">0/12</span>
-          </div>
-          <div class="hud-players">
-            <span id="chip-me" class="chip"><i class="dot"></i><span class="chip-name">Você</span></span>
-            <span id="chip-friend" class="chip off"><i class="dot"></i><span class="chip-name">Aguardando…</span></span>
-          </div>
+        <div class="hud-time" aria-label="Tempo de jogo"><span id="hud-time">00:00</span></div>
+        <div id="hud-progress" class="hud-progress" role="progressbar" aria-label="Peças encaixadas" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0">
+          <div class="bar"><div id="hud-bar" class="bar-fill"></div><span id="hud-count">0/12</span></div>
+        </div>
+        <div class="hud-players">
+          <button id="av-me" class="avatar" type="button" aria-label="Você"><span class="av-face">V</span><i class="av-dot" aria-hidden="true"></i></button>
+          <button id="av-friend" class="avatar off" type="button" aria-label="Amigo: aguardando"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></button>
         </div>
         <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Lâmpada: mostrar a imagem no tabuleiro por 4 segundos">
           <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
@@ -101,6 +117,8 @@
           <div id="field"></div>
         </div>
       </main>
+
+      <div id="milestone" class="milestone" hidden aria-hidden="true"></div>
 
       <button id="chat-pop" class="chat-pop" type="button" hidden></button>
 
@@ -128,10 +146,12 @@
     </section>
 
     <!-- ========== MENU ========== -->
-    <div id="modal-menu" class="modal" hidden>
+    <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
       <div class="sheet">
-        <h3>Menu</h3>
+        <h3 id="menu-title">Menu</h3>
         <button id="menu-help" class="btn btn-secondary btn-block" type="button">Como jogar</button>
+        <button id="menu-settings" class="btn btn-secondary btn-block" type="button"><span aria-hidden="true">⚙</span> Ajustes</button>
+        <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
         <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
         <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
         <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
@@ -139,36 +159,136 @@
       </div>
     </div>
 
-    <!-- ========== COMO JOGAR ========== -->
-    <div id="modal-help" class="modal" hidden>
-      <div class="sheet">
-        <h3>Como jogar</h3>
-        <ul class="help-list">
-          <li><b>Arrastar</b><span>Segure a peça com o dedo e arraste até o tabuleiro.</span></li>
-          <li><b>Girar</b><span>Toque na peça para escolhê-la e toque nela de novo (ou toque duas vezes seguidas). O número ↻ mostra quantos giros restam; o ▲ é o lado de cima.</span></li>
-          <li><b>Zoom</b><span>Com a peça escolhida, faça o movimento de pinça com dois dedos. No computador, use a roda do mouse.</span></li>
-          <li><b>Soltar</b><span>Toque num espaço vazio, ou arraste e solte a peça.</span></li>
-          <li><b>💬 Conversa</b><span>Toque no balão no topo para escrever ou mandar uma reação. Chega um aviso quando o amigo escreve.</span></li>
-          <li><b>💡 Lâmpada</b><span>Mostra a imagem completa atrás das peças por 4 segundos (10 vezes por partida).</span></li>
-        </ul>
-        <button id="help-close" class="btn btn-primary btn-block" type="button">Entendi</button>
+    <!-- ========== COMO JOGAR (tutorial animado) ========== -->
+    <div id="modal-help" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="sheet tut-sheet">
+        <h3 id="tut-title">Como jogar</h3>
+
+        <div class="tut-stage" aria-hidden="true">
+          <!-- 1: arrastar -->
+          <div class="tut-scene" data-scene="0">
+            <div class="tb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="tp t-drag"><span class="tri"></span></div>
+            <div class="tf f-drag">👆</div>
+          </div>
+          <!-- 2: girar tocando -->
+          <div class="tut-scene" data-scene="1">
+            <div class="tp t-rot"><span class="pi"><span class="tri"></span></span><b class="tl l1">↻ 3</b><b class="tl l2">↻ 2</b></div>
+            <div class="tf f-tap">👆</div>
+          </div>
+          <!-- 3: pinça -->
+          <div class="tut-scene" data-scene="2">
+            <div class="tp t-zoom"><span class="tri"></span></div>
+            <i class="tdot d1"></i><i class="tdot d2"></i>
+          </div>
+          <!-- 4: ajudas -->
+          <div class="tut-scene" data-scene="3">
+            <div class="tut-icons">
+              <span><b>💡</b><small>Imagem</small></span>
+              <span><b>📍</b><small>Lugar</small></span>
+              <span><b>💬</b><small>Conversa</small></span>
+              <span><b>🔔</b><small>Avisos</small></span>
+            </div>
+          </div>
+        </div>
+
+        <h4 id="tut-head" class="tut-head">Arrastar</h4>
+        <p id="tut-text" class="tut-text">Segure a peça com o dedo e arraste até o lugar dela no tabuleiro.</p>
+        <div id="tut-dots" class="tut-dots" aria-label="Passos do tutorial">
+          <button type="button" data-i="0" aria-label="Passo 1: arrastar"></button>
+          <button type="button" data-i="1" aria-label="Passo 2: girar"></button>
+          <button type="button" data-i="2" aria-label="Passo 3: zoom"></button>
+          <button type="button" data-i="3" aria-label="Passo 4: ajudas"></button>
+        </div>
+        <button id="tut-push" class="btn btn-secondary btn-block" type="button" hidden>🔔 Ativar avisos com o app fechado</button>
+        <div class="tut-actions">
+          <button id="tut-skip" class="btn btn-ghost" type="button">Pular</button>
+          <button id="tut-prev" class="btn btn-secondary" type="button" aria-label="Passo anterior">‹</button>
+          <button id="tut-next" class="btn btn-primary" type="button">Próximo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== AJUSTES ========== -->
+    <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+      <div class="sheet set-sheet">
+        <h3 id="set-title">Ajustes</h3>
+
+        <div class="set-row">
+          <span id="lbl-text" class="set-label">Tamanho do texto</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-text" data-setting="text">
+            <button type="button" role="radio" data-v="normal" aria-checked="true">A</button>
+            <button type="button" role="radio" data-v="large" aria-checked="false">A+</button>
+            <button type="button" role="radio" data-v="xlarge" aria-checked="false">A++</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-theme" class="set-label">Aparência</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-theme" data-setting="theme">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automática</button>
+            <button type="button" role="radio" data-v="light" aria-checked="false">Clara</button>
+            <button type="button" role="radio" data-v="dark" aria-checked="false">Escura</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-motion" class="set-label">Movimento</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-motion" data-setting="motion">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automático</button>
+            <button type="button" role="radio" data-v="reduce" aria-checked="false">Reduzido</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-sound" class="set-label">Sons</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-vib" class="set-label">Vibração</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-vib" aria-checked="true" data-setting="vibrate"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-push" class="set-label">🔔 Avisos com o app fechado</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
+        </div>
+        <p id="push-note" class="set-note"></p>
+        <button id="set-close" class="btn btn-primary btn-block" type="button">Pronto</button>
       </div>
     </div>
 
     <!-- ========== VITÓRIA ========== -->
-    <div id="modal-win" class="modal" hidden>
+    <div id="modal-win" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
       <div id="confetti" aria-hidden="true"></div>
       <div class="sheet win">
-        <div class="win-emoji" aria-hidden="true">🎉</div>
-        <h3>Vocês conseguiram!</h3>
+        <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
+        <h3 id="win-title">Vocês conseguiram! 🎉</h3>
         <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
+        <p id="win-best" class="win-best" hidden></p>
         <div class="win-split">
-          <span class="chip big me"><i class="dot"></i><span id="win-me-name" class="chip-name">Você</span> · <b id="win-me">0</b> peças</span>
-          <span class="chip big friend"><i class="dot"></i><span id="win-friend-name" class="chip-name">Amigo</span> · <b id="win-friend">0</b> peças</span>
+          <span class="win-p me"><span id="win-me-av" class="avatar sm"><span class="av-face">V</span></span><span id="win-me-name" class="win-name">Você</span><b id="win-me">0</b> peças</span>
+          <span class="win-p friend"><span id="win-friend-av" class="avatar sm"><span class="av-face">A</span></span><span id="win-friend-name" class="win-name">Amigo</span><b id="win-friend">0</b> peças</span>
+        </div>
+        <div class="win-share">
+          <button id="win-save" class="btn btn-secondary" type="button">⬇ Salvar imagem</button>
+          <button id="win-share" class="btn btn-secondary" type="button">↗ Compartilhar</button>
         </div>
         <button id="win-again" class="btn btn-primary btn-block" type="button">Jogar de novo</button>
         <button id="win-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
       </div>
+    </div>
+
+    <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
+    <div id="modal-rematch" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="rm-title">
+      <div class="sheet">
+        <div class="rm-emoji" aria-hidden="true">🧩</div>
+        <h3 id="rm-title">Ana quer recomeçar</h3>
+        <p id="rm-text" class="rm-text"></p>
+        <div class="rm-bar" aria-hidden="true"><i id="rm-bar"></i></div>
+        <button id="rm-accept" class="btn btn-primary btn-block" type="button">Aceitar</button>
+        <button id="rm-decline" class="btn btn-secondary btn-block" type="button">Agora não</button>
+      </div>
+    </div>
+    <div id="rematch-wait" class="rematch-wait" hidden role="status">
+      <span id="rw-text">Esperando o amigo aceitar…</span>
+      <button id="rw-cancel" class="rw-btn" type="button">Cancelar</button>
     </div>
 
     <!-- ========== CARREGANDO / AVISOS ========== -->
@@ -177,6 +297,7 @@
       <p id="loading-text">Preparando as peças…</p>
     </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
