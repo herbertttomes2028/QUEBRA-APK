@@ -133,7 +133,7 @@ module.exports = function createChallenge(d) {
       status: room.status, match: room.match, graceMs: GRACE_MS,
       players: room.players.map((p, idx) => ({
         idx, joined: !!p, connected: !!(p && p.connected),
-        name: p ? p.name : '', avatar: p ? p.avatar || '' : '', ready: !!(p && p.ready),
+        name: p ? p.name : '', avatar: p ? p.avatar || '' : '', ready: !!(p && p.ready), imgReady: !!(p && p.imgReady),
         graceLeft: p && !p.connected && room.graceUntil[idx] > now ? room.graceUntil[idx] - now : 0
       })),
       rematch: room.rematch.slice()
@@ -167,6 +167,7 @@ module.exports = function createChallenge(d) {
       name: cleanName(name) || (same ? old.name : '') || 'Jogador ' + (idx + 1),
       avatar: cleanAvatar(avatar) || (same ? old.avatar : '') || '',
       ready: same ? !!old.ready : false,
+      imgReady: false,                    // o celular avisa quando a imagem já está carregada e preparada
       push: same ? old.push || null : null, lastPush: 0
     };
     socket.data.ch = { code: room.code, idx };
@@ -261,6 +262,7 @@ module.exports = function createChallenge(d) {
     room.countdownTimer = null;
     if (room.status !== 'countdown') return;
     if (!bothConnected(room)) { cancelCountdown(room, 'dropped'); return; }
+    if (!room.players.every((p) => p.imgReady)) { room.players.forEach((p) => { p.ready = false; }); cancelCountdown(room, 'img'); return; }
     room.match++;
     buildBoards(room);
     room.status = 'playing';
@@ -390,17 +392,27 @@ module.exports = function createChallenge(d) {
 
     socket.on('ch:leave', () => leaveSocket(socket, true));
 
+    // o celular avisa que a imagem da sala já está carregada e preparada
+    socket.on('ch:imgready', (data, cb) => {
+      const c = ctx(socket);
+      if (!c) return reply(cb, { ok: false });
+      c.room.players[c.idx].imgReady = true;
+      reply(cb, { ok: true });
+      emitLobby(c.room);
+    });
+
     socket.on('ch:ready', (data, cb) => {
       const c = ctx(socket);
       if (!c) return reply(cb, { ok: false });
       const { room, idx } = c;
       if (room.status !== 'lobby' && room.status !== 'countdown') return reply(cb, { ok: false, error: 'state' });
       const want = !!(data && data.ready);
+      if (want && !room.players[idx].imgReady) return reply(cb, { ok: false, error: 'img' });      // a imagem ainda não está pronta neste celular
       room.players[idx].ready = want;
       reply(cb, { ok: true });
       if (!want && room.status === 'countdown') { cancelCountdown(room, 'unready'); return; }
       emitLobby(room);
-      if (want && room.status === 'lobby' && bothConnected(room) && room.players.every((p) => p.ready)) startCountdown(room);
+      if (want && room.status === 'lobby' && bothConnected(room) && room.players.every((p) => p.ready && p.imgReady)) startCountdown(room);
     });
 
     socket.on('ch:grab', (data) => {
@@ -569,6 +581,7 @@ module.exports = function createChallenge(d) {
 
   return {
     has: (code) => rooms.has(code),
+    usesImage: (id) => { for (const r of rooms.values()) if (r.imageId === id) return true; return false; },
     size: () => rooms.size,
     config: { countdownMs: COUNTDOWN_MS, graceMs: GRACE_MS, boxMax: BOX_MAX }
   };

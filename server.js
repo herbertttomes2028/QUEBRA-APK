@@ -7,6 +7,7 @@
  * quando uma peça encaixa e quando o jogo termina.
  */
 
+const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
 const fs = require('fs');
@@ -130,6 +131,18 @@ function layoutFor(pieces) {
   };
 }
 
+/* ---------- Limites das imagens enviadas pelos jogadores ---------- */
+const UPLOAD_MAX = 1536 * 1024;          // bytes por imagem (o celular manda ~100–400 KB)
+const UPLOAD_MIN = 1500;
+const UPLOAD_DIM = 2048;                 // lado máximo em pixels
+const UPLOAD_KEEP = 80;                  // imagens guardadas ao mesmo tempo
+const UPLOAD_RATE = Number(process.env.UPLOAD_RATE) || 15;   // envios por pessoa a cada 10 minutos
+const UPLOAD_TOTAL = 96 * 1024 * 1024;   // memória máxima usada por todas
+const UPLOAD_TTL = 8 * 3600 * 1000;      // as imagens somem sozinhas (a sala mais velha também)
+const uploads = new Map();               // código -> { buf, w, h, t, last }
+const uploadHits = new Map();            // ip -> horários dos últimos envios
+
+
 /* ---------- Servidor HTTP ---------- */
 const app = express();
 app.disable('x-powered-by');
@@ -138,7 +151,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM } });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -198,6 +211,39 @@ app.get('/diagnostico', (req, res) => {
     },
     imagens: listImages().length
   });
+});
+
+app.set('trust proxy', 1);              // atrás do Render: pega o IP real (para limitar os envios de imagem)
+
+app.post('/api/upload', express.raw({ type: () => true, limit: UPLOAD_MAX }), (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const ip = req.ip || 'x', now = Date.now();
+  const hits = (uploadHits.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (hits.length >= UPLOAD_RATE) return res.status(429).json({ ok: false, error: 'rate' });
+  hits.push(now);
+  uploadHits.set(ip, hits);
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || buf.length < UPLOAD_MIN) return res.status(400).json({ ok: false, error: 'empty' });
+  if (!/^image\/jpeg\b/i.test(req.get('content-type') || '')) return res.status(415).json({ ok: false, error: 'type' });
+  const size = jpegSize(buf);
+  if (!size) return res.status(415).json({ ok: false, error: 'type' });
+  if (size.w < 64 || size.h < 64 || size.w > UPLOAD_DIM || size.h > UPLOAD_DIM) return res.status(422).json({ ok: false, error: 'dims' });
+  if (!pruneUploads(buf.length)) return res.status(503).json({ ok: false, error: 'busy' });
+  const token = crypto.randomBytes(16).toString('hex');
+  uploads.set(token, { buf, w: size.w, h: size.h, t: now, last: now });
+  res.json({ ok: true, id: 'custom:' + token, url: 'api/up/' + token, w: size.w, h: size.h, bytes: buf.length });
+});
+app.use('/api/upload', (err, req, res, next) => {            // arquivo grande demais etc.
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ ok: false, error: 'big' });
+  res.status(400).json({ ok: false, error: 'bad' });
+});
+
+app.get('/api/up/:token', (req, res) => {
+  const u = /^[a-f0-9]{32}$/.test(req.params.token) ? uploads.get(req.params.token) : null;
+  if (!u) return res.status(404).type('text').send('nao encontrada');
+  u.last = Date.now();
+  res.set({ 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'Content-Length': String(u.buf.length) });
+  res.send(u.buf);
 });
 
 app.use(
@@ -282,7 +328,60 @@ function listImages() {
   }
 }
 
+/* ---------- Imagens enviadas pelos jogadores ("Minha imagem") ----------
+ * O celular envia a imagem já enquadrada e reduzida (JPEG). O servidor confere, guarda na memória e a entrega aos DOIS
+ * jogadores pelo mesmo endereço (/api/up/<código>), sem depender de nenhum caminho do celular de quem enviou.
+ * Segurança: só JPEG válido, tamanho e dimensões limitados, limite de envios por pessoa e no total, código aleatório. */
+function jpegSize(buf) {                 // confere o JPEG e devolve { w, h } (ou null se não for um JPEG inteiro)
+  if (buf.length < 4 || buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff) return null;
+  let i = 2, size = null;
+  while (i + 3 < buf.length) {
+    if (buf[i] !== 0xff) return null;
+    const m = buf[i + 1];
+    if (m === 0xff) { i++; continue; }
+    if (m === 0xd9) return size;         // fim da imagem
+    if (m >= 0xd0 && m <= 0xd7 || m === 0x01) { i += 2; continue; }
+    const len = buf.readUInt16BE(i + 2);
+    if (len < 2) return null;
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
+      if (i + 8 >= buf.length) return null;
+      size = { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+    }
+    if (m === 0xda) {                    // início dos dados da imagem: procura o fim (FFD9)
+      const end = buf.lastIndexOf(Buffer.from([0xff, 0xd9]));
+      return end > i && size ? size : null;
+    }
+    i += 2 + len;
+  }
+  return null;
+}
+
+function uploadInUse(token) {
+  const id = 'custom:' + token;
+  for (const r of rooms.values()) if (r.imageId === id) return true;
+  return !!(challenge && challenge.usesImage(id));
+}
+
+function uploadMemory() {
+  let n = 0;
+  for (const u of uploads.values()) n += u.buf.length;
+  return n;
+}
+
+function pruneUploads(needBytes) {       // abre espaço apagando as mais antigas que nenhuma sala usa
+  const old = [...uploads.entries()].sort((a, b) => a[1].last - b[1].last);
+  for (const [tk, u] of old) {
+    if (uploads.size < UPLOAD_KEEP && uploadMemory() + needBytes <= UPLOAD_TOTAL) break;
+    if (!uploadInUse(tk)) uploads.delete(tk);
+  }
+  return uploads.size < UPLOAD_KEEP && uploadMemory() + needBytes <= UPLOAD_TOTAL;
+}
+
 function validImage(file) {
+  if (typeof file === 'string' && /^custom:[a-f0-9]{32}$/.test(file) && uploads.has(file.slice(7))) {
+    uploads.get(file.slice(7)).last = Date.now();
+    return file;
+  }
   const list = listImages();
   if (!list.length) return null;
   const found = list.find((i) => i.file === file);
@@ -367,6 +466,7 @@ function createRoom(code, imageId, pieces) {
     rematch: null,
     chat: [],
     chatSeq: 0,
+    imgReady: [false, false],   // cada celular avisa quando a imagem está carregada e preparada
     status: 'waiting', // waiting | playing | won
     createdAt: now,
     lastActive: now,
@@ -411,7 +511,8 @@ function meta(room) {
     locked: lockedTotal(room),
     total: room.pieces.length,
     hints: room.hints,
-    spots: room.spots
+    spots: room.spots,
+    loading: isCustomImage(room) && room.status === 'waiting' && connectedCount(room) === 2 && !(room.imgReady[0] && room.imgReady[1])
   };
 }
 
@@ -445,8 +546,11 @@ function broadcastMeta(room) {
   io.to(room.code).emit('meta', meta(room));
 }
 
+function isCustomImage(room) { return typeof room.imageId === 'string' && room.imageId.indexOf('custom:') === 0; }
+
 function startIfReady(room) {
-  if (room.status === 'waiting' && connectedCount(room) === 2) {
+  const imagesOk = !isCustomImage(room) || (room.imgReady[0] && room.imgReady[1]);     // imagem própria: espera os dois
+  if (room.status === 'waiting' && connectedCount(room) === 2 && imagesOk) {
     room.status = 'playing';
     if (!room.startedAt) room.startedAt = Date.now();
   }
@@ -551,6 +655,7 @@ function attach(room, socket, pid, name, avatar) {
   socket.data.idx = idx;
   socket.join(room.code);
   room.lastActive = Date.now();
+  room.imgReady[idx] = false;           // quem entra (ou volta) precisa avisar de novo que a imagem está pronta
   startIfReady(room);
   return { idx, isNew: !same };
 }
@@ -586,6 +691,7 @@ function performRestart(room, params) {
   room.roundStart = Date.now();
   room.startedAt = null;
   room.status = 'waiting';
+  room.imgReady = [false, false];
   startIfReady(room);
   io.to(room.code).emit('state', snapshot(room));
 }
@@ -814,6 +920,16 @@ io.on('connection', (socket) => {
     reply(cb, { ok: true });
   });
 
+  // o celular avisa que a imagem desta sala já está carregada e preparada
+  socket.on('imgready', (data, cb) => {
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false });
+    c.room.imgReady[c.idx] = true;
+    startIfReady(c.room);
+    broadcastMeta(c.room);
+    reply(cb, { ok: true });
+  });
+
   socket.on('hint', (data, cb) => {
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false, left: 0 });
@@ -869,6 +985,12 @@ setInterval(() => {
     }
   }
 }, 60000).unref();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [tk, u] of uploads) if (now - u.last > UPLOAD_TTL && !uploadInUse(tk)) uploads.delete(tk);
+  for (const [ip, h] of uploadHits) if (!h.some((t) => now - t < 10 * 60 * 1000)) uploadHits.delete(ip);
+}, 10 * 60 * 1000).unref();
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('Quebra-cabeça a dois rodando na porta ' + PORT);
