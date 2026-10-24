@@ -5,6 +5,7 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 - Feito para **celular** (toque, tela em pé), mas funciona também no computador.
 - **Tabuleiro grande**: ele ocupa quase toda a largura da tela, e não há barras ocupando espaço embaixo. Só o topo tem um cabeçalho pequeno.
 - **Gestos simples nas peças:** arrastar, tocar para girar e pinça para dar zoom.
+- **Conversa entre os dois jogadores:** um botão 💬 no topo abre um painel por cima do jogo (sem tirar espaço do tabuleiro), com mensagens de texto e reações rápidas.
 - Não precisa instalar nada no seu computador: tudo é feito pelos sites do **GitHub** e do **Render**.
 - Cada jogador digita o **próprio nome**; a pessoa que cria escolhe a **imagem** e a **quantidade de peças**.
 - O código da sala é **gerado automaticamente** e o amigo entra digitando esse código de 4 caracteres.
@@ -24,9 +25,25 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 9. O **triângulo ▲** desenhado em cada peça mostra qual lado é o "de cima". Ajuda muito nas peças brancas ou de uma cor só: a peça está na posição certa quando o ▲ aponta para cima.
 10. **Exclusividade:** enquanto uma pessoa segura uma peça (contorno colorido e etiqueta com o nome dela), a outra **não consegue** pegá-la, movê-la nem girá-la.
 11. **💡 Lâmpada:** fica no topo, ao lado do menu, e é só o ícone. Ao apertar, a **imagem completa aparece esmaecida no tabuleiro, atrás das peças, por 4 segundos** e depois some sozinha. Cada jogador pode usar **10 vezes por partida** (o número pequeno no botão mostra quantas restam). Apertar de novo enquanto a imagem está visível não gasta outra dica, e só quem apertou vê a imagem. Recarregar a página não renova as dicas.
-12. Quando todas as peças encaixam, aparece a tela de vitória com o **tempo** e quantas peças cada um (pelo nome) encaixou.
+12. **💬 Conversa:** toque no balão 💬 no topo para abrir o painel. Escreva e toque em **Enviar** (ou use o Enter), ou toque numa reação rápida (👍 😂 👏 😮 🤔 ❤️ 🎉). Com o painel fechado, quando o amigo escrever aparece um **aviso no topo** com a mensagem e um **contador** no botão 💬. Toque no aviso para abrir. Quem entra depois, ou volta à sala, vê as últimas mensagens.
+13. Quando todas as peças encaixam, aparece a tela de vitória com o **tempo** e quantas peças cada um (pelo nome) encaixou.
 
 O menu (☰) tem **Como jogar** (um resumo dos gestos), **trocar a imagem ou a quantidade de peças**, recomeçar e sair. Ao trocar ou recomeçar, as dicas voltam a 10 para cada um.
+
+---
+
+## Conversa (chat)
+
+- **Como funciona:** as mensagens passam pelo mesmo servidor do jogo e chegam na hora aos dois da sala. Cada mensagem mostra o nome de quem escreveu, com a cor do jogador.
+- **Limites:** até 200 letras por mensagem e um ritmo máximo de 20 mensagens a cada 10 segundos por pessoa (para evitar enchentes). Mensagens em branco não são enviadas.
+- **Só texto:** nada do que for digitado vira link, imagem ou código; aparece exatamente como foi escrito.
+- **Histórico:** o servidor guarda só as **últimas 50 mensagens da sala**, na memória, para quem voltar à sala. Elas somem quando a sala é apagada (cerca de 15 minutos depois de todos saírem) ou quando o Render reinicia o serviço. **Nada é gravado em arquivo e as mensagens não aparecem no registro (log) do servidor.** Reiniciar a partida não apaga a conversa.
+- **Teclado do celular:** ao tocar no campo de texto, o painel sobe junto com o teclado para o campo não ficar escondido.
+- **Não precisa gerar outro APK:** o aplicativo carrega o jogo do site, então a conversa aparece sozinha depois que você atualizar o GitHub.
+- **Moderação:** não há filtro de palavras. Se o jogo for usado com crianças ou alunos, vale combinar regras antes ou **desligar a conversa**:
+  1. No Render, abra o serviço e vá em **Environment**.
+  2. Clique em **Add Environment Variable**, use o nome `CHAT_ENABLED` e o valor `false`, e salve.
+  3. O Render publica de novo e o botão 💬 deixa de aparecer. Para ligar de novo, apague a variável ou troque o valor por `true`.
 
 ---
 
@@ -61,7 +78,7 @@ quebra-cabeca/
     ├── game.js           lógica do jogo no navegador
     ├── manifest.webmanifest  dados do aplicativo (nome, ícones, cores)
     ├── sw.js             deixa o jogo instalável como aplicativo
-    ├── assetlinks.json   (só para o APK) verificação do Android; começa vazio: []
+    ├── assetlinks.json   (só para o APK) verificação do Android; cole aqui o arquivo do PWABuilder
     ├── icons/            ícones do aplicativo (192, 512, recortável e iPhone)
     └── imagens/
         ├── angel.jpg
@@ -138,7 +155,7 @@ Confira: no repositório você deve ver `server.js`, `package.json` e a pasta `p
 Se você já publicou uma versão anterior, não precisa refazer nada no Render:
 
 1. No GitHub, abra o repositório → **Add file → Upload files**.
-2. Arraste os arquivos novos **com o mesmo nome** (`server.js`, `README.md` e, dentro de `public`: `index.html`, `style.css`, `game.js`, `manifest.webmanifest`, `sw.js`, `assetlinks.json` e a pasta `icons`). Eles substituem os antigos. Para a pasta `public`, arraste o conteúdo mantendo a estrutura (ou entre na pasta `public` do repositório antes de enviar os três arquivos de dentro dela).
+2. Arraste os arquivos novos **com o mesmo nome** (`server.js`, `README.md` e, dentro de `public`: `index.html`, `style.css` e `game.js`; só se for a primeira vez com o aplicativo, também `manifest.webmanifest`, `sw.js`, `assetlinks.json` e a pasta `icons`). **Não substitua o seu `public/assetlinks.json` se ele já tem o conteúdo do APK.** Eles substituem os antigos. Para a pasta `public`, arraste o conteúdo mantendo a estrutura (ou entre na pasta `public` do repositório antes de enviar os três arquivos de dentro dela).
 3. Entre em `public/imagens`, **apague** as imagens antigas (`imagem1.jpg` a `imagem4.jpg`: abra cada arquivo, ícone de lixeira → *Commit changes*) e envie as novas.
 4. Clique em **Commit changes**. O Render percebe a mudança e publica sozinho em 1 a 3 minutos (status *Deploying* → *Live*).
 5. Recarregue o jogo no celular. Se ainda aparecer a versão antiga, feche a aba e abra de novo.
@@ -213,8 +230,9 @@ Tudo é feito no site **PWABuilder** (pwabuilder.com): é gratuito, funciona no 
 5. **Descompacte o zip.** Dentro estão o arquivo **.apk**, o arquivo da **chave de assinatura** e o `signing-key-info.txt` (com a senha e a impressão digital SHA-256). **Guarde esses arquivos em lugar seguro**: sem a chave, você não consegue gerar atualizações do mesmo aplicativo depois.
 6. **Para o aplicativo abrir sem a barra de endereço** (verificação do Android):
    - Abra o `assetlinks.json` que veio no zip (ou use o modelo abaixo) e copie **todo o conteúdo**.
-   - No GitHub, abra `public/assetlinks.json`, clique no lápis, apague o `[]`, cole o conteúdo e clique em **Commit changes**.
-   - Quando o Render marcar **Live**, abra `SEU-LINK/.well-known/assetlinks.json`: deve aparecer o conteúdo que você colou.
+   - No GitHub, abra `public/assetlinks.json`, clique no lápis, apague o `[]`, cole o conteúdo e clique em **Commit changes**. (Se preferir não mexer no GitHub: no Render, abra o serviço, vá em **Environment**, clique em **Add Environment Variable**, use o nome `ASSETLINKS_JSON`, cole o conteúdo como valor e salve.)
+   - Quando o Render marcar **Live**, abra `SEU-LINK/diagnostico`: em `verificacao_do_aplicativo` devem aparecer o seu pacote e a impressão digital. Abra também `SEU-LINK/.well-known/assetlinks.json`: deve mostrar o mesmo conteúdo.
+   - O servidor aceita o arquivo em `public/assetlinks.json`, `public/.well-known/assetlinks.json`, na raiz ou em `.well-known/` na raiz; vale o primeiro que tiver conteúdo.
 7. **Instale no celular:** envie o `.apk` para o aparelho (WhatsApp, Google Drive, e-mail ou cabo) e toque nele. Se o Android pedir, permita **instalar apps desconhecidos** para o aplicativo que você usou para abrir o arquivo (Chrome, WhatsApp, Arquivos) e toque em **Instalar**. O aviso do Google Play Protect de "app não verificado" é normal para um APK que não vem da loja.
 8. **Para os amigos:** mande o mesmo `.apk`; cada um instala do mesmo jeito.
 
@@ -249,6 +267,9 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **Uma peça não gira:** primeiro toque nela para escolhê-la (contorno colorido e etiqueta **↻**); o toque seguinte é que gira. Se a etiqueta mostrar **↻ 0**, os giros acabaram: toque num espaço vazio para soltar a peça e renová-los.
 - **A pinça não amplia:** a peça precisa estar escolhida antes (um toque nela). Depois, use dois dedos ao mesmo tempo, em qualquer lugar da área de jogo.
 - **Não aparece "Instalar app" no Chrome:** abra o jogo pelo endereço `https://` do Render (não por link de WhatsApp dentro do app) e espere carregar a tela inicial. Se já estiver instalado, a opção não aparece de novo.
+- **O aplicativo (APK) mostra uma barra com o endereço no topo:** o Android não conseguiu verificar o aplicativo. Abra `SEU-LINK/diagnostico`: se `encontrado_em` disser "nenhuma", ou se o pacote ou a impressão digital forem diferentes dos do seu `signing-key-info.txt`/APK, corrija o `assetlinks.json` (ou a variável `ASSETLINKS_JSON`). Se estiver certo, abra o jogo no navegador para o servidor acordar, feche o aplicativo e abra de novo; se persistir, desinstale e instale de novo. Se você gerou um APK novo no PWABuilder, a chave mudou: atualize o `assetlinks.json` e desinstale o APK antigo antes de instalar o novo.
+- **O botão 💬 não aparece:** os arquivos novos ainda não foram publicados (confira `SEU-LINK/api/config`: deve conter `"chat":true`), o Render ainda não terminou o deploy, ou a variável `CHAT_ENABLED` está como `false`. Feche e abra o aplicativo depois.
+- **Mensagem recusada ("Calma!"):** é o limite de velocidade; espere um instante.
 - **Sumiu a faixa com o código:** ela só aparece enquanto o amigo não está na sala (ou se ele sair). O código também é sempre o que está no endereço, depois de `?sala=`.
 - **"Não encontramos essa sala":** confira o código (4 caracteres, letras e números). A sala também some se o Render reiniciar o serviço; é só criar outra.
 - **"Essa sala já tem duas pessoas":** a sala comporta exatamente duas pessoas. Se alguém caiu, ao voltar pelo mesmo link ela retoma o lugar (e as dicas já usadas continuam usadas).
@@ -272,6 +293,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - [ ] Testei a quantidade de peças que pretendo usar (6, 12, 20, 30 ou 48) no celular.
 - [ ] Testei arrastar, girar tocando de novo na peça escolhida (máx. 3 giros), a pinça (zoom), encaixar e a tela de vitória com os nomes.
 - [ ] Testei a lâmpada 💡: a imagem aparece atrás das peças, some sozinha depois de 4 segundos e cada jogador tem 10 usos.
+- [ ] Testei a conversa 💬 nos dois aparelhos: enviar, receber, o aviso com a conversa fechada, uma reação rápida e o teclado do celular (o painel deve subir junto com ele).
 - [ ] Conferi que o tabuleiro está grande o bastante na tela do celular e que as peças da bandeja são fáceis de pegar com o dedo.
 - [ ] Testei a exclusividade (a segunda pessoa não consegue pegar a peça que a primeira segura).
 - [ ] (Opcional, aplicativo) `SEU-LINK/manifest.webmanifest` abre, e a opção **Instalar app** aparece no Chrome do Android.

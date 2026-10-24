@@ -24,6 +24,13 @@ const MAX_ROT = 3;      // giros permitidos por peça antes de "passar a vez"
 const HINTS = 10;       // vezes que cada jogador pode ver a imagem esmaecida no tabuleiro
 const MAX_NAME = 12;
 
+// Conversa entre os dois jogadores. Para desligar (ex.: uso com crianças), crie no Render a variável
+// de ambiente CHAT_ENABLED com o valor false. As mensagens ficam só na memória da sala (últimas 50) e
+// somem quando a sala é apagada; o servidor não as grava em disco nem as escreve no registro (log).
+const CHAT_ENABLED = String(process.env.CHAT_ENABLED || '').toLowerCase() !== 'false';
+const CHAT_MAX_LEN = 200;   // letras por mensagem
+const CHAT_KEEP = 50;       // mensagens guardadas por sala
+
 // Quantidades de peças disponíveis (cols × rows). As peças são sempre quadradas;
 // a imagem é recortada no centro para caber na proporção da grade.
 //  bw = largura do tabuleiro (quanto maior, maiores as peças montadas)
@@ -86,7 +93,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, maxName: MAX_NAME });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, maxName: MAX_NAME, chat: CHAT_ENABLED });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -173,6 +180,14 @@ function prettyName(file) {
     .split(/\s+/)
     .map((w, i) => (i > 0 && SMALL_WORDS.has(w.toLowerCase()) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
+}
+
+function cleanChat(t) {
+  const clean = String(t == null ? '' : t)
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')  // controles e marcas invisíveis
+    .replace(/\s+/g, ' ')
+    .trim();
+  return Array.from(clean).slice(0, CHAT_MAX_LEN).join('');   // conta letras/emojis inteiros
 }
 
 function cleanName(n) {
@@ -277,6 +292,8 @@ function createRoom(code, imageId, pieces) {
     imageId,
     cfg,
     hints: [HINTS, HINTS],
+    chat: [],
+    chatSeq: 0,
     status: 'waiting', // waiting | playing | won
     createdAt: now,
     lastActive: now,
@@ -330,6 +347,8 @@ function snapshot(room) {
       code: room.code,
       imageId: room.imageId,
       cfg: room.cfg,
+      chat: room.chat,
+      chatOn: CHAT_ENABLED,
       pieces: room.pieces.map((p) => ({
         id: p.id,
         col: p.col,
@@ -585,6 +604,29 @@ io.on('connection', (socket) => {
 
   // 💡 lâmpada: mostra a imagem esmaecida atrás das peças por 4 s. Cada jogador tem HINTS (10) usos
   // por partida, controlados aqui para não "renovar" recarregando a página
+  // 💬 conversa: o servidor limpa o texto, limita a velocidade e repassa aos dois da sala
+  socket.on('chat', (data, cb) => {
+    if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false, error: 'room' });
+    const text = cleanChat(data && data.text);
+    if (!text) return reply(cb, { ok: false, error: 'empty' });
+    const now = Date.now();
+    const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
+    if (times.length >= 20 || (times.length && now - times[times.length - 1] < 250)) {
+      socket.data.chatTimes = times;
+      return reply(cb, { ok: false, error: 'rate' });
+    }
+    times.push(now);
+    socket.data.chatTimes = times;
+    const { room, idx } = c;
+    const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text, t: now };
+    room.chat.push(msg);
+    if (room.chat.length > CHAT_KEEP) room.chat.shift();
+    io.to(room.code).emit('chat', msg);
+    reply(cb, { ok: true });
+  });
+
   socket.on('hint', (data, cb) => {
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false, left: 0 });
