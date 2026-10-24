@@ -140,6 +140,14 @@
 
   function vibrate(ms) { try { if (state.settings.vibrate && navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignora */ } }
 
+  // dispara de novo uma animação curta de classe (salto do avatar, "pop" dos botões)
+  function popEl(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(function () { el.classList.remove(cls); }, 650);
+  }
+
   function showScreen(name) {
     ['home', 'pick', 'game'].forEach(function (n) {
       $('#screen-' + n).classList.toggle('active', n === name);
@@ -1671,7 +1679,7 @@
   /* ---------------------------------------------------------
    * Botões e teclado
    * --------------------------------------------------------- */
-  $('#btn-create').addEventListener('click', function () { readName(); openPick('create'); });
+  $('#btn-create').addEventListener('click', function () { popEl(this, 'go'); readName(); openPick('create'); });
 
   $('#btn-join').addEventListener('click', function () {
     var code = $('#input-code').value.trim().toUpperCase();
@@ -1682,6 +1690,9 @@
   $('#input-code').addEventListener('input', function (e) {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     showError($('#home-error'), '');
+    var row = e.target.parentNode, ready = e.target.value.length === 4;
+    if (ready && !row.classList.contains('ready')) popEl($('#btn-join'), 'go');
+    row.classList.toggle('ready', ready);
   });
   $('#input-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-join').click(); });
   $('#input-name').addEventListener('keydown', function (e) {
@@ -1808,10 +1819,45 @@
   $('#avatar-grid').addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('button');
     if (!b) return;
+    var changed = (b.dataset.v || '') !== state.avatar;
     state.avatar = b.dataset.v || '';
     store.set('avatar', state.avatar);
     Array.prototype.forEach.call($('#avatar-grid').children, function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
+    popEl(b, 'pop');
+    if (changed) vibrate(8);
   });
+
+  // toque no logotipo: os quatro blocos se encaixam de novo (só quando o movimento está liberado)
+  $('#logo').addEventListener('click', function () {
+    if (reducedMotion()) return;
+    Array.prototype.forEach.call(this.children, function (el) { el.style.animation = 'none'; });
+    void this.offsetWidth;
+    Array.prototype.forEach.call(this.children, function (el) { el.style.animation = ''; });
+  });
+
+  // teclado aberto na tela inicial: dá espaço para rolar e deixa o campo (e o cartão dele) na parte que sobra acima do teclado
+  (function homeKeyboard() {
+    var home = $('#screen-home'), vv = window.visualViewport;
+    function sync() {
+      var kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+      home.style.setProperty('--kb', kb > 80 ? kb + 'px' : '0px');
+    }
+    function reveal(el) {
+      var box = el.closest('.join-card, .id-card') || el;
+      var r = box.getBoundingClientRect(), r2 = el.getBoundingClientRect();
+      var top = vv ? vv.offsetTop : 0, bottom = top + (vv ? vv.height : window.innerHeight), m = 16;
+      var dy = 0;
+      if (r.bottom + m > bottom) dy = r.bottom + m - bottom;          // o cartão inteiro, se couber
+      if (r2.top - dy < top + m) dy = r2.top - (top + m);               // senão, ao menos o campo
+      if (Math.abs(dy) > 1) { try { home.scrollBy({ top: dy, behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { home.scrollTop += dy; } }
+    }
+    if (vv) { vv.addEventListener('resize', sync); vv.addEventListener('scroll', sync); }
+    ['#input-name', '#input-code'].forEach(function (sel) {
+      var el = $(sel);
+      el.addEventListener('focus', function () { setTimeout(function () { sync(); reveal(el); }, 320); });
+      el.addEventListener('blur', function () { setTimeout(sync, 150); });
+    });
+  })();
   $('#input-name').addEventListener('input', function () { var l = $('#avatar-letter'); if (l) l.textContent = initialOf(this.value) || 'A'; });
 
   var stageEl = $('#stage');
