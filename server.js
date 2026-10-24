@@ -88,7 +88,8 @@ const PRESETS = [
 ];
 const DEFAULT_PIECES = 12;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
-const MAX_IMAGES = 40;               // quantas imagens aparecem na escolha (as primeiras, na ordem da lista)
+// Sem limite de imagens: todas as da pasta public/imagens aparecem. (Opcional: defina MAX_IMAGES no Render para limitar.)
+const MAX_IMAGES = Number(process.env.MAX_IMAGES) > 0 ? Math.floor(Number(process.env.MAX_IMAGES)) : Infinity;
 
 function validPieces(n, fallback) {
   n = Number(n);
