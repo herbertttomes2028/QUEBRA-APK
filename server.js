@@ -89,13 +89,62 @@ app.get('/api/config', (req, res) => {
   res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, maxName: MAX_NAME });
 });
 
-// Verificação do aplicativo Android (APK): o PWABuilder entrega um arquivo assetlinks.json.
-// Cole o conteúdo dele em public/assetlinks.json e ele passa a ser servido no endereço que o Android exige.
+// Verificação do aplicativo Android (APK).
+// O Android só abre o aplicativo em tela cheia (sem a barra do Chrome) se encontrar, neste endereço,
+// um arquivo com o nome do pacote e a impressão digital da assinatura: /.well-known/assetlinks.json
+// O servidor procura o conteúdo, nesta ordem:
+//   1) variável de ambiente ASSETLINKS_JSON (Render > Environment), sem precisar mexer no GitHub;
+//   2) public/assetlinks.json   3) public/.well-known/assetlinks.json
+//   4) assetlinks.json na raiz  5) .well-known/assetlinks.json na raiz
+// Vale o primeiro que tiver conteúdo (um arquivo "[]" vazio é ignorado).
+const ASSETLINKS_FILES = [
+  path.join(PUBLIC_DIR, 'assetlinks.json'),
+  path.join(PUBLIC_DIR, '.well-known', 'assetlinks.json'),
+  path.join(__dirname, 'assetlinks.json'),
+  path.join(__dirname, '.well-known', 'assetlinks.json')
+];
+
+function loadAssetLinks() {
+  const env = process.env.ASSETLINKS_JSON;
+  if (env && env.trim()) {
+    try {
+      const j = JSON.parse(env.trim().replace(/^\uFEFF/, ''));
+      if (Array.isArray(j) && j.length) return { fonte: 'variável de ambiente ASSETLINKS_JSON', dados: j };
+    } catch (e) {
+      console.warn('ASSETLINKS_JSON não é um JSON válido; ignorando.');
+    }
+  }
+  for (const f of ASSETLINKS_FILES) {
+    try {
+      const j = JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, ''));
+      if (Array.isArray(j) && j.length) return { fonte: 'arquivo ' + path.relative(__dirname, f), dados: j };
+    } catch (e) { /* tenta o próximo */ }
+  }
+  return { fonte: 'nenhuma (nada publicado ainda)', dados: [] };
+}
+
 app.get('/.well-known/assetlinks.json', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.type('application/json');
-  res.sendFile(path.join(PUBLIC_DIR, 'assetlinks.json'), (err) => {
-    if (err) res.status(404).json([]);
+  res.json(loadAssetLinks().dados);
+});
+
+// Página de conferência: mostra o que o servidor está publicando para o Android
+app.get('/diagnostico', (req, res) => {
+  const al = loadAssetLinks();
+  const pacotes = [];
+  for (const st of al.dados) {
+    const t = st && st.target;
+    if (t && t.namespace === 'android_app') pacotes.push({ pacote: t.package_name, impressoes_digitais: t.sha256_cert_fingerprints || [] });
+  }
+  res.set('Cache-Control', 'no-cache');
+  res.json({
+    servidor: 'ok',
+    verificacao_do_aplicativo: {
+      publicado_em: '/.well-known/assetlinks.json',
+      encontrado_em: al.fonte,
+      pacotes
+    },
+    imagens: listImages().length
   });
 });
 
