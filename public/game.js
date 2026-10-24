@@ -29,6 +29,11 @@
     ptrs: {},          // dedos/ponteiros que estão tocando na tela
     pinch: null,       // gesto de pinça em andamento
     tipShown: false,
+    chat: [],          // últimas mensagens da conversa
+    chatOn: true,
+    chatOpen: false,
+    unread: 0,
+    popTimer: null,
     names: ['', ''],
     idx: null,
     code: null,
@@ -192,6 +197,7 @@
         state.defaultPieces = c.defaultPieces || 12;
         state.pickPieces = state.defaultPieces;
         state.hints = c.hints || 10;
+        state.chatOn = c.chat !== false;
       })
       .catch(function () { state.images = []; });
     return imagesReady;
@@ -330,6 +336,8 @@
       clearTimeout(state.idleTimer);
       buildField(snap);
       applyMeta(snap);
+      setChatAvailability(snap.chatOn !== false);
+      setChatHistory(snap.chat || []);
       $('#room-code').textContent = snap.code;
       $('#modal-win').hidden = true;
       $('#modal-menu').hidden = true;
@@ -776,6 +784,122 @@
   }
 
   /* ---------------------------------------------------------
+   * 💬 Conversa (painel que abre por cima do jogo; não ocupa espaço do tabuleiro)
+   * --------------------------------------------------------- */
+  var EMOJI_ONLY = null;
+  try { EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}|\\u200d|\\ufe0f|\\s){1,8}$', 'u'); } catch (e) { /* navegador antigo: sem destaque */ }
+
+  function setChatAvailability(on) {
+    state.chatOn = !!on;
+    $('#btn-chat').hidden = !state.chatOn;
+    if (!state.chatOn) closeChat();
+  }
+
+  function chatEl(m) {
+    var li = document.createElement('li');
+    var mine = m.idx === state.idx;
+    li.className = 'chat-msg ' + (mine ? 'me' : 'friend');
+    li.style.setProperty('--c', PLAYER_COLORS[m.idx] || '#1b2559');
+    if (EMOJI_ONLY && EMOJI_ONLY.test(m.text)) li.classList.add('big');
+    if (!mine) {
+      var who = document.createElement('span');
+      who.className = 'who';
+      who.textContent = m.name || 'Amigo';
+      li.appendChild(who);
+    }
+    var tx = document.createElement('span');
+    tx.className = 'txt';
+    tx.textContent = m.text;                 // sempre como texto: nada vira HTML nem link
+    li.appendChild(tx);
+    return li;
+  }
+
+  function scrollChat() {
+    var l = $('#chat-list');
+    l.scrollTop = l.scrollHeight;
+  }
+
+  function setChatHistory(arr) {
+    state.chat = (arr || []).slice(-50);
+    var l = $('#chat-list');
+    l.innerHTML = '';
+    state.chat.forEach(function (m) { l.appendChild(chatEl(m)); });
+    scrollChat();
+  }
+
+  function updateChatBadge() {
+    var b = $('#chat-badge');
+    b.hidden = state.unread <= 0;
+    b.textContent = state.unread > 9 ? '9+' : String(state.unread);
+  }
+
+  function showChatPop(m) {
+    var p = $('#chat-pop');
+    p.innerHTML = '';
+    var n = document.createElement('b');
+    n.textContent = (m.name || 'Amigo') + ':';
+    p.appendChild(n);
+    p.appendChild(document.createTextNode(m.text));
+    p.hidden = false;
+    clearTimeout(state.popTimer);
+    state.popTimer = setTimeout(function () { p.hidden = true; }, 4000);
+  }
+
+  function onChatMessage(m) {
+    if (!m || typeof m.text !== 'string') return;
+    var last = state.chat.length ? state.chat[state.chat.length - 1].id : 0;
+    if (m.id <= last) return;                // já mostrada (ex.: histórico recebido ao reconectar)
+    state.chat.push(m);
+    if (state.chat.length > 50) { state.chat.shift(); if ($('#chat-list').firstChild) $('#chat-list').removeChild($('#chat-list').firstChild); }
+    $('#chat-list').appendChild(chatEl(m));
+    if (state.chatOpen) { scrollChat(); return; }
+    if (m.idx !== state.idx) {               // chegou do amigo com a conversa fechada
+      state.unread++;
+      updateChatBadge();
+      showChatPop(m);
+      vibrate(15);
+    }
+  }
+
+  function openChat() {
+    if (!state.chatOn) return;
+    state.chatOpen = true;
+    state.unread = 0;
+    updateChatBadge();
+    $('#chat-pop').hidden = true;
+    $('#chat-panel').hidden = false;
+    updateKeyboardOffset();
+    scrollChat();
+    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) { try { $('#chat-input').focus(); } catch (e) { /* ignora */ } }
+  }
+
+  function closeChat() {
+    state.chatOpen = false;
+    $('#chat-panel').hidden = true;
+    try { $('#chat-input').blur(); } catch (e) { /* ignora */ }
+  }
+
+  function sendChat(text) {
+    text = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+    if (!text || !state.chatOn) return;
+    socket.emit('chat', { text: text }, function (res) {
+      if (res && res.ok) return;
+      if (res && res.error === 'rate') toast('Calma! Espere um instante para enviar de novo.');
+      else if (res && res.error === 'off') toast('A conversa está desligada neste jogo.');
+      else toast('Não foi possível enviar. Tente de novo.');
+    });
+  }
+
+  // o teclado do celular cobre a parte de baixo da tela: o painel sobe junto com ele
+  function updateKeyboardOffset() {
+    var vv = window.visualViewport;
+    var kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  }
+
+  socket.on('chat', onChatMessage);
+
+  /* ---------------------------------------------------------
    * Interface: HUD, dica e botão de girar
    * --------------------------------------------------------- */
   function updateUi() {
@@ -970,10 +1094,14 @@
       if (p.heldBy === state.idx && !p.locked) state.selectedId = p.id;
     });
     applyMeta(snap);
+    setChatHistory(snap.chat || []);
     updateUi();
   }
 
   function goHome() {
+    closeChat();
+    state.chat = [];
+    state.unread = 0;
     state.inGame = false;
     state.code = null;
     state.pieces = [];
@@ -1038,6 +1166,29 @@
   });
 
   $('#btn-hint').addEventListener('click', useHint);
+
+  $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
+  $('#chat-close').addEventListener('click', closeChat);
+  $('#chat-pop').addEventListener('click', openChat);
+  $('#chat-send').addEventListener('click', function () {
+    var inp = $('#chat-input');
+    var t = inp.value;
+    if (!t.trim()) return;
+    sendChat(t);
+    inp.value = '';
+  });
+  $('#chat-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('#chat-send').click(); }
+    else if (e.key === 'Escape') closeChat();
+  });
+  $('#chat-quick').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (b && b.dataset.t) sendChat(b.dataset.t);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateKeyboardOffset);
+    window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
+  }
 
   $('#btn-menu').addEventListener('click', function () { $('#modal-menu').hidden = false; });
   $('#menu-close').addEventListener('click', function () { $('#modal-menu').hidden = true; });

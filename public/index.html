@@ -83,6 +83,9 @@
         <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Lâmpada: mostrar a imagem no tabuleiro por 4 segundos">
           <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
         </button>
+        <button id="btn-chat" class="icon-btn chat" type="button" aria-label="Conversa" hidden>
+          <span aria-hidden="true">💬</span><span id="chat-badge" class="badge" hidden>0</span>
+        </button>
         <button id="btn-menu" class="icon-btn" type="button" aria-label="Menu">☰</button>
       </header>
 
@@ -98,6 +101,29 @@
           <div id="field"></div>
         </div>
       </main>
+
+      <button id="chat-pop" class="chat-pop" type="button" hidden></button>
+
+      <section id="chat-panel" class="chat-panel" hidden aria-label="Conversa">
+        <header class="chat-head">
+          <strong>Conversa</strong>
+          <button id="chat-close" class="chat-x" type="button" aria-label="Fechar conversa">✕</button>
+        </header>
+        <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
+        <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
+          <button type="button" data-t="👍">👍</button>
+          <button type="button" data-t="😂">😂</button>
+          <button type="button" data-t="👏">👏</button>
+          <button type="button" data-t="😮">😮</button>
+          <button type="button" data-t="🤔">🤔</button>
+          <button type="button" data-t="❤️">❤️</button>
+          <button type="button" data-t="🎉">🎉</button>
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" maxlength="200" placeholder="Escreva uma mensagem" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" aria-label="Mensagem">
+          <button id="chat-send" class="btn btn-primary" type="button">Enviar</button>
+        </div>
+      </section>
 
     </section>
 
@@ -122,6 +148,7 @@
           <li><b>Girar</b><span>Toque na peça para escolhê-la e toque nela de novo (ou toque duas vezes seguidas). O número ↻ mostra quantos giros restam; o ▲ é o lado de cima.</span></li>
           <li><b>Zoom</b><span>Com a peça escolhida, faça o movimento de pinça com dois dedos. No computador, use a roda do mouse.</span></li>
           <li><b>Soltar</b><span>Toque num espaço vazio, ou arraste e solte a peça.</span></li>
+          <li><b>💬 Conversa</b><span>Toque no balão no topo para escrever ou mandar uma reação. Chega um aviso quando o amigo escreve.</span></li>
           <li><b>💡 Lâmpada</b><span>Mostra a imagem completa atrás das peças por 4 segundos (10 vezes por partida).</span></li>
         </ul>
         <button id="help-close" class="btn btn-primary btn-block" type="button">Entendi</button>

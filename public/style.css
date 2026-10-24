@@ -528,6 +528,98 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
 .icon-btn.lamp.lit:disabled .badge { background: var(--ink); color: #fff; box-shadow: 0 0 0 2px var(--paper); }
 .icon-btn.lamp:disabled .badge { background: #c9d1f5; box-shadow: 0 0 0 2px var(--paper); }
 
+/* ---------- Conversa ---------- */
+.hud .icon-btn { width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem; }
+.hud { gap: 7px; }
+.hud-icon { display: none; }                       /* sem o ícone do relógio: sobra espaço para a barra */
+.hud-time { min-width: 54px; font-size: 1.08rem; }
+
+.chat-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--kb, 0px);            /* sobe junto com o teclado do celular */
+  z-index: 40;
+  height: min(48vh, 420px);
+  max-height: calc(100% - 70px);
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -10px 30px rgba(27, 37, 89, .28);
+  padding-bottom: env(safe-area-inset-bottom);
+  animation: sheet-in .2s ease-out;
+}
+.chat-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 4px 18px; }
+.chat-head strong { font-size: 1.05rem; font-weight: 900; }
+.chat-x { appearance: none; border: 0; width: 38px; height: 38px; border-radius: 12px; background: var(--paper); font-size: 1rem; font-weight: 900; color: var(--ink); }
+.chat-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 12px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.chat-list:empty::before { content: "Nenhuma mensagem ainda. Diga oi! 👋"; margin: auto; color: var(--ink-soft); font-weight: 700; font-size: .92rem; text-align: center; }
+.chat-msg { max-width: 82%; padding: 7px 12px; border-radius: 17px; font-size: .97rem; line-height: 1.3; overflow-wrap: anywhere; }
+.chat-msg .who { display: block; font-size: .7rem; font-weight: 900; margin-bottom: 1px; color: var(--c); }
+.chat-msg.me { align-self: flex-end; background: var(--c); color: #fff; border-bottom-right-radius: 6px; }
+.chat-msg.friend { align-self: flex-start; background: var(--paper); color: var(--ink); border-bottom-left-radius: 6px; }
+.chat-msg.big { background: transparent; color: inherit; font-size: 2rem; padding: 0 4px; line-height: 1.15; }
+.chat-msg.big .who { color: var(--ink-soft); }
+.chat-quick { display: flex; gap: 6px; padding: 4px 12px; overflow-x: auto; scrollbar-width: none; }
+.chat-quick button { appearance: none; border: 0; flex: none; width: 44px; height: 44px; border-radius: 14px; background: var(--paper); font-size: 1.35rem; line-height: 1; }
+.chat-quick button:active { transform: scale(.93); }
+.chat-input-row { display: flex; gap: 8px; padding: 6px 12px 12px; }
+.chat-input-row input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 14px;
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 2px #c9d1f5;
+  font-size: 1rem;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.chat-input-row .btn { min-height: 48px; padding: 0 20px; }
+
+/* aviso de mensagem nova com a conversa fechada */
+.chat-pop {
+  appearance: none;
+  border: 0;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 62px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  width: max-content;
+  max-width: 88vw;
+  padding: 9px 16px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 800;
+  font-size: .95rem;
+  text-align: left;
+  box-shadow: 0 8px 20px rgba(27, 37, 89, .35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: sheet-in .2s ease-out;
+}
+.chat-pop b { color: var(--sun); margin-right: 6px; }
+
 /* ---------- Janelas (menu e vitória) ---------- */
 .modal {
   position: absolute;
