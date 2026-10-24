@@ -1,8 +1,10 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.onrender.quebra_apk.twa",
-        "sha256_cert_fingerprints": ["99:50:38:B0:CE:4F:27:B7:61:52:C1:C3:54:12:61:BA:36:77:2A:8E:B6:49:36:CC:EF:F8:A5:98:85:4E:5A:53"]
-      }
-    }]
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.onrender.quebra_apk.twa",
+      "sha256_cert_fingerprints": ["99:50:38:B0:CE:4F:27:B7:61:52:C1:C3:54:12:61:BA:36:77:2A:8E:B6:49:36:CC:EF:F8:A5:98:85:4E:5A:53"]
+    }
+  }
+]
