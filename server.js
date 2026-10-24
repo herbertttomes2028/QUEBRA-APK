@@ -26,6 +26,9 @@ const MAX_NAME = 12;
 const SPOTS = 5;            // vezes que cada jogador pode pedir "onde esta peça encaixa" (📍) por partida
 const REMATCH_MS = Number(process.env.REMATCH_MS) || 30000;   // tempo que o amigo tem para aceitar um pedido de recomeçar
 
+// Avatares permitidos (o servidor só aceita estes; qualquer outra coisa vira "sem avatar" e o jogo usa a inicial do nome)
+const AVATARS = ['🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🐵', '🦄', '🐙', '🦋', '⭐', '🚀', '🌈', '🍀'];
+
 // Avisos com o aplicativo fechado (Web Push). As chaves são geradas na hora em que o servidor liga;
 // para fixá-las, crie no Render as variáveis VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY. Para desligar: PUSH_ENABLED=false.
 // Sem a biblioteca "web-push" instalada, o jogo funciona normalmente, só sem os avisos.
