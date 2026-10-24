@@ -138,7 +138,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -296,7 +296,7 @@ function newCode() {
   for (let t = 0; t < 100; t++) {
     let c = '';
     for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
-    if (!rooms.has(c)) return c;
+    if (!rooms.has(c) && !(challenge && challenge.has(c))) return c;     // o código é único entre salas comuns e Salas Desafio
   }
   return null;
 }
@@ -625,6 +625,13 @@ function leaveCurrent(socket) {
     broadcastMeta(room);
   }
 }
+
+/* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
+const challenge = require('./challenge')({
+  io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
+  validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
+  sendPush, validPushSub, webpush, clamp, rnd, shuffle
+});
 
 /* ---------- Eventos do Socket.IO ---------- */
 io.on('connection', (socket) => {
