@@ -210,13 +210,20 @@
     return imgCache[key];
   }
 
-  // miniaturas leves (3:4) para a tela de escolha
+  // miniaturas leves (3:4) para a tela de escolha. O servidor entrega miniaturas prontas (imagens/mini/); o navegador as
+  // decodifica sozinho, fora da thread principal. Sem miniatura pronta, o celular gera uma por vez, sem travar a tela.
+  var thumbChain = Promise.resolve();
   function prepareThumb(item) {
+    if (item.thumb) return Promise.resolve(item.thumb);
     var key = item.file + '|thumb';
     if (imgCache[key]) return imgCache[key];
-    imgCache[key] = loadImage(item.url).then(function (img) {
-      return cropToBlob(img, 300, 400, item.url);
-    }).catch(function () { return item.url; });
+    imgCache[key] = new Promise(function (res) {
+      thumbChain = thumbChain
+        .then(function () { return new Promise(function (ok) { setTimeout(ok, 40); }); })
+        .then(function () { return loadImage(item.localUrl || item.url); })
+        .then(function (img) { return cropToBlob(img, 300, 400, item.url); })
+        .then(res, function () { res(item.url); });
+    });
     return imgCache[key];
   }
 
@@ -332,7 +339,6 @@
       setTimeout(function () { try { card.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { /* ignora */ } }, 60);
     }
     vibrate(8);
-    playSound('blip');
     announce(item.label + ' escolhida. Agora escolha a quantidade de peças.');
   }
 
@@ -423,11 +429,11 @@
       clearTimeout(go.endTimer);
       go.endTimer = setTimeout(function () {
         hideGoSplash(false);
-        playSound('tann');
+        setTimeout(function () { playSound('tann'); }, 40);
         announce('A partida começou!');
       }, goRemaining());
     } else {
-      playSound('tann');
+      setTimeout(function () { playSound('tann'); }, 40);
     }
   }
 
@@ -1299,8 +1305,13 @@
     og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.7, t + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
     o.connect(og); og.connect(master); o.start(t); o.stop(t + 2.0);
     // 2) impacto de ruído filtrado (o "TAN" seco do começo)
-    var len = Math.floor(c.sampleRate * 0.4), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
-    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var len = Math.floor(c.sampleRate * 0.4), buf = audio.noise;
+    if (!buf || buf.length !== len) {            // o "chiado" é montado uma vez só
+      buf = c.createBuffer(1, len, c.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      audio.noise = buf;
+    }
     var ns = c.createBufferSource(); ns.buffer = buf;
     var nf = c.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.setValueAtTime(5200, t); nf.frequency.exponentialRampToValueAtTime(380, t + 0.3);
     var ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.5, t + 0.006); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
@@ -1343,7 +1354,12 @@
     try { SOUNDS[name](c); } catch (e) { /* ignora */ }
   }
   // navegadores só liberam o som depois de um toque: prepara no primeiro toque
-  document.addEventListener('pointerdown', function () { if (state.settings.sound) getAudio(); }, { passive: true });
+  document.addEventListener('pointerdown', function () {
+    if (!state.settings.sound || audio.ctx || audio.pending) return;
+    audio.pending = true;                      // cria o contexto de som logo depois do toque, para não engasgar a resposta do 1º toque
+    var go = function () { audio.pending = false; getAudio(); };
+    if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 350 }); else setTimeout(go, 120);
+  }, { passive: true });
 
   /* ---------------------------------------------------------
    * Avatares: círculo na cor do jogador, com a inicial do nome ou o emoji escolhido
@@ -2351,7 +2367,7 @@
       ensurePush();
       keepAwake();
       setLoading(false);
-      if (!resume) { hideCountdown(true); playSound('tann'); announce('Valendo! Monte a imagem o mais rápido que puder.'); }
+      if (!resume) { hideCountdown(true); setTimeout(function () { playSound('tann'); }, 40); announce('Valendo! Monte a imagem o mais rápido que puder.'); }
       else hideCountdown(false);
     });
   }
@@ -2494,6 +2510,7 @@
     d.giftSeen = true;
     var hint = g.querySelector('.g-hint');
     if (hint) hint.remove();
+    if (d.autoUntil && Date.now() < d.autoUntil) return;       // a caixa está cuspindo as próximas peças sozinha
     var b = d.box || {};
     if (b.blocked) { popEl(g, 'nope'); toast('Encaixe as peças que já saíram para abrir a caixa de novo!'); vibrate(20); return; }
     if (b.left <= 0) { popEl(g, 'nope'); toast('A caixa está vazia!'); return; }
@@ -2518,8 +2535,8 @@
     setTimeout(function () { p.tile.style.transition = ''; }, 800);
   }
 
-  socket.on('ch:gift', function (g) {
-    var d = state.duel, p = d && state.pieces[g.id];
+  function applyGift(g) {
+    var d = state.duel, p = d && d.phase === 'game' && state.pieces[g.id];
     if (!p) return;
     d.box = g.box;
     updateGift();
@@ -2542,6 +2559,19 @@
     vibrate(12);
     announce('Uma peça saiu da caixa.');
     updateUi();
+  }
+
+  // peça que sai da caixa: ao toque (na hora) ou sozinha, quando a rodada de 3 é completada (uma depois da outra)
+  socket.on('ch:gift', function (g) {
+    var d = state.duel;
+    if (!d || !state.pieces[g.id]) return;
+    if (g.auto) {
+      d.autoUntil = Date.now() + (g.delay || 0) + 900;          // enquanto a caixa cospe, toques extras são ignorados
+      if (g.k === 0) { toast('🎁 A caixa soltou as próximas peças!', 2000); playSound('chime'); }
+      setTimeout(function () { applyGift(g); }, g.delay || 0);
+      return;
+    }
+    applyGift(g);
   });
 
   socket.on('ch:box', function (b) {
@@ -2736,7 +2766,6 @@
       b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
     });
     updateSizeNote();
-    playSound('blip');
   });
 
   $('#ps-close').addEventListener('click', closePickSheet);
