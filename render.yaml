@@ -1,10 +1,8 @@
-# Opcional: permite criar o serviço no Render com "New + > Blueprint".
-# Se preferir o caminho manual (descrito no README), ignore este arquivo.
 services:
   - type: web
-    name: quebra-cabeca-a-dois
+    name: music-project
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev
     startCommand: npm start
-    healthCheckPath: /health
+    healthCheckPath: /
