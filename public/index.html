@@ -312,6 +312,16 @@
       <div class="spinner" aria-hidden="true"></div>
       <p id="loading-text">Preparando as peças…</p>
     </div>
+    <!-- abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!" -->
+    <div id="go-splash" class="go-splash" hidden aria-hidden="true">
+      <div class="go-rays"></div>
+      <div class="go-stage">
+        <div class="go-card"><span id="go-img" class="go-img"></span></div>
+        <p class="go-text">VAMOS LÁ!</p>
+        <p id="go-sub" class="go-sub"></p>
+        <button id="go-cancel" class="btn btn-secondary go-cancel" type="button" hidden>Cancelar</button>
+      </div>
+    </div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>

@@ -332,11 +332,56 @@
     return state.name;
   }
 
+  /* ---------------------------------------------------------
+   * Abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!"
+   * --------------------------------------------------------- */
+  var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null };
+  function goRemaining() { return go.on ? Math.max(0, go.min - (Date.now() - go.t0)) : 0; }
+  function showGoSplash(file) {
+    var item = state.images.filter(function (i) { return i.file === file; })[0];
+    var el = $('#go-splash');
+    clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
+    $('#go-img').style.backgroundImage = item ? 'url("' + item.url + '")' : 'none';
+    $('#go-sub').textContent = '';
+    $('#go-cancel').hidden = true;
+    el.classList.remove('out', 'run');
+    el.hidden = false;
+    void el.offsetWidth;
+    el.classList.add('run');
+    go.on = true; go.t0 = Date.now(); go.min = reducedMotion() ? 1100 : 1900;
+    go.subTimer = setTimeout(function () { if (go.on) $('#go-sub').textContent = 'Criando a sala…'; }, 2800);
+    go.cancelTimer = setTimeout(function () { if (go.on) $('#go-cancel').hidden = false; }, 9000);
+    announce('Vamos lá!');
+  }
+  function hideGoSplash(instant) {
+    var el = $('#go-splash');
+    clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
+    go.on = false;
+    if (el.hidden) return;
+    if (instant || reducedMotion()) { el.hidden = true; el.classList.remove('run', 'out'); return; }
+    el.classList.add('out');
+    setTimeout(function () { if (!go.on) { el.hidden = true; el.classList.remove('run', 'out'); } }, 330);
+  }
+  // a partida apareceu (sala criada/entrada, ou nova partida): toca o "TANNN" e, se houver abertura, a retira
+  function onGameShown() {
+    if (go.on) {
+      clearTimeout(go.endTimer);
+      go.endTimer = setTimeout(function () {
+        hideGoSplash(false);
+        playSound('tann');
+        announce('A partida começou!');
+      }, goRemaining());
+    } else {
+      playSound('tann');
+    }
+  }
+
   function doCreate(imageId, pieces) {
     setLoading(true, 'Criando a sala…');
     socket.emit('create', { pid: state.pid, imageId: imageId, pieces: pieces, name: readName(), avatar: state.avatar }, function (res) {
       if (!res || !res.ok) {
         setLoading(false);
+        hideGoSplash(true);
         showError($('#pick-error'), errorText(res && res.error));
         return;
       }
@@ -394,13 +439,14 @@
       showScreen('game');
       if (!state.tipShown) {
         state.tipShown = true;
-        if (!store.get('tutorial', 0)) setTimeout(openTutorial, 800);    // primeira vez neste aparelho
+        if (!store.get('tutorial', 0)) setTimeout(openTutorial, 800 + goRemaining());    // primeira vez neste aparelho (depois da abertura)
       }
       ensurePush();
       layout();
       updateUi();
       setLoading(false);
       keepAwake();
+      onGameShown();
     });
   }
 
@@ -1148,7 +1194,51 @@
     o.start(t0);
     o.stop(t0 + dur + 0.03);
   }
+  /*TANN-START*/
+  // "TANNN": batida grave + impacto + acorde de metais (dó maior) com eco curto — começo da partida
+  function soundTann(c) {
+    var t = c.currentTime;
+    var comp = c.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+    comp.connect(c.destination);
+    var master = c.createGain(); master.gain.value = 0.85; master.connect(comp);
+    // eco curto, para dar "salão"
+    var dly = c.createDelay(0.5); dly.delayTime.value = 0.13;
+    var fb = c.createGain(); fb.gain.value = 0.3;
+    var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
+    var wet = c.createGain(); wet.gain.value = 0.3;
+    master.connect(dly); dly.connect(lp); lp.connect(fb); fb.connect(dly); lp.connect(wet); wet.connect(comp);
+    // 1) batida grave (gongo/bumbo): seno que desce de 110 Hz para 48 Hz
+    var o = c.createOscillator(), og = c.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.5);
+    og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.7, t + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t + 1.9);
+    o.connect(og); og.connect(master); o.start(t); o.stop(t + 2.0);
+    // 2) impacto de ruído filtrado (o "TAN" seco do começo)
+    var len = Math.floor(c.sampleRate * 0.4), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    var ns = c.createBufferSource(); ns.buffer = buf;
+    var nf = c.createBiquadFilter(); nf.type = 'lowpass'; nf.frequency.setValueAtTime(5200, t); nf.frequency.exponentialRampToValueAtTime(380, t + 0.3);
+    var ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.5, t + 0.006); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+    ns.connect(nf); nf.connect(ng); ng.connect(master); ns.start(t);
+    // 3) acorde de metais: serras levemente desafinadas, com o filtro abrindo e fechando (o "NNN")
+    [130.81, 196.0, 261.63, 329.63, 392.0, 523.25].forEach(function (f) {
+      [-7, 7].forEach(function (cents) {
+        var s = c.createOscillator(), sg = c.createGain(), sf = c.createBiquadFilter();
+        s.type = 'sawtooth'; s.frequency.value = f; s.detune.value = cents;
+        sf.type = 'lowpass'; sf.Q.value = 1;
+        sf.frequency.setValueAtTime(500, t); sf.frequency.exponentialRampToValueAtTime(2600, t + 0.07); sf.frequency.exponentialRampToValueAtTime(800, t + 1.6);
+        sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.05, t + 0.025);
+        sg.gain.setValueAtTime(0.05, t + 0.35); sg.gain.exponentialRampToValueAtTime(0.03, t + 0.95);
+        sg.gain.exponentialRampToValueAtTime(0.009, t + 1.45); sg.gain.exponentialRampToValueAtTime(0.0001, t + 1.95);
+        s.connect(sf); sf.connect(sg); sg.connect(master); s.start(t); s.stop(t + 2.0);
+      });
+    });
+    // 4) brilho no final do acorde
+    [1046.5, 1568].forEach(function (f, k) { tone(c, f, 0.02 + k * 0.03, 1.4, 'triangle', 0.035); });
+  }
+  /*TANN-END*/
   var SOUNDS = {
+    tann: soundTann,
     snap: function (c) { tone(c, 523, 0, .09, 'triangle', .13); tone(c, 784, .07, .15, 'triangle', .13); },
     win: function (c) { [523, 659, 784, 1047].forEach(function (f, i) { tone(c, f, i * .13, .28, 'triangle', .15); }); tone(c, 1319, .55, .5, 'sine', .12); },
     msg: function (c) { tone(c, 880, 0, .1, 'sine', .09); tone(c, 1175, .09, .16, 'sine', .09); },
@@ -1726,12 +1816,15 @@
   $('#btn-pick-go').addEventListener('click', function () {
     if (!state.pickChoice) return;
     if (state.pickMode === 'create') {
+      showGoSplash(state.pickChoice);
       doCreate(state.pickChoice, state.pickPieces);
     } else {
       requestRestart(state.pickChoice, state.pickPieces);
       showScreen('game');
     }
   });
+
+  $('#go-cancel').addEventListener('click', function () { setLoading(false); hideGoSplash(true); });
 
   $('#btn-hint').addEventListener('click', useLamp);
 
