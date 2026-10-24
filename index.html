@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#eaeeff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Quebra-Cabeça">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Quebra-Cabeça a Dois</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <script>
+    /* aplica o tema e o tamanho do texto antes de desenhar a tela (evita piscar) */
+    try {
+      var s = JSON.parse(localStorage.getItem('qc.settings') || '{}'), d = document.documentElement;
+      if (s.text) d.setAttribute('data-text', s.text);
+      var dark = s.theme === 'dark' || (s.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      d.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
+    } catch (e) { /* ignora */ }
+  </script>
+  <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ========== INÍCIO ========== -->
+    <section id="screen-home" class="screen active">
+      <!-- peças de quebra-cabeça decorativas, bem discretas, só nas laterais -->
+      <svg class="bg-deco" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <defs>
+          <path id="pz" d="M14 14H40A11 11 0 1 1 60 14H86V40A11 11 0 1 1 86 60V86H60A11 11 0 1 0 40 86H14V60A11 11 0 1 0 14 40Z"/>
+        </defs>
+        <use href="#pz" class="bgp bgp-a" transform="translate(-34 96) rotate(-18) scale(1.15)"/>
+        <use href="#pz" class="bgp bgp-b" transform="translate(318 34) rotate(20) scale(.95)"/>
+        <use href="#pz" class="bgp bgp-c" transform="translate(334 318) rotate(-12) scale(.7)"/>
+        <use href="#pz" class="bgp bgp-d" transform="translate(-26 520) rotate(16) scale(.9)"/>
+        <use href="#pz" class="bgp bgp-e" transform="translate(310 640) rotate(-22) scale(1.2)"/>
+        <use href="#pz" class="bgp bgp-f" transform="translate(10 330) rotate(30) scale(.5)"/>
+      </svg>
+
+      <div class="home-inner">
+        <div class="logo" id="logo" aria-hidden="true">
+          <span class="lg a"></span><span class="lg b"></span>
+          <span class="lg c"></span><span class="lg d"></span>
+        </div>
+        <h1>Quebra‑cabeça<br><span class="h1-two">a dois</span></h1>
+        <p class="lead">Cada um no seu celular, montando a mesma imagem ao mesmo tempo.</p>
+
+        <div class="id-card">
+          <div class="name-card">
+            <label for="input-name">Seu nome</label>
+            <input id="input-name" type="text" maxlength="12" autocomplete="nickname" autocapitalize="words"
+                   spellcheck="false" placeholder="Como você se chama?" aria-label="Seu nome">
+          </div>
+          <div class="avatar-card">
+            <span id="avatar-label" class="avatar-label">Seu avatar</span>
+            <div id="avatar-grid" class="avatar-grid" role="radiogroup" aria-labelledby="avatar-label"></div>
+          </div>
+        </div>
+        <p id="home-invite" class="invite" hidden></p>
+
+        <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
+
+        <div class="join-card">
+          <label for="input-code"><span class="key" aria-hidden="true">🔑</span> Já tem um código?</label>
+          <div class="join-row">
+            <input id="input-code" type="text" inputmode="text" autocomplete="off" autocapitalize="characters"
+                   autocorrect="off" spellcheck="false" maxlength="4" placeholder="ABCD" aria-label="Código da sala">
+            <button id="btn-join" class="btn btn-secondary" type="button">Entrar</button>
+          </div>
+          <p id="home-error" class="error" role="alert" hidden></p>
+        </div>
+
+        <div class="home-links">
+          <button id="link-help" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.3 1-1.3 1.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1.3" fill="currentColor"/></svg><span>Como jogar</span></button>
+          <button id="link-settings" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.5-1.9-3.3-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.2 2.6h-3.8l-.3 2.5A7.5 7.5 0 0 0 7.500 6.600l-2.300-.9-1.900 3.300 1.900 1.500a7.600 7.600 0 0 0 0 3l-1.900 1.500 1.900 3.300 2.300-.9c.8.6 1.700 1.100 2.600 1.500l.3 2.500h3.800l.3-2.500c.9-.4 1.800-.9 2.600-1.500l2.300.9 1.900-3.300-1.900-1.500Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Ajustes</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== ESCOLHA DA IMAGEM ========== -->
+    <section id="screen-pick" class="screen">
+      <div class="pick-inner">
+        <button id="btn-pick-back" class="btn btn-ghost" type="button">‹ Voltar</button>
+        <h2 id="pick-title">Escolha a imagem</h2>
+        <p class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+        <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis"></div>
+
+        <h3 class="pick-sub">Quantas peças?</h3>
+        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
+        <p id="size-note" class="size-note"></p>
+
+        <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
+        <p id="pick-error" class="error" role="alert" hidden></p>
+      </div>
+    </section>
+
+    <!-- ========== JOGO ========== -->
+    <section id="screen-game" class="screen">
+      <header class="hud">
+        <div class="hud-time" aria-label="Tempo de jogo"><span id="hud-time">00:00</span></div>
+        <div id="hud-progress" class="hud-progress" role="progressbar" aria-label="Peças encaixadas" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0">
+          <div class="bar"><div id="hud-bar" class="bar-fill"></div><span id="hud-count">0/12</span></div>
+        </div>
+        <div class="hud-players">
+          <button id="av-me" class="avatar" type="button" aria-label="Você"><span class="av-face">V</span><i class="av-dot" aria-hidden="true"></i></button>
+          <button id="av-friend" class="avatar off" type="button" aria-label="Amigo: aguardando"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></button>
+        </div>
+        <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Lâmpada: mostrar a imagem no tabuleiro por 4 segundos">
+          <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
+        </button>
+        <button id="btn-chat" class="icon-btn chat" type="button" aria-label="Conversa" hidden>
+          <span aria-hidden="true">💬</span><span id="chat-badge" class="badge" hidden>0</span>
+        </button>
+        <button id="btn-menu" class="icon-btn" type="button" aria-label="Menu">☰</button>
+      </header>
+
+      <div id="banner-wait" class="code-strip" hidden>
+        <span class="code-label">Código da sala</span>
+        <strong id="room-code">----</strong>
+        <span id="wait-msg" class="code-msg">aguardando o amigo…</span>
+      </div>
+      <div id="banner-conn" class="banner warn" hidden>Reconectando…</div>
+
+      <main id="stage">
+        <div id="fieldWrap">
+          <div id="field"></div>
+        </div>
+      </main>
+
+      <div id="milestone" class="milestone" hidden aria-hidden="true"></div>
+
+      <button id="chat-pop" class="chat-pop" type="button" hidden></button>
+
+      <section id="chat-panel" class="chat-panel" hidden aria-label="Conversa">
+        <header class="chat-head">
+          <strong>Conversa</strong>
+          <button id="chat-close" class="chat-x" type="button" aria-label="Fechar conversa">✕</button>
+        </header>
+        <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
+        <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
+          <button type="button" data-t="👍">👍</button>
+          <button type="button" data-t="😂">😂</button>
+          <button type="button" data-t="👏">👏</button>
+          <button type="button" data-t="😮">😮</button>
+          <button type="button" data-t="🤔">🤔</button>
+          <button type="button" data-t="❤️">❤️</button>
+          <button type="button" data-t="🎉">🎉</button>
+        </div>
+        <div class="chat-input-row">
+          <input id="chat-input" type="text" maxlength="200" placeholder="Escreva uma mensagem" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" aria-label="Mensagem">
+          <button id="chat-send" class="btn btn-primary" type="button">Enviar</button>
+        </div>
+      </section>
+
+    </section>
+
+    <!-- ========== MENU ========== -->
+    <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
+      <div class="sheet">
+        <h3 id="menu-title">Menu</h3>
+        <button id="menu-help" class="btn btn-secondary btn-block" type="button">Como jogar</button>
+        <button id="menu-settings" class="btn btn-secondary btn-block" type="button"><span aria-hidden="true">⚙</span> Ajustes</button>
+        <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
+        <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
+        <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
+        <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
+        <button id="menu-close" class="btn btn-primary btn-block" type="button">Continuar jogando</button>
+      </div>
+    </div>
+
+    <!-- ========== COMO JOGAR (tutorial animado) ========== -->
+    <div id="modal-help" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="tut-title">
+      <div class="sheet tut-sheet">
+        <h3 id="tut-title">Como jogar</h3>
+
+        <div class="tut-stage" aria-hidden="true">
+          <!-- 1: arrastar -->
+          <div class="tut-scene" data-scene="0">
+            <div class="tb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="tp t-drag"><span class="tri"></span></div>
+            <div class="tf f-drag">👆</div>
+          </div>
+          <!-- 2: girar tocando -->
+          <div class="tut-scene" data-scene="1">
+            <div class="tp t-rot"><span class="pi"><span class="tri"></span></span><b class="tl l1">↻ 3</b><b class="tl l2">↻ 2</b></div>
+            <div class="tf f-tap">👆</div>
+          </div>
+          <!-- 3: pinça -->
+          <div class="tut-scene" data-scene="2">
+            <div class="tp t-zoom"><span class="tri"></span></div>
+            <i class="tdot d1"></i><i class="tdot d2"></i>
+          </div>
+          <!-- 4: ajudas -->
+          <div class="tut-scene" data-scene="3">
+            <div class="tut-icons">
+              <span><b>💡</b><small>Imagem</small></span>
+              <span><b>📍</b><small>Lugar</small></span>
+              <span><b>💬</b><small>Conversa</small></span>
+              <span><b>🔔</b><small>Avisos</small></span>
+            </div>
+          </div>
+        </div>
+
+        <h4 id="tut-head" class="tut-head">Arrastar</h4>
+        <p id="tut-text" class="tut-text">Segure a peça com o dedo e arraste até o lugar dela no tabuleiro.</p>
+        <div id="tut-dots" class="tut-dots" aria-label="Passos do tutorial">
+          <button type="button" data-i="0" aria-label="Passo 1: arrastar"></button>
+          <button type="button" data-i="1" aria-label="Passo 2: girar"></button>
+          <button type="button" data-i="2" aria-label="Passo 3: zoom"></button>
+          <button type="button" data-i="3" aria-label="Passo 4: ajudas"></button>
+        </div>
+        <button id="tut-push" class="btn btn-secondary btn-block" type="button" hidden>🔔 Ativar avisos com o app fechado</button>
+        <div class="tut-actions">
+          <button id="tut-skip" class="btn btn-ghost" type="button">Pular</button>
+          <button id="tut-prev" class="btn btn-secondary" type="button" aria-label="Passo anterior">‹</button>
+          <button id="tut-next" class="btn btn-primary" type="button">Próximo</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== AJUSTES ========== -->
+    <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
+      <div class="sheet set-sheet">
+        <h3 id="set-title">Ajustes</h3>
+
+        <div class="set-row">
+          <span id="lbl-text" class="set-label">Tamanho do texto</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-text" data-setting="text">
+            <button type="button" role="radio" data-v="normal" aria-checked="true">A</button>
+            <button type="button" role="radio" data-v="large" aria-checked="false">A+</button>
+            <button type="button" role="radio" data-v="xlarge" aria-checked="false">A++</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-theme" class="set-label">Aparência</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-theme" data-setting="theme">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automática</button>
+            <button type="button" role="radio" data-v="light" aria-checked="false">Clara</button>
+            <button type="button" role="radio" data-v="dark" aria-checked="false">Escura</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-motion" class="set-label">Movimento</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lbl-motion" data-setting="motion">
+            <button type="button" role="radio" data-v="auto" aria-checked="true">Automático</button>
+            <button type="button" role="radio" data-v="reduce" aria-checked="false">Reduzido</button>
+          </div>
+        </div>
+        <div class="set-row">
+          <span id="lbl-sound" class="set-label">Sons</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-vib" class="set-label">Vibração</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-vib" aria-checked="true" data-setting="vibrate"><i></i></button>
+        </div>
+        <div class="set-row">
+          <span id="lbl-push" class="set-label">🔔 Avisos com o app fechado</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
+        </div>
+        <p id="push-note" class="set-note"></p>
+        <button id="set-close" class="btn btn-primary btn-block" type="button">Pronto</button>
+      </div>
+    </div>
+
+    <!-- ========== VITÓRIA ========== -->
+    <div id="modal-win" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
+      <div id="confetti" aria-hidden="true"></div>
+      <div class="sheet win">
+        <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
+        <h3 id="win-title">Vocês conseguiram! 🎉</h3>
+        <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
+        <p id="win-best" class="win-best" hidden></p>
+        <div class="win-split">
+          <span class="win-p me"><span id="win-me-av" class="avatar sm"><span class="av-face">V</span></span><span id="win-me-name" class="win-name">Você</span><b id="win-me">0</b> peças</span>
+          <span class="win-p friend"><span id="win-friend-av" class="avatar sm"><span class="av-face">A</span></span><span id="win-friend-name" class="win-name">Amigo</span><b id="win-friend">0</b> peças</span>
+        </div>
+        <div class="win-share">
+          <button id="win-save" class="btn btn-secondary" type="button">⬇ Salvar imagem</button>
+          <button id="win-share" class="btn btn-secondary" type="button">↗ Compartilhar</button>
+        </div>
+        <button id="win-again" class="btn btn-primary btn-block" type="button">Jogar de novo</button>
+        <button id="win-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
+      </div>
+    </div>
+
+    <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
+    <div id="modal-rematch" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="rm-title">
+      <div class="sheet">
+        <div class="rm-emoji" aria-hidden="true">🧩</div>
+        <h3 id="rm-title">Ana quer recomeçar</h3>
+        <p id="rm-text" class="rm-text"></p>
+        <div class="rm-bar" aria-hidden="true"><i id="rm-bar"></i></div>
+        <button id="rm-accept" class="btn btn-primary btn-block" type="button">Aceitar</button>
+        <button id="rm-decline" class="btn btn-secondary btn-block" type="button">Agora não</button>
+      </div>
+    </div>
+    <div id="rematch-wait" class="rematch-wait" hidden role="status">
+      <span id="rw-text">Esperando o amigo aceitar…</span>
+      <button id="rw-cancel" class="rw-btn" type="button">Cancelar</button>
+    </div>
+
+    <!-- ========== CARREGANDO / AVISOS ========== -->
+    <div id="loading" class="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="loading-text">Preparando as peças…</p>
+    </div>
+    <!-- abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!" -->
+    <div id="go-splash" class="go-splash" hidden aria-hidden="true">
+      <div class="go-rays"></div>
+      <div class="go-stage">
+        <div class="go-card"><span id="go-img" class="go-img"></span></div>
+        <p class="go-text">VAMOS LÁ!</p>
+        <p id="go-sub" class="go-sub"></p>
+        <button id="go-cancel" class="btn btn-secondary go-cancel" type="button" hidden>Cancelar</button>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
