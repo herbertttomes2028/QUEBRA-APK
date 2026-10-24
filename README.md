@@ -5,6 +5,8 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 - Feito para **celular** (toque, tela em pé), mas funciona também no computador.
 - **Tabuleiro grande**: ele ocupa quase toda a largura da tela, e não há barras ocupando espaço embaixo. Só o topo tem um cabeçalho pequeno.
 - **Gestos simples nas peças:** arrastar, tocar para girar e pinça para dar zoom.
+- **Tutorial animado** na primeira vez, **avatares**, **modo escuro**, **texto maior**, **sons** e **marcos de progresso** (25%, 50% e 75%).
+- **Dica de lugar 📍**, **recomeçar só com a confirmação do amigo** e **avisos com o aplicativo fechado** (opcionais).
 - **Conversa entre os dois jogadores:** um botão 💬 no topo abre um painel por cima do jogo (sem tirar espaço do tabuleiro), com mensagens de texto e reações rápidas.
 - Não precisa instalar nada no seu computador: tudo é feito pelos sites do **GitHub** e do **Render**.
 - Cada jogador digita o **próprio nome**; a pessoa que cria escolhe a **imagem** e a **quantidade de peças**.
@@ -14,7 +16,7 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 
 ## Como o jogo funciona
 
-1. Quem cria a partida digita o **nome**, toca em **Criar partida**, escolhe a **imagem** e a **quantidade de peças** (6, 12, 20, 30 ou 48) e o jogo gera a sala com um código de 4 caracteres (ex.: `K7MQ`).
+1. Quem cria a partida digita o **nome** (e, se quiser, escolhe um **avatar**), toca em **Criar partida**, escolhe a **imagem** e a **quantidade de peças** (6, 12, 20, 30 ou 48) e o jogo gera a sala com um código de 4 caracteres (ex.: `K7MQ`).
 2. Enquanto o amigo não entra, aparece no topo uma **faixa fina só com o código da sala**. Passe esse código ao amigo (por WhatsApp, ligação, o que preferir). Quando o amigo entra, a faixa some e o tabuleiro ganha mais espaço.
 3. O amigo abre o jogo, **digita o nome dele e o código** em *Entrar com código* e toca em **Entrar**. O nome de cada um aparece no topo e nas peças que a pessoa estiver segurando.
 4. As peças começam **embaralhadas e giradas** na bandeja, embaixo do tabuleiro. Na bandeja elas ficam **pequenas** (para sobrar espaço para o tabuleiro) e **crescem até o tamanho cheio quando você as arrasta**.
@@ -25,10 +27,13 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 9. O **triângulo ▲** desenhado em cada peça mostra qual lado é o "de cima". Ajuda muito nas peças brancas ou de uma cor só: a peça está na posição certa quando o ▲ aponta para cima.
 10. **Exclusividade:** enquanto uma pessoa segura uma peça (contorno colorido e etiqueta com o nome dela), a outra **não consegue** pegá-la, movê-la nem girá-la.
 11. **💡 Lâmpada:** fica no topo, ao lado do menu, e é só o ícone. Ao apertar, a **imagem completa aparece esmaecida no tabuleiro, atrás das peças, por 4 segundos** e depois some sozinha. Cada jogador pode usar **10 vezes por partida** (o número pequeno no botão mostra quantas restam). Apertar de novo enquanto a imagem está visível não gasta outra dica, e só quem apertou vê a imagem. Recarregar a página não renova as dicas.
-12. **💬 Conversa:** toque no balão 💬 no topo para abrir o painel. Escreva e toque em **Enviar** (ou use o Enter), ou toque numa reação rápida (👍 😂 👏 😮 🤔 ❤️ 🎉). Com o painel fechado, quando o amigo escrever aparece um **aviso no topo** com a mensagem e um **contador** no botão 💬. Toque no aviso para abrir. Quem entra depois, ou volta à sala, vê as últimas mensagens.
-13. Quando todas as peças encaixam, aparece a tela de vitória com o **tempo** e quantas peças cada um (pelo nome) encaixou.
+12. **📍 Dica de lugar:** com uma peça **escolhida**, o mesmo botão vira **📍**. Ao apertar, a **casa certa da peça pisca no tabuleiro por cerca de 4 segundos**. É só um destaque: a peça não se mexe sozinha. São **5 usos por jogador** por partida (o número no botão mostra quantos restam), e só quem apertou vê o destaque. Se a peça já estiver no lugar, o jogo avisa e não gasta o uso.
+13. **💬 Conversa:** toque no balão 💬 no topo para abrir o painel. Escreva e toque em **Enviar** (ou use o Enter), ou toque numa reação rápida (👍 😂 👏 😮 🤔 ❤️ 🎉). Com o painel fechado, quando o amigo escrever aparece um **aviso no topo** com a mensagem e um **contador** no botão 💬. Toque no aviso para abrir. Quem entra depois, ou volta à sala, vê as últimas mensagens.
+14. **Marcos e sons:** ao chegar a **25%, 50% e 75%** das peças encaixadas aparece uma mensagem curta ("Um quarto!", "Metade!", "Falta pouco!"). Há sons curtos ao encaixar, ao vencer, ao chegar mensagem e ao chegar um pedido de recomeçar. Eles são gerados pelo próprio navegador, e o **botão de silêncio** fica no Menu (☰) e em Ajustes.
+15. **Vitória:** aparece a **imagem completa** (sem nenhuma linha de grade), o **tempo**, quantas peças cada um encaixou (com avatar e nome) e o seu **melhor tempo** para aquela imagem e quantidade de peças (aparece "🏆 Novo recorde!" quando você bate o seu melhor). Os botões **⬇ Salvar imagem** e **↗ Compartilhar** geram uma figura com a imagem pronta e uma faixa com os nomes, a quantidade de peças e o tempo. Se o aparelho não permitir compartilhar direto, a imagem é salva para você enviar.
+16. **Recomeçar com a confirmação do amigo:** "Jogar de novo", "Recomeçar esta imagem" e "Trocar imagem ou peças" **pedem o aceite do outro jogador**. Ele vê "Fulano quer recomeçar" (com a imagem e a quantidade de peças) e pode **Aceitar** ou dizer **Agora não**, e tem **30 segundos** para responder. Quem pediu vê "Esperando…" e pode **Cancelar**. Se o amigo não estiver na sala, recomeça na hora. Assim ninguém perde a partida sem querer.
 
-O menu (☰) tem **Como jogar** (um resumo dos gestos), **trocar a imagem ou a quantidade de peças**, recomeçar e sair. Ao trocar ou recomeçar, as dicas voltam a 10 para cada um.
+O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de silêncio**, trocar a imagem ou a quantidade de peças, recomeçar e sair. Ao começar uma partida nova, as dicas voltam a 10 (💡) e 5 (📍) para cada um.
 
 ---
 
@@ -44,6 +49,44 @@ O menu (☰) tem **Como jogar** (um resumo dos gestos), **trocar a imagem ou a q
   1. No Render, abra o serviço e vá em **Environment**.
   2. Clique em **Add Environment Variable**, use o nome `CHAT_ENABLED` e o valor `false`, e salve.
   3. O Render publica de novo e o botão 💬 deixa de aparecer. Para ligar de novo, apague a variável ou troque o valor por `true`.
+
+---
+
+## Tutorial, avatares e o que o jogo guarda no seu aparelho
+
+- **Tutorial:** abre sozinho na **primeira partida de cada aparelho**, com 4 passos animados: **arrastar**, **girar tocando de novo na peça**, **pinça (zoom)** e as **ajudas** (💡, 📍, 💬, 🔔). Avança sozinho a cada 5 segundos, ou use *Próximo*, ‹ e as bolinhas. Para rever: **Menu (☰) > Como jogar** ou o link **Como jogar** na tela inicial. Se o celular estiver com "reduzir movimento", as cenas ficam paradas.
+- **Avatar:** na tela inicial escolha a **inicial do seu nome** ou um dos **14 emojis**. No cabeçalho aparece um círculo na cor do jogador (azul ou rosa) com a inicial ou o emoji, e o círculo do jogador 2 tem um contorno tracejado, para o jogo não depender só da cor. Tocar no círculo mostra o nome. O avatar também aparece nas etiquetas das peças, no chat e na vitória.
+- **O que fica guardado só neste aparelho** (não vai para o servidor, exceto o nome e o avatar que você usa na sala): seu **nome**, seu **avatar**, os **Ajustes**, os **melhores tempos** e se você **já viu o tutorial**. Para apagar, limpe os dados do site/aplicativo nas configurações do celular.
+- **Entrar direto:** como o nome fica guardado, abrir o endereço da sala (por exemplo, tocando em um aviso) leva **direto para o jogo**, sem pedir o nome de novo.
+
+---
+
+## Ajustes e acessibilidade
+
+Abra em **Menu (☰) > Ajustes** (ou **⚙ Ajustes** na tela inicial):
+
+- **Tamanho do texto:** A, A+ ou A++ (as janelas rolam se o texto grande não couber).
+- **Aparência:** *Automática* (segue o celular), *Clara* ou *Escura*. A escolha vale antes mesmo de a tela aparecer, sem piscar branco.
+- **Movimento:** *Automático* (segue a opção "reduzir movimento" do celular) ou *Reduzido* (sem animações longas, sem confete; o tutorial fica parado).
+- **Sons** e **Vibração:** liga e desliga.
+- **🔔 Avisos com o app fechado:** veja a seção abaixo.
+
+Para leitores de tela: as peças, o progresso, as janelas e os avisos importantes (peça encaixada, amigo entrou, mensagem nova, pedido para recomeçar, marcos e vitória) têm descrições e anúncios. O foco do teclado vai para o botão certo ao abrir uma janela e volta ao botão de origem ao fechar, e a tecla **Esc** fecha Menu, Ajustes e tutorial. As cores dos textos foram conferidas para ter contraste de pelo menos 4,5:1 nos dois temas.
+
+---
+
+## Avisos com o aplicativo fechado (opcional)
+
+Com os avisos ligados, o aparelho mostra uma notificação quando **o amigo entra na sala** que você criou ou **escreve uma mensagem** e o jogo **não está aberto**.
+
+- **Como ligar:** *Menu > Ajustes > 🔔 Avisos com o app fechado*, ou o botão **🔔 Ativar avisos** no último passo do tutorial. O celular pede permissão para mostrar notificações.
+- **Só funciona dentro da sala:** o servidor guarda o "endereço" do aviso do seu aparelho **na memória da sala**, junto com os dois jogadores. Quando a sala acaba, ou o Render reinicia o serviço, esse endereço some, e o jogo o registra de novo na próxima vez que você entrar numa sala.
+- **O que chega:** "*Fulano* entrou na sala. Bora jogar?" e a mensagem do amigo (até 90 letras, no máximo uma a cada 8 segundos). Tocar no aviso abre o jogo na sala certa (ou só traz o jogo para a frente, se ele já estiver aberto).
+- **Privacidade:** o texto do aviso viaja criptografado pelo serviço de notificações do navegador (no Android, o do Google), que não consegue lê-lo. O servidor do jogo só envia para serviços de notificação conhecidos.
+- **No aplicativo (APK):** a permissão de notificações precisa estar liberada para o aplicativo (e as notificações ligadas quando o APK foi gerado no PWABuilder). Se o pedido de permissão não aparecer no aplicativo, libere em *Configurações do celular > Aplicativos > Quebra-Cabeça > Notificações*, ou ative no Chrome.
+- **No iPhone:** só funciona depois de adicionar o jogo à tela de início (Safari > Compartilhar > Adicionar à Tela de Início), e em versões recentes do iOS.
+- **Desligar para todos:** no Render, em **Environment**, crie `PUSH_ENABLED` com o valor `false`.
+- **Chaves fixas (opcional):** por padrão o servidor cria as chaves de aviso quando liga. Isso funciona bem, porque as inscrições valem só enquanto a sala existe. Se quiser fixá-las, crie no Render `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` (pode gerá-las com a biblioteca `web-push`). Use `VAPID_SUBJECT` para colocar um e-mail de contato (`mailto:voce@exemplo.com`).
 
 ---
 
@@ -155,7 +198,7 @@ Confira: no repositório você deve ver `server.js`, `package.json` e a pasta `p
 Se você já publicou uma versão anterior, não precisa refazer nada no Render:
 
 1. No GitHub, abra o repositório → **Add file → Upload files**.
-2. Arraste os arquivos novos **com o mesmo nome** (`server.js`, `README.md` e, dentro de `public`: `index.html`, `style.css` e `game.js`; só se for a primeira vez com o aplicativo, também `manifest.webmanifest`, `sw.js`, `assetlinks.json` e a pasta `icons`). **Não substitua o seu `public/assetlinks.json` se ele já tem o conteúdo do APK.** Eles substituem os antigos. Para a pasta `public`, arraste o conteúdo mantendo a estrutura (ou entre na pasta `public` do repositório antes de enviar os três arquivos de dentro dela).
+2. Arraste os arquivos novos **com o mesmo nome**: na raiz, `server.js`, `package.json`, `package-lock.json` e `README.md`; e, dentro de `public`, `index.html`, `style.css`, `game.js` e `sw.js` (só se for a primeira vez com o aplicativo, também `manifest.webmanifest`, `assetlinks.json` e a pasta `icons`). **Envie também o `package.json` e o `package-lock.json`**: eles incluem a biblioteca dos avisos (`web-push`), que o Render instala sozinho. **Não substitua o seu `public/assetlinks.json` se ele já tem o conteúdo do APK.** Eles substituem os antigos. Para a pasta `public`, arraste o conteúdo mantendo a estrutura (ou entre na pasta `public` do repositório antes de enviar os três arquivos de dentro dela).
 3. Entre em `public/imagens`, **apague** as imagens antigas (`imagem1.jpg` a `imagem4.jpg`: abra cada arquivo, ícone de lixeira → *Commit changes*) e envie as novas.
 4. Clique em **Commit changes**. O Render percebe a mudança e publica sozinho em 1 a 3 minutos (status *Deploying* → *Live*).
 5. Recarregue o jogo no celular. Se ainda aparecer a versão antiga, feche a aba e abra de novo.
@@ -185,6 +228,11 @@ Depois de publicado no Render:
 6. Arraste uma peça da bandeja: ela deve crescer enquanto você a move e voltar a ficar pequena se você a soltar de volta na bandeja.
 7. Toque numa peça (ela fica escolhida, com a etiqueta **↻ 3**) e toque de novo: ela deve girar e a etiqueta mudar para **↻ 2**.
 8. No celular, com a peça escolhida, faça a pinça com dois dedos: a peça deve ampliar e continuar inteira na tela. No computador, use a roda do mouse.
+9. Com uma peça escolhida, o botão da lâmpada vira **📍**: aperte e veja a casa certa piscar no tabuleiro.
+10. Encaixe 25%, 50% e 75% das peças e veja as mensagens de marco. Abra o Menu (☰) e confira o botão de silêncio dos sons.
+11. Peça para **recomeçar** numa aba: a outra deve mostrar o pedido para aceitar ou recusar (e vencer em 30 segundos).
+12. Termine uma partida: confira a imagem completa, o recorde, **Salvar imagem** e **Compartilhar**.
+13. Em **Ajustes**, teste o texto A++ e a aparência escura nas telas principais.
 
 ### No celular
 
@@ -270,6 +318,10 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **O aplicativo (APK) mostra uma barra com o endereço no topo:** o Android não conseguiu verificar o aplicativo. Abra `SEU-LINK/diagnostico`: se `encontrado_em` disser "nenhuma", ou se o pacote ou a impressão digital forem diferentes dos do seu `signing-key-info.txt`/APK, corrija o `assetlinks.json` (ou a variável `ASSETLINKS_JSON`). Se estiver certo, abra o jogo no navegador para o servidor acordar, feche o aplicativo e abra de novo; se persistir, desinstale e instale de novo. Se você gerou um APK novo no PWABuilder, a chave mudou: atualize o `assetlinks.json` e desinstale o APK antigo antes de instalar o novo.
 - **O botão 💬 não aparece:** os arquivos novos ainda não foram publicados (confira `SEU-LINK/api/config`: deve conter `"chat":true`), o Render ainda não terminou o deploy, ou a variável `CHAT_ENABLED` está como `false`. Feche e abra o aplicativo depois.
 - **Mensagem recusada ("Calma!"):** é o limite de velocidade; espere um instante.
+- **O tutorial abre toda vez:** ele só é lembrado enquanto os dados do site/aplicativo não forem apagados no celular. Toque em **Entendi** no último passo (ou **Pular**) para marcá-lo como visto.
+- **Os avisos não chegam:** confira (1) *Ajustes > 🔔* está ligado, (2) a permissão de notificações do celular/aplicativo está liberada, (3) o jogo está **fechado** (com o jogo aberto na tela, o aviso não aparece), (4) vocês estão **na mesma sala** (o aviso só vale enquanto a sala existe) e (5) `PUSH_ENABLED` não está como `false` no Render.
+- **O pedido para recomeçar não aparece para o amigo:** ele pode ter saído da sala (aí recomeça na hora) ou o pedido venceu em 30 segundos. Peça de novo.
+- **O botão 📍 não aparece:** ele só substitui a lâmpada com uma **peça escolhida** (um toque na peça). Sem peça escolhida, é a lâmpada 💡.
 - **Sumiu a faixa com o código:** ela só aparece enquanto o amigo não está na sala (ou se ele sair). O código também é sempre o que está no endereço, depois de `?sala=`.
 - **"Não encontramos essa sala":** confira o código (4 caracteres, letras e números). A sala também some se o Render reiniciar o serviço; é só criar outra.
 - **"Essa sala já tem duas pessoas":** a sala comporta exatamente duas pessoas. Se alguém caiu, ao voltar pelo mesmo link ela retoma o lugar (e as dicas já usadas continuam usadas).
@@ -294,6 +346,10 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - [ ] Testei arrastar, girar tocando de novo na peça escolhida (máx. 3 giros), a pinça (zoom), encaixar e a tela de vitória com os nomes.
 - [ ] Testei a lâmpada 💡: a imagem aparece atrás das peças, some sozinha depois de 4 segundos e cada jogador tem 10 usos.
 - [ ] Testei a conversa 💬 nos dois aparelhos: enviar, receber, o aviso com a conversa fechada, uma reação rápida e o teclado do celular (o painel deve subir junto com ele).
+- [ ] Vi o tutorial animado na primeira partida e escolhi nome e avatar; testei o modo escuro e o texto A++ nas telas principais.
+- [ ] Testei a dica de lugar 📍, os marcos (25/50/75%), os sons e o botão de silêncio.
+- [ ] Testei recomeçar com a confirmação do amigo (aceitar, recusar e deixar vencer) e a vitória (recorde, salvar e compartilhar).
+- [ ] (Opcional) Liguei os avisos com o app fechado, fechei o jogo e pedi ao amigo para escrever uma mensagem.
 - [ ] Conferi que o tabuleiro está grande o bastante na tela do celular e que as peças da bandeja são fáceis de pegar com o dedo.
 - [ ] Testei a exclusividade (a segunda pessoa não consegue pegar a peça que a primeira segura).
 - [ ] (Opcional, aplicativo) `SEU-LINK/manifest.webmanifest` abre, e a opção **Instalar app** aparece no Chrome do Android.

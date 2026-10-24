@@ -23,6 +23,50 @@ const BOARD_Y = 30;     // margem de cima do tabuleiro
 const MAX_ROT = 3;      // giros permitidos por peça antes de "passar a vez"
 const HINTS = 10;       // vezes que cada jogador pode ver a imagem esmaecida no tabuleiro
 const MAX_NAME = 12;
+const SPOTS = 5;            // vezes que cada jogador pode pedir "onde esta peça encaixa" (📍) por partida
+const REMATCH_MS = Number(process.env.REMATCH_MS) || 30000;   // tempo que o amigo tem para aceitar um pedido de recomeçar
+
+// Avatares permitidos (o servidor só aceita estes; qualquer outra coisa vira "sem avatar" e o jogo usa a inicial do nome)
+const AVATARS = ['🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🐵', '🦄', '🐙', '🦋', '⭐', '🚀', '🌈', '🍀'];
+
+// Avisos com o aplicativo fechado (Web Push). As chaves são geradas na hora em que o servidor liga;
+// para fixá-las, crie no Render as variáveis VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY. Para desligar: PUSH_ENABLED=false.
+// Sem a biblioteca "web-push" instalada, o jogo funciona normalmente, só sem os avisos.
+let webpush = null;
+let PUSH_PUBLIC = null;
+if (String(process.env.PUSH_ENABLED || '').toLowerCase() !== 'false') {
+  try {
+    webpush = require('web-push');
+    let pub = process.env.VAPID_PUBLIC_KEY;
+    let priv = process.env.VAPID_PRIVATE_KEY;
+    if (!pub || !priv) {
+      const k = webpush.generateVAPIDKeys();
+      pub = k.publicKey;
+      priv = k.privateKey;
+    }
+    const subject = process.env.VAPID_SUBJECT || process.env.RENDER_EXTERNAL_URL || 'mailto:contato@example.com';
+    webpush.setVapidDetails(subject, pub, priv);
+    PUSH_PUBLIC = pub;
+  } catch (e) {
+    webpush = null;
+    PUSH_PUBLIC = null;
+    console.warn('Avisos com o app fechado desligados: ' + e.message);
+  }
+}
+// o servidor só envia avisos para estes serviços de notificação dos navegadores (evita que alguém use o jogo para
+// fazer o servidor acessar endereços quaisquer)
+const PUSH_HOSTS = /(^|\.)(googleapis\.com|push\.services\.mozilla\.com|push\.apple\.com|notify\.windows\.com|push\.samsungosp\.com)$/i;
+function validPushSub(sub) {
+  if (!sub || typeof sub.endpoint !== 'string' || sub.endpoint.length > 1000 || !sub.keys) return false;
+  if (typeof sub.keys.p256dh !== 'string' || typeof sub.keys.auth !== 'string') return false;
+  if (sub.keys.p256dh.length > 200 || sub.keys.auth.length > 100) return false;
+  try {
+    const u = new URL(sub.endpoint);
+    return u.protocol === 'https:' && PUSH_HOSTS.test(u.hostname);
+  } catch (e) {
+    return false;
+  }
+}
 
 // Conversa entre os dois jogadores. Para desligar (ex.: uso com crianças), crie no Render a variável
 // de ambiente CHAT_ENABLED com o valor false. As mensagens ficam só na memória da sala (últimas 50) e
@@ -93,7 +137,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, maxName: MAX_NAME, chat: CHAT_ENABLED });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -188,6 +232,10 @@ function cleanChat(t) {
     .replace(/\s+/g, ' ')
     .trim();
   return Array.from(clean).slice(0, CHAT_MAX_LEN).join('');   // conta letras/emojis inteiros
+}
+
+function cleanAvatar(a) {
+  return AVATARS.includes(a) ? a : '';
 }
 
 function cleanName(n) {
@@ -292,6 +340,8 @@ function createRoom(code, imageId, pieces) {
     imageId,
     cfg,
     hints: [HINTS, HINTS],
+    spots: [SPOTS, SPOTS],
+    rematch: null,
     chat: [],
     chatSeq: 0,
     status: 'waiting', // waiting | playing | won
@@ -326,7 +376,7 @@ function lockedTotal(room) {
 }
 
 function playersInfo(room) {
-  return room.players.map((p, idx) => ({ idx, joined: !!p, connected: !!(p && p.connected), name: p ? p.name : '' }));
+  return room.players.map((p, idx) => ({ idx, joined: !!p, connected: !!(p && p.connected), name: p ? p.name : '', avatar: p ? p.avatar || '' : '' }));
 }
 
 function meta(room) {
@@ -337,7 +387,8 @@ function meta(room) {
     counts: counts(room),
     locked: lockedTotal(room),
     total: room.pieces.length,
-    hints: room.hints
+    hints: room.hints,
+    spots: room.spots
   };
 }
 
@@ -432,6 +483,10 @@ function pieceFrom(room, id) {
   return room.pieces[id];
 }
 
+function room_player(c) {
+  return c.room.players[c.idx];
+}
+
 function reply(cb, data) {
   if (typeof cb === 'function') cb(data);
 }
@@ -441,7 +496,7 @@ function cleanPid(pid) {
 }
 
 // coloca o socket dentro da sala (novo jogador, reconexão ou vaga de quem saiu)
-function attach(room, socket, pid, name) {
+function attach(room, socket, pid, name, avatar) {
   let idx = room.players.findIndex((p) => p && p.pid === pid);
   if (idx === -1) {
     idx = room.players.findIndex((p) => !p);
@@ -457,14 +512,73 @@ function attach(room, socket, pid, name) {
       oldSocket.leave(room.code);
     }
   }
-  const prevName = old && old.pid === pid ? old.name : '';
-  room.players[idx] = { pid, socketId: socket.id, connected: true, name: cleanName(name) || prevName || 'Jogador ' + (idx + 1) };
+  const same = !!(old && old.pid === pid);
+  const prevName = same ? old.name : '';
+  const prevAvatar = same ? old.avatar : '';
+  room.players[idx] = {
+    pid,
+    socketId: socket.id,
+    connected: true,
+    name: cleanName(name) || prevName || 'Jogador ' + (idx + 1),
+    avatar: cleanAvatar(avatar) || prevAvatar || '',
+    push: same ? old.push || null : null,
+    lastPush: 0
+  };
   socket.data.code = room.code;
   socket.data.idx = idx;
   socket.join(room.code);
   room.lastActive = Date.now();
   startIfReady(room);
-  return { idx };
+  return { idx, isNew: !same };
+}
+
+function emitToPlayer(room, idx, ev, data) {
+  const p = room.players[idx];
+  if (p && p.connected && p.socketId) io.to(p.socketId).emit(ev, data);
+}
+
+function clearRematch(room) {
+  if (room.rematch) {
+    clearTimeout(room.rematch.timer);
+    room.rematch = null;
+  }
+}
+
+function expireRematch(room) {
+  if (!room.rematch) return;
+  room.rematch = null;
+  io.to(room.code).emit('rematch', { state: 'expired' });
+}
+
+// recomeça a partida (mesma sala e mesmos jogadores; a conversa continua)
+function performRestart(room, params) {
+  clearRematch(room);
+  room.imageId = params.imageId;
+  room.cfg = layoutFor(params.pieces);
+  room.pieces = buildPieces(room.cfg);
+  room.hints = [HINTS, HINTS];
+  room.spots = [SPOTS, SPOTS];
+  room.z = 100;
+  room.finishedAt = null;
+  room.roundStart = Date.now();
+  room.startedAt = null;
+  room.status = 'waiting';
+  startIfReady(room);
+  io.to(room.code).emit('state', snapshot(room));
+}
+
+// aviso para quem está com o aplicativo fechado (só se a pessoa ativou os avisos)
+function sendPush(room, idx, payload) {
+  const pl = room.players[idx];
+  if (!webpush || !pl || !pl.push || pl.connected) return;
+  const now = Date.now();
+  if (payload.tag === 'chat' && now - (pl.lastPush || 0) < 8000) return;   // não enche o celular de avisos
+  pl.lastPush = now;
+  webpush
+    .sendNotification(pl.push, JSON.stringify(payload), { TTL: 600, urgency: 'high' })
+    .catch((err) => {
+      if (err && (err.statusCode === 404 || err.statusCode === 410)) pl.push = null;   // aviso desfeito no aparelho
+    });
 }
 
 function leaveCurrent(socket) {
@@ -480,6 +594,10 @@ function leaveCurrent(socket) {
     pl.connected = false;
     pl.socketId = null;
     releaseHeldBy(room, idx, -1);
+    if (room.rematch) {                       // quem sai cancela o pedido de recomeçar
+      clearRematch(room);
+      emitToPlayer(room, 1 - idx, 'rematch', { state: 'expired' });
+    }
     room.lastActive = Date.now();
     broadcastMeta(room);
   }
@@ -501,7 +619,7 @@ io.on('connection', (socket) => {
     leaveCurrent(socket);
     const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES));
     rooms.set(code, room);
-    const res = attach(room, socket, pid, data.name);
+    const res = attach(room, socket, pid, data.name, data.avatar);
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
     broadcastMeta(room);
   });
@@ -515,10 +633,13 @@ io.on('connection', (socket) => {
     if (!room) return reply(cb, { ok: false, error: 'notfound' });
 
     if (socket.data.code && socket.data.code !== code) leaveCurrent(socket);
-    const res = attach(room, socket, pid, data.name);
+    const res = attach(room, socket, pid, data.name, data.avatar);
     if (res.error) return reply(cb, { ok: false, error: res.error });
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
     broadcastMeta(room);
+    if (res.isNew) {                          // avisa quem criou a sala (se estiver com o app fechado)
+      sendPush(room, 1 - res.idx, { title: 'Quebra-Cabeça a Dois', body: room.players[res.idx].name + ' entrou na sala. Bora jogar?', tag: 'join', url: '/?sala=' + room.code });
+    }
   });
 
   socket.on('grab', (data) => {
@@ -583,27 +704,62 @@ io.on('connection', (socket) => {
     io.to(room.code).emit('released', { id: p.id, by: idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
   });
 
+  // Recomeçar / trocar imagem ou peças: se o amigo está na sala, ele precisa aceitar (30 s).
+  // Sozinho na sala, recomeça na hora.
   socket.on('restart', (data, cb) => {
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false });
-    const { room } = c;
-    const imageId = validImage(data && data.imageId) || room.imageId;
-    room.imageId = imageId;
-    room.cfg = layoutFor(validPieces(data && data.pieces, room.cfg.PIECES));
-    room.pieces = buildPieces(room.cfg);
-    room.hints = [HINTS, HINTS];
-    room.z = 100;
-    room.finishedAt = null;
-    room.roundStart = Date.now();
-    room.startedAt = null;
-    room.status = 'waiting';
-    startIfReady(room);
-    io.to(room.code).emit('state', snapshot(room));
+    const { room, idx } = c;
+    const other = 1 - idx;
+    const op = room.players[other];
+    const params = {
+      imageId: validImage(data && data.imageId) || room.imageId,
+      pieces: validPieces(data && data.pieces, room.cfg.PIECES)
+    };
+    if (!op || !op.connected) {
+      performRestart(room, params);
+      return reply(cb, { ok: true, immediate: true });
+    }
+    if (room.rematch && room.rematch.by !== idx) return reply(cb, { ok: false, error: 'pending' });
+    clearRematch(room);
+    room.rematch = { by: idx, params, timer: setTimeout(() => expireRematch(room), REMATCH_MS) };
+    emitToPlayer(room, other, 'rematch', {
+      state: 'request',
+      by: idx,
+      byName: room.players[idx].name,
+      imageId: params.imageId,
+      pieces: params.pieces,
+      ms: REMATCH_MS
+    });
+    reply(cb, { ok: true, pending: true });
+  });
+
+  socket.on('rematch:answer', (data, cb) => {
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false });
+    const { room, idx } = c;
+    const r = room.rematch;
+    if (!r || r.by === idx) return reply(cb, { ok: false, error: 'none' });
+    if (data && data.accept) {
+      performRestart(room, r.params);
+      return reply(cb, { ok: true });
+    }
+    const by = r.by;
+    clearRematch(room);
+    emitToPlayer(room, by, 'rematch', { state: 'declined', byName: room.players[idx].name });
     reply(cb, { ok: true });
   });
 
-  // 💡 lâmpada: mostra a imagem esmaecida atrás das peças por 4 s. Cada jogador tem HINTS (10) usos
-  // por partida, controlados aqui para não "renovar" recarregando a página
+  socket.on('rematch:cancel', (data, cb) => {
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false });
+    const { room, idx } = c;
+    if (!room.rematch || room.rematch.by !== idx) return reply(cb, { ok: false, error: 'none' });
+    clearRematch(room);
+    emitToPlayer(room, 1 - idx, 'rematch', { state: 'cancelled' });
+    reply(cb, { ok: true });
+  });
+
   // 💬 conversa: o servidor limpa o texto, limita a velocidade e repassa aos dois da sala
   socket.on('chat', (data, cb) => {
     if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
@@ -624,6 +780,7 @@ io.on('connection', (socket) => {
     room.chat.push(msg);
     if (room.chat.length > CHAT_KEEP) room.chat.shift();
     io.to(room.code).emit('chat', msg);
+    sendPush(room, 1 - idx, { title: msg.name, body: Array.from(text).slice(0, 90).join(''), tag: 'chat', url: '/?sala=' + room.code });
     reply(cb, { ok: true });
   });
 
@@ -637,6 +794,36 @@ io.on('connection', (socket) => {
     socket.emit('meta', meta(room));
   });
 
+  // 📍 mostra onde a peça escolhida encaixa: cada jogador tem SPOTS usos por partida (o servidor conta)
+  socket.on('spot', (data, cb) => {
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false, left: 0 });
+    const { room, idx } = c;
+    const p = pieceFrom(room, data && data.id);
+    if (!p || p.locked || room.status === 'won') return reply(cb, { ok: false, error: 'invalid', left: room.spots[idx] });
+    if (room.spots[idx] <= 0) return reply(cb, { ok: false, left: 0 });
+    room.spots[idx]--;
+    reply(cb, { ok: true, left: room.spots[idx], col: p.col, row: p.row });
+    socket.emit('meta', meta(room));
+  });
+
+  // avisos com o app fechado: o aparelho entrega aqui o "endereço" do aviso dele (só para os serviços conhecidos)
+  socket.on('push:subscribe', (data, cb) => {
+    const c = ctx(socket);
+    if (!c || !webpush) return reply(cb, { ok: false });
+    const sub = data && data.sub;
+    if (!validPushSub(sub)) return reply(cb, { ok: false, error: 'invalid' });
+    room_player(c).push = { endpoint: sub.endpoint, keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth } };
+    reply(cb, { ok: true });
+  });
+
+  socket.on('push:unsubscribe', (data, cb) => {
+    const c = ctx(socket);
+    if (!c) return reply(cb, { ok: false });
+    room_player(c).push = null;
+    reply(cb, { ok: true });
+  });
+
   socket.on('disconnect', () => leaveCurrent(socket));
 });
 
@@ -646,7 +833,10 @@ setInterval(() => {
   for (const [code, room] of rooms) {
     const idleMin = (now - room.lastActive) / 60000;
     const ageH = (now - room.createdAt) / 3600000;
-    if ((connectedCount(room) === 0 && idleMin > 15) || ageH > 8) rooms.delete(code);
+    if ((connectedCount(room) === 0 && idleMin > 15) || ageH > 8) {
+      clearRematch(room);
+      rooms.delete(code);
+    }
   }
 }, 60000).unref();
 
