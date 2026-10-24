@@ -89,23 +89,32 @@
 
     <!-- ========== ESCOLHA DA IMAGEM ========== -->
     <section id="screen-pick" class="screen">
-      <div class="pick-inner">
-        <button id="btn-pick-back" class="btn btn-ghost" type="button">‹ Voltar</button>
-        <h2 id="pick-title">Escolha a imagem</h2>
-        <p id="pick-lead" class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
-        <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Modo de jogo" hidden>
-          <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
-          <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
+      <div id="pick-scroll" class="pick-scroll">
+        <div class="pick-inner">
+          <button id="btn-pick-back" class="btn btn-ghost" type="button">‹ Voltar</button>
+          <h2 id="pick-title">Escolha a imagem</h2>
+          <p id="pick-lead" class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+          <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Modo de jogo" hidden>
+            <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
+            <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
+          </div>
+          <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis. Toque numa imagem para escolher."></div>
+          <p id="pick-error" class="error" role="alert" hidden></p>
         </div>
-        <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis"></div>
-
-        <h3 class="pick-sub">Quantas peças?</h3>
-        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
-        <p id="size-note" class="size-note"></p>
-
-        <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
-        <p id="pick-error" class="error" role="alert" hidden></p>
       </div>
+
+      <!-- painel de baixo: aparece ao tocar numa imagem -->
+      <div id="pick-sheet" class="pick-sheet" hidden role="dialog" aria-labelledby="ps-name">
+        <div class="ps-head">
+          <span id="ps-thumb" class="ps-thumb" aria-hidden="true"></span>
+          <div class="ps-title"><b id="ps-name">Imagem</b><small>Quantas peças?</small></div>
+          <button id="ps-close" class="ps-x" type="button" aria-label="Escolher outra imagem">✕</button>
+        </div>
+        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
+        <p id="size-note" class="size-note" aria-live="polite"></p>
+        <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
+      </div>
+      <input id="file-input" type="file" accept="image/*" hidden tabindex="-1" aria-hidden="true">
     </section>
 
     <!-- ========== SALA DESAFIO: RECEPÇÃO ========== -->
@@ -363,6 +372,26 @@
         <div id="cd-num" class="cd-num">3</div>
         <div class="cd-card"><span id="cd-img" class="cd-img"></span></div>
         <p id="cd-vs" class="cd-vs"></p>
+      </div>
+    </div>
+
+    <!-- ========== MINHA IMAGEM: ENQUADRAMENTO ========== -->
+    <div id="modal-crop" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="crop-title">
+      <div class="sheet crop-sheet">
+        <h3 id="crop-title">Sua imagem</h3>
+        <p class="crop-sub">Arraste e aproxime para escolher a parte que vira quebra-cabeça.</p>
+        <div class="crop-stage">
+          <canvas id="crop-canvas" width="300" height="400" aria-label="Prévia do quebra-cabeça. Arraste para mover."></canvas>
+          <div id="crop-busy" class="crop-busy" hidden><div class="spinner" aria-hidden="true"></div><span id="crop-busy-text">Enviando sua imagem…</span></div>
+        </div>
+        <div class="crop-tools">
+          <button id="crop-fill" class="btn btn-secondary btn-small" type="button">Preencher</button>
+          <input id="crop-zoom" type="range" min="0" max="100" value="0" aria-label="Aproximar ou afastar a imagem">
+          <button id="crop-fit" class="btn btn-secondary btn-small" type="button">Inteira</button>
+        </div>
+        <p id="crop-warn" class="crop-warn" hidden role="status"></p>
+        <button id="crop-use" class="btn btn-primary btn-block" type="button">Usar esta imagem</button>
+        <button id="crop-other" class="btn btn-secondary btn-block" type="button">Escolher outra</button>
       </div>
     </div>
 

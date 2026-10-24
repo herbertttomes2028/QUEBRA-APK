@@ -92,6 +92,8 @@
   state.pushKey = null;
   state.winBlob = null;
   state.duel = null;           // Sala Desafio (null = jogo cooperativo de sempre)
+  state.custom = [];           // imagens do próprio celular enviadas nesta sessão ("Minha imagem")
+  state.upload = { maxBytes: 1572864, maxDim: 2048 };
   state.duelMode = 'comum';
 
   // sem internet a biblioteca de tempo real não carrega: avisa em vez de quebrar
@@ -200,7 +202,7 @@
   function prepareImage(item, cols, rows) {
     var key = item.file + '|' + cols + 'x' + rows;
     if (imgCache[key]) return imgCache[key];
-    imgCache[key] = loadImage(item.url).then(function (img) {
+    imgCache[key] = loadImage(item.localUrl || item.url).then(function (img) {
       var W = 720;
       var H = Math.round(W * rows / cols);
       return cropToBlob(img, W, H, item.url);
@@ -241,6 +243,7 @@
         state.presets = Array.isArray(c.presets) ? c.presets : [];
         state.defaultPieces = c.defaultPieces || 12;
         state.pickPieces = state.defaultPieces;
+        if (c.upload && c.upload.maxBytes) state.upload = c.upload;
         state.hints = c.hints || 10;
         state.chatOn = c.chat !== false;
         if (Array.isArray(c.avatars) && c.avatars.length) state.avatars = c.avatars;
@@ -257,33 +260,43 @@
   function openPick(mode) {
     state.pickMode = mode;
     $('#pick-title').textContent = mode === 'create' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
-    $('#btn-pick-go').textContent = mode === 'create' ? 'Criar partida' : mode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
-    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : 'Seu amigo vai montar a mesma imagem que você escolher.';
+    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
     $('#duel-modes').hidden = mode !== 'duel';
+    $('#btn-pick-go').textContent = goButtonText();
     showError($('#pick-error'), '');
+    closePickSheet();
     imagesReady.then(function () {
-      if (!state.images.length) {
-        showError($('#pick-error'), 'Nenhuma imagem encontrada na pasta public/imagens.');
-        $('#pick-grid').innerHTML = '';
-        $('#btn-pick-go').disabled = true;
-        return;
-      }
-      var keep = mode === 'change' && state.images.some(function (i) { return i.file === state.imageId; });
-      state.pickChoice = keep ? state.imageId : state.images[0].file;
-      state.pickPieces = mode === 'change' && state.cfg ? state.cfg.PIECES : state.defaultPieces;
+      var saved = Number(store.get('pieces', 0));
+      var okSaved = state.presets.some(function (p) { return p.pieces === saved; });
+      state.pickPieces = mode === 'change' && state.cfg ? state.cfg.PIECES : (okSaved ? saved : state.defaultPieces);
+      if (!state.images.length) showError($('#pick-error'), 'Nenhuma imagem encontrada na pasta public/imagens. Você ainda pode adicionar a sua!');
       renderPickGrid();
       renderSizes();
     });
     showScreen('pick');
   }
 
+  function goButtonText() {
+    return state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
+  }
+
+  var PLUS_SVG = '<svg class="add-plus" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="plusg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6bff"/><stop offset=".5" stop-color="#ff4f8b"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="#fff" stroke="url(#plusg)" stroke-width="5"/><path d="M32 17v30M17 32h30" stroke="url(#plusg)" stroke-width="8" stroke-linecap="round"/></svg>';
+
   function renderPickGrid() {
     var grid = $('#pick-grid');
     grid.innerHTML = '';
-    state.images.forEach(function (item) {
+    // 1º cartão: adicionar uma imagem do próprio celular (mesmas medidas dos outros cartões)
+    var add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'add-card';
+    add.setAttribute('aria-label', 'Adicionar minha imagem. Abre a galeria do seu celular.');
+    add.innerHTML = '<span class="add-box">' + PLUS_SVG + '<span class="add-text">Adicionar<br>minha imagem</span></span><span class="add-sub">Foto ou desenho</span>';
+    grid.appendChild(add);
+    state.custom.concat(state.images).forEach(function (item) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'pick-card';
+      b.className = 'pick-card' + (item.fresh ? ' new' : '');
+      item.fresh = false;
       b.setAttribute('role', 'option');
       b.setAttribute('aria-selected', item.file === state.pickChoice ? 'true' : 'false');
       b.dataset.file = item.file;
@@ -296,7 +309,39 @@
       grid.appendChild(b);
       prepareThumb(item).then(function (url) { thumb.style.backgroundImage = 'url("' + url + '")'; });
     });
+  }
+
+  // um toque na imagem: ela é escolhida na hora e o painel de baixo mostra a prévia e as quantidades de peças
+  function selectImage(file, card) {
+    var item = imageItem(file);
+    state.pickChoice = file;
+    Array.prototype.forEach.call(document.querySelectorAll('.pick-card'), function (c) {
+      c.setAttribute('aria-selected', c.dataset.file === file ? 'true' : 'false');
+    });
+    $('#ps-name').textContent = item.label;
+    var th = $('#ps-thumb');
+    prepareThumb(item).then(function (url) { th.style.backgroundImage = 'url("' + url + '")'; });
+    if (!$('#pick-sheet').hidden) popEl(th, 'swap');
+    $('#btn-pick-go').textContent = goButtonText();
     $('#btn-pick-go').disabled = false;
+    updateSizeNote();
+    $('#pick-sheet').hidden = false;
+    document.body.classList.add('sheet-open');
+    if (card) {
+      popEl(card, 'pop');
+      setTimeout(function () { try { card.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { /* ignora */ } }, 60);
+    }
+    vibrate(8);
+    playSound('blip');
+    announce(item.label + ' escolhida. Agora escolha a quantidade de peças.');
+  }
+
+  function closePickSheet() {
+    state.pickChoice = null;
+    document.body.classList.remove('sheet-open');
+    $('#pick-sheet').hidden = true;
+    $('#btn-pick-go').disabled = true;
+    Array.prototype.forEach.call(document.querySelectorAll('.pick-card'), function (c) { c.setAttribute('aria-selected', 'false'); });
   }
 
   function renderSizes() {
@@ -348,7 +393,7 @@
   var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null };
   function goRemaining() { return go.on ? Math.max(0, go.min - (Date.now() - go.t0)) : 0; }
   function showGoSplash(file) {
-    var item = state.images.filter(function (i) { return i.file === file; })[0];
+    var item = imageItem(file);
     var el = $('#go-splash');
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
     $('#go-img').style.backgroundImage = item ? 'url("' + item.url + '")' : 'none';
@@ -429,9 +474,7 @@
   function startGame(snap) {
     setLoading(true, 'Preparando as peças…');
     return imagesReady.then(function () {
-      var item = state.images.filter(function (i) { return i.file === snap.imageId; })[0] ||
-                 { file: snap.imageId, url: 'imagens/' + encodeURIComponent(snap.imageId) };
-      return prepareImage(item, snap.cfg.COLS, snap.cfg.ROWS);
+      return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
     }).then(function (url) {
       state.cfg = snap.cfg;
       state.code = snap.code;
@@ -468,6 +511,7 @@
       setLoading(false);
       keepAwake();
       onGameShown();
+      if (/^custom:/.test(snap.imageId)) socket.emit('imgready');          // imagem própria: avisa que já está carregada e preparada aqui
     });
   }
 
@@ -1076,6 +1120,11 @@
     state.friendOnline = online;
     state.pieces.forEach(function (p) { if (p.heldBy !== null && p.heldBy !== undefined) classify(p); });
     state.status = m.status;
+    if (!state.duel) {                                           // imagem própria: a partida só começa quando os dois celulares a prepararam
+      var wait = $('#duel-banner');
+      if (m.loading) { wait.className = 'banner warn duel-banner info'; wait.textContent = 'Preparando a imagem nos dois celulares…'; wait.hidden = false; }
+      else if (wait.classList.contains('info')) { wait.hidden = true; }
+    }
     state.counts = m.counts || [0, 0];
     state.locked = m.locked || 0;
     if (m.status === 'playing') state.timerBase = Date.now() - m.elapsedMs;
@@ -1750,6 +1799,7 @@
         if (res && res.ok) {
           state.idx = res.idx;
           resync(res.snapshot);
+          if (/^custom:/.test(state.imageId || '')) socket.emit('imgready');
         } else {
           toast('A sala não existe mais.');
           goHome();
@@ -1807,6 +1857,233 @@
   }
 
   /* ---------------------------------------------------------
+   * MINHA IMAGEM: o jogador escolhe uma foto ou desenho do próprio celular.
+   * O aparelho abre o arquivo, a pessoa escolhe o enquadramento (3:4, o formato das peças), o celular reduz e reenvia como JPEG
+   * (isso também apaga dados como a localização da foto) e o servidor entrega a imagem aos DOIS jogadores.
+   * --------------------------------------------------------- */
+  var MAX_FILE = 40 * 1024 * 1024, MIN_SIDE = 200, WORK_MAX = 2400;
+  var crop = null;
+
+  function pickError(msg) { showError($('#pick-error'), msg); toast(msg, 3600); }
+
+  function chooseFile() {
+    var inp = $('#file-input');
+    inp.value = '';
+    inp.click();
+  }
+
+  function handlePickedFile(file) {
+    showError($('#pick-error'), '');
+    var name = file.name || '', type = file.type || '';
+    if (/svg/i.test(type) || /\.svg$/i.test(name)) { pickError('Imagens SVG não funcionam aqui. Escolha uma foto (JPG, PNG ou WebP).'); return; }
+    if (!/^image\//i.test(type) && !/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(name)) { pickError('Esse arquivo não é uma imagem. Escolha uma foto ou um desenho.'); return; }
+    if (!file.size) { pickError('Não consegui ler esse arquivo. Tente outro.'); return; }
+    if (file.size > MAX_FILE) { pickError('Essa imagem é pesada demais (mais de 40 MB). Escolha uma menor.'); return; }
+    setLoading(true, 'Abrindo sua imagem…');
+    decodeToCanvas(file).then(function (d) {
+      setLoading(false);
+      if (Math.min(d.ow, d.oh) < MIN_SIDE) { pickError('Essa imagem é muito pequena (' + d.ow + '×' + d.oh + '). Use uma com pelo menos ' + MIN_SIDE + ' pixels de lado.'); return; }
+      openCrop(d);
+    }).catch(function () {
+      setLoading(false);
+      pickError(/\.(heic|heif)$/i.test(name) || /hei[cf]/i.test(type)
+        ? 'Não consegui abrir essa foto (formato HEIC). Escolha uma em JPG, PNG ou WebP.'
+        : 'Não consegui abrir essa imagem. Ela pode estar danificada. Tente outra.');
+    });
+  }
+
+  // abre o arquivo e já o reduz (fotos de celular têm milhões de pixels); mantém a proporção original
+  function decodeToCanvas(file) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () {
+        var ow = im.naturalWidth, oh = im.naturalHeight;
+        if (!ow || !oh) { URL.revokeObjectURL(url); rej(new Error('vazia')); return; }
+        var k = Math.min(1, WORK_MAX / Math.max(ow, oh)), w = Math.max(1, Math.round(ow * k)), h = Math.max(1, Math.round(oh * k));
+        var cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        var ctx = cv.getContext('2d');
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(im, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        res({ src: cv, w: w, h: h, ow: ow, oh: oh });
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); rej(new Error('decode')); };
+      im.src = url;
+    });
+  }
+
+  /* ----- enquadramento: arrastar, pinça, zoom ----- */
+  var CW = 300, CH = 400;
+  function scaleFromV(v) { return crop.contain * Math.pow(crop.max / crop.contain, v / 100); }
+  function vFromScale(s) { return crop.max > crop.contain ? 100 * Math.log(s / crop.contain) / Math.log(crop.max / crop.contain) : 0; }
+  function clampCrop() {
+    crop.scale = clamp(crop.scale, crop.contain, crop.max);
+    var mx = Math.max(0, (crop.w * crop.scale - CW) / 2), my = Math.max(0, (crop.h * crop.scale - CH) / 2);
+    crop.ox = clamp(crop.ox, -mx, mx);
+    crop.oy = clamp(crop.oy, -my, my);
+  }
+  // desenha o enquadramento (usado na prévia 300×400 e, em tamanho maior, no arquivo final)
+  function paintCrop(ctx, W, H) {
+    var k = W / CW, dw = crop.w * crop.scale * k, dh = crop.h * crop.scale * k;
+    if (dw < W - 0.5 || dh < H - 0.5) {                      // imagem inteira: as sobras ficam com a própria imagem desfocada
+      var sc = Math.max(W / crop.w, H / crop.h) * 1.15;
+      ctx.save();
+      try { ctx.filter = 'blur(' + Math.round(16 * k) + 'px)'; } catch (e) { /* sem desfoque */ }
+      ctx.drawImage(crop.src, (W - crop.w * sc) / 2, (H - crop.h * sc) / 2, crop.w * sc, crop.h * sc);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,.22)';
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(crop.src, W / 2 - dw / 2 + crop.ox * k, H / 2 - dh / 2 + crop.oy * k, dw, dh);
+  }
+  function redrawCrop() {
+    clampCrop();
+    paintCrop($('#crop-canvas').getContext('2d'), CW, CH);
+    $('#crop-zoom').value = String(Math.round(vFromScale(crop.scale)));
+  }
+
+  function openCrop(d) {
+    var cover = Math.max(CW / d.w, CH / d.h);
+    crop = { src: d.src, w: d.w, h: d.h, cover: cover, contain: Math.min(CW / d.w, CH / d.h), max: cover * 3, scale: cover, ox: 0, oy: 0, ptrs: {}, pinch: null, busy: false };
+    crop.max = Math.max(crop.max, crop.contain * 1.01);
+    var warn = $('#crop-warn');
+    warn.className = 'crop-warn';
+    if (Math.max(d.ow, d.oh) < 700) { warn.textContent = 'Imagem pequena (' + d.ow + '×' + d.oh + '): as peças podem ficar sem nitidez.'; warn.hidden = false; }
+    else { warn.textContent = ''; warn.hidden = true; }
+    $('#crop-busy').hidden = true;
+    var cv = $('#crop-canvas');
+    cv.width = CW; cv.height = CH;
+    redrawCrop();
+    openModal('#modal-crop', '#crop-use');
+  }
+
+  function closeCrop() {
+    closeModal('#modal-crop');
+    if (crop) { crop.src = null; }
+    crop = null;
+  }
+
+  (function wireCrop() {
+    var cv = $('#crop-canvas');
+    function toCanvas(dx, dy) { var r = cv.getBoundingClientRect(); return { x: dx * CW / r.width, y: dy * CH / r.height }; }
+    cv.addEventListener('pointerdown', function (e) {
+      if (!crop || crop.busy) return;
+      crop.ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
+      var ids = Object.keys(crop.ptrs);
+      if (ids.length === 2) {
+        var a = crop.ptrs[ids[0]], b = crop.ptrs[ids[1]];
+        crop.pinch = { d0: Math.max(10, Math.hypot(a.x - b.x, a.y - b.y)), s0: crop.scale };
+      }
+    });
+    cv.addEventListener('pointermove', function (e) {
+      if (!crop || crop.busy) return;
+      var p = crop.ptrs[e.pointerId];
+      if (!p) return;
+      var ids = Object.keys(crop.ptrs);
+      if (ids.length >= 2 && crop.pinch) {
+        crop.ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+        var a = crop.ptrs[ids[0]], b = crop.ptrs[ids[1]];
+        crop.scale = crop.pinch.s0 * Math.hypot(a.x - b.x, a.y - b.y) / crop.pinch.d0;
+      } else {
+        var d = toCanvas(e.clientX - p.x, e.clientY - p.y);
+        crop.ox += d.x; crop.oy += d.y;
+        crop.ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+      }
+      redrawCrop();
+    });
+    function up(e) { if (crop) { delete crop.ptrs[e.pointerId]; crop.pinch = null; } }
+    cv.addEventListener('pointerup', up);
+    cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', function (e) {
+      if (!crop || crop.busy) return;
+      e.preventDefault();
+      crop.scale *= e.deltaY < 0 ? 1.08 : 0.92;
+      redrawCrop();
+    }, { passive: false });
+    $('#crop-zoom').addEventListener('input', function () { if (!crop || crop.busy) return; crop.scale = scaleFromV(Number(this.value)); redrawCrop(); });
+    $('#crop-fill').addEventListener('click', function () { if (!crop || crop.busy) return; crop.scale = crop.cover; crop.ox = 0; crop.oy = 0; redrawCrop(); });
+    $('#crop-fit').addEventListener('click', function () { if (!crop || crop.busy) return; crop.scale = crop.contain; crop.ox = 0; crop.oy = 0; redrawCrop(); });
+    $('#crop-other').addEventListener('click', function () { if (crop && crop.busy) return; closeCrop(); chooseFile(); });
+    $('#crop-use').addEventListener('click', useCrop);
+    $('#modal-crop').addEventListener('click', function (e) { if (e.target === this && crop && !crop.busy) closeCrop(); });
+  })();
+
+  function cropFail(msg) {
+    if (crop) crop.busy = false;
+    $('#crop-busy').hidden = true;
+    var w = $('#crop-warn');
+    w.textContent = msg;
+    w.className = 'crop-warn err';
+    w.hidden = false;
+  }
+
+  function useCrop() {
+    if (!crop || crop.busy) return;
+    crop.busy = true;
+    $('#crop-busy-text').textContent = 'Preparando sua imagem…';
+    $('#crop-busy').hidden = false;
+    var out = document.createElement('canvas');
+    out.width = 900; out.height = 1200;
+    paintCrop(out.getContext('2d'), 900, 1200);
+    var tries = [0.88, 0.74, 0.6];
+    (function encode(i) {
+      out.toBlob(function (blob) {
+        if (!blob) { cropFail('Não consegui preparar a imagem. Tente de novo.'); return; }
+        if (blob.size > state.upload.maxBytes && i + 1 < tries.length) { encode(i + 1); return; }
+        if (blob.size > state.upload.maxBytes) { cropFail('A imagem ficou pesada demais. Tente aproximar ou escolher outra.'); return; }
+        sendImage(blob, out);
+      }, 'image/jpeg', tries[i]);
+    })(0);
+  }
+
+  function sendImage(blob, out) {
+    $('#crop-busy-text').textContent = 'Enviando sua imagem…';
+    fetch('api/upload', { method: 'POST', headers: { 'Content-Type': 'image/jpeg' }, body: blob }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, j: j }; });
+    }).then(function (r) {
+      if (r.status === 200 && r.j && r.j.ok) { imageSent(r.j, blob, out); return; }
+      var why = r.j && r.j.error;
+      cropFail(why === 'rate' ? 'Você enviou muitas imagens agora há pouco. Espere alguns minutinhos e tente de novo.'
+        : why === 'busy' ? 'O servidor está cheio de imagens agora. Tente de novo em instantes.'
+        : why === 'big' || why === 'dims' ? 'A imagem ficou grande demais. Escolha outra ou aproxime mais.'
+        : 'O servidor não aceitou essa imagem. Tente outra.');
+    }).catch(function () {
+      cropFail('Sem conexão com o servidor. Verifique a internet e toque em "Usar esta imagem" de novo.');
+    });
+  }
+
+  function imageSent(res, blob, out) {
+    var th = document.createElement('canvas');
+    th.width = 300; th.height = 400;
+    th.getContext('2d').drawImage(out, 0, 0, 300, 400);
+    th.toBlob(function (tb) {
+      var item = { file: res.id, url: res.url, localUrl: URL.createObjectURL(blob), thumb: tb ? URL.createObjectURL(tb) : URL.createObjectURL(blob), label: 'Minha imagem', custom: true, fresh: true };
+      imgCache[item.file + '|thumb'] = Promise.resolve(item.thumb);
+      state.custom.unshift(item);
+      while (state.custom.length > 6) {
+        var old = state.custom.pop();
+        try { URL.revokeObjectURL(old.localUrl); URL.revokeObjectURL(old.thumb); } catch (e) { /* ignora */ }
+      }
+      closeCrop();
+      renderPickGrid();
+      var card = document.querySelector('.pick-card[data-file="' + item.file + '"]');
+      selectImage(item.file, card);
+      toast('Imagem adicionada! 🎉', 2200);
+      playSound('chime');
+    }, 'image/jpeg', 0.85);
+  }
+
+  $('#file-input').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (f) handlePickedFile(f);
+  });
+
+  /* ---------------------------------------------------------
    * SALA DESAFIO: dois jogadores montam a mesma imagem, cada um no seu tabuleiro.
    * Reaproveita o campo de jogo, as peças, a conversa e os avatares; o servidor decide largada, tempo e vencedor.
    * --------------------------------------------------------- */
@@ -1820,7 +2097,12 @@
   function clearDuelLocal() { store.set(DUEL_KEY, null); }
   function modeLabel(m) { return m === 'quebra' ? '🎁 Quebrando Cabeças' : '🧩 Modo Comum'; }
   function imageItem(file) {
-    return state.images.filter(function (i) { return i.file === file; })[0] || { file: file, url: 'imagens/' + encodeURIComponent(file), label: file };
+    var mine = state.custom.filter(function (i) { return i.file === file; })[0];
+    if (mine) return mine;
+    var base = state.images.filter(function (i) { return i.file === file; })[0];
+    if (base) return base;
+    if (/^custom:[a-f0-9]{32}$/.test(file || '')) return { file: file, url: 'api/up/' + file.slice(7), label: 'Imagem personalizada', custom: true };   // imagem enviada por quem criou a sala
+    return { file: file, url: 'imagens/' + encodeURIComponent(file), label: file };
   }
   function pctOf(n, total) { return total ? Math.round((100 * n) / total) : 0; }
 
@@ -1861,7 +2143,7 @@
     state.duel = {
       code: l.code, mode: l.mode, imageId: l.imageId, total: l.pieces, lobby: l, phase: 'lobby',
       prog: [{ idx: 0, locked: 0, total: l.pieces, pct: 0 }, { idx: 1, locked: 0, total: l.pieces, pct: 0 }],
-      lead: 'tie', alerted: false, oppOnline: true, graceTimer: null, giftTimer: null, box: null, giftSeen: false, result: null
+      lead: 'tie', alerted: false, oppOnline: true, graceTimer: null, giftTimer: null, box: null, giftSeen: false, result: null, imgReady: false
     };
     state.code = l.code;
     state.imageId = l.imageId;
@@ -1871,6 +2153,7 @@
     try { history.replaceState(null, '', '?sala=' + l.code); } catch (e) { /* ignora */ }
     setLoading(false);
     applyLobby(l);
+    prepareDuelImage();
     if (res.snapshot) { startDuelBoard(res.snapshot, true); }
     else if (res.status === 'finished' && res.result) { showScreen('lobby'); showDuelResult(res.result); }
     else showScreen('lobby');
@@ -1898,10 +2181,27 @@
       if (!state.duel) return;
       if (!res || !res.ok) { toast('A sala não existe mais.'); teardownDuel(); goHome(); return; }
       state.idx = res.idx;
+      if (state.duel.imgReady) socket.emit('ch:imgready'); else prepareDuelImage();
       applyLobby(res.lobby);
       if (res.status === 'playing' && res.snapshot) startDuelBoard(res.snapshot, true);
       else if (res.status === 'finished' && res.result) { if (state.duel.phase !== 'end') showDuelResult(res.result); }
       else if (state.duel.phase !== 'lobby' && state.duel.phase !== 'countdown') { state.duel.phase = 'lobby'; closeModal('#modal-duel'); showScreen('lobby'); }
+    });
+  }
+
+  // baixa e prepara a imagem da sala; só então o celular avisa o servidor e libera o botão "pronto"
+  function prepareDuelImage() {
+    var d = state.duel;
+    if (!d) return;
+    var code = d.code;
+    imagesReady.then(function () {
+      var pr = state.presets.filter(function (p) { return p.pieces === d.lobby.pieces; })[0] || { cols: 3, rows: 4 };
+      return prepareImage(imageItem(d.imageId), pr.cols, pr.rows);
+    }).then(function () {
+      if (!state.duel || state.duel.code !== code) return;
+      state.duel.imgReady = true;
+      socket.emit('ch:imgready');
+      applyLobby(state.duel.lobby);
     });
   }
 
@@ -1930,19 +2230,21 @@
       el.classList.toggle('away', !!(p.joined && !p.connected));
       el.classList.toggle('is-ready', !!p.ready);
       el.querySelector('.lp-name').textContent = p.joined ? p.name : '—';
-      el.querySelector('.lp-status').textContent = !p.joined ? 'aguardando…' : (i === state.idx ? 'você · ' : '') + (p.connected ? 'conectado' : 'desconectado');
+      el.querySelector('.lp-status').textContent = !p.joined ? 'aguardando…' : (i === state.idx ? 'você · ' : '') + (!p.connected ? 'desconectado' : (p.imgReady ? 'conectado' : 'preparando a imagem…'));
       el.querySelector('.lp-ready').hidden = !p.ready;
       paintAvatar($('#lp' + i + '-av'), i, i === state.idx, true);
       if (prev && prev.players[i] && !prev.players[i].joined && p.joined && i !== state.idx) { popEl(el, 'pop'); playSound('chime'); }
     });
     var both = !!(me && me.connected && opp && opp.joined && opp.connected);
     var btn = $('#lobby-ready');
-    btn.disabled = !both || l.status !== 'lobby';
+    btn.disabled = !both || !d.imgReady || l.status !== 'lobby';
     btn.classList.toggle('on', !!(me && me.ready));
-    btn.textContent = !both ? 'Aguardando adversário…' : (me.ready ? '✅ Pronto! (toque para cancelar)' : 'Estou pronto!');
+    btn.textContent = !both ? 'Aguardando adversário…' : (!d.imgReady ? 'Preparando a imagem…' : (me.ready ? '✅ Pronto! (toque para cancelar)' : 'Estou pronto!'));
     var msg;
     if (!opp || !opp.joined) msg = 'Chame seu adversário: ele entra com o código ' + l.code + '.';
     else if (!opp.connected) msg = opp.name + ' saiu da sala. Esperando voltar…';
+    else if (!d.imgReady) msg = 'Preparando a imagem neste celular…';
+    else if (!opp.imgReady) msg = 'Esperando a imagem ficar pronta no celular de ' + opp.name + '…';
     else if (l.status === 'countdown') msg = 'Começando!';
     else if (me.ready && opp.ready) msg = 'Começando!';
     else if (me.ready) msg = 'Tudo certo! Esperando ' + opp.name + ' ficar pronto…';
@@ -2333,7 +2635,7 @@
     var d = state.duel;
     if (!d) return;
     hideCountdown(false);
-    var why = { dropped: friendName() + ' desconectou. A contagem foi cancelada.', unready: 'Alguém desmarcou "pronto". A contagem foi cancelada.', left: friendName() + ' saiu da sala.' }[c && c.reason];
+    var why = { img: 'A imagem não ficou pronta nos dois celulares. Toquem em "pronto" de novo.', dropped: friendName() + ' desconectou. A contagem foi cancelada.', unready: 'Alguém desmarcou "pronto". A contagem foi cancelada.', left: friendName() + ' saiu da sala.' }[c && c.reason];
     if (why) toast(why, 2600);
     d.phase = 'lobby';
     closeModal('#modal-duel');
@@ -2419,26 +2721,28 @@
   });
 
   $('#pick-grid').addEventListener('click', function (e) {
+    if (e.target.closest('.add-card')) { chooseFile(); return; }
     var card = e.target.closest('.pick-card');
     if (!card) return;
-    state.pickChoice = card.dataset.file;
-    updateSizeNote();
-    Array.prototype.forEach.call(document.querySelectorAll('.pick-card'), function (c) {
-      c.setAttribute('aria-selected', c === card ? 'true' : 'false');
-    });
+    selectImage(card.dataset.file, card);
   });
 
   $('#size-grid').addEventListener('click', function (e) {
     var btn = e.target.closest('.size-btn');
     if (!btn) return;
     state.pickPieces = Number(btn.dataset.pieces);
+    store.set('pieces', state.pickPieces);
     Array.prototype.forEach.call(document.querySelectorAll('.size-btn'), function (b) {
       b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
     });
     updateSizeNote();
+    playSound('blip');
   });
 
+  $('#ps-close').addEventListener('click', closePickSheet);
+
   $('#btn-pick-back').addEventListener('click', function () {
+    closePickSheet();
     showScreen(state.pickMode === 'change' && state.inGame ? 'game' : 'home');
   });
 
