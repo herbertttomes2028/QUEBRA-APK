@@ -17,6 +17,8 @@
 const COUNTDOWN_MS = Number(process.env.CH_COUNTDOWN_MS) || 3000;   // contagem regressiva antes da largada
 const GRACE_MS = Number(process.env.CH_GRACE_MS) || 45000;           // tempo para quem caiu voltar antes de perder por desistência
 const BOX_MAX = 3;                                                   // peças que a caixa libera por rodada
+const AUTO_FIRST_MS = Number(process.env.CH_AUTO_FIRST_MS) || 380;   // depois de encaixar a 3ª peça, a caixa espera um instante e cospe a 1ª
+const AUTO_STEP_MS = Number(process.env.CH_AUTO_STEP_MS) || 330;    // intervalo entre as peças cuspidas
 const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem (vence a habilidade, não a sorte)
 
 module.exports = function createChallenge(d) {
@@ -331,10 +333,20 @@ module.exports = function createChallenge(d) {
     const counts = [0, 0]; counts[idx] = board.locked;
     socket.emit('locked', { id: p.id, x: tx, y: ty, by: idx, counts, locked: board.locked });
 
+    let autoSpit = false;
     if (room.mode === 'quebra' && board.round.length && board.round.every((id) => board.pieces[id].locked)) {
+      const full = board.round.length >= BOX_MAX;       // uma rodada COMPLETA (3 peças) foi encaixada
       board.round = [];                                  // todas as peças pedidas foram encaixadas: nova rodada
+      if (full && board.next < board.order.length && room.status === 'playing') {
+        // a caixa "cospe" sozinha as próximas peças (até 3), uma depois da outra, sem precisar tocar
+        for (let k = 0; k < BOX_MAX && board.next < board.order.length; k++) {
+          const g = releaseNext(room, idx, board);
+          socket.emit('ch:gift', Object.assign(g, { auto: true, k, delay: AUTO_FIRST_MS + k * AUTO_STEP_MS }));
+          autoSpit = true;
+        }
+      }
     }
-    if (room.mode === 'quebra') socket.emit('ch:box', boxInfo(room, idx));
+    if (room.mode === 'quebra' && !autoSpit) socket.emit('ch:box', boxInfo(room, idx));
 
     const pr = progress(room, idx);
     emitTo(room, 1 - idx, 'ch:progress', pr);
@@ -345,6 +357,22 @@ module.exports = function createChallenge(d) {
       finish(room, idx, 'complete');
     }
     return true;
+  }
+
+  // tira a próxima peça da caixa e a coloca numa vaga livre da faixa de baixo
+  function releaseNext(room, idx, board) {
+    const id = board.order[board.next++];
+    const p = board.pieces[id];
+    const used = new Set(board.round.map((rid) => board.pieces[rid]).filter((q) => !q.locked).map((q) => q.slot));
+    let slot = 0;
+    while (used.has(slot) && slot < BOX_MAX - 1) slot++;
+    p.slot = slot;
+    p.out = true;
+    p.x = room.cfg.GIFT.slots[slot].x;
+    p.y = room.cfg.GIFT.slots[slot].y;
+    p.z = ++board.z;
+    board.round.push(id);
+    return { id, x: p.x, y: p.y, rot: p.rot, z: p.z, from: { x: room.cfg.GIFT.x, y: room.cfg.GIFT.y }, box: boxInfo(room, idx) };
   }
 
   function register(socket) {
@@ -475,20 +503,9 @@ module.exports = function createChallenge(d) {
       if (room.status !== 'playing') return reply(cb, { ok: false, error: 'state' });
       if (board.round.length >= BOX_MAX) return reply(cb, Object.assign({ ok: false, error: 'blocked' }, boxInfo(room, idx)));
       if (board.next >= board.order.length) return reply(cb, Object.assign({ ok: false, error: 'empty' }, boxInfo(room, idx)));
-      const id = board.order[board.next++];
-      const p = board.pieces[id];
-      const used = new Set(board.round.map((rid) => board.pieces[rid]).filter((q) => !q.locked).map((q) => q.slot));
-      let slot = 0;
-      while (used.has(slot) && slot < BOX_MAX - 1) slot++;
-      p.slot = slot;
-      p.out = true;
-      p.x = room.cfg.GIFT.slots[slot].x;
-      p.y = room.cfg.GIFT.slots[slot].y;
-      p.z = ++board.z;
-      board.round.push(id);
-      const info = boxInfo(room, idx);
-      reply(cb, Object.assign({ ok: true }, info));
-      socket.emit('ch:gift', { id, x: p.x, y: p.y, rot: p.rot, z: p.z, from: { x: room.cfg.GIFT.x, y: room.cfg.GIFT.y }, box: info });
+      const g = releaseNext(room, idx, board);
+      reply(cb, Object.assign({ ok: true }, g.box));
+      socket.emit('ch:gift', g);
     });
 
     socket.on('ch:hint', (data, cb) => {

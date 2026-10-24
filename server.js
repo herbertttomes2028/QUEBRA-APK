@@ -321,7 +321,9 @@ function listImages() {
       .slice(0, MAX_IMAGES)
       .map((f) => {
         const nice = typeof names[f] === 'string' ? names[f].replace(/\s+/g, ' ').trim().slice(0, 30) : '';
-        return { file: f, url: 'imagens/' + encodeURIComponent(f), label: nice || prettyName(f) };
+        // miniatura pronta (300×400) em imagens/mini/: a galeria abre bem mais leve. Sem ela, o celular gera a miniatura.
+        const mini = fs.existsSync(path.join(IMG_DIR, 'mini', f)) ? 'imagens/mini/' + encodeURIComponent(f) : null;
+        return { file: f, url: 'imagens/' + encodeURIComponent(f), thumb: mini, label: nice || prettyName(f) };
       });
   } catch (e) {
     return [];
