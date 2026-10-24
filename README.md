@@ -135,12 +135,19 @@ quebra-cabeca/
 
 ## Passo 1 — Suas imagens
 
-O projeto já vem com as **5 imagens** que você enviou, convertidas para JPG (mais leves, de 100 a 190 KB cada, sem perda visível de qualidade).
+O projeto já vem com **17 imagens**: as **5 que você enviou**, convertidas para JPG (mais leves, de 100 a 190 KB cada), e **12 ilustrações originais** feitas para o jogo, de 65 a 145 KB cada, em 900 × 1200:
+
+Princesa no Jardim · Princesa e o Dragãozinho · Unicórnio Arco-Íris · Super-Heroína · Super-Herói · Time de Heróis · Cavaleiro e Dragão · Fada da Floresta · Sereia do Mar · Mago das Estrelas · Astronauta e Robô · Castelo dos Sonhos.
+
+As 12 ilustrações são **personagens originais**, sem ligação com nenhum filme, desenho ou quadrinho. Você pode usá-las e trocá-las à vontade no seu jogo. As cinco imagens que você enviou continuam sendo de sua responsabilidade quanto a direitos de uso.
 
 Para trocar ou acrescentar imagens, mexa na pasta `public/imagens/`:
 
-- O jogo mostra **todas** as imagens `.jpg`, `.jpeg`, `.png` ou `.webp` da pasta (até 12). Não precisa mudar nenhum código.
-- O nome do arquivo vira o rótulo na tela: `stitch-e-angel.jpg` → "Stitch e Angel".
+- O jogo mostra **todas** as imagens `.jpg`, `.jpeg`, `.png` ou `.webp` da pasta (até **40**, as primeiras da lista). Não precisa mudar nenhum código.
+- O nome do arquivo vira o rótulo na tela: `stitch-e-angel.jpg` → "Stitch e Angel". O nome do arquivo não pode ter acento nem espaço.
+- **Nomes bonitos e ordem (opcional):** o arquivo `public/imagens/nomes.json` diz, para cada imagem, o nome que aparece na tela (com acento) e a ordem da lista. Exemplo: `"unicornio-arco-iris.jpg": "Unicórnio Arco-Íris"`. Imagens que **não estão** no `nomes.json` aparecem primeiro, em ordem alfabética, com o nome tirado do arquivo. Se o arquivo tiver erro de digitação, o jogo ignora e usa os nomes dos arquivos. Cada nome tem até 30 letras.
+- **Para tirar uma imagem do jogo:** apague o arquivo dela em `public/imagens/` (e, se quiser, a linha dela no `nomes.json`).
+- **Salas já abertas** continuam com a imagem que escolheram; as imagens novas aparecem a partir da próxima escolha.
 - **Não funcionam:** GIF, SVG, HEIC (foto do iPhone) e AVIF. Converta para JPG ou PNG.
 
 **Dicas para ficar leve e bonito:**
@@ -199,6 +206,8 @@ Se você já publicou uma versão anterior, não precisa refazer nada no Render:
 
 1. No GitHub, abra o repositório → **Add file → Upload files**.
 2. Arraste os arquivos novos **com o mesmo nome**: na raiz, `server.js`, `package.json`, `package-lock.json` e `README.md`; e, dentro de `public`, `index.html`, `style.css`, `game.js` e `sw.js` (só se for a primeira vez com o aplicativo, também `manifest.webmanifest`, `assetlinks.json` e a pasta `icons`). **Envie também o `package.json` e o `package-lock.json`**: eles incluem a biblioteca dos avisos (`web-push`), que o Render instala sozinho. **Não substitua o seu `public/assetlinks.json` se ele já tem o conteúdo do APK.** Eles substituem os antigos. Para a pasta `public`, arraste o conteúdo mantendo a estrutura (ou entre na pasta `public` do repositório antes de enviar os três arquivos de dentro dela).
+
+   **Para receber só as 12 ilustrações novas (atualização de imagens):** envie `server.js` e `README.md` (o `server.js` é indispensável: sem ele, o limite antigo de 12 imagens esconde parte da lista) e, dentro de `public/imagens`, os 12 arquivos `.jpg` novos e o `nomes.json`. Os demais arquivos não mudam.
 3. Entre em `public/imagens`, **apague** as imagens antigas (`imagem1.jpg` a `imagem4.jpg`: abra cada arquivo, ícone de lixeira → *Commit changes*) e envie as novas.
 4. Clique em **Commit changes**. O Render percebe a mudança e publica sozinho em 1 a 3 minutos (status *Deploying* → *Live*).
 5. Recarregue o jogo no celular. Se ainda aparecer a versão antiga, feche a aba e abra de novo.
@@ -335,7 +344,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 
 ## Checklist antes de publicar
 
-- [ ] As imagens que quero estão em `public/imagens/` e as de exemplo antigas (`imagem1.jpg` a `imagem4.jpg`) foram apagadas.
+- [ ] As imagens que quero estão em `public/imagens/` (as 17 que vêm no projeto, mais o `nomes.json`) e as de exemplo antigas (`imagem1.jpg` a `imagem4.jpg`) não estão mais lá.
 - [ ] As imagens são leves (de preferência abaixo de 500 KB) e abrem normalmente.
 - [ ] No GitHub, `server.js` e `package.json` aparecem na **primeira tela** do repositório (não dentro de outra pasta).
 - [ ] A pasta `public` subiu com `index.html`, `style.css`, `game.js` e a pasta `imagens`.

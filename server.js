@@ -88,7 +88,7 @@ const PRESETS = [
 ];
 const DEFAULT_PIECES = 12;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
-const MAX_IMAGES = 12;
+const MAX_IMAGES = 40;               // quantas imagens aparecem na escolha (as primeiras, na ordem da lista)
 
 function validPieces(n, fallback) {
   n = Number(n);
@@ -246,14 +246,36 @@ function cleanName(n) {
     .slice(0, MAX_NAME);
 }
 
+// Arquivo opcional public/imagens/nomes.json: { "arquivo.jpg": "Nome bonito, com acento", ... }
+// Os nomes dão o rótulo na escolha da imagem e a ordem das imagens listadas; as que não estão nele vêm antes, em ordem alfabética.
+function readImageNames() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(IMG_DIR, 'nomes.json'), 'utf8'));
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch (e) {
+    return {};
+  }
+}
+
 function listImages() {
   try {
+    const names = readImageNames();
+    const order = Object.keys(names);
     return fs
       .readdirSync(IMG_DIR)
       .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
-      .sort((a, b) => a.localeCompare(b, 'pt', { numeric: true }))
+      .sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        if (ia < 0 && ib < 0) return a.localeCompare(b, 'pt', { numeric: true });
+        if (ia < 0) return -1;
+        if (ib < 0) return 1;
+        return ia - ib;
+      })
       .slice(0, MAX_IMAGES)
-      .map((f) => ({ file: f, url: 'imagens/' + encodeURIComponent(f), label: prettyName(f) }));
+      .map((f) => {
+        const nice = typeof names[f] === 'string' ? names[f].replace(/\s+/g, ' ').trim().slice(0, 30) : '';
+        return { file: f, url: 'imagens/' + encodeURIComponent(f), label: nice || prettyName(f) };
+      });
   } catch (e) {
     return [];
   }
