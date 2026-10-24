@@ -91,6 +91,8 @@
   state.milestones = {};
   state.pushKey = null;
   state.winBlob = null;
+  state.duel = null;           // Sala Desafio (null = jogo cooperativo de sempre)
+  state.duelMode = 'comum';
 
   // sem internet a biblioteca de tempo real não carrega: avisa em vez de quebrar
   if (typeof io === 'undefined') {
@@ -141,6 +143,12 @@
   function vibrate(ms) { try { if (state.settings.vibrate && navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignora */ } }
 
   // dispara de novo uma animação curta de classe (salto do avatar, "pop" dos botões)
+  // envia um evento do jogo: no cooperativo vai como sempre; na Sala Desafio vai com o prefixo "ch:"
+  function gameEmit(ev, data, cb) {
+    var name = state.duel ? 'ch:' + ev : ev;
+    if (cb) socket.emit(name, data, cb); else socket.emit(name, data);
+  }
+
   function popEl(el, cls) {
     el.classList.remove(cls);
     void el.offsetWidth;
@@ -149,7 +157,7 @@
   }
 
   function showScreen(name) {
-    ['home', 'pick', 'game'].forEach(function (n) {
+    ['home', 'pick', 'game', 'lobby'].forEach(function (n) {
       $('#screen-' + n).classList.toggle('active', n === name);
     });
     if (name === 'game') layout();
@@ -248,8 +256,10 @@
    * --------------------------------------------------------- */
   function openPick(mode) {
     state.pickMode = mode;
-    $('#pick-title').textContent = mode === 'create' ? 'Escolha a imagem' : 'Trocar imagem ou peças';
-    $('#btn-pick-go').textContent = mode === 'create' ? 'Criar partida' : 'Recomeçar com essa escolha';
+    $('#pick-title').textContent = mode === 'create' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
+    $('#btn-pick-go').textContent = mode === 'create' ? 'Criar partida' : mode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
+    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : 'Seu amigo vai montar a mesma imagem que você escolher.';
+    $('#duel-modes').hidden = mode !== 'duel';
     showError($('#pick-error'), '');
     imagesReady.then(function () {
       if (!state.images.length) {
@@ -378,6 +388,7 @@
 
   function doCreate(imageId, pieces) {
     setLoading(true, 'Criando a sala…');
+    leaveDuelQuiet();
     socket.emit('create', { pid: state.pid, imageId: imageId, pieces: pieces, name: readName(), avatar: state.avatar }, function (res) {
       if (!res || !res.ok) {
         setLoading(false);
@@ -391,14 +402,22 @@
 
   function doJoin(code) {
     setLoading(true, 'Entrando na sala…');
+    leaveDuelQuiet();
     socket.emit('join', { pid: state.pid, code: code, name: readName(), avatar: state.avatar }, function (res) {
-      if (!res || !res.ok) {
-        setLoading(false);
-        showScreen('home');
-        showError($('#home-error'), errorText(res && res.error));
+      if (res && res.ok) { enterRoom(res); return; }
+      if (res && res.error === 'notfound') {                     // pode ser uma Sala Desafio
+        state.pid = duelPidFor(code);                            // quem caiu volta com a mesma identidade
+        socket.emit('ch:join', { pid: state.pid, code: code, name: readName(), avatar: state.avatar }, function (r2) {
+          if (r2 && r2.ok) { enterDuel(r2); return; }
+          setLoading(false);
+          showScreen('home');
+          showError($('#home-error'), errorText(r2 && r2.error));
+        });
         return;
       }
-      enterRoom(res);
+      setLoading(false);
+      showScreen('home');
+      showError($('#home-error'), errorText(res && res.error));
     });
   }
 
@@ -436,6 +455,8 @@
       markMilestones();
       try { history.replaceState(null, '', '?sala=' + snap.code); } catch (e) { /* ignora */ }
       state.inGame = true;
+      $('#duel-strip').hidden = true; $('#duel-banner').hidden = true;
+      $('#menu-change').hidden = false; $('#menu-restart').hidden = false;
       showScreen('game');
       if (!state.tipShown) {
         state.tipShown = true;
@@ -535,14 +556,16 @@
         x: d.x, y: d.y, tx: d.x, ty: d.y,          // x e y = CENTRO da peça
         rot: d.rot, ang: d.rot * 90, rotUsed: d.rotUsed,
         heldBy: d.heldBy, locked: d.locked, lockedBy: d.lockedBy, z: d.z,
-        held: false, mine: false, theirs: false, zoomAbs: null, lastMove: 0, vs: 1, dirty: true
+        held: false, mine: false, theirs: false, zoomAbs: null, lastMove: 0, vs: 1, dirty: true, out: d.out !== false, fly: null
       };
+      if (!p.out) el.style.display = 'none';          // ainda está dentro da caixa de presentes
       p.vs = targetScale(p);
       if (p.z > state.zMax) state.zMax = p.z;
       tile.style.transform = 'rotate(' + p.ang + 'deg)';
       classify(p);
       return p;
     });
+    if (snap.mode === 'quebra' && cfg.GIFT) buildHand(cfg);
   }
 
   function classify(p) {
@@ -601,7 +624,16 @@
       var p = ps[i];
       var changed = p.dirty;
       var dragging = state.drag && state.drag.id === p.id && state.drag.moved;
-      if (!p.locked && !dragging) {
+      if (p.fly) {                                           // saindo da caixa: voa em arco até a vaga
+        var u = (now - p.fly.t0) / p.fly.dur;
+        if (u >= 1) { p.x = p.tx = p.fly.tx; p.y = p.ty = p.fly.ty; p.fly = null; }
+        else {
+          var ee = 1 - Math.pow(1 - Math.max(0, u), 3);
+          p.x = p.fly.fx + (p.fly.tx - p.fly.fx) * ee;
+          p.y = p.fly.fy + (p.fly.ty - p.fly.fy) * ee - Math.sin(Math.PI * Math.max(0, u)) * 150;
+        }
+        changed = true;
+      } else if (!p.locked && !dragging) {
         var dx = p.tx - p.x, dy = p.ty - p.y;
         if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) { p.x += dx * 0.35; p.y += dy * 0.35; changed = true; }
         else if (dx !== 0 || dy !== 0) { p.x = p.tx; p.y = p.ty; changed = true; }
@@ -648,6 +680,7 @@
    * --------------------------------------------------------- */
   function resetIdle() {
     clearTimeout(state.idleTimer);
+    if (state.duel) return;                       // na Sala Desafio as peças são só suas: não precisa soltar para ninguém
     if (state.selectedId === null) return;
     state.idleTimer = setTimeout(function () {
       if (state.selectedId !== null && !state.drag) { dropSelected(); toast('Peça solta para seu amigo poder usar'); }
@@ -662,7 +695,7 @@
     if (p && !p.locked) {
       p.heldBy = null;
       classify(p);
-      socket.emit('drop', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
+      gameEmit('drop', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
     }
     updateUi();
   }
@@ -685,6 +718,7 @@
 
   function onPointerDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (state.duel && state.status !== 'playing') return;           // antes da largada e depois do fim ninguém mexe nas peças
     state.ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
 
     if (pointerCount() >= 2) {               // segundo dedo: pinça (só com uma peça escolhida)
@@ -701,6 +735,7 @@
       return;
     }
     if (p.locked) return;
+    if (p.fly) { p.fly = null; p.tx = p.x; p.ty = p.y; }
     if (p.heldBy !== null && p.heldBy !== undefined && p.heldBy !== state.idx) {
       toast(friendName() + ' está com essa peça');
       shake(p);
@@ -719,7 +754,7 @@
       p.heldBy = state.idx;
       p.z = ++state.zMax;
       classify(p);
-      socket.emit('grab', { id: p.id });
+      gameEmit('grab', { id: p.id });
     }
 
     var rect = $('#field').getBoundingClientRect();
@@ -788,7 +823,7 @@
     var now = performance.now();
     if (now - d.last >= 50) {
       d.last = now;
-      socket.volatile.emit('move', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
+      socket.volatile.emit(state.duel ? 'ch:move' : 'move', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
     }
   }
 
@@ -842,7 +877,7 @@
     }
     p.rotUsed++;
     setAngle(p, (p.rot + 1) % 4);
-    socket.emit('rotate', { id: p.id });
+    gameEmit('rotate', { id: p.id });
     vibrate(10);
     resetIdle();
     updateUi();
@@ -855,7 +890,7 @@
   function useHint() {
     if (state.hintActive) return;
     if (state.hints <= 0) { toast('Suas dicas acabaram'); return; }
-    socket.emit('hint', null, function (res) {
+    gameEmit('hint', null, function (res) {
       if (!res || !res.ok) { state.hints = 0; updateUi(); toast('Suas dicas acabaram'); return; }
       state.hints = res.left;
       showHint();
@@ -983,7 +1018,7 @@
   function sendChat(text) {
     text = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
     if (!text || !state.chatOn) return;
-    socket.emit('chat', { text: text }, function (res) {
+    gameEmit('chat', { text: text }, function (res) {
       if (res && res.ok) return;
       if (res && res.error === 'rate') toast('Calma! Espere um instante para enviar de novo.');
       else if (res && res.error === 'off') toast('A conversa está desligada neste jogo.');
@@ -1022,7 +1057,8 @@
     }
     // faixa com o código: só aparece enquanto o amigo não está na sala
     var fp = state.idx !== null && state.players ? state.players[1 - state.idx] : null;
-    $('#banner-wait').hidden = !(state.inGame && !state.friendOnline && state.status !== 'won');
+    $('#banner-wait').hidden = !(state.inGame && !state.duel && !state.friendOnline && state.status !== 'won');
+    if (state.duel) paintStrip();
     $('#wait-msg').textContent = fp && fp.joined ? 'amigo saiu' : 'aguardando…';
   }
 
@@ -1239,6 +1275,9 @@
   /*TANN-END*/
   var SOUNDS = {
     tann: soundTann,
+    gift: function (c) { tone(c, 330, 0, .07, 'triangle', .12); tone(c, 494, .05, .08, 'triangle', .12); tone(c, 740, .1, .16, 'sine', .12); },
+    tick: function (c) { tone(c, 520, 0, .14, 'sine', .15); },
+    tick2: function (c) { tone(c, 760, 0, .18, 'sine', .17); },
     snap: function (c) { tone(c, 523, 0, .09, 'triangle', .13); tone(c, 784, .07, .15, 'triangle', .13); },
     win: function (c) { [523, 659, 784, 1047].forEach(function (f, i) { tone(c, f, i * .13, .28, 'triangle', .15); }); tone(c, 1319, .55, .5, 'sine', .12); },
     msg: function (c) { tone(c, 880, 0, .1, 'sine', .09); tone(c, 1175, .09, .16, 'sine', .09); },
@@ -1409,7 +1448,7 @@
     var p = state.selectedId !== null ? state.pieces[state.selectedId] : null;
     if (!p || p.locked || state.spotActive) return;
     if (state.spots <= 0) { toast('Acabaram as dicas de lugar'); return; }
-    socket.emit('spot', { id: p.id }, function (res) {
+    gameEmit('spot', { id: p.id }, function (res) {
       if (!res || !res.ok) {
         if (res && res.left === 0) state.spots = 0;
         updateUi();
@@ -1512,7 +1551,7 @@
         return sub || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       });
     }).then(function (sub) {
-      if (state.inGame) socket.emit('push:subscribe', { sub: sub.toJSON() });
+      if (state.inGame) gameEmit('push:subscribe', { sub: sub.toJSON() });
     }).catch(function () { /* sem permissão ou sem suporte: segue sem avisos */ });
   }
   function enablePush() {
@@ -1535,7 +1574,7 @@
   function disablePush() {
     state.settings.push = false;
     saveSettings();
-    if (state.inGame) socket.emit('push:unsubscribe');
+    if (state.inGame) gameEmit('push:unsubscribe');
     if (pushSupported()) {
       navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
         .then(function (sub) { if (sub) return sub.unsubscribe(); }).catch(function () { /* ignora */ });
@@ -1705,6 +1744,7 @@
 
   socket.on('connect', function () {
     $('#banner-conn').hidden = true;
+    if (state.duel) { rejoinDuel(); return; }
     if (state.code && state.inGame) {
       socket.emit('join', { pid: state.pid, code: state.code, name: state.name, avatar: state.avatar }, function (res) {
         if (res && res.ok) {
@@ -1767,6 +1807,595 @@
   }
 
   /* ---------------------------------------------------------
+   * SALA DESAFIO: dois jogadores montam a mesma imagem, cada um no seu tabuleiro.
+   * Reaproveita o campo de jogo, as peças, a conversa e os avatares; o servidor decide largada, tempo e vencedor.
+   * --------------------------------------------------------- */
+  var DUEL_KEY = 'duel';
+  function duelStored() {
+    var d = store.get(DUEL_KEY, null);
+    return d && d.code && d.pid && Date.now() - (d.t || 0) < 3 * 3600 * 1000 ? d : null;
+  }
+  function duelPidFor(code) { var d = duelStored(); return d && d.code === code ? d.pid : state.pid; }
+  function saveDuelLocal() { if (state.duel) store.set(DUEL_KEY, { code: state.duel.code, pid: state.pid, t: Date.now() }); }
+  function clearDuelLocal() { store.set(DUEL_KEY, null); }
+  function modeLabel(m) { return m === 'quebra' ? '🎁 Quebrando Cabeças' : '🧩 Modo Comum'; }
+  function imageItem(file) {
+    return state.images.filter(function (i) { return i.file === file; })[0] || { file: file, url: 'imagens/' + encodeURIComponent(file), label: file };
+  }
+  function pctOf(n, total) { return total ? Math.round((100 * n) / total) : 0; }
+
+  // sai de uma Sala Desafio sem voltar para a tela inicial (ex.: antes de criar/entrar em outra sala)
+  function leaveDuelQuiet() {
+    if (!state.duel) return;
+    try { socket.emit('ch:leave'); } catch (e) { /* ignora */ }
+    teardownDuel();
+  }
+  function teardownDuel() {
+    if (state.duel) { clearInterval(state.duel.graceTimer); clearInterval(state.duel.giftTimer); }
+    hideCountdown(false);
+    state.duel = null;
+    clearDuelLocal();
+    $('#duel-strip').hidden = true;
+    $('#duel-banner').hidden = true;
+    $('#menu-change').hidden = false;
+    $('#menu-restart').hidden = false;
+    closeModal('#modal-duel');
+  }
+  function leaveDuel() {
+    leaveDuelQuiet();
+    goHome();
+  }
+
+  function createDuel() {
+    setLoading(true, 'Criando a Sala Desafio…');
+    leaveDuelQuiet();
+    socket.emit('ch:create', { pid: state.pid, imageId: state.pickChoice, pieces: state.pickPieces, mode: state.duelMode, name: readName(), avatar: state.avatar }, function (res) {
+      if (!res || !res.ok) { setLoading(false); showError($('#pick-error'), errorText(res && res.error)); return; }
+      enterDuel(res);
+    });
+  }
+
+  function enterDuel(res) {
+    var l = res.lobby;
+    state.idx = res.idx;
+    state.duel = {
+      code: l.code, mode: l.mode, imageId: l.imageId, total: l.pieces, lobby: l, phase: 'lobby',
+      prog: [{ idx: 0, locked: 0, total: l.pieces, pct: 0 }, { idx: 1, locked: 0, total: l.pieces, pct: 0 }],
+      lead: 'tie', alerted: false, oppOnline: true, graceTimer: null, giftTimer: null, box: null, giftSeen: false, result: null
+    };
+    state.code = l.code;
+    state.imageId = l.imageId;
+    setChatAvailability(res.chatOn !== false);
+    setChatHistory(res.chat || []);
+    saveDuelLocal();
+    try { history.replaceState(null, '', '?sala=' + l.code); } catch (e) { /* ignora */ }
+    setLoading(false);
+    applyLobby(l);
+    if (res.snapshot) { startDuelBoard(res.snapshot, true); }
+    else if (res.status === 'finished' && res.result) { showScreen('lobby'); showDuelResult(res.result); }
+    else showScreen('lobby');
+  }
+
+  function maybeResumeDuel() {
+    var s = duelStored();
+    if (!s) return false;
+    state.pid = s.pid;
+    socket.emit('ch:join', { pid: s.pid, code: s.code, name: state.name, avatar: state.avatar }, function (res) {
+      if (!res || !res.ok) { clearDuelLocal(); return; }
+      if (res.status === 'finished') {                        // a disputa já acabou: recomeça do zero, sem mostrar o resultado antigo
+        socket.emit('ch:leave');
+        clearDuelLocal();
+        return;
+      }
+      enterDuel(res);
+    });
+    return true;
+  }
+
+  function rejoinDuel() {
+    var d = state.duel;
+    socket.emit('ch:join', { pid: state.pid, code: d.code, name: state.name, avatar: state.avatar }, function (res) {
+      if (!state.duel) return;
+      if (!res || !res.ok) { toast('A sala não existe mais.'); teardownDuel(); goHome(); return; }
+      state.idx = res.idx;
+      applyLobby(res.lobby);
+      if (res.status === 'playing' && res.snapshot) startDuelBoard(res.snapshot, true);
+      else if (res.status === 'finished' && res.result) { if (state.duel.phase !== 'end') showDuelResult(res.result); }
+      else if (state.duel.phase !== 'lobby' && state.duel.phase !== 'countdown') { state.duel.phase = 'lobby'; closeModal('#modal-duel'); showScreen('lobby'); }
+    });
+  }
+
+  /* ----- recepção ----- */
+  function applyLobby(l) {
+    var d = state.duel;
+    if (!d) return;
+    var prev = d.lobby;
+    d.lobby = l;
+    d.mode = l.mode;
+    state.players = l.players;
+    // guarda o último nome conhecido de cada um (se o adversário sair, as mensagens ainda usam o nome dele)
+    state.names = l.players.map(function (p, i) { return p.joined && p.name ? p.name : (state.names[i] || ''); });
+    var me = l.players[state.idx], opp = l.players[1 - state.idx];
+    state.friendOnline = !!(opp && opp.connected);
+
+    $('#lobby-mode').textContent = modeLabel(l.mode);
+    $('#lobby-code').textContent = l.code;
+    var item = imageItem(l.imageId);
+    $('#lobby-img-name').textContent = item.label || '';
+    $('#lobby-info').textContent = l.pieces + ' peças · ' + (l.mode === 'quebra' ? 'caixa de presentes' : 'bandeja');
+    $('#lobby-thumb').style.backgroundImage = 'url("' + item.url + '")';
+    [0, 1].forEach(function (i) {
+      var p = l.players[i], el = $('#lp' + i);
+      el.classList.toggle('online', !!(p.joined && p.connected));
+      el.classList.toggle('away', !!(p.joined && !p.connected));
+      el.classList.toggle('is-ready', !!p.ready);
+      el.querySelector('.lp-name').textContent = p.joined ? p.name : '—';
+      el.querySelector('.lp-status').textContent = !p.joined ? 'aguardando…' : (i === state.idx ? 'você · ' : '') + (p.connected ? 'conectado' : 'desconectado');
+      el.querySelector('.lp-ready').hidden = !p.ready;
+      paintAvatar($('#lp' + i + '-av'), i, i === state.idx, true);
+      if (prev && prev.players[i] && !prev.players[i].joined && p.joined && i !== state.idx) { popEl(el, 'pop'); playSound('chime'); }
+    });
+    var both = !!(me && me.connected && opp && opp.joined && opp.connected);
+    var btn = $('#lobby-ready');
+    btn.disabled = !both || l.status !== 'lobby';
+    btn.classList.toggle('on', !!(me && me.ready));
+    btn.textContent = !both ? 'Aguardando adversário…' : (me.ready ? '✅ Pronto! (toque para cancelar)' : 'Estou pronto!');
+    var msg;
+    if (!opp || !opp.joined) msg = 'Chame seu adversário: ele entra com o código ' + l.code + '.';
+    else if (!opp.connected) msg = opp.name + ' saiu da sala. Esperando voltar…';
+    else if (l.status === 'countdown') msg = 'Começando!';
+    else if (me.ready && opp.ready) msg = 'Começando!';
+    else if (me.ready) msg = 'Tudo certo! Esperando ' + opp.name + ' ficar pronto…';
+    else if (opp.ready) msg = opp.name + ' já está pronto! Falta você. 😉';
+    else msg = 'Quando os dois estiverem prontos, a contagem começa.';
+    $('#lobby-msg').textContent = msg;
+    updateDuelPresence();
+    updateDuelRematch();
+    if (d.phase === 'game' || d.phase === 'end') updateHud();           // repinta o avatar do adversário (cinza se desconectou)
+  }
+
+  /* ----- contagem regressiva ----- */
+  var cd = { timers: [], on: false };
+  function setCd(txt, go) {
+    var n = $('#cd-num');
+    n.textContent = txt;
+    n.classList.toggle('go', !!go);
+    n.classList.remove('pop');
+    void n.offsetWidth;
+    n.classList.add('pop');
+  }
+  function showCountdown(ms) {
+    var d = state.duel;
+    if (!d) return;
+    cd.timers.forEach(clearTimeout);
+    cd.timers = [];
+    d.phase = 'countdown';
+    closeModal('#modal-duel');
+    closeModal('#modal-menu');
+    closeChat();
+    $('#cd-img').style.backgroundImage = 'url("' + imageItem(d.imageId).url + '")';
+    $('#cd-vs').textContent = (state.names[state.idx] || 'Você') + '  ×  ' + friendName();
+    $('#countdown').hidden = false;
+    cd.on = true;
+    var steps = Math.max(1, Math.round(ms / 1000)), per = ms / steps;
+    for (var i = 0; i < steps; i++) {
+      (function (n, delay) {
+        cd.timers.push(setTimeout(function () { setCd(String(n)); playSound(n === 1 ? 'tick2' : 'tick'); }, delay));
+      })(steps - i, i * per);
+    }
+    announce('A disputa começa em ' + steps + ' segundos.');
+  }
+  function hideCountdown(flash) {
+    cd.timers.forEach(clearTimeout);
+    cd.timers = [];
+    if (!cd.on) return;
+    cd.on = false;
+    if (flash) {
+      setCd('JÁ!', true);
+      cd.timers.push(setTimeout(function () { if (!cd.on) $('#countdown').hidden = true; }, reducedMotion() ? 300 : 650));
+    } else {
+      $('#countdown').hidden = true;
+    }
+  }
+
+  /* ----- a disputa ----- */
+  function startDuelBoard(snap, resume) {
+    if (resume) setLoading(true, 'Voltando para a disputa…');
+    return imagesReady.then(function () {
+      return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
+    }).then(function (url) {
+      var d = state.duel;
+      if (!d) { setLoading(false); return; }
+      d.phase = 'game';
+      d.mode = snap.mode;
+      d.box = snap.box;
+      d.prog = snap.progress;
+      d.lead = 'tie';
+      d.alerted = false;
+      state.cfg = snap.cfg;
+      state.code = snap.code;
+      state.imageId = snap.imageId;
+      state.imageUrl = url;
+      state.total = snap.total;
+      state.locked = snap.locked;
+      state.hints = snap.hints;
+      state.spots = snap.spots;
+      state.counts = [0, 0];
+      state.selectedId = null;
+      state.drag = null;
+      state.status = 'playing';
+      state.timerBase = Date.now() - snap.elapsedMs;
+      clearTimeout(state.idleTimer);
+      buildField(snap);
+      setChatAvailability(snap.chatOn !== false);
+      setChatHistory(snap.chat || []);
+      ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
+      hideRematchWait();
+      $('#field').classList.remove('won');
+      $('#confetti').innerHTML = '';
+      closeHint();
+      clearSpot();
+      markMilestones();
+      state.inGame = true;
+      $('#duel-strip').hidden = false;
+      $('#banner-wait').hidden = true;
+      $('#menu-change').hidden = true;
+      $('#menu-restart').hidden = true;
+      showScreen('game');
+      layout();
+      updateUi();
+      updateGift();
+      updateDuelPresence();
+      ensurePush();
+      keepAwake();
+      setLoading(false);
+      if (!resume) { hideCountdown(true); playSound('tann'); announce('Valendo! Monte a imagem o mais rápido que puder.'); }
+      else hideCountdown(false);
+    });
+  }
+
+  // faixa da corrida: mostra o seu progresso e o do adversário (só a porcentagem; nunca o tabuleiro dele)
+  function paintStrip() {
+    var d = state.duel;
+    if (!d) return;
+    var meP = pctOf(state.locked, state.total), opP = d.prog[1 - state.idx] ? d.prog[1 - state.idx].pct : 0;
+    $('#ds-fill-me').style.width = meP + '%';
+    $('#ds-fill-opp').style.width = opP + '%';
+    $('#ds-pct-me').textContent = meP + '%';
+    $('#ds-pct-opp').textContent = opP + '%';
+    $('#ds-fill-me').parentNode.parentNode.setAttribute('aria-valuenow', String(meP));
+    $('#ds-fill-opp').parentNode.parentNode.setAttribute('aria-valuenow', String(opP));
+    paintAvatar($('#ds-av-me'), state.idx, true, false);
+    paintAvatar($('#ds-av-opp'), 1 - state.idx, false, false);
+    if (d.phase !== 'game') return;
+    var lead = opP > meP ? 'opp' : (meP > opP ? 'me' : 'tie');
+    if (lead !== d.lead) {
+      if ((lead === 'opp' && d.lead === 'me') || (lead === 'me' && d.lead === 'opp')) {
+        if (lead === 'opp') { toast('📣 ' + friendName() + ' passou você!', 1800); }
+        else { toast('🚀 Você passou ' + friendName() + '!', 1800); playSound('chime'); }
+      }
+      d.lead = lead;
+    }
+    var opp = d.prog[1 - state.idx];
+    if (opp && !d.alerted && opp.total && opp.total - opp.locked <= 2 && opp.locked > state.locked) {
+      d.alerted = true;
+      toast('⚠️ ' + friendName() + ' está quase terminando!', 2400);
+      playSound('ping');
+    }
+  }
+
+  // presença do adversário durante a disputa: aviso e prazo para voltar
+  function updateDuelPresence() {
+    var d = state.duel;
+    if (!d) return;
+    var banner = $('#duel-banner');
+    var opp = d.lobby.players[1 - state.idx];
+    var away = !!(opp && opp.joined && !opp.connected);
+    clearInterval(d.graceTimer);
+    if (d.phase === 'game' && away && state.status === 'playing') {
+      var end = Date.now() + (opp.graceLeft || 0);
+      var paint = function () {
+        var s = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+        banner.className = 'banner warn duel-banner';
+        banner.textContent = opp.graceLeft ? opp.name + ' desconectou. Se não voltar em ' + s + ' s, você vence.' : opp.name + ' está desconectado.';
+      };
+      paint();
+      banner.hidden = false;
+      d.graceTimer = setInterval(paint, 500);
+    } else {
+      banner.hidden = true;
+    }
+    if (d.phase === 'game' && d.oppOnline !== !away) {
+      if (away) { toast(opp.name + ' desconectou!'); playSound('ping'); }
+      else toast(friendName() + ' voltou! 🙌');
+    }
+    d.oppOnline = !away;
+  }
+
+  /* ----- caixa de presentes (modo Quebrando Cabeças) ----- */
+  var GIFT_SVG = '<svg viewBox="0 0 120 138" aria-hidden="true" focusable="false">' +
+    '<ellipse cx="60" cy="128" rx="42" ry="6" fill="rgba(0,0,0,.18)"/>' +
+    '<g class="g-body">' +
+      '<rect x="14" y="56" width="92" height="66" rx="14" fill="#ff4f8b" stroke="#3b2a6b" stroke-width="4"/>' +
+      '<rect x="20" y="62" width="12" height="50" rx="6" fill="#ff8cb4" opacity=".6"/>' +
+      '<rect x="52" y="56" width="16" height="66" fill="#ffcf33" stroke="#3b2a6b" stroke-width="3"/>' +
+      '<g class="e-open"><circle cx="38" cy="86" r="9" fill="#fff" stroke="#3b2a6b" stroke-width="2.5"/><circle cx="82" cy="86" r="9" fill="#fff" stroke="#3b2a6b" stroke-width="2.5"/>' +
+        '<circle cx="40" cy="87" r="4.6" fill="#3b2a6b"/><circle cx="84" cy="87" r="4.6" fill="#3b2a6b"/><circle cx="41.6" cy="85" r="1.6" fill="#fff"/><circle cx="85.6" cy="85" r="1.6" fill="#fff"/></g>' +
+      '<g class="e-closed"><path d="M29 85 Q38 94 47 85" fill="none" stroke="#3b2a6b" stroke-width="3.5" stroke-linecap="round"/><path d="M73 85 Q82 94 91 85" fill="none" stroke="#3b2a6b" stroke-width="3.5" stroke-linecap="round"/></g>' +
+      '<g class="m-smile"><path d="M47 102 Q60 115 73 102" fill="none" stroke="#3b2a6b" stroke-width="4" stroke-linecap="round"/></g>' +
+      '<g class="m-o"><ellipse cx="60" cy="107" rx="9" ry="10" fill="#7a1f4a" stroke="#3b2a6b" stroke-width="3"/></g>' +
+      '<g class="m-flat"><path d="M50 107 H70" stroke="#3b2a6b" stroke-width="4" stroke-linecap="round"/></g>' +
+      '<ellipse cx="27" cy="101" rx="6" ry="4" fill="#fff" opacity=".45"/><ellipse cx="93" cy="101" rx="6" ry="4" fill="#fff" opacity=".45"/>' +
+    '</g>' +
+    '<g class="g-lid">' +
+      '<rect x="8" y="34" width="104" height="26" rx="10" fill="#ff6fa0" stroke="#3b2a6b" stroke-width="4"/>' +
+      '<rect x="52" y="34" width="16" height="26" fill="#ffcf33" stroke="#3b2a6b" stroke-width="3"/>' +
+      '<ellipse cx="44" cy="26" rx="16" ry="11" transform="rotate(-18 44 26)" fill="#ffcf33" stroke="#3b2a6b" stroke-width="3.5"/>' +
+      '<ellipse cx="76" cy="26" rx="16" ry="11" transform="rotate(18 76 26)" fill="#ffcf33" stroke="#3b2a6b" stroke-width="3.5"/>' +
+      '<circle cx="60" cy="30" r="7.5" fill="#ffe27a" stroke="#3b2a6b" stroke-width="3"/>' +
+    '</g>' +
+    '<text class="g-lock" x="86" y="54" font-size="28">🔒</text>' +
+    '<circle class="gd gd1" cx="42" cy="134" r="4.5"/><circle class="gd gd2" cx="60" cy="134" r="4.5"/><circle class="gd gd3" cx="78" cy="134" r="4.5"/>' +
+    '</svg>';
+
+  function buildHand(cfg) {
+    var field = $('#field'), g0 = cfg.GIFT;
+    var strip = document.createElement('div');
+    strip.className = 'hand-strip';
+    strip.style.cssText = 'left:6px;top:' + (cfg.TRAY_TOP - 16) + 'px;width:' + (cfg.FIELD_W - 12) + 'px;height:' + (cfg.FIELD_H - cfg.TRAY_TOP + 8) + 'px';
+    field.appendChild(strip);
+    g0.slots.forEach(function (s) {
+      var sl = document.createElement('div');
+      sl.className = 'hand-slot';
+      sl.style.cssText = 'left:' + (s.x - cfg.TRAY / 2) + 'px;top:' + (s.y - cfg.TRAY / 2) + 'px;width:' + cfg.TRAY + 'px;height:' + cfg.TRAY + 'px';
+      field.appendChild(sl);
+    });
+    var gift = document.createElement('button');
+    gift.id = 'gift';
+    gift.type = 'button';
+    gift.className = 'gift';
+    var gh = Math.round(g0.w * 1.09);
+    gift.style.cssText = 'left:' + Math.round(g0.x - g0.w / 2) + 'px;top:' + Math.round(g0.y - gh / 2) + 'px;width:' + g0.w + 'px;height:' + gh + 'px';
+    gift.innerHTML = GIFT_SVG;
+    if (!state.duel.giftSeen) {
+      var hint = document.createElement('span');
+      hint.className = 'g-hint';
+      hint.textContent = 'Toque!';
+      gift.appendChild(hint);
+    }
+    gift.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    gift.addEventListener('click', onGiftTap);
+    field.appendChild(gift);
+    clearInterval(state.duel.giftTimer);
+    state.duel.giftTimer = setInterval(function () {      // de vez em quando a caixa chama a atenção (só se estiver livre)
+      var d = state.duel, b = d && d.box;
+      if (!d || d.phase !== 'game' || !b || b.blocked || b.left <= 0 || state.drag || reducedMotion()) return;
+      var pending = state.pieces.some(function (p) { return p.out && !p.locked; });
+      if (!pending) popEl($('#gift'), 'wiggle');
+    }, 5000);
+  }
+
+  function updateGift() {
+    var g = $('#gift'), d = state.duel;
+    if (!g || !d || !d.box) return;
+    var b = d.box;
+    g.classList.toggle('blocked', !!b.blocked);
+    g.classList.toggle('empty', b.left <= 0 && !b.blocked);
+    for (var i = 1; i <= 3; i++) g.querySelector('.gd' + i).classList.toggle('on', i <= b.n);
+    g.setAttribute('aria-label', b.blocked ? 'Caixa de presentes bloqueada. Encaixe as peças que já saíram.' :
+      (b.left <= 0 ? 'Caixa de presentes vazia.' : 'Caixa de presentes: toque para liberar uma peça. Peças pedidas nesta rodada: ' + b.n + ' de ' + b.max + '. Faltam ' + b.left + ' surpresas.'));
+  }
+
+  function onGiftTap() {
+    var d = state.duel, g = $('#gift');
+    if (!d || !g || d.phase !== 'game' || state.status !== 'playing') return;
+    d.giftSeen = true;
+    var hint = g.querySelector('.g-hint');
+    if (hint) hint.remove();
+    var b = d.box || {};
+    if (b.blocked) { popEl(g, 'nope'); toast('Encaixe as peças que já saíram para abrir a caixa de novo!'); vibrate(20); return; }
+    if (b.left <= 0) { popEl(g, 'nope'); toast('A caixa está vazia!'); return; }
+    popEl(g, 'tap');
+    gameEmit('gift', null, function (res) {
+      if (!state.duel || !res) return;
+      if (res.ok) { state.duel.box = { n: res.n, max: res.max, blocked: res.blocked, left: res.left }; updateGift(); return; }
+      if (res.error === 'blocked' || res.error === 'empty') { state.duel.box = { n: res.n, max: res.max, blocked: res.blocked, left: res.left }; updateGift(); popEl(g, 'nope'); }
+    });
+  }
+
+  // gira a peça (ela cai na posição certa de giro depois de algumas voltas)
+  function spinPiece(p, rot) {
+    p.rot = rot;
+    p.ang = rot * 90 - 720;
+    p.tile.style.transition = 'none';
+    p.tile.style.transform = 'rotate(' + p.ang + 'deg)';
+    void p.tile.offsetWidth;
+    p.tile.style.transition = 'transform .72s cubic-bezier(.2,.8,.25,1)';
+    p.ang = rot * 90;
+    p.tile.style.transform = 'rotate(' + p.ang + 'deg)';
+    setTimeout(function () { p.tile.style.transition = ''; }, 800);
+  }
+
+  socket.on('ch:gift', function (g) {
+    var d = state.duel, p = d && state.pieces[g.id];
+    if (!p) return;
+    d.box = g.box;
+    updateGift();
+    p.out = true;
+    p.el.style.display = '';
+    p.z = g.z;
+    if (p.z > state.zMax) state.zMax = p.z;
+    p.tx = g.x; p.ty = g.y;
+    if (reducedMotion()) { p.x = g.x; p.y = g.y; setAngle(p, g.rot); }
+    else {
+      p.x = g.from.x; p.y = g.from.y;
+      p.vs = 0.15;
+      p.fly = { t0: performance.now(), dur: 720, fx: g.from.x, fy: g.from.y, tx: g.x, ty: g.y };
+      spinPiece(p, g.rot);
+    }
+    classify(p);
+    var gift = $('#gift');
+    if (gift) popEl(gift, 'spit');
+    playSound('gift');
+    vibrate(12);
+    announce('Uma peça saiu da caixa.');
+    updateUi();
+  });
+
+  socket.on('ch:box', function (b) {
+    var d = state.duel;
+    if (!d || !b) return;
+    var was = d.box;
+    d.box = b;
+    updateGift();
+    if (was && was.n > 0 && b.n === 0 && b.left > 0) {            // rodada completa: a caixa comemora
+      var g = $('#gift');
+      if (g) popEl(g, 'wiggle');
+      toast('🎁 Caixa liberada! Peça mais!', 1800);
+      playSound('chime');
+    }
+  });
+
+  /* ----- resultado e revanche ----- */
+  function showDuelResult(r) {
+    var d = state.duel;
+    if (!d) return;
+    d.phase = 'end';
+    d.result = r;
+    hideCountdown(false);
+    clearInterval(d.graceTimer);
+    $('#duel-banner').hidden = true;
+    state.status = 'won';
+    state.finalMs = r.elapsedMs;
+    state.drag = null;
+    state.selectedId = null;
+    var won = r.winner === state.idx, opp = friendName();
+    $('#duel-trophy').textContent = won ? '🏆' : '🥈';
+    $('#duel-title').textContent = won ? 'Você venceu! 🎉' : opp + ' venceu!';
+    var sub;
+    if (r.reason === 'complete') sub = won ? 'Você terminou primeiro!' : 'Quase! ' + opp + ' foi mais rápido. Que tal uma revanche?';
+    else sub = won ? opp + ' saiu da disputa. Vitória por desistência.' : 'Você ficou fora da disputa por muito tempo. ' + opp + ' venceu por desistência.';
+    $('#duel-sub').textContent = sub;
+    $('#duel-time').textContent = r.reason === 'complete' ? fmtTime(r.elapsedMs) : '—';
+    [0, 1].forEach(function (i) {
+      var p = r.players[i], row = $('#dr' + i);
+      row.querySelector('.dr-name').textContent = (p.name || (i === state.idx ? 'Você' : 'Adversário')) + (i === state.idx ? ' (você)' : '');
+      row.querySelector('.dr-pct').textContent = p.pct + '%';
+      row.querySelector('.dr-pcs').textContent = p.locked + '/' + p.total;
+      row.classList.toggle('winner', r.winner === i);
+      row.querySelector('.dr-crown').hidden = r.winner !== i;
+      paintAvatar($('#dr' + i + '-av'), i, i === state.idx, false);
+      var bar = row.querySelector('.dr-bar i');
+      bar.style.width = '0%';
+      setTimeout(function () { bar.style.width = p.pct + '%'; }, 60);
+    });
+    var box = $('#duel-confetti');
+    box.innerHTML = '';
+    if (won && !reducedMotion()) {
+      var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
+      for (var i = 0; i < 44; i++) {
+        var c = document.createElement('i');
+        c.style.left = Math.random() * 100 + '%';
+        c.style.background = colors[i % colors.length];
+        c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
+        c.style.animationDelay = Math.random() * 0.8 + 's';
+        box.appendChild(c);
+      }
+    }
+    updateDuelRematch();
+    updateUi();
+    setTimeout(function () {
+      if (!state.duel || state.duel.phase !== 'end') return;
+      openModal('#modal-duel', '#duel-rematch');
+      playSound(won ? 'win' : 'chime');
+      vibrate(won ? [40, 60, 40] : 30);
+      announce(won ? 'Você venceu a disputa!' : opp + ' venceu a disputa.');
+    }, won ? 650 : 350);
+  }
+
+  function updateDuelRematch() {
+    var d = state.duel;
+    if (!d || d.phase !== 'end') return;
+    var votes = d.lobby.rematch || [false, false], me = !!votes[state.idx], op = !!votes[1 - state.idx];
+    var opp = d.lobby.players[1 - state.idx], name = friendName();
+    var btn = $('#duel-rematch'), msg = $('#duel-rematch-msg');
+    if (!opp || !opp.joined) { btn.disabled = true; btn.textContent = '🔄 Revanche'; msg.textContent = name + ' saiu da sala.'; return; }
+    if (!opp.connected) { btn.disabled = true; btn.textContent = '🔄 Revanche'; msg.textContent = 'Esperando ' + name + ' voltar…'; return; }
+    btn.disabled = false;
+    if (me) { btn.textContent = '⏳ Esperando ' + name + '… (toque para cancelar)'; msg.textContent = ''; }
+    else if (op) { btn.textContent = '🔥 Aceitar revanche!'; msg.textContent = name + ' quer revanche!'; }
+    else { btn.textContent = '🔄 Revanche'; msg.textContent = ''; }
+  }
+
+  socket.on('ch:lobby', function (l) { applyLobby(l); });
+  socket.on('ch:countdown', function (c) { showCountdown(c.ms); });
+  socket.on('ch:cancel', function (c) {
+    var d = state.duel;
+    if (!d) return;
+    hideCountdown(false);
+    var why = { dropped: friendName() + ' desconectou. A contagem foi cancelada.', unready: 'Alguém desmarcou "pronto". A contagem foi cancelada.', left: friendName() + ' saiu da sala.' }[c && c.reason];
+    if (why) toast(why, 2600);
+    d.phase = 'lobby';
+    closeModal('#modal-duel');
+    showScreen('lobby');
+  });
+  socket.on('ch:start', function (m) {
+    if (!state.duel) return;
+    state.duel.lobby = m.lobby || state.duel.lobby;
+    startDuelBoard(m.snapshot, false);
+  });
+  socket.on('ch:progress', function (p) {
+    var d = state.duel;
+    if (!d || !p) return;
+    d.prog[p.idx] = p;
+    if (p.idx !== state.idx) paintStrip();
+  });
+  socket.on('ch:end', function (r) { showDuelResult(r); });
+  socket.on('ch:rematch', function (m) {
+    var d = state.duel;
+    if (!d || !m) return;
+    var was = d.lobby.rematch || [false, false];
+    d.lobby.rematch = m.votes;
+    if (m.votes[1 - state.idx] && !was[1 - state.idx] && d.phase === 'end') playSound('ping');
+    updateDuelRematch();
+  });
+
+  $('#btn-duel').addEventListener('click', function () {
+    popEl(this, 'go');
+    readName();
+    syncDuelModes();
+    openPick('duel');
+  });
+  function syncDuelModes() {
+    Array.prototype.forEach.call($('#duel-modes').children, function (b) { b.setAttribute('aria-checked', b.dataset.mode === state.duelMode ? 'true' : 'false'); });
+  }
+  $('#duel-modes').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button');
+    if (!b) return;
+    state.duelMode = b.dataset.mode === 'quebra' ? 'quebra' : 'comum';
+    syncDuelModes();
+    playSound('blip');
+  });
+  $('#lobby-ready').addEventListener('click', function () {
+    var d = state.duel;
+    if (!d) return;
+    var me = d.lobby.players[state.idx];
+    socket.emit('ch:ready', { ready: !(me && me.ready) });
+  });
+  $('#lobby-leave').addEventListener('click', leaveDuel);
+  $('#lobby-copy').addEventListener('click', function () {
+    var code = state.duel ? state.duel.code : '';
+    try { navigator.clipboard.writeText(code).then(function () { toast('Código ' + code + ' copiado!'); }, function () { toast('Código: ' + code); }); }
+    catch (e) { toast('Código: ' + code); }
+  });
+  $('#duel-rematch').addEventListener('click', function () {
+    var d = state.duel;
+    if (!d) return;
+    socket.emit('ch:rematch', { want: !(d.lobby.rematch && d.lobby.rematch[state.idx]) });
+  });
+  $('#duel-leave').addEventListener('click', leaveDuel);
+
+  /* ---------------------------------------------------------
    * Botões e teclado
    * --------------------------------------------------------- */
   $('#btn-create').addEventListener('click', function () { popEl(this, 'go'); readName(); openPick('create'); });
@@ -1815,7 +2444,9 @@
 
   $('#btn-pick-go').addEventListener('click', function () {
     if (!state.pickChoice) return;
-    if (state.pickMode === 'create') {
+    if (state.pickMode === 'duel') {
+      createDuel();
+    } else if (state.pickMode === 'create') {
       showGoSplash(state.pickChoice);
       doCreate(state.pickChoice, state.pickPieces);
     } else {
@@ -1863,6 +2494,10 @@
     requestRestart(state.imageId, state.cfg.PIECES);
   });
   $('#menu-leave').addEventListener('click', function () {
+    if (state.duel) {
+      if (window.confirm(state.duel.phase === 'game' ? 'Sair da disputa? Seu adversário vence.' : 'Sair da sala?')) leaveDuel();
+      return;
+    }
     if (window.confirm('Sair da partida?')) {
       socket.disconnect();
       window.location.href = location.pathname;
@@ -1999,6 +2634,7 @@
     updatePushNote();
     var param = '';
     try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); } catch (e) { /* ignora */ }
+    if (!param && maybeResumeDuel()) return;                    // uma Sala Desafio ficou aberta neste aparelho
     if (param.length === 4) {
       $('#input-code').value = param;
       if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
@@ -2007,6 +2643,7 @@
       inv.querySelector('strong').textContent = param;
       inv.hidden = false;
       $('#btn-create').hidden = true;
+      $('#cta-row').hidden = true;
       $('#btn-join').classList.remove('btn-secondary');
       $('#btn-join').classList.add('btn-primary');
       try { $('#input-name').focus(); } catch (e) { /* ignora */ }

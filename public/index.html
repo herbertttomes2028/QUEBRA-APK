@@ -65,7 +65,10 @@
         </div>
         <p id="home-invite" class="invite" hidden></p>
 
-        <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
+        <div id="cta-row" class="cta-row">
+          <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
+          <button id="btn-duel" class="btn btn-duel" type="button"><span class="duel-ico" aria-hidden="true">🏆</span><span>Sala Desafio</span></button>
+        </div>
 
         <div class="join-card">
           <label for="input-code"><span class="key" aria-hidden="true">🔑</span> Já tem um código?</label>
@@ -89,7 +92,11 @@
       <div class="pick-inner">
         <button id="btn-pick-back" class="btn btn-ghost" type="button">‹ Voltar</button>
         <h2 id="pick-title">Escolha a imagem</h2>
-        <p class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+        <p id="pick-lead" class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+        <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Modo de jogo" hidden>
+          <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
+          <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
+        </div>
         <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis"></div>
 
         <h3 class="pick-sub">Quantas peças?</h3>
@@ -98,6 +105,41 @@
 
         <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
         <p id="pick-error" class="error" role="alert" hidden></p>
+      </div>
+    </section>
+
+    <!-- ========== SALA DESAFIO: RECEPÇÃO ========== -->
+    <section id="screen-lobby" class="screen">
+      <div class="lobby-inner">
+        <button id="lobby-leave" class="btn btn-ghost" type="button">‹ Sair da sala</button>
+        <h2>Sala Desafio</h2>
+        <div id="lobby-mode" class="lobby-badge">🧩 Modo Comum</div>
+        <div class="lobby-code">
+          <span class="lc-label">Código da sala</span>
+          <strong id="lobby-code" aria-live="polite">----</strong>
+          <button id="lobby-copy" class="btn btn-secondary btn-small" type="button">Copiar</button>
+        </div>
+        <div class="lobby-vs">
+          <div id="lp0" class="lobby-player">
+            <span id="lp0-av" class="avatar big"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></span>
+            <b class="lp-name">—</b>
+            <span class="lp-status">aguardando…</span>
+            <span class="lp-ready" hidden>✅ Pronto!</span>
+          </div>
+          <div class="vs" aria-hidden="true">VS</div>
+          <div id="lp1" class="lobby-player">
+            <span id="lp1-av" class="avatar big p1"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></span>
+            <b class="lp-name">—</b>
+            <span class="lp-status">aguardando…</span>
+            <span class="lp-ready" hidden>✅ Pronto!</span>
+          </div>
+        </div>
+        <div class="lobby-image">
+          <span id="lobby-thumb" class="li-thumb" aria-hidden="true"></span>
+          <div><b id="lobby-img-name">Imagem</b><small id="lobby-info">12 peças</small></div>
+        </div>
+        <p id="lobby-msg" class="lobby-msg" role="status" aria-live="polite">Chame seu adversário com o código.</p>
+        <button id="lobby-ready" class="btn btn-primary btn-xl" type="button" disabled>Estou pronto!</button>
       </div>
     </section>
 
@@ -127,6 +169,11 @@
         <span id="wait-msg" class="code-msg">aguardando o amigo…</span>
       </div>
       <div id="banner-conn" class="banner warn" hidden>Reconectando…</div>
+      <div id="duel-banner" class="banner warn duel-banner" hidden role="status"></div>
+      <div id="duel-strip" class="duel-strip" hidden aria-label="Corrida: progresso dos dois jogadores">
+        <div class="ds-lane me"><span id="ds-av-me" class="avatar sm"><span class="av-face">V</span></span><div class="ds-bar" role="progressbar" aria-label="Seu progresso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="ds-track"><i id="ds-fill-me"></i></span><span id="ds-pct-me" class="ds-pct">0%</span></div></div>
+        <div class="ds-lane opp"><span id="ds-av-opp" class="avatar sm p1"><span class="av-face">?</span></span><div class="ds-bar" role="progressbar" aria-label="Progresso do adversário" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="ds-track"><i id="ds-fill-opp"></i></span><span id="ds-pct-opp" class="ds-pct">0%</span></div></div>
+      </div>
 
       <main id="stage">
         <div id="fieldWrap">
@@ -288,6 +335,34 @@
         </div>
         <button id="win-again" class="btn btn-primary btn-block" type="button">Jogar de novo</button>
         <button id="win-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
+      </div>
+    </div>
+
+    <!-- ========== SALA DESAFIO: RESULTADO ========== -->
+    <div id="modal-duel" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="duel-title">
+      <div id="duel-confetti" aria-hidden="true"></div>
+      <div class="sheet win duel-sheet">
+        <div id="duel-trophy" class="duel-trophy" aria-hidden="true">🏆</div>
+        <h3 id="duel-title">Você venceu!</h3>
+        <p id="duel-sub" class="duel-sub"></p>
+        <p class="win-time">Tempo: <strong id="duel-time">00:00</strong></p>
+        <div class="duel-rows">
+          <div id="dr0" class="duel-row"><span id="dr0-av" class="avatar sm"><span class="av-face">V</span></span><span class="dr-main"><b class="dr-name">Você</b><span class="dr-bar"><i></i></span></span><span class="dr-num"><b class="dr-pct">0%</b><small class="dr-pcs">0/0</small></span><span class="dr-crown" hidden aria-hidden="true">👑</span></div>
+          <div id="dr1" class="duel-row"><span id="dr1-av" class="avatar sm p1"><span class="av-face">?</span></span><span class="dr-main"><b class="dr-name">Adversário</b><span class="dr-bar"><i></i></span></span><span class="dr-num"><b class="dr-pct">0%</b><small class="dr-pcs">0/0</small></span><span class="dr-crown" hidden aria-hidden="true">👑</span></div>
+        </div>
+        <p id="duel-rematch-msg" class="duel-rematch-msg" role="status"></p>
+        <button id="duel-rematch" class="btn btn-primary btn-block" type="button">🔄 Revanche</button>
+        <button id="duel-leave" class="btn btn-secondary btn-block" type="button">Sair da sala</button>
+      </div>
+    </div>
+
+    <div id="countdown" class="countdown" hidden aria-hidden="true">
+      <div class="cd-rays"></div>
+      <div class="cd-stage">
+        <p class="cd-top">Preparem-se!</p>
+        <div id="cd-num" class="cd-num">3</div>
+        <div class="cd-card"><span id="cd-img" class="cd-img"></span></div>
+        <p id="cd-vs" class="cd-vs"></p>
       </div>
     </div>
 
