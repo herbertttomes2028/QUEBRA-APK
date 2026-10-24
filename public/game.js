@@ -210,20 +210,15 @@
     return imgCache[key];
   }
 
-  // miniaturas leves (3:4) para a tela de escolha. O servidor entrega miniaturas prontas (imagens/mini/); o navegador as
-  // decodifica sozinho, fora da thread principal. Sem miniatura pronta, o celular gera uma por vez, sem travar a tela.
-  var thumbChain = Promise.resolve();
+  // miniaturas leves (3:4) para a tela de escolha: usa a miniatura pronta do servidor (imagens/mini/) quando existe;
+  // sem ela, gera a partir da imagem, como sempre foi feito
   function prepareThumb(item) {
     if (item.thumb) return Promise.resolve(item.thumb);
     var key = item.file + '|thumb';
     if (imgCache[key]) return imgCache[key];
-    imgCache[key] = new Promise(function (res) {
-      thumbChain = thumbChain
-        .then(function () { return new Promise(function (ok) { setTimeout(ok, 40); }); })
-        .then(function () { return loadImage(item.localUrl || item.url); })
-        .then(function (img) { return cropToBlob(img, 300, 400, item.url); })
-        .then(res, function () { res(item.url); });
-    });
+    imgCache[key] = loadImage(item.localUrl || item.url).then(function (img) {
+      return cropToBlob(img, 300, 400, item.url);
+    }).catch(function () { return item.url; });
     return imgCache[key];
   }
 
@@ -339,6 +334,7 @@
       setTimeout(function () { try { card.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { /* ignora */ } }, 60);
     }
     vibrate(8);
+    playSound('blip');
     announce(item.label + ' escolhida. Agora escolha a quantidade de peças.');
   }
 
@@ -2766,6 +2762,7 @@
       b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
     });
     updateSizeNote();
+    playSound('blip');
   });
 
   $('#ps-close').addEventListener('click', closePickSheet);
