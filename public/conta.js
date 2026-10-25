@@ -23,7 +23,7 @@
     password: 'A senha precisa ter pelo menos 8 caracteres.',
     consent: 'Marque a caixa de privacidade para criar a conta.',
     email_taken: 'Já existe uma conta com este e-mail. Toque em "Entrar".',
-    bad_login: 'E-mail ou senha incorretos.',
+    bad_login: 'E-mail ou senha incorretos. Confira se o e-mail está igual ao do cadastro e toque no olho 👁 para ver a senha que está digitando.',
     rate: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
     server: 'Algo deu errado no servidor. Tente de novo daqui a pouco.',
     offline: 'Sem internet no momento. Confira a conexão.',
@@ -48,13 +48,20 @@
   };
   var errText = function (e) { return MSG[e] || MSG.server; };
 
-  function api(method, path, body) {
+  // quiet = pedido de segundo plano: uma recusa dele nunca desconecta a pessoa
+  function api(method, path, body, quiet) {
+    var sent = acc.token;                                   // o "crachá" usado NESTE pedido
     var opt = { method: method, headers: { 'Content-Type': 'application/json' } };
-    if (acc.token) opt.headers.Authorization = 'Bearer ' + acc.token;
+    if (sent) opt.headers.Authorization = 'Bearer ' + sent;
     if (body !== undefined) opt.body = JSON.stringify(body);
     return fetch('/api/acc' + path, opt)
       .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'server' }; }); })
-      .then(function (j) { if (j && j.error === 'auth' && acc.token) logoutLocal('Sua sessão terminou. Entre de novo.'); return j; })
+      .then(function (j) {
+        // só conta como "sessão terminou" se o pedido foi feito COM crachá e esse crachá ainda é o atual
+        // (uma resposta atrasada de um login antigo, ou de um pedido sem crachá, não pode derrubar o login novo)
+        if (j && j.error === 'auth' && !quiet && sent && sent === acc.token) logoutLocal('Sua sessão terminou. Entre de novo.');
+        return j;
+      })
       .catch(function () { return { ok: false, error: 'offline' }; });
   }
 
@@ -79,6 +86,9 @@
   function logoutLocal(msg) {
     saveSession('');
     acc.me = null; acc.friends = null; acc.pending = null;
+    acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
+    $('#auth-pass').value = ''; $('#auth-consent').checked = false; say('#auth-error', '');
+    acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
     paintChip(); paintContinue();
     if ($('#screen-me').classList.contains('active')) renderMe();
@@ -248,9 +258,12 @@
     go.disabled = true; say('#auth-error', '');
     api('POST', up ? '/register' : '/login', body).then(function (j) {
       go.disabled = false;
-      if (!j || !j.ok) { say('#auth-error', errText(j && j.error)); QC.vibrate(30); return; }
-      if (!up) api('POST', '/import', { bests: state.bests });          // leva os melhores tempos do modo visitante
+      if (!j || !j.ok) {
+        if (up && j && j.error === 'email_taken') { setAuthMode('in'); say('#auth-error', 'Você já tem conta com este e-mail. Digite sua senha e toque em Entrar.'); QC.vibrate(30); return; }
+        say('#auth-error', errText(j && j.error)); QC.vibrate(30); return;
+      }
       afterAuth(j, up ? 'Conta criada! Bem-vindo(a)' : 'Que bom te ver de novo');
+      if (!up && Object.keys(state.bests || {}).length) api('POST', '/import', { bests: state.bests }, true);   // leva os melhores tempos do modo visitante (já com o login guardado)
     });
   });
 
