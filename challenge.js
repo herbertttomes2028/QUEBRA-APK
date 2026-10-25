@@ -17,8 +17,8 @@
 const COUNTDOWN_MS = Number(process.env.CH_COUNTDOWN_MS) || 3000;   // contagem regressiva antes da largada
 const GRACE_MS = Number(process.env.CH_GRACE_MS) || 45000;           // tempo para quem caiu voltar antes de perder por desistência
 const BOX_MAX = 3;                                                   // peças que a caixa libera por rodada
-const AUTO_FIRST_MS = Number(process.env.CH_AUTO_FIRST_MS) || 380;   // depois de encaixar a 3ª peça, a caixa espera um instante e cospe a 1ª
-const AUTO_STEP_MS = Number(process.env.CH_AUTO_STEP_MS) || 330;    // intervalo entre as peças cuspidas
+const AUTO_FIRST_MS = Number(process.env.CH_AUTO_FIRST_MS) || 240;   // depois de encaixar a 3ª peça, a caixa espera um instante e cospe a 1ª
+const AUTO_STEP_MS = Number(process.env.CH_AUTO_STEP_MS) || 190;    // intervalo entre as peças cuspidas
 const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem (vence a habilidade, não a sorte)
 
 module.exports = function createChallenge(d) {
