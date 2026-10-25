@@ -44,6 +44,11 @@
         <use href="#pz" class="bgp bgp-f" transform="translate(10 330) rotate(30) scale(.5)"/>
       </svg>
 
+      <button id="btn-me" class="me-chip" type="button" hidden aria-label="Meu perfil, amigos e partidas">
+        <span id="me-chip-face" class="me-chip-face" aria-hidden="true">👤</span>
+        <span id="me-chip-text" class="me-chip-text">Entrar</span>
+        <span id="me-chip-badge" class="me-badge" hidden>0</span>
+      </button>
       <div class="home-inner">
         <div class="logo" id="logo" aria-hidden="true">
           <span class="lg a"></span><span class="lg b"></span>
@@ -65,6 +70,11 @@
         </div>
         <p id="home-invite" class="invite" hidden></p>
 
+        <button id="btn-continue" class="btn btn-continue" type="button" hidden>
+          <span class="cont-ico" aria-hidden="true">▶</span>
+          <span class="cont-text"><b>Continuar jogando</b><small id="cont-sub"></small></span>
+        </button>
+
         <div id="cta-row" class="cta-row">
           <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
           <button id="btn-duel" class="btn btn-duel" type="button"><span class="duel-ico" aria-hidden="true">🏆</span><span>Sala Desafio</span></button>
@@ -84,6 +94,112 @@
           <button id="link-help" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.3 1-1.3 1.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1.3" fill="currentColor"/></svg><span>Como jogar</span></button>
           <button id="link-settings" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.5-1.9-3.3-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.2 2.6h-3.8l-.3 2.5A7.5 7.5 0 0 0 7.500 6.600l-2.300-.9-1.900 3.300 1.900 1.500a7.600 7.600 0 0 0 0 3l-1.900 1.500 1.900 3.300 2.300-.9c.8.6 1.700 1.100 2.600 1.500l.3 2.500h3.800l.3-2.500c.9-.4 1.800-.9 2.600-1.500l2.300.9 1.900-3.300-1.900-1.500Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Ajustes</span></button>
         </div>
+      </div>
+    </section>
+
+    <!-- ========== MEU ESPAÇO (perfil, amigos, partidas) ========== -->
+    <section id="screen-me" class="screen">
+      <div class="me-wrap">
+        <header class="me-head">
+          <button id="me-back" class="btn btn-ghost" type="button">‹ Voltar</button>
+          <div class="me-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        </header>
+        <div id="me-scroll" class="me-scroll">
+          <!-- visitante: entrar ou criar conta -->
+          <div id="me-guest" hidden>
+            <div class="me-hero">
+              <h2>Guarde seu progresso</h2>
+              <p>Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.</p>
+            </div>
+            <div class="me-card">
+              <div class="me-seg" role="tablist" aria-label="Entrar ou criar conta">
+                <button id="auth-tab-in" class="me-seg-btn on" type="button" role="tab" aria-selected="true">Entrar</button>
+                <button id="auth-tab-up" class="me-seg-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
+              </div>
+              <form id="auth-form" novalidate>
+                <label id="auth-name-wrap" class="me-field" hidden><span>Nome de jogador</span>
+                  <input id="auth-name" type="text" maxlength="12" autocomplete="nickname" placeholder="Um apelido (não use o nome completo)"></label>
+                <label class="me-field"><span>E-mail</span>
+                  <input id="auth-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
+                <label class="me-field"><span>Senha</span>
+                  <span class="me-pw"><input id="auth-pass" type="password" autocomplete="current-password" minlength="8" placeholder="Pelo menos 8 caracteres">
+                  <button id="auth-eye" class="me-eye" type="button" aria-label="Mostrar a senha">👁</button></span></label>
+                <label id="auth-consent-wrap" class="me-check" hidden>
+                  <input id="auth-consent" type="checkbox">
+                  <span>Li a <a href="/privacidade.html" target="_blank" rel="noopener">política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
+                <p id="auth-error" class="error" role="alert" hidden></p>
+                <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
+              </form>
+              <div id="google-box" class="me-google" hidden><span class="me-or">ou</span><div id="google-btn"></div></div>
+            </div>
+            <button id="me-visitor" class="btn btn-secondary btn-xl" type="button">Jogar como visitante</button>
+            <p class="me-small">Como visitante você joga normalmente; só não guarda progresso nem amigos.</p>
+          </div>
+
+          <!-- conta: perfil -->
+          <div id="me-user" hidden>
+            <div id="tab-profile" class="me-tabpane">
+              <div class="me-card me-profile">
+                <button id="me-avatar" class="me-avatar" type="button" aria-label="Trocar meu avatar"><span id="me-avatar-face">👤</span><i class="me-avatar-pen" aria-hidden="true">✎</i></button>
+                <div class="me-profile-main">
+                  <label class="me-field me-field-tight"><span>Nome de jogador</span>
+                    <span class="me-name-row"><input id="me-name" type="text" maxlength="12" autocomplete="nickname"><button id="me-name-save" class="btn btn-secondary me-mini" type="button">Salvar</button></span></label>
+                </div>
+              </div>
+              <div id="me-avatars" class="me-card me-avatars" hidden><div id="me-avatar-grid" class="avatar-grid"></div></div>
+              <div class="me-card me-code">
+                <div><span class="me-label">Meu código de amigo</span><b id="me-code" class="me-code-val">----</b></div>
+                <div class="me-code-btns"><button id="me-copy" class="btn btn-secondary me-mini" type="button">Copiar</button><button id="me-share" class="btn btn-primary me-mini" type="button">Compartilhar</button></div>
+              </div>
+              <button id="me-save-card" class="me-save" type="button" hidden>
+                <span class="cont-ico" aria-hidden="true">▶</span><span class="cont-text"><b>Continuar jogando</b><small id="me-save-sub"></small></span>
+              </button>
+              <h3 class="me-h">Minhas estatísticas</h3>
+              <div id="me-stats" class="me-stats"></div>
+              <h3 class="me-h">Conquistas <small id="me-ach-count"></small></h3>
+              <div id="me-ach" class="me-ach"></div>
+              <div class="me-card me-account">
+                <p class="me-small">Conta: <b id="me-email"></b></p>
+                <button id="me-logout" class="btn btn-secondary btn-xl" type="button">Sair da conta</button>
+                <button id="me-delete-open" class="btn btn-ghost" type="button">Excluir minha conta…</button>
+                <div id="me-delete" class="me-delete" hidden>
+                  <p class="me-small">Isso apaga <b>para sempre</b> seu perfil, amigos, histórico e progresso. Para confirmar, digite <b>EXCLUIR</b>.</p>
+                  <input id="me-del-word" type="text" autocomplete="off" autocapitalize="characters" placeholder="EXCLUIR">
+                  <input id="me-del-pass" type="password" autocomplete="current-password" placeholder="Sua senha" hidden>
+                  <p id="me-del-error" class="error" role="alert" hidden></p>
+                  <button id="me-delete-go" class="btn me-danger" type="button">Excluir de vez</button>
+                </div>
+                <p class="me-small"><a href="/privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
+              </div>
+            </div>
+
+            <!-- amigos -->
+            <div id="tab-friends" class="me-tabpane" hidden>
+              <div class="me-card">
+                <span class="me-label">Adicionar um amigo pelo código</span>
+                <div class="me-add-row"><input id="fr-code" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Código" aria-label="Código do amigo (8 letras e números)"><button id="fr-search" class="btn btn-primary me-mini" type="button">Procurar</button></div>
+                <p id="fr-error" class="error" role="alert" hidden></p>
+                <div id="fr-found" class="fr-row fr-found" hidden></div>
+              </div>
+              <div id="fr-invites"></div>
+              <div id="fr-requests"></div>
+              <h3 class="me-h">Meus amigos <small id="fr-count"></small></h3>
+              <div id="fr-list"></div>
+              <div id="fr-sent"></div>
+            </div>
+
+            <!-- partidas -->
+            <div id="tab-history" class="me-tabpane" hidden>
+              <h3 class="me-h">Minhas partidas</h3>
+              <div id="hist-list"></div>
+            </div>
+          </div>
+        </div>
+        <nav id="me-tabs" class="me-tabs" hidden aria-label="Áreas do meu espaço">
+          <button class="me-tab on" type="button" data-tab="profile"><span aria-hidden="true">👤</span>Perfil</button>
+          <button class="me-tab" type="button" data-tab="friends"><span aria-hidden="true">👥</span>Amigos<i id="tab-badge" class="me-badge" hidden>0</i></button>
+          <button class="me-tab" type="button" data-tab="history"><span aria-hidden="true">🏅</span>Partidas</button>
+        </nav>
       </div>
     </section>
 
@@ -396,6 +512,33 @@
     </div>
 
     <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
+    <div id="modal-invite" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="inv-title">
+      <div class="sheet inv-sheet">
+        <div id="inv-face" class="inv-face" aria-hidden="true">🎮</div>
+        <h2 id="inv-title">Convite de jogo</h2>
+        <p id="inv-text" class="inv-text"></p>
+        <p id="inv-meta" class="inv-meta"></p>
+        <div class="inv-bar" aria-hidden="true"><i id="inv-bar-fill"></i></div>
+        <div class="sheet-actions">
+          <button id="inv-yes" class="btn btn-primary" type="button">Aceitar</button>
+          <button id="inv-no" class="btn btn-secondary" type="button">Agora não</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="modal-challenge" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="chal-title">
+      <div class="sheet">
+        <h2 id="chal-title">Desafiar</h2>
+        <p id="chal-sub" class="inv-text">Escolha como vocês vão jogar:</p>
+        <div class="chal-opts">
+          <button class="chal-opt" type="button" data-kind="coop"><span class="chal-ico" aria-hidden="true">🧩</span><span><b>Cooperativo</b><small>Montam juntos a mesma imagem</small></span></button>
+          <button class="chal-opt" type="button" data-kind="comum"><span class="chal-ico" aria-hidden="true">🏁</span><span><b>Desafio comum</b><small>Quem terminar primeiro vence</small></span></button>
+          <button class="chal-opt" type="button" data-kind="quebra"><span class="chal-ico" aria-hidden="true">🎁</span><span><b>Quebrando Cabeças</b><small>As peças saem de uma caixa</small></span></button>
+        </div>
+        <div class="sheet-actions"><button id="chal-cancel" class="btn btn-secondary" type="button">Cancelar</button></div>
+      </div>
+    </div>
+
     <div id="modal-rematch" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="rm-title">
       <div class="sheet">
         <div class="rm-emoji" aria-hidden="true">🧩</div>
@@ -432,5 +575,6 @@
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
+  <script src="conta.js"></script>
 </body>
 </html>

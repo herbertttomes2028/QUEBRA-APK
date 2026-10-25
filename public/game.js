@@ -159,10 +159,11 @@
   }
 
   function showScreen(name) {
-    ['home', 'pick', 'game', 'lobby'].forEach(function (n) {
+    ['home', 'pick', 'game', 'lobby', 'me'].forEach(function (n) {
       $('#screen-' + n).classList.toggle('active', n === name);
     });
     if (name === 'game') layout();
+    if (window.QC && window.QC.onScreen) window.QC.onScreen(name);
   }
 
   function setLoading(on, text) {
@@ -251,6 +252,7 @@
         if (Array.isArray(c.avatars) && c.avatars.length) state.avatars = c.avatars;
         state.spots = c.spots || 5;
         state.pushKey = c.push && c.push.key ? c.push.key : null;
+        state.accounts = c.accounts && c.accounts.enabled ? c.accounts : null;     // contas só aparecem se o servidor tiver banco de dados
       })
       .catch(function () { state.images = []; });
     return imagesReady;
@@ -279,6 +281,7 @@
   }
 
   function goButtonText() {
+    if (window.QC && window.QC.goLabel) return window.QC.goLabel;       // convite a um amigo: "Criar e convidar Fulano"
     return state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
   }
 
@@ -470,6 +473,7 @@
 
   function enterRoom(res) {
     state.idx = res.idx;
+    if (window.QC && window.QC.afterEnter) window.QC.afterEnter('coop');
     startGame(res.snapshot);
   }
 
@@ -2152,6 +2156,7 @@
   function enterDuel(res) {
     var l = res.lobby;
     state.idx = res.idx;
+    if (window.QC && window.QC.afterEnter) window.QC.afterEnter('duel');
     state.duel = {
       code: l.code, mode: l.mode, imageId: l.imageId, total: l.pieces, lobby: l, phase: 'lobby',
       prog: [{ idx: 0, locked: 0, total: l.pieces, pct: 0 }, { idx: 1, locked: 0, total: l.pieces, pct: 0 }],
@@ -2979,6 +2984,29 @@
       try { $('#input-name').focus(); } catch (e) { /* ignora */ }
     }
   });
+
+  // ponte para a área de contas (conta.js): só expõe o que ela precisa, sem duplicar nada
+  window.QC = {
+    state: state, socket: socket, store: store, ready: imagesReady,
+    $: $, toast: toast, vibrate: vibrate, playSound: playSound, announce: announce,
+    openModal: openModal, closeModal: closeModal, showScreen: showScreen, setLoading: setLoading,
+    openPick: function (mode, duelMode) {
+      if (duelMode) { state.duelMode = duelMode; Array.prototype.forEach.call($('#duel-modes').children, function (b) { b.setAttribute('aria-checked', b.dataset.mode === duelMode ? 'true' : 'false'); }); }
+      openPick(mode);
+      if (duelMode) $('#duel-modes').hidden = true;                // o modo já foi escolhido no convite
+    },
+    join: doJoin, enterRoom: enterRoom,
+    goLabel: null,
+    applyProfile: function (name, avatar) {
+      state.name = String(name || '').slice(0, 12);
+      $('#input-name').value = state.name;
+      store.set('name', state.name);
+      state.avatar = avatar || '';
+      store.set('avatar', state.avatar);
+      renderAvatarPicker();
+    },
+    afterEnter: null, onScreen: null
+  };
 
   requestAnimationFrame(frame);
 
