@@ -2294,6 +2294,7 @@
     closeChat();
     $('#cd-img').style.backgroundImage = 'url("' + imageItem(d.imageId).url + '")';
     $('#cd-vs').textContent = (state.names[state.idx] || 'Você') + '  ×  ' + friendName();
+    $('#countdown').style.pointerEvents = '';
     $('#countdown').hidden = false;
     cd.on = true;
     var steps = Math.max(1, Math.round(ms / 1000)), per = ms / steps;
@@ -2310,6 +2311,7 @@
     if (!cd.on) return;
     cd.on = false;
     if (flash) {
+      $('#countdown').style.pointerEvents = 'none';          // o "JÁ!" aparece por cima do tabuleiro, mas os toques passam por ele (a caixinha já responde)
       setCd('JÁ!', true);
       cd.timers.push(setTimeout(function () { if (!cd.on) $('#countdown').hidden = true; }, reducedMotion() ? 300 : 650));
     } else {
@@ -2530,10 +2532,10 @@
     p.tile.style.transition = 'none';
     p.tile.style.transform = 'rotate(' + p.ang + 'deg)';
     void p.tile.offsetWidth;
-    p.tile.style.transition = 'transform .72s cubic-bezier(.2,.8,.25,1)';
+    p.tile.style.transition = 'transform .46s cubic-bezier(.2,.8,.25,1)';
     p.ang = rot * 90;
     p.tile.style.transform = 'rotate(' + p.ang + 'deg)';
-    setTimeout(function () { p.tile.style.transition = ''; }, 800);
+    setTimeout(function () { p.tile.style.transition = ''; }, 540);
   }
 
   function applyGift(g) {
@@ -2550,7 +2552,7 @@
     else {
       p.x = g.from.x; p.y = g.from.y;
       p.vs = 0.15;
-      p.fly = { t0: performance.now(), dur: 720, fx: g.from.x, fy: g.from.y, tx: g.x, ty: g.y };
+      p.fly = { t0: performance.now(), dur: 460, fx: g.from.x, fy: g.from.y, tx: g.x, ty: g.y };
       spinPiece(p, g.rot);
     }
     classify(p);

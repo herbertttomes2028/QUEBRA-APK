@@ -1820,3 +1820,39 @@ html[data-motion="reduce"] .me-stat, html[data-motion="reduce"] .fr-row, html[da
 .me-a b, .me-a small, .me-email, .me-hero p, .me-check span { overflow-wrap: anywhere; }
 html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 #me-email { overflow-wrap: anywhere; word-break: break-all; }
+
+
+/* =========================================================
+ * Tela inicial: "?" no canto (Como jogar), "Amigos" ao lado de "Ajustes"
+ * ========================================================= */
+.help-chip {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 12px;
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--focus, var(--cobalt));
+  box-shadow: 0 4px 0 var(--line), inset 0 0 0 2px var(--line);
+  cursor: pointer;
+  transition: transform .26s cubic-bezier(.34, 1.56, .64, 1);
+}
+.help-chip:active { transform: scale(.92); }
+.help-chip .ico { width: 26px; height: 26px; }
+#link-friends[hidden] { display: none !important; }
+#link-friends { position: relative; }
+#link-friends .me-badge { position: absolute; top: -7px; right: -3px; animation: me-pop .38s cubic-bezier(.34, 1.56, .64, 1); }
+.me-head-title { flex: 1; text-align: center; font: 700 1.2rem "Fredoka", var(--font); color: var(--ink); }
+.me-head-title[hidden] { display: none !important; }
+
+/* telas estreitas: o botão do perfil vira só o avatar (círculo), para nunca encostar nos quatro blocos do logotipo */
+@media (max-width: 380px) {
+  .me-chip { padding: 0 7px; }
+  .me-chip-text { display: none; }
+}

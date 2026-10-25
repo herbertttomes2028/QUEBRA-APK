@@ -13,7 +13,7 @@
   if (!QC) return;
   var $ = QC.$, state = QC.state, socket = QC.socket, store = QC.store;
 
-  var acc = { enabled: false, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
+  var acc = { enabled: false, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', view: 'profile', after: null, mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
 
   /* =========================================================
    * 1) SERVIÇOS
@@ -156,11 +156,11 @@
     $('#me-chip-face').textContent = me ? faceOf(me) : '👤';
     $('#me-chip-text').textContent = me ? me.name.slice(0, 8) : 'Entrar';
     var n = badgeCount();
-    $('#me-chip-badge').hidden = !(me && n > 0);
-    $('#me-chip-badge').textContent = n;
-    $('#tab-badge').hidden = !(me && n > 0);
-    $('#tab-badge').textContent = n;
-    chip.setAttribute('aria-label', me ? 'Meu espaço: ' + me.name + (n ? ', ' + n + ' novidades' : '') : 'Entrar na conta');
+    $('#link-friends').hidden = !acc.enabled;
+    $('#friends-badge').hidden = !(me && n > 0);
+    $('#friends-badge').textContent = n;
+    $('#link-friends').setAttribute('aria-label', 'Amigos' + (me && n ? ', ' + n + ' novidades' : ''));
+    chip.setAttribute('aria-label', me ? 'Meu perfil: ' + me.name : 'Entrar na conta');
   }
   function paintContinue() {
     var s = acc.me && acc.me.save;
@@ -180,24 +180,32 @@
   function loadFriends() {
     if (!acc.token) return Promise.resolve();
     return api('GET', '/friends').then(function (j) {
-      if (j && j.ok) { acc.friends = j; paintChip(); if ($('#screen-me').classList.contains('active') && acc.tab === 'friends') renderFriends(); }
+      if (j && j.ok) { acc.friends = j; paintChip(); if ($('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends(); }
     });
   }
 
   /* ---------- abrir/fechar a área ---------- */
-  function openMe() {
+  function openMe(view) {
+    acc.view = view === 'friends' ? 'friends' : 'profile';
     QC.showScreen('me');
     QC.playSound('blip');
     renderMe();
     if (acc.token) { loadMe(); loadFriends(); }
   }
+  // botão "Amigos" da tela inicial: com conta abre a lista; sem conta pede para entrar e depois leva à lista
+  function openFriends() {
+    acc.after = acc.token ? null : 'friends';
+    openMe('friends');
+  }
   function renderMe() {
     var logged = !!acc.me;
     show('#me-guest', !logged && !acc.token);
     show('#me-user', logged);
-    show('#me-tabs', logged);
+    var friendsView = acc.view === 'friends';
+    show('#me-tabs', logged && !friendsView);                 // as abas (Perfil, Partidas) só existem na visão do perfil
+    show('#me-head-title', friendsView);
     if (!logged) { if (!acc.token) renderGuest(); return; }
-    setTab(acc.tab);
+    setTab(friendsView ? 'friends' : (acc.tab === 'friends' ? 'profile' : acc.tab));
   }
   function setTab(t) {
     acc.tab = t;
@@ -209,11 +217,15 @@
     if (t === 'history') loadHistory();
   }
   Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { QC.playSound('blip'); setTab(b.dataset.tab); }); });
-  $('#me-back').addEventListener('click', function () { QC.showScreen('home'); });
-  $('#btn-me').addEventListener('click', openMe);
+  $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
+  $('#btn-me').addEventListener('click', function () { openMe('profile'); });
+  $('#link-friends').addEventListener('click', openFriends);
 
   /* ---------- entrar / criar conta ---------- */
   function renderGuest() {
+    var h = $('#me-guest .me-hero');
+    h.querySelector('h2').textContent = acc.after === 'friends' ? 'Entre para ver seus amigos' : 'Guarde seu progresso';
+    h.querySelector('p').textContent = acc.after === 'friends' ? 'Com uma conta você acha amigos pelo código, recebe convites e joga junto com eles.' : 'Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.';
     setAuthMode(acc.mode);
     if (!$('#auth-name').value) $('#auth-name').value = state.name || '';
     setupGoogle();
@@ -235,7 +247,7 @@
     p.type = on ? 'text' : 'password';
     $('#auth-eye').setAttribute('aria-label', on ? 'Esconder a senha' : 'Mostrar a senha');
   });
-  $('#me-visitor').addEventListener('click', function () { QC.showScreen('home'); });
+  $('#me-visitor').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
 
   function afterAuth(j, welcome) {
     saveSession(j.token);
@@ -246,7 +258,7 @@
     loadFriends();
     QC.toast(welcome + ', ' + j.me.name + '! 🎉', 2800);
     QC.playSound('chime');
-    acc.tab = 'profile';
+    if (acc.after === 'friends') { acc.view = 'friends'; acc.after = null; } else { acc.view = 'profile'; acc.tab = 'profile'; }
     renderMe();
   }
   $('#auth-form').addEventListener('submit', function (ev) {
@@ -361,6 +373,7 @@
     if (!window.confirm('Sair da conta neste aparelho? Seu progresso continua guardado na conta.')) return;
     api('POST', '/logout', {}).then(function () { logoutLocal('Você saiu da conta. Até logo! 👋'); QC.showScreen('home'); });
   });
+  $('#me-delete').addEventListener('submit', function (e) { e.preventDefault(); $('#me-delete-go').click(); });
   $('#me-delete-open').addEventListener('click', function () { var d = $('#me-delete'); d.hidden = !d.hidden; });
   $('#me-delete-go').addEventListener('click', function () {
     var b = $('#me-delete-go'); b.disabled = true; say('#me-del-error', '');
@@ -432,7 +445,7 @@
     }
     $('#fr-count').textContent = f.friends.length ? f.friends.filter(function (x) { return x.online; }).length + ' online · ' + f.friends.length + ' no total' : '';
     if (!f.friends.length) {
-      var empty = el('div', 'fr-empty'); empty.appendChild(el('span', '', '🤝')); empty.appendChild(el('p', '', 'Ainda sem amigos. Peça o código de alguém ou compartilhe o seu na aba Perfil!'));
+      var empty = el('div', 'fr-empty'); empty.appendChild(el('span', '', '🤝')); empty.appendChild(el('p', '', 'Ainda sem amigos. Peça o código de alguém ou compartilhe o seu: ele fica no seu perfil (botão com o seu nome, no canto da tela inicial).'));
       list.appendChild(empty);
     }
     f.friends.forEach(function (u) {
