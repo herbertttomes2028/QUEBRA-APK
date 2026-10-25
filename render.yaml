@@ -8,3 +8,15 @@ services:
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      # Contas, amigos e progresso salvo (veja CONTAS.md). Sem DATABASE_URL o jogo funciona como visitante.
+      - key: DATABASE_URL
+        sync: false          # você cola o endereço do banco no painel do Render (nunca no GitHub)
+      - key: GOOGLE_CLIENT_ID
+        sync: false          # opcional: ativa o botão "Continuar com o Google"
+    envVars:
+      # Contas e amigos (opcional). Veja o CONTAS.md. Os valores são preenchidos no painel do Render (nunca aqui).
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false

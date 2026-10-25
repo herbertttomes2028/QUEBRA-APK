@@ -151,7 +151,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM } });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM }, accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null } });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -209,7 +209,13 @@ app.get('/diagnostico', (req, res) => {
       encontrado_em: al.fonte,
       pacotes
     },
-    imagens: listImages().length
+    imagens: listImages().length,
+    contas: {
+      ativas: !!accounts,
+      banco_configurado: !!DATABASE_URL,
+      login_google: !!(accounts && accounts.config.google),
+      dica: accounts ? 'Contas funcionando.' : (DATABASE_URL ? 'DATABASE_URL existe, mas o banco não respondeu: veja os registros (logs) do Render.' : 'Contas desligadas: crie um banco PostgreSQL e coloque o endereço na variável DATABASE_URL (veja o guia).')
+    }
   });
 });
 
@@ -554,7 +560,7 @@ function startIfReady(room) {
   const imagesOk = !isCustomImage(room) || (room.imgReady[0] && room.imgReady[1]);     // imagem própria: espera os dois
   if (room.status === 'waiting' && connectedCount(room) === 2 && imagesOk) {
     room.status = 'playing';
-    if (!room.startedAt) room.startedAt = Date.now();
+    if (!room.startedAt) room.startedAt = Date.now() - (room.carriedMs || 0);     // partida retomada: continua de onde o tempo parou
   }
 }
 
@@ -583,6 +589,7 @@ function tryLock(room, p, idx) {
   p.heldBy = null;
   p.z = 1;
   io.to(room.code).emit('locked', { id: p.id, x: tx, y: ty, by: idx, counts: counts(room), locked: lockedTotal(room) });
+  if (accounts) accounts.noteCoop(room);                    // progresso salvo (com um pequeno atraso, sem pesar)
 
   if (lockedTotal(room) === room.pieces.length) {
     room.status = 'won';
@@ -590,6 +597,7 @@ function tryLock(room, p, idx) {
     room.finishedAt = Date.now();
     io.to(room.code).emit('won', { elapsedMs: elapsed(room), counts: counts(room) });
     broadcastMeta(room);
+    if (accounts) accounts.finishCoop(room).catch(() => {});  // vira histórico e apaga o progresso salvo
   }
   return true;
 }
@@ -650,6 +658,7 @@ function attach(room, socket, pid, name, avatar) {
     connected: true,
     name: cleanName(name) || prevName || 'Jogador ' + (idx + 1),
     avatar: cleanAvatar(avatar) || prevAvatar || '',
+    uid: socket.data.uid || null,           // conta do jogador (null = visitante)
     push: same ? old.push || null : null,
     lastPush: 0
   };
@@ -692,8 +701,10 @@ function performRestart(room, params) {
   room.finishedAt = null;
   room.roundStart = Date.now();
   room.startedAt = null;
+  room.carriedMs = 0;
   room.status = 'waiting';
   room.imgReady = [false, false];
+  if (accounts) for (const p of room.players) if (p && p.uid) accounts.deleteSave(p.uid).catch(() => {});   // recomeçou: o progresso antigo não vale mais
   startIfReady(room);
   io.to(room.code).emit('state', snapshot(room));
 }
@@ -730,16 +741,55 @@ function leaveCurrent(socket) {
       emitToPlayer(room, 1 - idx, 'rematch', { state: 'expired' });
     }
     room.lastActive = Date.now();
+    if (accounts) accounts.noteCoop(room, true);
     broadcastMeta(room);
   }
 }
+
+const accHooks = { duelFinish: null };
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
   io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
-  sendPush, validPushSub, webpush, clamp, rnd, shuffle
+  sendPush, validPushSub, webpush, clamp, rnd, shuffle,
+  onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null)      // histórico das disputas (só com contas ativas)
 });
+
+/* ---------- Contas, amigos, convites e progresso salvo (só ligam se DATABASE_URL estiver configurada) ---------- */
+const DATABASE_URL = process.env.DATABASE_URL || '';
+let accounts = null;                                     // continua nulo sem banco: o jogo funciona como sempre (visitante)
+
+function imageLabel(id) {
+  if (typeof id === 'string' && id.indexOf('custom:') === 0) return 'Minha imagem';
+  const it = listImages().find((i) => i.file === id);
+  return it ? it.label : String(id || '');
+}
+// resumo de uma sala (comum ou desafio) para o sistema de convites
+function roomInfo(code) {
+  const r = rooms.get(code);
+  if (r) return { code, kind: 'coop', free: r.status !== 'won' && connectedCount(r) < 2 && r.players.some((p) => !p || !p.connected), hostConnected: connectedCount(r) > 0, imageId: r.imageId, pieces: r.pieces.length };
+  return challenge.info(code);
+}
+function roomOfSocket(socket) {
+  if (socket.data.code && rooms.get(socket.data.code)) return roomInfo(socket.data.code);
+  return socket.data.ch ? challenge.info(socket.data.ch.code) : null;
+}
+// quando alguém entra/sai da conta com a sala aberta, a sala passa a saber quem é (para salvar e registrar a partida)
+function bindUserToRooms(socket, uid) {
+  const room = socket.data.code && rooms.get(socket.data.code);
+  if (room) { const pl = room.players[socket.data.idx]; if (pl && pl.socketId === socket.id) pl.uid = uid || null; }
+  challenge.bindUser(socket, uid);
+}
+// registra uma imagem própria vinda de um progresso salvo (devolve o código ou null)
+function restoreUpload(buf) {
+  if (!Buffer.isBuffer(buf)) return null;
+  const size = jpegSize(buf);
+  if (!size || !pruneUploads(buf.length)) return null;
+  const token = crypto.randomBytes(16).toString('hex');
+  uploads.set(token, { buf, w: size.w, h: size.h, t: Date.now(), last: Date.now() });
+  return token;
+}
 
 /* ---------- Eventos do Socket.IO ---------- */
 io.on('connection', (socket) => {
@@ -760,6 +810,43 @@ io.on('connection', (socket) => {
     const res = attach(room, socket, pid, data.name, data.avatar);
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
     broadcastMeta(room);
+  });
+
+  // "Continuar jogando": recria a sala com as peças já encaixadas e o tempo que a partida tinha
+  socket.on('acc:continue', async (data, cb) => {
+    try {
+      data = data || {};
+      const uid = socket.data.uid;
+      if (!accounts || !uid) return reply(cb, { ok: false, error: 'auth' });
+      const pid = cleanPid(data.pid);
+      if (!pid) return reply(cb, { ok: false, error: 'invalid' });
+      const save = await accounts.loadSave(uid);
+      if (!save) return reply(cb, { ok: false, error: 'nosave' });
+      let imageId = save.imageId;
+      if (imageId === 'custom') {
+        const token = restoreUpload(save.customImage);
+        if (!token) return reply(cb, { ok: false, error: 'imagegone' });
+        imageId = 'custom:' + token;
+      } else if (validImage(imageId) !== imageId) {
+        return reply(cb, { ok: false, error: 'imagegone' });          // a imagem da galeria não existe mais
+      }
+      const code = newCode();
+      if (!code) return reply(cb, { ok: false, error: 'busy' });
+      leaveCurrent(socket);
+      const room = createRoom(code, imageId, validPieces(save.pieces, DEFAULT_PIECES));
+      room.carriedMs = save.elapsedMs || 0;
+      const ids = new Set((Array.isArray(save.locked) ? save.locked : []).map(Number));
+      for (const p of room.pieces) {
+        if (!ids.has(p.id)) continue;
+        p.x = room.cfg.BOARD_X + p.col * room.cfg.TILE + room.cfg.TILE / 2;
+        p.y = room.cfg.BOARD_Y + p.row * room.cfg.TILE + room.cfg.TILE / 2;
+        p.rot = 0; p.locked = true; p.lockedBy = 0; p.z = 1;
+      }
+      rooms.set(code, room);
+      const res = attach(room, socket, pid, data.name, data.avatar);
+      reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
+      broadcastMeta(room);
+    } catch (e) { console.error('[contas] continuar:', e.message); reply(cb, { ok: false, error: 'server' }); }
   });
 
   socket.on('join', (data, cb) => {
@@ -994,6 +1081,30 @@ setInterval(() => {
   for (const [ip, h] of uploadHits) if (!h.some((t) => now - t < 10 * 60 * 1000)) uploadHits.delete(ip);
 }, 10 * 60 * 1000).unref();
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log('Quebra-cabeça a dois rodando na porta ' + PORT);
-});
+async function start() {
+  if (DATABASE_URL) {
+    try {
+      const { createDb } = require('./db');
+      const { createAccounts } = require('./accounts');
+      const db = createDb(DATABASE_URL);
+      if (!db) throw new Error('driver do banco ausente');
+      const applied = await db.migrate();                                   // cria/atualiza as tabelas sozinho
+      if (applied.length) console.log('[contas] migrações aplicadas:', applied.join(', '));
+      accounts = createAccounts({
+        app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, elapsedOf: elapsed,
+        googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+        getUpload: (t) => uploads.get(t) || null,
+        onAuth: bindUserToRooms
+      });
+      accHooks.duelFinish = (room, result) => accounts.finishDuel(room, result);
+      console.log('[contas] sistema de contas ATIVO' + (process.env.GOOGLE_CLIENT_ID ? ' (com login Google)' : ''));
+    } catch (e) {
+      console.error('[contas] NÃO foi possível ativar as contas (o jogo segue como visitante):', e.message);
+      accounts = null;
+    }
+  }
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log('Quebra-cabeça a dois rodando na porta ' + PORT);
+  });
+}
+start();

@@ -5,6 +5,10 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 - Feito para **celular** (toque, tela em pé), mas funciona também no computador.
 - **Tabuleiro grande**: ele ocupa quase toda a largura da tela, e não há barras ocupando espaço embaixo. Só o topo tem um cabeçalho pequeno.
 - **Gestos simples nas peças:** arrastar, tocar para girar e pinça para dar zoom.
+- **Tela inicial renovada:** os 4 blocos do logotipo se encaixam ao abrir, fonte arredondada, campos e botões com relevo e resposta ao toque, avatares em grade com salto ao escolher e fundo com peças de quebra-cabeça.
+- **Abertura da partida:** ao criar, a imagem escolhida gira no centro e aparece "VAMOS LÁ!"; quando a partida começa toca um "TANNN".
+- **Galeria de um toque + "Minha imagem":** tocou na imagem, ela já está escolhida e um painel de baixo mostra a prévia e as quantidades de peças. O cartão **"Adicionar minha imagem"** deixa qualquer jogador usar uma foto ou desenho do próprio celular.
+- **🏆 Sala Desafio:** dois jogadores montam a MESMA imagem ao mesmo tempo, cada um no seu tabuleiro; vence quem terminar primeiro. Dois modos: **Comum** e **Quebrando Cabeças** (caixa de presentes que solta as peças).
 - **Tutorial animado** na primeira vez, **avatares**, **modo escuro**, **texto maior**, **sons** e **marcos de progresso** (25%, 50% e 75%).
 - **Dica de lugar 📍**, **recomeçar só com a confirmação do amigo** e **avisos com o aplicativo fechado** (opcionais).
 - **Conversa entre os dois jogadores:** um botão 💬 no topo abre um painel por cima do jogo (sem tirar espaço do tabuleiro), com mensagens de texto e reações rápidas.
@@ -49,6 +53,108 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
   1. No Render, abra o serviço e vá em **Environment**.
   2. Clique em **Add Environment Variable**, use o nome `CHAT_ENABLED` e o valor `false`, e salve.
   3. O Render publica de novo e o botão 💬 deixa de aparecer. Para ligar de novo, apague a variável ou troque o valor por `true`.
+
+---
+
+## Tela inicial: visual, animações e fonte
+
+- **Logotipo:** os quatro blocos (azul, amarelo, verde e rosa, com o rosa inclinado) são os de sempre, com as mesmas cores, formas, proporções e posições. Ao abrir, eles entram em sequência, "quicam" e se encaixam, em cerca de 1,3 segundo, **uma vez só**. Tocar no logotipo repete a montagem. Em celulares de tela baixa (menos de 700 px de altura) o conjunto inteiro é reduzido por igual, mantendo as proporções.
+- **Movimento:** as animações usam só deslocamento, escala e transparência (leves). Com **"reduzir movimento"** no celular ou em **Ajustes > Movimento > Reduzido**, nada se mexe e o logotipo já aparece montado.
+- **Campos e botões:** o campo do nome e o do código ganham um anel colorido suave ao receber foco; "Criar partida" afunda ao toque e volta com uma pequena mola; "Entrar" dá um sinal quando o código chega aos 4 caracteres.
+- **Avatares:** os 15 aparecem juntos (nada cortado). O escolhido recebe um anel, um ✓ e um pequeno salto.
+- **Teclado:** com o teclado aberto, a tela ganha espaço para rolar e o campo em uso fica visível acima dele.
+- **Fonte:** a tela inicial usa a **Fredoka** (fonte arredondada de licença livre, SIL Open Font License 1.1), que vem junto na pasta `public/fonts/` (arquivo `fredoka-latin-wght.woff2`, com a licença em `Fredoka-OFL-LICENSE.txt`). Se o arquivo faltar, o jogo usa a fonte do celular sem quebrar nada.
+
+---
+
+## Abertura da partida e o som "TANNN"
+
+- **Abertura:** depois de escolher a imagem e a quantidade de peças, ao tocar em **Criar partida** a imagem escolhida entra girando no centro da tela e aparece **"VAMOS LÁ!"**. Ela dura cerca de 2 segundos (um pouco mais se a internet estiver lenta; com **reduzir movimento** fica parada e mais curta, cerca de 1 segundo). Se o servidor demorar (por exemplo, o Render acordando), aparece "Criando a sala…" e, depois de uns 9 segundos, o botão **Cancelar**, para você nunca ficar preso.
+- **Som "TANNN":** toca no instante em que a partida aparece, para **quem cria** (quando a abertura termina), para **quem entra pelo código** e para **os dois** quando uma nova partida começa (recomeçar ou trocar a imagem com o aceite do amigo). Ele é gerado pelo próprio navegador (batida grave, impacto e acorde de metais, cerca de 1,7 segundo), sem arquivo de som e sem peso extra.
+- **Controle:** o som obedece ao botão de silêncio do Menu e a **Ajustes > Sons**. Com o som desligado, a abertura continua aparecendo.
+- **Limites do navegador:** o celular só libera som depois de um toque na tela. Quem entra sozinho por um link, sem tocar em nada, pode não ouvir o "TANNN" daquela vez. Reconectar depois de uma queda de internet não toca o som.
+- **Primeira vez:** o tutorial só abre depois que a abertura termina.
+
+---
+
+## Escolher a imagem (um toque) e "Minha imagem"
+
+### A galeria
+- **Um toque na imagem** e ela já é escolhida: ganha uma borda colorida, o ✓ e uma pequena animação.
+- Logo em seguida sobe um **painel de baixo** com a prévia da imagem e as **quantidades de peças** (6 · 12 · 20 · 30 · 48, as mesmas de sempre). O jogo **lembra a última quantidade** que você usou.
+- O botão amarelo do painel confirma: **Criar partida**, **Criar Sala Desafio** ou **Recomeçar com essa escolha**, conforme de onde você veio. Não existe mais botão lá no fim da tela.
+- Tocar em outra imagem troca a escolha sem fechar o painel; o **✕** fecha o painel e volta à galeria.
+- **Miniaturas prontas:** para a galeria abrir sem pesar, cada imagem da pasta `public/imagens/` tem uma miniatura de 300 × 400 (cerca de 27 KB, com o mesmo visual de sempre) em `public/imagens/mini/`, com **o mesmo nome do arquivo**. Imagens novas que você colocar na pasta funcionam mesmo sem miniatura (o celular gera uma, uma por vez), mas a galeria fica mais leve se você incluir também a miniatura em `public/imagens/mini/`.
+
+### Minha imagem
+1. Toque no cartão **Adicionar minha imagem** (o primeiro da galeria, com o mesmo tamanho dos outros). O seletor de arquivos do celular abre.
+2. Escolha uma foto ou desenho. Aparece uma **prévia no formato do quebra-cabeça (3:4)**: **arraste** para escolher a parte, use o **zoom** (ou a pinça com dois dedos), **Preencher** cobre o quadro todo e **Inteira** mostra a imagem completa (as sobras ficam com a própria imagem desfocada). A proporção da imagem nunca é esticada.
+3. **Usar esta imagem** envia a imagem e ela entra na galeria, já escolhida, com o painel de peças aberto. **Escolher outra** reabre o seletor.
+4. Dali em diante é o fluxo normal: escolher a quantidade de peças e confirmar. Vale para a partida comum, para a **Sala Desafio** e para **trocar a imagem** durante o jogo.
+
+### Validações (com mensagens amigáveis)
+- Aceita fotos e desenhos em JPG, PNG, WebP, GIF e BMP, até **40 MB**, com pelo menos **200 pixels** de lado (abaixo de 700 pixels o jogo avisa que pode ficar sem nitidez).
+- **Não** aceita SVG nem arquivos que não são imagem; fotos **HEIC** (iPhone) podem não abrir em alguns aparelhos, e a mensagem sugere JPG, PNG ou WebP.
+- O celular reduz a imagem para **900 × 1200** e a reenvia como **JPEG de até 1,5 MB**. O servidor só aceita JPEG íntegro de 64 a 2048 pixels.
+- Sem internet, o envio mostra um aviso e a janela continua aberta para tentar de novo.
+
+### Como a imagem chega ao outro jogador
+- A imagem **não depende do celular de quem a escolheu**: ela é enviada ao servidor, que a guarda e a entrega aos dois por um endereço próprio (`/api/up/<código aleatório>`). A sala guarda só esse código.
+- **A partida só começa depois que a imagem estiver carregada e preparada nos DOIS celulares.** Na partida comum, o cronômetro só corre quando os dois avisam que estão prontos (enquanto isso aparece "Preparando a imagem nos dois celulares…"). Na **Sala Desafio** (para qualquer imagem), o botão "Estou pronto!" só vale com a imagem pronta, e a contagem só começa com as duas prontas.
+- Trocar para outra imagem durante o jogo repete essa espera.
+
+### Privacidade e limites do servidor
+- A imagem só sai do celular quando você toca em **Usar esta imagem**. Ela é **reencodada como um JPEG novo**, o que remove dados da foto original, como a localização.
+- As imagens ficam **só na memória do servidor** (não vão para o GitHub nem para disco) e **somem em até 8 horas** (ou se o Render reiniciar). Uma imagem que uma sala está usando nunca é apagada antes da sala.
+- O endereço é um código aleatório de 128 bits: não dá para adivinhar, mas quem o recebe vê a imagem. **Não envie imagens íntimas ou de outras pessoas sem permissão.**
+- Limites: **15 envios por pessoa a cada 10 minutos** (variável opcional `UPLOAD_RATE` no Render), no máximo **80 imagens ou 96 MB** guardadas ao mesmo tempo (as mais antigas e sem uso saem primeiro).
+
+---
+
+## 🏆 Sala Desafio (disputa entre dois jogadores)
+
+É um segundo jeito de jogar, **separado do jogo cooperativo** (que continua igual). Na tela inicial, toque em **Sala Desafio**, ao lado de "Criar partida".
+
+### Como funciona
+1. **Quem cria** escolhe o **modo**, a **imagem** e a **quantidade de peças** e toca em *Criar Sala Desafio*.
+2. Aparece a **recepção** com o **código de 4 caracteres** (botão *Copiar*). O adversário digita o código no mesmo campo "Já tem um código?" da tela inicial (o jogo percebe sozinho se é sala comum ou Sala Desafio).
+3. A recepção mostra os **dois jogadores**, com nome, avatar e se estão **conectados**. Cada um toca em **"Estou pronto!"**. A partida **só começa com os dois conectados e prontos**; quem desmarcar ou cair cancela a contagem.
+4. **Contagem animada 3 · 2 · 1 · JÁ!** nos dois celulares, com o som "TANNN" na largada. O servidor decide o instante da largada.
+5. Cada um monta **o seu próprio tabuleiro** (o que um faz não altera o do outro). No alto da tela uma **faixa de corrida** mostra o seu progresso e o do adversário em **porcentagem** (nunca o tabuleiro dele).
+6. **Vence quem encaixar a última peça primeiro.** Os dois celulares recebem o resultado: quem venceu, o **tempo de conclusão** e o **progresso de cada um**, com animação de comemoração. Há botão de **Revanche**: quando os dois tocam, começa uma nova contagem com o mesmo adversário (peças sorteadas de novo).
+
+### Os dois modos
+- **🧩 Modo Comum:** a mecânica de sempre (bandeja de peças embaixo, arrastar, tocar para girar, pinça). Os dois recebem as peças **nas mesmas posições e giros**.
+- **🎁 Quebrando Cabeças:** a grade ocupa quase toda a largura da tela e **não há bandeja**. Uma **caixa de presentes animada** (no canto de baixo) solta as peças:
+  - **cada toque na caixa solta UMA peça surpresa**, que sai girando em arco e pousa em uma das 3 vagas ao lado dela; você arrasta a peça para o lugar certo;
+  - dá para pedir **até 3 peças por rodada**; os 3 pontinhos da caixa mostram quantas já saíram;
+  - com 3 peças pedidas e ainda não encaixadas, a caixa **fecha** (carinha dormindo e cadeado) e avisa o que fazer;
+  - a rodada **recomeça quando TODAS as peças pedidas nela forem encaixadas**: se você pediu só 1 e a encaixou, ou pediu 2 e encaixou as 2, a caixa libera de novo na hora (e você toca para pedir mais);
+  - **rodada completa de 3 = a caixa cospe sozinha as próximas:** ao encaixar corretamente as 3 peças de uma rodada, a caixa solta **automaticamente as 3 seguintes**, uma depois da outra, sem precisar tocar (com um aviso e a animação de sempre). As automáticas formam uma nova rodada de 3, então o ciclo se repete até as peças acabarem; quando sobram menos de 3, ela solta só as que faltam. Rodadas de 1 ou 2 peças continuam manuais;
+  - peça colocada no lugar errado **não conta** e continua disponível para nova tentativa;
+  - a caixa reage com quicadas, a tampa abre quando solta a peça, a carinha muda de expressão, e de vez em quando ela balança para chamar atenção.
+  - **Ordem justa:** os dois recebem as surpresas **na mesma ordem** (vence a habilidade, não a sorte). Para sortear uma ordem diferente para cada um, mude `SAME_ORDER` para `false` no começo do `challenge.js`.
+
+### Ajudas, conversa e extras
+- **💡 Lâmpada** (10 usos) e **📍 dica de lugar** (5 usos) valem na disputa, **contados separadamente para cada um**.
+- **💬 Conversa** com reações rápidas funciona durante a disputa (boa para provocar o adversário 😜).
+- **Avisos na corrida:** "Fulano passou você!" / "Você passou Fulano!" e "⚠️ Fulano está quase terminando!" quando faltam 2 peças.
+- **Marcos** de 25%, 50% e 75% continuam aparecendo para você.
+- Os **sons** (contagem, "TANNN", caixa, vitória) obedecem ao botão de silêncio; com **reduzir movimento** as animações ficam estáticas (a peça já aparece na vaga).
+
+### Desconexão e resultados justos
+O servidor é quem decide tudo (largada, tempo, progresso e vencedor); o celular só mostra e envia gestos.
+- **Caiu a internet (ou o Android fechou o app)?** Ao reabrir, o jogo **volta sozinho para a mesma sala** (a identidade fica guardada no aparelho por até 3 horas) e devolve o tabuleiro do jeito que estava. O relógio **continua correndo** durante a queda.
+- **Prazo para voltar:** o adversário vê "Fulano desconectou. Se não voltar em N s, você vence". Passados **45 segundos** sem voltar, a vitória é dele **por desistência** (sem tempo de conclusão registrado). Se **os dois** caírem, ninguém perde: a disputa fica guardada.
+- **Sair de propósito** no meio da disputa (Menu > Sair) dá a vitória ao outro na hora.
+- Durante a contagem, se alguém cair ou desmarcar "pronto", ela é **cancelada** e todos voltam à recepção.
+- Uma terceira pessoa **não** consegue entrar na sala, nem tomar a vaga de quem caiu durante a disputa.
+- O código é único: nunca coincide com o de uma sala comum.
+
+### Arquivos e variáveis
+- **Novo arquivo na raiz:** `challenge.js` (a lógica da Sala Desafio no servidor). O `server.js` o carrega: **envie os dois**.
+- No Render (Environment), opcionais: `CH_COUNTDOWN_MS` (padrão 3000, duração da contagem) e `CH_GRACE_MS` (padrão 45000, prazo para voltar antes de perder por desistência).
+- As salas ficam na memória do servidor: se o Render reiniciar, as salas abertas somem (como no jogo cooperativo).
 
 ---
 
@@ -143,7 +249,7 @@ As 12 ilustrações são **personagens originais**, sem ligação com nenhum fil
 
 Para trocar ou acrescentar imagens, mexa na pasta `public/imagens/`:
 
-- O jogo mostra **todas** as imagens `.jpg`, `.jpeg`, `.png` ou `.webp` da pasta (até **40**, as primeiras da lista). Não precisa mudar nenhum código.
+- O jogo mostra **todas** as imagens `.jpg`, `.jpeg`, `.png` ou `.webp` da pasta (**sem limite**; se quiser limitar, crie no Render a variável `MAX_IMAGES` com o número desejado). Não precisa mudar nenhum código.
 - O nome do arquivo vira o rótulo na tela: `stitch-e-angel.jpg` → "Stitch e Angel". O nome do arquivo não pode ter acento nem espaço.
 - **Nomes bonitos e ordem (opcional):** o arquivo `public/imagens/nomes.json` diz, para cada imagem, o nome que aparece na tela (com acento) e a ordem da lista. Exemplo: `"unicornio-arco-iris.jpg": "Unicórnio Arco-Íris"`. Imagens que **não estão** no `nomes.json` aparecem primeiro, em ordem alfabética, com o nome tirado do arquivo. Se o arquivo tiver erro de digitação, o jogo ignora e usa os nomes dos arquivos. Cada nome tem até 30 letras.
 - **Para tirar uma imagem do jogo:** apague o arquivo dela em `public/imagens/` (e, se quiser, a linha dela no `nomes.json`).
@@ -366,3 +472,26 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - [ ] Combinei com o amigo de abrir o jogo um pouco antes e passei o código da sala (por causa do "sono" do plano gratuito).
 
 Bom jogo! 🧩
+
+## Contas, amigos e convites (opcional)
+
+O jogo pode ter **contas de jogador**: perfil com avatar e código de amigo, estatísticas e conquistas, **Meus amigos**, **convites** para jogar e **Continuar jogando** (progresso salvo). Tudo isso só liga quando existe um banco PostgreSQL configurado na variável `DATABASE_URL`; sem ela o jogo funciona como sempre (visitante) e nada novo aparece.
+
+- Guia completo, passo a passo (Neon, Render, Google, testes com dois celulares, custos e privacidade): **[CONTAS.md](CONTAS.md)**
+- Código: `accounts.js` (login, amigos, convites, salvamento, histórico), `db.js` (banco e migrações automáticas), `migrations/`, `public/conta.js` (telas).
+- Conferir se está ativo: abra `/diagnostico` e veja o campo `contas`.
+
+
+## Contas, amigos, convites e progresso salvo
+
+O jogo agora pode ter **contas** (opcional): perfil com estatísticas e conquistas, **Meus amigos** (por código), **convites** para jogar
+(cooperativo, Desafio comum e Quebrando Cabeças), **Continuar jogando** (a partida volta com as peças encaixadas e o tempo) e histórico.
+Quem não quiser conta continua jogando como visitante, exatamente como antes.
+
+- **Liga sozinho quando existe um banco de dados** (variável `DATABASE_URL`). Sem ela, nada muda e nada aparece.
+- Passo a passo completo (criar o banco gratuito, variáveis, publicar, testar em dois celulares): **`CONTAS.md`**.
+- Arquitetura: `db.js` (conexão e migrações automáticas), `accounts.js` (login, perfil, amigos, convites, salvamento, histórico),
+  `migrations/001_contas.sql` (tabelas), `public/conta.js` (telas), `public/privacidade.html` (aviso de privacidade).
+- Segurança: senhas com scrypt; sessões por token (no banco só o hash); busca de amigos só pelo código exato; nenhum e-mail aparece para outros jogadores;
+  limites de tentativas; cada rota só mexe nos dados de quem está logado; exclusão de conta apaga tudo.
+- Regras das partidas competitivas (inalteradas): quem cai tem 45 s para voltar; quem sai ou não volta perde; uma disputa encerrada nunca é retomada.

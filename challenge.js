@@ -25,7 +25,7 @@ module.exports = function createChallenge(d) {
   const {
     io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
-    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken
+    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish
   } = d;
 
   const rooms = new Map();
@@ -170,6 +170,7 @@ module.exports = function createChallenge(d) {
       avatar: cleanAvatar(avatar) || (same ? old.avatar : '') || '',
       ready: same ? !!old.ready : false,
       imgReady: false,                    // o celular avisa quando a imagem já está carregada e preparada
+      uid: socket.data.uid || null,       // conta do jogador (null = visitante)
       push: same ? old.push || null : null, lastPush: 0
     };
     socket.data.ch = { code: room.code, idx };
@@ -297,6 +298,7 @@ module.exports = function createChallenge(d) {
     for (const b of room.boards) if (b) for (const p of b.pieces) p.heldBy = null;
     io.to(room.code).emit('ch:end', room.result);
     emitLobby(room);
+    if (onFinish) { try { Promise.resolve(onFinish(room, room.result)).catch(() => {}); } catch (e) { /* o histórico nunca derruba a partida */ } }
   }
 
   /* ---------- peças (cada jogador mexe só no próprio tabuleiro) ---------- */
@@ -598,6 +600,18 @@ module.exports = function createChallenge(d) {
 
   return {
     has: (code) => rooms.has(code),
+    // resumo da sala para os convites entre amigos
+    info: (code) => {
+      const r = rooms.get(code);
+      if (!r) return null;
+      return { code, kind: r.mode, free: r.status === 'lobby' && r.players.some((p) => !p || !p.connected), hostConnected: connectedCount(r) > 0, imageId: r.imageId, pieces: totalOf(r) };
+    },
+    bindUser: (socket, uid) => {
+      const ch = socket.data.ch;
+      const r = ch && rooms.get(ch.code);
+      const pl = r && r.players[ch.idx];
+      if (pl && pl.socketId === socket.id) pl.uid = uid || null;
+    },
     usesImage: (id) => { for (const r of rooms.values()) if (r.imageId === id) return true; return false; },
     size: () => rooms.size,
     config: { countdownMs: COUNTDOWN_MS, graceMs: GRACE_MS, boxMax: BOX_MAX }
