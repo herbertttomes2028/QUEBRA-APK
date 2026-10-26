@@ -13,16 +13,7 @@
   <link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <script>
-    /* aplica o tema e o tamanho do texto antes de desenhar a tela (evita piscar) */
-    try {
-      var s = JSON.parse(localStorage.getItem('qc.settings') || '{}'), d = document.documentElement;
-      if (s.text) d.setAttribute('data-text', s.text);
-      var dark = s.theme === 'dark' || (s.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-      d.setAttribute('data-theme', dark ? 'dark' : 'light');
-      if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
-    } catch (e) { /* ignora */ }
-  </script>
+  <script src="boot.js"></script>
   <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -84,7 +75,7 @@
           <label for="input-code"><span class="key" aria-hidden="true">🔑</span> Já tem um código?</label>
           <div class="join-row">
             <input id="input-code" type="text" inputmode="text" name="sala" autocomplete="off" aria-autocomplete="none" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" enterkeyhint="go" autocapitalize="characters"
-                   autocorrect="off" spellcheck="false" maxlength="4" placeholder="ABCD" aria-label="Código da sala">
+                   autocorrect="off" spellcheck="false" maxlength="6" placeholder="ABCDEF" aria-label="Código da sala">
             <button id="btn-join" class="btn btn-secondary" type="button">Entrar</button>
           </div>
           <p id="home-error" class="error" role="alert" hidden></p>
@@ -112,7 +103,7 @@
               <h2>Guarde seu progresso</h2>
               <p>Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.</p>
             </div>
-            <div class="me-card">
+            <div id="auth-card" class="me-card">
               <div class="me-seg" role="tablist" aria-label="Entrar ou criar conta">
                 <button id="auth-tab-in" class="me-seg-btn on" type="button" role="tab" aria-selected="true">Entrar</button>
                 <button id="auth-tab-up" class="me-seg-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
@@ -130,8 +121,38 @@
                   <span>Li a <a href="/privacidade.html" target="_blank" rel="noopener">política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
                 <p id="auth-error" class="error" role="alert" hidden></p>
                 <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
+                <button id="auth-forgot-link" class="me-link" type="button" hidden>Esqueci minha senha</button>
               </form>
               <div id="google-box" class="me-google" hidden><span class="me-or">ou</span><div id="google-btn"></div></div>
+            </div>
+            <div id="auth-verify" class="me-card" hidden>
+              <h3 class="me-h-in">Confirme seu e-mail ✉️</h3>
+              <p class="me-small me-left">Enviamos um código de 6 números para <b id="ver-email"></b>. Digite-o abaixo (ele vale por 15 minutos). Olhe também a caixa de spam.</p>
+              <form id="ver-form" novalidate autocomplete="off">
+                <label class="me-field"><span>Código</span>
+                  <input id="ver-code" name="codigo-email" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore="true" placeholder="000000"></label>
+                <p id="ver-error" class="error" role="alert" hidden></p>
+                <button id="ver-go" class="btn btn-primary btn-xl" type="submit">Confirmar</button>
+              </form>
+              <button id="ver-resend" class="btn btn-secondary" type="button">Reenviar código</button>
+              <button id="ver-back" class="btn btn-ghost" type="button">‹ Voltar</button>
+            </div>
+            <div id="auth-forgot" class="me-card" hidden>
+              <h3 class="me-h-in">Recuperar a senha</h3>
+              <form id="fg-form" novalidate>
+                <label class="me-field"><span>E-mail da conta</span>
+                  <input id="fg-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
+                <div id="fg-step2" hidden>
+                  <p class="me-small me-left">Se esse e-mail tiver uma conta, enviamos um código de 6 números. Digite-o e escolha uma senha nova.</p>
+                  <label class="me-field"><span>Código</span>
+                    <input id="fg-code" name="codigo-senha" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore="true" placeholder="000000"></label>
+                  <label class="me-field"><span>Senha nova</span>
+                    <input id="fg-pass" type="password" autocomplete="new-password" minlength="8" placeholder="Pelo menos 8 caracteres"></label>
+                </div>
+                <p id="fg-error" class="error" role="alert" hidden></p>
+                <button id="fg-go" class="btn btn-primary btn-xl" type="submit">Enviar código</button>
+              </form>
+              <button id="fg-back" class="btn btn-ghost" type="button">‹ Voltar</button>
             </div>
             <button id="me-visitor" class="btn btn-secondary btn-xl" type="button">Jogar como visitante</button>
             <p class="me-small">Como visitante você joga normalmente; só não guarda progresso nem amigos.</p>
@@ -159,6 +180,19 @@
               <div id="me-stats" class="me-stats"></div>
               <h3 class="me-h">Conquistas <small id="me-ach-count"></small></h3>
               <div id="me-ach" class="me-ach"></div>
+              <div class="me-card me-sec">
+                <h3 class="me-h-in">🔒 Segurança</h3>
+                <button id="sec-pw-open" class="btn btn-secondary" type="button">Trocar minha senha</button>
+                <form id="sec-pw-form" novalidate hidden>
+                  <label class="me-field"><span>Senha atual</span><input id="sec-pw-cur" type="password" autocomplete="current-password"></label>
+                  <label class="me-field"><span>Senha nova</span><input id="sec-pw-new" type="password" autocomplete="new-password" minlength="8" placeholder="Pelo menos 8 caracteres"></label>
+                  <p id="sec-pw-error" class="error" role="alert" hidden></p>
+                  <button id="sec-pw-go" class="btn btn-primary" type="submit">Salvar a senha nova</button>
+                </form>
+                <button id="sec-logout-all" class="btn btn-secondary" type="button">Sair de todos os aparelhos</button>
+                <button id="sec-blocked-open" class="btn btn-secondary" type="button">Jogadores bloqueados <span id="sec-blocked-n"></span></button>
+                <div id="sec-blocked" hidden></div>
+              </div>
               <div class="me-card me-account">
                 <p class="me-small">Conta: <b id="me-email"></b></p>
                 <button id="me-logout" class="btn btn-secondary btn-xl" type="button">Sair da conta</button>
@@ -317,18 +351,15 @@
         </header>
         <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
         <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
-          <button type="button" data-t="👍">👍</button>
-          <button type="button" data-t="😂">😂</button>
-          <button type="button" data-t="👏">👏</button>
-          <button type="button" data-t="😮">😮</button>
-          <button type="button" data-t="🤔">🤔</button>
-          <button type="button" data-t="❤️">❤️</button>
-          <button type="button" data-t="🎉">🎉</button>
+          <button type="button" data-p="r_like">👍</button>
+          <button type="button" data-p="r_ri">😂</button>
+          <button type="button" data-p="r_palmas">👏</button>
+          <button type="button" data-p="r_uau">😮</button>
+          <button type="button" data-p="r_pensa">🤔</button>
+          <button type="button" data-p="r_amor">❤️</button>
+          <button type="button" data-p="r_festa">🎉</button>
         </div>
-        <div class="chat-input-row">
-          <input id="chat-input" type="text" maxlength="200" placeholder="Escreva uma mensagem" autocomplete="off" autocapitalize="sentences" enterkeyhint="send" aria-label="Mensagem">
-          <button id="chat-send" class="btn btn-primary" type="button">Enviar</button>
-        </div>
+        <div id="chat-phrases" class="chat-phrases" aria-label="Frases prontas"></div>
       </section>
 
     </section>
@@ -342,6 +373,7 @@
         <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
         <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
         <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
+        <button id="menu-block" class="btn btn-ghost btn-block" type="button" hidden>⛔ Bloquear jogador</button>
         <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
         <button id="menu-close" class="btn btn-primary btn-block" type="button">Continuar jogando</button>
       </div>
@@ -536,6 +568,17 @@
           <button class="chal-opt" type="button" data-kind="quebra"><span class="chal-ico" aria-hidden="true">🎁</span><span><b>Quebrando Cabeças</b><small>As peças saem de uma caixa</small></span></button>
         </div>
         <div class="sheet-actions"><button id="chal-cancel" class="btn btn-secondary" type="button">Cancelar</button></div>
+      </div>
+    </div>
+
+    <div id="modal-friend" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fa-title">
+      <div class="sheet">
+        <h2 id="fa-title">Amigo</h2>
+        <div class="sheet-actions">
+          <button id="fa-remove" class="btn btn-secondary" type="button">Remover dos amigos</button>
+          <button id="fa-block" class="btn me-danger" type="button">⛔ Bloquear</button>
+          <button id="fa-cancel" class="btn btn-ghost" type="button">Cancelar</button>
+        </div>
       </div>
     </div>
 

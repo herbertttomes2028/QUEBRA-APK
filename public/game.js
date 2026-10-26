@@ -31,6 +31,9 @@
     tipShown: false,
     chat: [],          // últimas mensagens da conversa
     chatOn: true,
+    codeLen: 6,          // tamanho do código da sala (o servidor informa)
+    phrases: [],         // catálogo de frases prontas
+    unlocked: null,      // frases liberadas (null = só as básicas)
     chatOpen: false,
     unread: 0,
     popTimer: null,
@@ -249,6 +252,9 @@
         if (c.upload && c.upload.maxBytes) state.upload = c.upload;
         state.hints = c.hints || 10;
         state.chatOn = c.chat !== false;
+        state.codeLen = c.codeLen || 6;
+        state.phrases = Array.isArray(c.phrases) ? c.phrases : [];
+        var ic = $('#input-code'); ic.maxLength = state.codeLen; ic.placeholder = 'ABCDEFGH'.slice(0, state.codeLen);
         if (Array.isArray(c.avatars) && c.avatars.length) state.avatars = c.avatars;
         state.spots = c.spots || 5;
         state.pushKey = c.push && c.push.key ? c.push.key : null;
@@ -379,7 +385,11 @@
   /* ---------------------------------------------------------
    * Entrar / criar partida
    * --------------------------------------------------------- */
-  function errorText(code) {
+  function errorText(code, res) {
+    if (code === 'locked') {
+      var min = Math.max(1, Math.ceil(((res && res.retryMs) || 60000) / 60000));
+      return 'Muitos códigos errados. Por segurança, espere ' + (min >= 60 ? Math.ceil(min / 60) + ' h' : min + ' min') + ' para tentar de novo.';
+    }
     if (code === 'notfound') return 'Não encontramos essa sala. Confira o código com seu amigo.';
     if (code === 'full') return 'Essa sala já tem duas pessoas jogando.';
     if (code === 'noimages') return 'O jogo está sem imagens. Adicione arquivos na pasta public/imagens.';
@@ -461,13 +471,13 @@
           if (r2 && r2.ok) { enterDuel(r2); return; }
           setLoading(false);
           showScreen('home');
-          showError($('#home-error'), errorText(r2 && r2.error));
+          showError($('#home-error'), errorText(r2 && r2.error, r2));
         });
         return;
       }
       setLoading(false);
       showScreen('home');
-      showError($('#home-error'), errorText(res && res.error));
+      showError($('#home-error'), errorText(res && res.error, res));
     });
   }
 
@@ -1056,23 +1066,41 @@
     $('#chat-panel').hidden = false;
     updateKeyboardOffset();
     scrollChat();
-    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) { try { $('#chat-input').focus(); } catch (e) { /* ignora */ } }
+    renderPhrases();
   }
 
   function closeChat() {
     state.chatOpen = false;
     $('#chat-panel').hidden = true;
-    try { $('#chat-input').blur(); } catch (e) { /* ignora */ }
   }
 
-  function sendChat(text) {
-    text = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
-    if (!text || !state.chatOn) return;
-    gameEmit('chat', { text: text }, function (res) {
+  // manda uma FRASE PRONTA (só o código dela; o servidor confere se está liberada e escreve o texto)
+  function sendChat(id) {
+    if (!id || !state.chatOn) return;
+    gameEmit('chat', { p: id }, function (res) {
       if (res && res.ok) return;
       if (res && res.error === 'rate') toast('Calma! Espere um instante para enviar de novo.');
+      else if (res && res.error === 'locked') toast('Essa frase ainda está bloqueada. Jogue mais para liberar!');
       else if (res && res.error === 'off') toast('A conversa está desligada neste jogo.');
       else toast('Não foi possível enviar. Tente de novo.');
+    });
+  }
+  function phraseOpen(p) {
+    if (p.group !== 'liberar') return true;
+    return !!(state.unlocked && state.unlocked[p.id]);
+  }
+  function renderPhrases() {
+    var box = $('#chat-phrases');
+    if (!box) return;
+    box.innerHTML = '';
+    var list = state.phrases.filter(function (p) { return p.group !== 'reacao'; });
+    list.sort(function (a, b) { return (phraseOpen(b) ? 1 : 0) - (phraseOpen(a) ? 1 : 0); });
+    list.forEach(function (p) {
+      var open = phraseOpen(p), b = document.createElement('button');
+      b.type = 'button'; b.className = 'ph' + (open ? '' : ' lock'); b.dataset.p = p.id;
+      b.textContent = open ? p.text : '🔒 ' + p.need;
+      if (!open) b.setAttribute('aria-label', 'Frase bloqueada. Para liberar: ' + p.need);
+      box.appendChild(b);
     });
   }
 
@@ -2737,20 +2765,20 @@
 
   $('#btn-join').addEventListener('click', function () {
     var code = $('#input-code').value.trim().toUpperCase();
-    if (code.length < 4) { showError($('#home-error'), 'Digite os 4 caracteres do código.'); return; }
+    if (code.length < state.codeLen) { showError($('#home-error'), 'Digite os ' + state.codeLen + ' caracteres do código.'); return; }
     showError($('#home-error'), '');
     doJoin(code);
   });
   $('#input-code').addEventListener('input', function (e) {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
     showError($('#home-error'), '');
-    var row = e.target.parentNode, ready = e.target.value.length === 4;
+    var row = e.target.parentNode, ready = e.target.value.length === state.codeLen;
     if (ready && !row.classList.contains('ready')) popEl($('#btn-join'), 'go');
     row.classList.toggle('ready', ready);
   });
   $('#input-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-join').click(); });
   $('#input-name').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { if ($('#input-code').value.length === 4) $('#btn-join').click(); else $('#input-name').blur(); }
+    if (e.key === 'Enter') { if ($('#input-code').value.length === state.codeLen) $('#btn-join').click(); else $('#input-name').blur(); }
   });
 
   $('#pick-grid').addEventListener('click', function (e) {
@@ -2799,27 +2827,34 @@
   $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
   $('#chat-close').addEventListener('click', closeChat);
   $('#chat-pop').addEventListener('click', openChat);
-  $('#chat-send').addEventListener('click', function () {
-    var inp = $('#chat-input');
-    var t = inp.value;
-    if (!t.trim()) return;
-    sendChat(t);
-    inp.value = '';
-  });
-  $('#chat-input').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); $('#chat-send').click(); }
-    else if (e.key === 'Escape') closeChat();
-  });
   $('#chat-quick').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button') : null;
-    if (b && b.dataset.t) sendChat(b.dataset.t);
+    if (b && b.dataset.p) sendChat(b.dataset.p);
+  });
+  $('#chat-phrases').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    if (b.classList.contains('lock')) { toast(window.QC && window.QC.canBlock ? 'Para liberar: ' + (b.textContent.replace('🔒 ', '')) + '.' : 'Entre na sua conta e jogue para liberar mais frases!', 3200); return; }
+    sendChat(b.dataset.p);
   });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', updateKeyboardOffset);
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
   }
 
-  $('#btn-menu').addEventListener('click', function () { openModal('#modal-menu', '#menu-close'); });
+  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = !(window.QC && window.QC.canBlock); openModal('#modal-menu', '#menu-close'); });
+  // "Bloquear jogador": só para quem tem conta (a outra pessoa também precisa ter conta para poder ser bloqueada)
+  $('#menu-block').addEventListener('click', function () {
+    if (!window.confirm('Bloquear esta pessoa? Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.')) return;
+    socket.emit('acc:blockPeer', {}, function (res) {
+      if (res && res.ok) {
+        toast((res.name || 'A pessoa') + ' foi bloqueada.', 3200);
+        if (state.duel) leaveDuel(); else { socket.disconnect(); window.location.href = location.pathname; }
+      } else if (res && res.error === 'guest') toast('Essa pessoa não tem conta, então não dá para bloquear. Você pode sair da partida pelo menu.', 5200);
+      else if (res && res.error === 'no_peer') toast('Não há ninguém na sala para bloquear.', 3200);
+      else toast('Não foi possível bloquear agora. Tente de novo.', 3200);
+    });
+  });
   $('#menu-close').addEventListener('click', function () { closeModal('#modal-menu'); });
   $('#modal-menu').addEventListener('click', function (e) { if (e.target === this) closeModal('#modal-menu'); });
   $('#menu-help').addEventListener('click', function () { closeModal('#modal-menu'); openTutorial(); });
@@ -2970,9 +3005,9 @@
     renderAvatarPicker();
     updatePushNote();
     var param = '';
-    try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4); } catch (e) { /* ignora */ }
+    try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, state.codeLen); } catch (e) { /* ignora */ }
     if (!param && maybeResumeDuel()) return;                    // uma Sala Desafio ficou aberta neste aparelho
-    if (param.length === 4) {
+    if (param.length === state.codeLen) {
       $('#input-code').value = param;
       if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
       var inv = $('#home-invite');
@@ -3007,7 +3042,8 @@
       store.set('avatar', state.avatar);
       renderAvatarPicker();
     },
-    afterEnter: null, onScreen: null
+    afterEnter: null, onScreen: null, canBlock: false,
+    setUnlocked: function (ids) { state.unlocked = null; if (ids) { state.unlocked = {}; ids.forEach(function (id) { state.unlocked[id] = true; }); } if (state.chatOpen) renderPhrases(); }
   };
 
   requestAnimationFrame(frame);

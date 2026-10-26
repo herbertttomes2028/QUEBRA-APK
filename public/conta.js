@@ -13,7 +13,7 @@
   if (!QC) return;
   var $ = QC.$, state = QC.state, socket = QC.socket, store = QC.store;
 
-  var acc = { enabled: false, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', view: 'profile', after: null, mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
+  var acc = { enabled: false, mailOn: false, ver: null, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', view: 'profile', after: null, mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
 
   /* =========================================================
    * 1) SERVIÇOS
@@ -44,7 +44,16 @@
     declined: 'O convite foi recusado.',
     nosave: 'Não há partida salva para continuar.',
     imagegone: 'A imagem dessa partida não está mais disponível. Você pode descartar o progresso e começar outra.',
-    auth: 'Entre na sua conta para fazer isso.'
+    auth: 'Entre na sua conta para fazer isso.',
+    mail: 'Não consegui enviar o e-mail agora. Confira o endereço e tente de novo daqui a pouco.',
+    mail_off: 'O envio de e-mails ainda não está ligado neste jogo.',
+    password_weak: 'Essa senha é fácil de adivinhar. Misture letras e números e não use seu nome.',
+    unverified: 'Falta confirmar o seu e-mail.',
+    bad_code: 'Código incorreto. Confira os 6 números do e-mail.',
+    expired: 'Esse código venceu. Peça um novo.',
+    too_many: 'Muitos erros. Peça um código novo.',
+    no_password: 'Sua conta entra pelo Google e não tem senha. Use "Esqueci minha senha" para criar uma.',
+    same: 'A senha nova precisa ser diferente da atual.'
   };
   var errText = function (e) { return MSG[e] || MSG.server; };
 
@@ -89,6 +98,7 @@
     acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
     $('#auth-pass').value = ''; $('#auth-consent').checked = false; say('#auth-error', '');
     acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
+    QC.canBlock = false; QC.setUnlocked(null);
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
     paintChip(); paintContinue();
     if ($('#screen-me').classList.contains('active')) renderMe();
@@ -96,6 +106,19 @@
   }
   function applyAccount(me) {          // a conta passa a ser a fonte do nome e do avatar neste aparelho
     acc.me = me;
+    QC.canBlock = true;
+    QC.setUnlocked(me.phrases);
+    var key = 'seen.' + me.code, seen = store.get(key, null);        // frases que a pessoa já conhece: avisa quando liberar uma nova
+    if (!seen) store.set(key, me.phrases);
+    else {
+      var fresh = me.phrases.filter(function (id) { return seen.indexOf(id) < 0; });
+      if (fresh.length) {
+        store.set(key, me.phrases);
+        var ph = state.phrases.filter(function (x) { return x.id === fresh[0]; })[0];
+        QC.toast('💬 Nova frase liberada: ' + (ph ? ph.text : '') + (fresh.length > 1 ? ' (+' + (fresh.length - 1) + ')' : ''), 4600);
+        QC.playSound('chime');
+      }
+    }
     QC.applyProfile(me.name, me.avatar);
     paintChip(); paintContinue();
   }
@@ -134,6 +157,8 @@
       }
       if (acc.inv && acc.inv.id === ev.id && ev.status === 'expired') { closeInvite(); QC.toast('O convite expirou.', 2400); }
       loadFriends();
+    } else if (ev.t === 'blocks') {
+      if (!$('#sec-blocked').hidden) loadBlocked();
     } else if (ev.t === 'deleted') {
       logoutLocal('Conta excluída.');
     }
@@ -222,7 +247,11 @@
   $('#link-friends').addEventListener('click', openFriends);
 
   /* ---------- entrar / criar conta ---------- */
+  function showAuthPanel(which) {            // 'main' | 'verify' | 'forgot'
+    $('#auth-card').hidden = which !== 'main'; $('#auth-verify').hidden = which !== 'verify'; $('#auth-forgot').hidden = which !== 'forgot'; $('#me-visitor').hidden = which !== 'main';
+  }
   function renderGuest() {
+    showAuthPanel('main');
     var h = $('#me-guest .me-hero');
     h.querySelector('h2').textContent = acc.after === 'friends' ? 'Entre para ver seus amigos' : 'Guarde seu progresso';
     h.querySelector('p').textContent = acc.after === 'friends' ? 'Com uma conta você acha amigos pelo código, recebe convites e joga junto com eles.' : 'Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.';
@@ -238,6 +267,7 @@
     show('#auth-name-wrap', up); show('#auth-consent-wrap', up);
     $('#auth-pass').autocomplete = up ? 'new-password' : 'current-password';
     $('#auth-go').textContent = up ? 'Criar minha conta' : 'Entrar';
+    show('#auth-forgot-link', acc.mailOn && !up);
     say('#auth-error', '');
   }
   $('#auth-tab-in').addEventListener('click', function () { setAuthMode('in'); });
@@ -272,11 +302,85 @@
       go.disabled = false;
       if (!j || !j.ok) {
         if (up && j && j.error === 'email_taken') { setAuthMode('in'); say('#auth-error', 'Você já tem conta com este e-mail. Digite sua senha e toque em Entrar.'); QC.vibrate(30); return; }
+        if (j && j.error === 'unverified') { showVerify(body.email, j.email, j.sent); return; }
         say('#auth-error', errText(j && j.error)); QC.vibrate(30); return;
       }
+      if (j.needsVerify) { showVerify(body.email, j.email, true); return; }
       afterAuth(j, up ? 'Conta criada! Bem-vindo(a)' : 'Que bom te ver de novo');
       if (!up && Object.keys(state.bests || {}).length) api('POST', '/import', { bests: state.bests }, true);   // leva os melhores tempos do modo visitante (já com o login guardado)
     });
+  });
+
+  /* ---------- confirmar o e-mail com o código ---------- */
+  var verTimer = null;
+  function startResendTimer(sec) {
+    clearInterval(verTimer);
+    var b = $('#ver-resend'), left = sec;
+    b.disabled = true; b.textContent = 'Reenviar código (' + left + ' s)';
+    verTimer = setInterval(function () {
+      left--;
+      if (left <= 0) { clearInterval(verTimer); b.disabled = false; b.textContent = 'Reenviar código'; }
+      else b.textContent = 'Reenviar código (' + left + ' s)';
+    }, 1000);
+  }
+  function showVerify(email, masked, sent) {
+    acc.ver = { email: String(email).trim().toLowerCase() };
+    $('#ver-email').textContent = masked || email;
+    $('#ver-code').value = '';
+    say('#ver-error', sent === false ? 'Já enviamos um código há pouco. Use o do último e-mail ou espere para reenviar.' : '');
+    showAuthPanel('verify');
+    startResendTimer(60);
+    setTimeout(function () { try { $('#ver-code').focus(); } catch (e) { /* ignora */ } }, 200);
+  }
+  $('#ver-code').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); say('#ver-error', ''); });
+  $('#ver-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var code = $('#ver-code').value;
+    if (code.length !== 6) { say('#ver-error', 'Digite os 6 números do e-mail.'); return; }
+    $('#ver-go').disabled = true;
+    api('POST', '/verify', { email: acc.ver.email, code: code }).then(function (j) {
+      $('#ver-go').disabled = false;
+      if (!j || !j.ok) { say('#ver-error', errText(j && j.error)); QC.vibrate(30); return; }
+      showAuthPanel('main');
+      afterAuth(j, 'E-mail confirmado! Bem-vindo(a)');
+    });
+  });
+  $('#ver-resend').addEventListener('click', function () {
+    api('POST', '/verify/resend', { email: acc.ver.email }).then(function (j) {
+      if (j && j.ok) { QC.toast('Código reenviado ✉️', 2400); startResendTimer(60); } else say('#ver-error', errText(j && j.error));
+    });
+  });
+  $('#ver-back').addEventListener('click', function () { clearInterval(verTimer); showAuthPanel('main'); });
+
+  /* ---------- esqueci a senha ---------- */
+  $('#auth-forgot-link').addEventListener('click', function () {
+    $('#fg-email').value = $('#auth-email').value; $('#fg-code').value = ''; $('#fg-pass').value = '';
+    $('#fg-step2').hidden = true; $('#fg-go').textContent = 'Enviar código'; say('#fg-error', '');
+    showAuthPanel('forgot');
+  });
+  $('#fg-back').addEventListener('click', function () { showAuthPanel('main'); });
+  $('#fg-code').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+  $('#fg-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var email = $('#fg-email').value, step2 = !$('#fg-step2').hidden;
+    if (!email.trim()) { say('#fg-error', 'Digite o e-mail da conta.'); return; }
+    $('#fg-go').disabled = true; say('#fg-error', '');
+    if (!step2) {
+      api('POST', '/password/forgot', { email: email }).then(function (j) {
+        $('#fg-go').disabled = false;
+        if (!j || !j.ok) { say('#fg-error', errText(j && j.error)); return; }
+        $('#fg-step2').hidden = false; $('#fg-go').textContent = 'Trocar a senha';
+        QC.toast('Se esse e-mail tiver conta, o código já foi enviado ✉️', 3600);
+      });
+    } else {
+      api('POST', '/password/reset', { email: email, code: $('#fg-code').value, password: $('#fg-pass').value }).then(function (j) {
+        $('#fg-go').disabled = false;
+        if (!j || !j.ok) { say('#fg-error', errText(j && j.error)); QC.vibrate(30); return; }
+        showAuthPanel('main'); setAuthMode('in');
+        $('#auth-email').value = email.trim(); $('#auth-pass').value = '';
+        QC.toast('Senha trocada! Entre com a senha nova.', 3600); QC.playSound('chime');
+      });
+    }
   });
 
   /* ---------- Google (só aparece se o servidor tiver o GOOGLE_CLIENT_ID) ---------- */
@@ -316,6 +420,7 @@
     $('#me-code').textContent = me.code;
     $('#me-email').textContent = me.email || '(conta Google)';
     show('#me-del-pass', me.hasPassword);
+    $('#sec-pw-open').hidden = !me.hasPassword;
     var st = me.stats, stats = $('#me-stats');
     stats.innerHTML = '';
     [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']].forEach(function (x, i) {
@@ -357,6 +462,55 @@
   $('#me-avatar').addEventListener('click', function () { var box = $('#me-avatars'); box.hidden = !box.hidden; if (!box.hidden) renderAvatarChoices(); });
   $('#me-name-save').addEventListener('click', function () { saveProfile($('#me-name').value.replace(/\s+/g, ' ').trim().slice(0, 12), acc.me.avatar); });
   $('#me-name').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#me-name-save').click(); });
+
+  /* ---------- segurança: trocar senha, sair de todos os aparelhos, bloqueados ---------- */
+  $('#sec-pw-open').addEventListener('click', function () { var f = $('#sec-pw-form'); f.hidden = !f.hidden; });
+  $('#sec-pw-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var cur = $('#sec-pw-cur').value, neu = $('#sec-pw-new').value;
+    if (!cur || !neu) { say('#sec-pw-error', 'Preencha a senha atual e a nova.'); return; }
+    $('#sec-pw-go').disabled = true; say('#sec-pw-error', '');
+    api('POST', '/password/change', { current: cur, password: neu }).then(function (j) {
+      $('#sec-pw-go').disabled = false;
+      if (!j || !j.ok) { say('#sec-pw-error', j && j.error === 'bad_login' ? 'A senha atual está incorreta.' : errText(j && j.error)); QC.vibrate(30); return; }
+      $('#sec-pw-cur').value = ''; $('#sec-pw-new').value = ''; $('#sec-pw-form').hidden = true;
+      QC.toast('Senha trocada! Os outros aparelhos saíram da conta.', 3600); QC.playSound('chime');
+    });
+  });
+  $('#sec-logout-all').addEventListener('click', function () {
+    if (!window.confirm('Sair da conta em TODOS os aparelhos, inclusive neste?')) return;
+    api('POST', '/logout-all', {}).then(function () { logoutLocal('Você saiu em todos os aparelhos.'); QC.showScreen('home'); });
+  });
+  function loadBlocked() {
+    return api('GET', '/blocks').then(function (j) {
+      var box = $('#sec-blocked'); box.innerHTML = '';
+      var list = (j && j.ok) ? j.blocked : [];
+      $('#sec-blocked-n').textContent = list.length ? '(' + list.length + ')' : '';
+      if (!list.length) box.appendChild(el('p', 'me-small', 'Você não bloqueou ninguém.'));
+      list.forEach(function (u) {
+        var r = row(u, 'bloqueado(a)', undefined, 'bare'), b = el('div', 'fr-btns');
+        b.appendChild(btn('Desbloquear', 'btn-secondary me-mini', function () {
+          api('POST', '/blocks/remove', { code: u.code }).then(function (x) { if (x && x.ok) { QC.toast(u.name + ' foi desbloqueado(a).', 2400); loadBlocked(); } });
+        }));
+        r.appendChild(b); box.appendChild(r);
+      });
+    });
+  }
+  $('#sec-blocked-open').addEventListener('click', function () { var b = $('#sec-blocked'); b.hidden = !b.hidden; if (!b.hidden) loadBlocked(); });
+  function blockPerson(u) {
+    if (!window.confirm('Bloquear ' + u.name + '? Essa pessoa não poderá mais te achar, te chamar para jogar nem entrar nas suas salas.')) return;
+    api('POST', '/blocks', { code: u.code }).then(function (j) {
+      if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
+    });
+  }
+  var faUser = null;
+  function openFriendActions(u) { faUser = u; $('#fa-title').textContent = u.name; QC.openModal('#modal-friend', '#fa-cancel'); }
+  $('#fa-cancel').addEventListener('click', function () { QC.closeModal('#modal-friend'); });
+  $('#fa-remove').addEventListener('click', function () {
+    var u = faUser; QC.closeModal('#modal-friend'); if (!u) return;
+    if (window.confirm('Remover ' + u.name + ' dos seus amigos?')) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); loadFriends(); } });
+  });
+  $('#fa-block').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) blockPerson(u); });
 
   function copyText(t, ok) {
     function done() { QC.toast(ok, 1800); QC.vibrate(10); }
@@ -428,6 +582,7 @@
         var b = el('div', 'fr-btns');
         b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { respondInvite(i, true); }));
         b.appendChild(btn('✕', 'btn-secondary me-mini', function () { respondInvite(i, false); }, 'Recusar convite de ' + i.from.name));
+        b.appendChild(btn('⛔', 'btn-ghost me-mini', function () { blockPerson(i.from); }, 'Bloquear ' + i.from.name));
         r.appendChild(b); box.appendChild(r);
       });
       inv.appendChild(box);
@@ -439,6 +594,7 @@
         var b = el('div', 'fr-btns');
         b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { respondFriend(u, true); }));
         b.appendChild(btn('Recusar', 'btn-secondary me-mini', function () { respondFriend(u, false); }));
+        b.appendChild(btn('⛔', 'btn-ghost me-mini', function () { blockPerson(u); }, 'Bloquear ' + u.name));
         r.appendChild(b); rb.appendChild(r);
       });
       req.appendChild(rb);
@@ -452,9 +608,7 @@
       var r = row(u, u.online ? 'online agora' : 'offline', u.online);
       var b = el('div', 'fr-btns');
       b.appendChild(btn('Desafiar', 'btn-primary me-mini', function () { openChallenge(u); }, 'Desafiar ' + u.name));
-      b.appendChild(btn('⋯', 'btn-ghost me-mini', function () {
-        if (window.confirm('Remover ' + u.name + ' dos seus amigos?')) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); loadFriends(); } });
-      }, 'Remover ' + u.name));
+      b.appendChild(btn('⋯', 'btn-ghost me-mini', function () { openFriendActions(u); }, 'Mais opções de ' + u.name));
       r.appendChild(b); list.appendChild(r);
     });
     if (f.outgoing.length) {
@@ -595,6 +749,7 @@
     if (!state.accounts) return;                  // servidor sem banco: nada muda para ninguém
     acc.enabled = true;
     acc.google = state.accounts.google || null;
+    acc.mailOn = !!state.accounts.mail;
     paintChip();
     if (acc.token) loadMe().then(function (j) { if (j && j.ok) loadFriends(); });
     if (socket.connected) authSocket();
