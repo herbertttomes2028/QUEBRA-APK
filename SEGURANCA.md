@@ -30,7 +30,7 @@ Também **não** existe mais nenhum `moderation.js`: não há filtro de fotos ne
 ## 3. Conferir que ligou
 
 Abra `/diagnostico`. Em `contas` deve aparecer `"ativas": true`. Em `seguranca` você vê:
-`cabecalhos` (ativos), `csp.modo` (`report`), `tamanho_do_codigo_da_sala` (6), `limite_de_tentativas` e `email` (`não configurado` até a seção 4).
+`cabecalhos` (ativos), `csp.modo` (`report`), `tamanho_do_codigo_da_sala` (6), `limite_de_tentativas` e `email` (`não configurado — faltam as variáveis: ...` até a seção 4; mostra só os **nomes** do que falta).
 
 Se `contas.ativas` for `false` logo após esta atualização, quase certamente é o **certificado do banco** (seção 7): veja os registros (Logs) do Render.
 
@@ -44,7 +44,12 @@ Segundo o site do Brevo na minha consulta, o plano gratuito permite **300 e-mail
    Dica: remetentes de e-mail gratuito (Gmail, Outlook) podem ter pior entrega e cair em **spam**; a tela do jogo já avisa para olhar a caixa de spam.
 3. Crie a **chave da API**: *SMTP & API* > *API keys* > *Generate a new API key*. Copie a chave (começa com `xkeysib-`); ela só aparece uma vez.
    Se existir a opção de restringir por **IP autorizado**, deixe **desativada** (o Render gratuito não tem IP fixo).
-4. No Render, em *Environment*, crie: `BREVO_API_KEY` (a chave) e `MAIL_FROM` (o e-mail remetente já confirmado). Opcional: `MAIL_FROM_NAME`. Salve.
+4. No Render, em *Environment*, crie estas variáveis (uma por linha, **sem espaços antes ou depois do valor**):
+   - `BREVO_API_KEY`: a chave da API (começa com `xkeysib-`).
+   - `BREVO_SENDER_EMAIL`: o e-mail remetente **já confirmado** no Brevo.
+   - `BREVO_SENDER_NAME` (opcional): o nome que aparece como remetente. Sem ela, usa "Quebra-cabeça a dois".
+
+   O e-mail só fica **ligado** quando `BREVO_API_KEY` e `BREVO_SENDER_EMAIL` existem e não estão vazias. Ao salvar, escolha **Save, rebuild & deploy** (ou *Deploy only*) para o Render reiniciar com os valores novos.
 5. Confira em `/diagnostico`: `email: "configurado (brevo)"`. Crie uma conta de teste com um e-mail seu: o código deve chegar em até 1 minuto.
 
 **Como funciona:** ao criar a conta, a pessoa recebe um código de 6 números (vale 15 minutos, no máximo 5 erros, depois o código "queima") e **só entra depois de digitá-lo**.
