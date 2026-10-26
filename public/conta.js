@@ -45,8 +45,8 @@
     nosave: 'Não há partida salva para continuar.',
     imagegone: 'A imagem dessa partida não está mais disponível. Você pode descartar o progresso e começar outra.',
     auth: 'Entre na sua conta para fazer isso.',
-    mail: 'Não consegui enviar o e-mail agora. Confira o endereço e tente de novo daqui a pouco.',
-    mail_off: 'O envio de e-mails ainda não está ligado neste jogo.',
+    mail: 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.',
+    mail_off: 'O envio de e-mails está indisponível no momento. Tente de novo mais tarde.',
     password_weak: 'Essa senha é fácil de adivinhar. Misture letras e números e não use seu nome.',
     unverified: 'Falta confirmar o seu e-mail.',
     bad_code: 'Código incorreto. Confira os 6 números do e-mail.',
@@ -267,7 +267,7 @@
     show('#auth-name-wrap', up); show('#auth-consent-wrap', up);
     $('#auth-pass').autocomplete = up ? 'new-password' : 'current-password';
     $('#auth-go').textContent = up ? 'Criar minha conta' : 'Entrar';
-    show('#auth-forgot-link', acc.mailOn && !up);
+    show('#auth-forgot-link', !up);                          // sempre na área de entrada (sem e-mail ligado, a tela explica o que fazer)
     say('#auth-error', '');
   }
   $('#auth-tab-in').addEventListener('click', function () { setAuthMode('in'); });
@@ -356,6 +356,7 @@
   $('#auth-forgot-link').addEventListener('click', function () {
     $('#fg-email').value = $('#auth-email').value; $('#fg-code').value = ''; $('#fg-pass').value = '';
     $('#fg-step2').hidden = true; $('#fg-go').textContent = 'Enviar código'; say('#fg-error', '');
+    show('#fg-off', !acc.mailOn); $('#fg-form').hidden = !acc.mailOn;     // sem e-mail ligado: só o aviso
     showAuthPanel('forgot');
   });
   $('#fg-back').addEventListener('click', function () { showAuthPanel('main'); });

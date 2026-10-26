@@ -121,7 +121,7 @@
                   <span>Li a <a href="/privacidade.html" target="_blank" rel="noopener">política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
                 <p id="auth-error" class="error" role="alert" hidden></p>
                 <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
-                <button id="auth-forgot-link" class="me-link" type="button" hidden>Esqueci minha senha</button>
+                <button id="auth-forgot-link" class="me-link" type="button">Esqueci minha senha</button>
               </form>
               <div id="google-box" class="me-google" hidden><span class="me-or">ou</span><div id="google-btn"></div></div>
             </div>
@@ -139,6 +139,7 @@
             </div>
             <div id="auth-forgot" class="me-card" hidden>
               <h3 class="me-h-in">Recuperar a senha</h3>
+              <p id="fg-off" class="me-notice" role="status" hidden>A recuperação de senha está <b>indisponível no momento</b>. Tente de novo mais tarde.<br><br>Se você ainda lembra da sua senha, é só voltar e entrar normalmente.</p>
               <form id="fg-form" novalidate>
                 <label class="me-field"><span>E-mail da conta</span>
                   <input id="fg-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>

@@ -1875,3 +1875,14 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 #auth-verify .btn, #auth-forgot .btn { width: 100%; margin-top: 8px; }
 #ver-code, #fg-code { letter-spacing: .4em; text-align: center; font-weight: 700; font-size: 1.3rem; }
 #modal-friend[hidden], #menu-block[hidden] { display: none !important; }
+
+
+/* Meu espaço: os botões grandes ocupam toda a largura do cartão (em telas de 412 px ou mais eles tinham limite de 360 px e ficavam encostados à esquerda) */
+#screen-me .btn-xl { max-width: none; width: 100%; }
+.me-notice { margin: 0 0 10px; padding: 14px 14px; border-radius: 16px; background: var(--paper-2); box-shadow: inset 0 0 0 2px var(--line); color: var(--ink); font-weight: 700; font-size: .92rem; line-height: 1.4; text-align: left; }
+.me-notice[hidden] { display: none !important; }
+
+/* Entrar e Jogar como visitante: mesma largura e mesmo eixo. O "Entrar" fica dentro do cartão (14 px de respiro de cada lado) e o
+   "Jogar como visitante" ficava 28 px mais largo, o que parecia descentralizado. Só alinhamento e espaçamento: cores, textos e fontes não mudam. */
+#screen-me #me-visitor { display: flex; width: calc(100% - 28px); margin-left: auto; margin-right: auto; }
+.me-scroll { overflow-x: hidden; }                  /* teclado aberto ou texto longo nunca empurram a tela para o lado */

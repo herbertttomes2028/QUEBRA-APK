@@ -8,7 +8,7 @@
  * - Avisos (push): mostra "fulano entrou" / "nova mensagem" quando o aplicativo está fechado.
  * O jogo em si precisa de internet: sem ela aparece um aviso simples.
  */
-const CACHE = 'quebra-cabeca-v6';
+const CACHE = 'quebra-cabeca-v7';
 const SHELL = ['/', '/style.css', '/boot.js', '/game.js', '/conta.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 
 self.addEventListener('install', (event) => {
