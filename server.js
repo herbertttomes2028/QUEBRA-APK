@@ -226,6 +226,7 @@ app.get('/diagnostico', (req, res) => {
     imagens: listImages().length,
     seguranca: {
       cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
+      email_estado: mailer ? mailer.stats : null,      // envios desde que o servidor ligou e o ÚLTIMO erro (já sem chave, e-mails e IPs)
       csp: { modo: security.CSP_MODE, violacoes_registradas: security.cspStats.total, por_regra: security.cspStats.porRegra, ultimas: security.cspStats.ultimas },
       tamanho_do_codigo_da_sala: CODE_LEN,
       limite_de_tentativas: joinGuard.limits,

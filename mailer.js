@@ -33,17 +33,20 @@ function mailerStatus(env) {
 }
 
 function createMailer(env, fetchImpl) {
+  const stats = { enviados: 0, falhas: 0, ultimo_erro: null };     // aparece em /diagnostico (só texto já limpo)
   if (isTest(env)) {
     const outbox = [];
-    return { provider: 'test', from: 'teste@exemplo.com', outbox, async send(msg) { outbox.push(Object.assign({ at: Date.now() }, msg)); } };
+    return { provider: 'test', from: 'teste@exemplo.com', outbox, stats, async send(msg) { outbox.push(Object.assign({ at: Date.now() }, msg)); stats.enviados++; } };
   }
   if (!mailerStatus(env).on) return null;
   const b = readEnv(env);
   const doFetch = fetchImpl || fetch;
   const url = env.NODE_ENV === 'test' && env.MAIL_API_URL ? env.MAIL_API_URL : BREVO_URL;     // o endereço só pode ser trocado nos testes
-  const redact = (s) => String(s || '').split(b.key).join('***').slice(0, 160);
+  // texto de erro seguro para o registro e para o /diagnostico: apaga a chave, e-mails e endereços de IP
+  const redact = (s) => String(s || '').split(b.key).join('***').replace(/[^\s@"'<>()]+@[^\s@"'<>()]+/g, '***@***').replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, '***.***.***.***').slice(0, 200);
+  const falhou = (status, texto) => { stats.falhas++; stats.ultimo_erro = { quando: new Date().toISOString(), status, texto }; };
   return {
-    provider: 'brevo', from: b.email,
+    provider: 'brevo', from: b.email, stats,
     async send({ to, subject, text, html }) {
       let r;
       try {
@@ -52,13 +55,16 @@ function createMailer(env, fetchImpl) {
           headers: { 'api-key': b.key, 'content-type': 'application/json', accept: 'application/json' },
           body: JSON.stringify({ sender: { name: b.name, email: b.email }, to: [{ email: to }], subject, htmlContent: html, textContent: text })
         });
-      } catch (e) { throw Object.assign(new Error('sem resposta do Brevo (rede ou tempo esgotado)'), { status: 0 }); }
+      } catch (e) { falhou(0, 'sem resposta do Brevo (rede ou tempo esgotado)'); throw Object.assign(new Error('sem resposta do Brevo (rede ou tempo esgotado)'), { status: 0 }); }
       if (!r.ok) {
         let det = '';
         try { const j = await r.json(); det = [j.code, j.message].filter(Boolean).join(': '); } catch (e) { /* sem detalhe */ }
         // vai só para o registro do servidor; nunca para o usuário, e a chave é apagada do texto se aparecer
-        throw Object.assign(new Error('Brevo respondeu ' + r.status + (det ? ' (' + redact(det) + ')' : '')), { status: r.status });
+        const texto = 'Brevo respondeu ' + r.status + (det ? ' (' + redact(det) + ')' : '');
+        falhou(r.status, texto);
+        throw Object.assign(new Error(texto), { status: r.status });
       }
+      stats.enviados++;
     }
   };
 }

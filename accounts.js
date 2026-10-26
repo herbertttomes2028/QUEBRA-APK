@@ -326,9 +326,9 @@ function createAccounts(d) {
     const ok = await checkPassword(pw.slice(0, 128), u && u.pass_hash ? u.pass_hash : FAKE_HASH);
     if (!u || !u.pass_hash || !ok) return bad(res, 401, 'bad_login');
     if (mailer && !u.email_verified) {                             // senha certa, mas o e-mail ainda não foi confirmado
-      let sent = false;
-      try { await sendCode(u, 'verify'); sent = true; } catch (e) { /* aguardando o intervalo entre envios, ou falha de e-mail */ }
-      return res.status(403).json({ ok: false, error: 'unverified', email: maskEmail(u.email), sent });
+      let sent = false, why = null;
+      try { await sendCode(u, 'verify'); sent = true; } catch (e) { why = e.code === 'cooldown' ? 'cooldown' : 'mail'; }   // cooldown = já mandamos há pouco; mail = o envio FALHOU
+      return res.status(403).json({ ok: false, error: 'unverified', email: maskEmail(u.email), sent, why });
     }
     await db.q('UPDATE users SET last_seen = now() WHERE id = $1', [u.id]);
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
