@@ -25,7 +25,8 @@ module.exports = function createChallenge(d) {
   const {
     io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
-    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish
+    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish,
+    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen
   } = d;
 
   const rooms = new Map();
@@ -398,10 +399,13 @@ module.exports = function createChallenge(d) {
     socket.on('ch:join', (data, cb) => {
       data = data || {};
       const pid = cleanPid(data.pid);
-      const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+      const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, codeLen || 6);
       if (!pid) return reply(cb, { ok: false, error: 'invalid' });
+      const lk = joinLocked(socket);
+      if (lk.locked) return reply(cb, { ok: false, error: 'locked', retryMs: lk.retryMs });
       const room = rooms.get(code);
-      if (!room) return reply(cb, { ok: false, error: 'notfound' });
+      if (!room) { const m = joinMiss(socket, code); return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' }); }
+      if (blockedWithRoom(socket, room.players)) return reply(cb, { ok: false, error: 'notfound' });
       if (socket.data.ch && socket.data.ch.code !== code) leaveSocket(socket, true);
       const res = attach(room, socket, pid, data.name, data.avatar);
       if (res.error) return reply(cb, { ok: false, error: res.error });
@@ -528,22 +532,24 @@ module.exports = function createChallenge(d) {
       reply(cb, { ok: true, left: c.board.spots, col: p.col, row: p.row });
     });
 
-    socket.on('ch:chat', (data, cb) => {
+    // frases prontas (o celular manda só o código da frase; o servidor confere e escreve o texto)
+    socket.on('ch:chat', async (data, cb) => {
       if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
+      const phrase = d.phrases.byId(data && data.p);
+      if (!phrase) return reply(cb, { ok: false, error: 'invalid' });
+      if (!(await phraseOk(socket, phrase.id))) return reply(cb, { ok: false, error: 'locked' });
       const c = ctx(socket);
       if (!c) return reply(cb, { ok: false, error: 'room' });
-      const text = cleanChat(data && data.text);
-      if (!text) return reply(cb, { ok: false, error: 'empty' });
       const now = Date.now();
       const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
-      if (times.length >= 20 || (times.length && now - times[times.length - 1] < 250)) { socket.data.chatTimes = times; return reply(cb, { ok: false, error: 'rate' }); }
+      if (times.length >= 12 || (times.length && now - times[times.length - 1] < 400)) { socket.data.chatTimes = times; return reply(cb, { ok: false, error: 'rate' }); }
       times.push(now); socket.data.chatTimes = times;
       const { room, idx } = c;
-      const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text, t: now };
+      const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text: phrase.text, p: phrase.id, t: now };
       room.chat.push(msg);
       if (room.chat.length > CHAT_KEEP) room.chat.shift();
       io.to(room.code).emit('chat', msg);
-      sendPush(room, 1 - idx, { title: msg.name, body: Array.from(text).slice(0, 90).join(''), tag: 'chat', url: '/?sala=' + room.code });
+      sendPush(room, 1 - idx, { title: msg.name, body: phrase.text, tag: 'chat', url: '/?sala=' + room.code });
       reply(cb, { ok: true });
     });
 
@@ -605,6 +611,13 @@ module.exports = function createChallenge(d) {
       const r = rooms.get(code);
       if (!r) return null;
       return { code, kind: r.mode, free: r.status === 'lobby' && r.players.some((p) => !p || !p.connected), hostConnected: connectedCount(r) > 0, imageId: r.imageId, pieces: totalOf(r) };
+    },
+    // a outra pessoa da Sala Desafio em que este celular está
+    peerOf: (socket) => {
+      const ch = socket.data.ch;
+      const r = ch && rooms.get(ch.code);
+      const o = r && r.players[1 - ch.idx];
+      return o ? { uid: o.uid || null, name: o.name } : null;
     },
     bindUser: (socket, uid) => {
       const ch = socket.data.ch;

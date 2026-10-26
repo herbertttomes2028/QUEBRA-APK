@@ -14,6 +14,10 @@ services:
         sync: false          # você cola o endereço do banco no painel do Render (nunca no GitHub)
       - key: GOOGLE_CLIENT_ID
         sync: false          # opcional: ativa o botão "Continuar com o Google"
+      - key: BREVO_API_KEY
+        sync: false          # opcional: chave do Brevo para enviar o código de confirmação de e-mail (veja SEGURANCA.md)
+      - key: MAIL_FROM
+        sync: false          # o e-mail remetente já confirmado no Brevo
     envVars:
       # Contas e amigos (opcional). Veja o CONTAS.md. Os valores são preenchidos no painel do Render (nunca aqui).
       - key: DATABASE_URL

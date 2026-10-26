@@ -7,6 +7,19 @@
 const fs = require('fs');
 const path = require('path');
 
+/*
+ * Conexão segura com o banco: além de criptografar, CONFERE se quem responde é mesmo o servidor do banco (certificado válido).
+ *   DB_SSL_CA       (opcional) certificado da autoridade (texto PEM), se o seu provedor usar um certificado próprio.
+ *   DB_SSL_VERIFY=0 (só em emergência) volta a aceitar qualquer certificado: criptografa, mas NÃO confere quem responde.
+ */
+function sslOptions(local, env) {
+  if (local) return false;
+  if (String(env.DB_SSL_VERIFY) === '0') return { rejectUnauthorized: false };
+  const o = { rejectUnauthorized: true };
+  if (env.DB_SSL_CA) o.ca = String(env.DB_SSL_CA).replace(/\\n/g, '\n');
+  return o;
+}
+
 function createDb(url) {
   let pg;
   try { pg = require('pg'); } catch (e) { console.error('[contas] o pacote "pg" não está instalado; contas desligadas.'); return null; }
@@ -14,9 +27,10 @@ function createDb(url) {
   const local = /@(localhost|127\.0\.0\.1|\[::1\])([:/]|$)/.test(url);
   let conn = url;
   try { const u = new URL(url); u.searchParams.delete('sslmode'); conn = u.toString(); } catch (e) { /* mantém */ }
+  const ssl = sslOptions(local, process.env);
   const pool = new pg.Pool({
     connectionString: conn,
-    ssl: local ? false : { rejectUnauthorized: false },
+    ssl,
     max: Number(process.env.DB_POOL_MAX) || 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000
@@ -56,4 +70,4 @@ function createDb(url) {
   return { q, pool, migrate, close: () => pool.end() };
 }
 
-module.exports = { createDb };
+module.exports = { createDb, sslOptions };

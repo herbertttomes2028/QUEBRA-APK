@@ -8,6 +8,9 @@
  */
 
 const crypto = require('crypto');
+const phrases = require('./phrases');
+const security = require('./security');
+const { createMailer } = require('./mailer');
 const express = require('express');
 const http = require('http');
 const fs = require('fs');
@@ -89,6 +92,10 @@ const PRESETS = [
 ];
 const DEFAULT_PIECES = 12;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
+// 6 caracteres = ~1,07 bilhão de códigos (com 4 eram ~1 milhão): junto do limite de tentativas, ninguém consegue adivinhar uma sala
+const CODE_LEN = Math.max(4, Math.min(8, Number(process.env.CODE_LEN) || 6));
+const joinGuard = security.createJoinGuard(process.env);
+const mailer = createMailer(process.env);                      // e-mail de confirmação (por API web, não SMTP); nulo = desligado
 // Sem limite de imagens: todas as da pasta public/imagens aparecem. (Opcional: defina MAX_IMAGES no Render para limitar.)
 const MAX_IMAGES = Number(process.env.MAX_IMAGES) > 0 ? Math.floor(Number(process.env.MAX_IMAGES)) : Infinity;
 
@@ -145,13 +152,18 @@ const uploadHits = new Map();            // ip -> horários dos últimos envios
 
 /* ---------- Servidor HTTP ---------- */
 const app = express();
+app.set('trust proxy', 1);              // atrás do Render: pega o IP real
+app.disable('x-powered-by');
+app.use(security.securityHeaders);      // cabeçalhos de segurança em TODAS as respostas
+app.post('/api/csp-report', ...security.cspReportHandler(express));
+if (mailer && mailer.provider === 'test') app.get('/api/test-outbox', (req, res) => res.json(mailer.outbox));   // SÓ para os testes automáticos (MAIL_PROVIDER=test)
 app.disable('x-powered-by');
 
 app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM }, accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null } });
+  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM }, accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -210,16 +222,24 @@ app.get('/diagnostico', (req, res) => {
       pacotes
     },
     imagens: listImages().length,
+    seguranca: {
+      cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
+      csp: { modo: security.CSP_MODE, violacoes_registradas: security.cspStats.total, por_regra: security.cspStats.porRegra, ultimas: security.cspStats.ultimas },
+      tamanho_do_codigo_da_sala: CODE_LEN,
+      limite_de_tentativas: joinGuard.limits,
+      email: mailer ? 'configurado (' + mailer.provider + ')' : 'não configurado (sem confirmação de e-mail nem recuperação de senha)'
+    },
     contas: {
       ativas: !!accounts,
       banco_configurado: !!DATABASE_URL,
       login_google: !!(accounts && accounts.config.google),
+      confirmacao_por_email: !!mailer,
       dica: accounts ? 'Contas funcionando.' : (DATABASE_URL ? 'DATABASE_URL existe, mas o banco não respondeu: veja os registros (logs) do Render.' : 'Contas desligadas: crie um banco PostgreSQL e coloque o endereço na variável DATABASE_URL (veja o guia).')
     }
   });
 });
 
-app.set('trust proxy', 1);              // atrás do Render: pega o IP real (para limitar os envios de imagem)
+app.set('trust proxy', 1);              // atrás do Render: pega o IP real (para limitar os envios de imagem e as tentativas de entrar em salas)
 
 app.post('/api/upload', express.raw({ type: () => true, limit: UPLOAD_MAX }), (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -402,7 +422,7 @@ const rooms = new Map();
 function newCode() {
   for (let t = 0; t < 100; t++) {
     let c = '';
-    for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    for (let i = 0; i < CODE_LEN; i++) c += CODE_CHARS[crypto.randomInt(CODE_CHARS.length)];
     if (!rooms.has(c) && !(challenge && challenge.has(c))) return c;     // o código é único entre salas comuns e Salas Desafio
   }
   return null;
@@ -753,8 +773,34 @@ const challenge = require('./challenge')({
   io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
-  onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null)      // histórico das disputas (só com contas ativas)
+  onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
+  phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases
 });
+
+// frase liberada? (visitante: só as básicas e as reações; conta: também as que ele já liberou jogando)
+async function phraseOk(socket, id) {
+  if (!phrases.ALWAYS.has(id)) {
+    if (!accounts || !socket.data.uid) return false;
+    try { return (await accounts.allowedPhrases(socket.data.uid)).has(id); } catch (e) { return false; }
+  }
+  return true;
+}
+// limite de tentativas de adivinhar o código da sala (por endereço de internet)
+function joinLocked(socket) { return joinGuard.check(security.ipOfSocket(socket)); }
+function joinMiss(socket, code) {
+  if (rooms.has(code) || (challenge && challenge.has(code))) return joinGuard.check(security.ipOfSocket(socket));   // existe: não é palpite errado
+  return joinGuard.fail(security.ipOfSocket(socket), code);
+}
+function blockedWithRoom(socket, players) {
+  const uid = socket.data.uid;
+  return !!(accounts && uid && (players || []).some((p) => p && p.uid && accounts.blockedBetween(uid, p.uid)));
+}
+// a outra pessoa da sala em que este celular está (para "bloquear jogador")
+function peerOf(socket) {
+  const room = socket.data.code && rooms.get(socket.data.code);
+  if (room) { const o = room.players[1 - socket.data.idx]; return o ? { uid: o.uid || null, name: o.name } : null; }
+  return challenge.peerOf(socket);
+}
 
 /* ---------- Contas, amigos, convites e progresso salvo (só ligam se DATABASE_URL estiver configurada) ---------- */
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -852,10 +898,13 @@ io.on('connection', (socket) => {
   socket.on('join', (data, cb) => {
     data = data || {};
     const pid = cleanPid(data.pid);
-    const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
+    const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LEN);
     if (!pid) return reply(cb, { ok: false, error: 'invalid' });
+    const lk = joinLocked(socket);
+    if (lk.locked) return reply(cb, { ok: false, error: 'locked', retryMs: lk.retryMs });
     const room = rooms.get(code);
-    if (!room) return reply(cb, { ok: false, error: 'notfound' });
+    if (!room) { const m = joinMiss(socket, code); return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' }); }
+    if (blockedWithRoom(socket, room.players)) return reply(cb, { ok: false, error: 'notfound' });    // alguém da sala bloqueou esta pessoa
 
     if (socket.data.code && socket.data.code !== code) leaveCurrent(socket);
     const res = attach(room, socket, pid, data.name, data.avatar);
@@ -985,27 +1034,28 @@ io.on('connection', (socket) => {
     reply(cb, { ok: true });
   });
 
-  // 💬 conversa: o servidor limpa o texto, limita a velocidade e repassa aos dois da sala
-  socket.on('chat', (data, cb) => {
+  // 💬 frases prontas: ninguém digita nada. O celular manda só o CÓDIGO da frase; o servidor confere se está liberada e escreve o texto
+  socket.on('chat', async (data, cb) => {
     if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
+    const phrase = phrases.byId(data && data.p);
+    if (!phrase) return reply(cb, { ok: false, error: 'invalid' });
+    if (!(await phraseOk(socket, phrase.id))) return reply(cb, { ok: false, error: 'locked' });
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false, error: 'room' });
-    const text = cleanChat(data && data.text);
-    if (!text) return reply(cb, { ok: false, error: 'empty' });
     const now = Date.now();
     const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
-    if (times.length >= 20 || (times.length && now - times[times.length - 1] < 250)) {
+    if (times.length >= 12 || (times.length && now - times[times.length - 1] < 400)) {
       socket.data.chatTimes = times;
       return reply(cb, { ok: false, error: 'rate' });
     }
     times.push(now);
     socket.data.chatTimes = times;
     const { room, idx } = c;
-    const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text, t: now };
+    const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text: phrase.text, p: phrase.id, t: now };
     room.chat.push(msg);
     if (room.chat.length > CHAT_KEEP) room.chat.shift();
     io.to(room.code).emit('chat', msg);
-    sendPush(room, 1 - idx, { title: msg.name, body: Array.from(text).slice(0, 90).join(''), tag: 'chat', url: '/?sala=' + room.code });
+    sendPush(room, 1 - idx, { title: msg.name, body: phrase.text, tag: 'chat', url: '/?sala=' + room.code });
     reply(cb, { ok: true });
   });
 
@@ -1094,7 +1144,7 @@ async function start() {
         app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, elapsedOf: elapsed,
         googleClientId: process.env.GOOGLE_CLIENT_ID || null,
         getUpload: (t) => uploads.get(t) || null,
-        onAuth: bindUserToRooms
+        onAuth: bindUserToRooms, mailer, peerOf
       });
       accHooks.duelFinish = (room, result) => accounts.finishDuel(room, result);
       console.log('[contas] sistema de contas ATIVO' + (process.env.GOOGLE_CLIENT_ID ? ' (com login Google)' : ''));

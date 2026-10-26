@@ -11,6 +11,8 @@
  *  - Coletamos o mínimo: e-mail (só para entrar), nome e avatar de jogo, partidas e estatísticas. Sem chat público.
  */
 const crypto = require('crypto');
+const phrases = require('./phrases');
+const { codeEmail } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
 const INVITE_MS = Number(process.env.INVITE_MS) || 3 * 60 * 1000;                 // convite vale 3 minutos
@@ -34,6 +36,12 @@ function newFriendCode() {
   for (let i = 0; i < 8; i++) c += CODE_ALPHABET[b[i] % CODE_ALPHABET.length];
   return c;
 }
+const COMMON_PASSWORDS = new Set(['12345678', '123456789', '1234567890', 'password', 'password1', 'senha123', 'senha1234', 'qwertyui', 'qwerty123', 'abcd1234', '11111111', '00000000', 'iloveyou', 'brasil123', '12341234', '123123123', 'minhasenha', 'quebracabeca']);
+function weakPassword(pw, email, name) {
+  const l = String(pw).toLowerCase();
+  return COMMON_PASSWORDS.has(l) || /^(.)\1+$/.test(pw) || (email && l === String(email).split('@')[0]) || (name && l === String(name).toLowerCase());
+}
+function maskEmail(e) { const [u, d] = String(e || '').split('@'); return u ? u.slice(0, 1) + '***@' + d : ''; }
 function normEmail(e) {
   e = String(e || '').trim().toLowerCase();
   return e.length <= 254 && /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(e) ? e : null;
@@ -61,7 +69,7 @@ const FAKE_HASH = 'scrypt$' + Buffer.alloc(16, 7).toString('base64url') + '$' + 
 let jwksCache = { at: 0, keys: [] };
 async function googleKeys() {
   if (Date.now() - jwksCache.at < 6 * 3600 * 1000 && jwksCache.keys.length) return jwksCache.keys;
-  const r = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+  const r = await fetch(process.env.GOOGLE_CERTS_URL || 'https://www.googleapis.com/oauth2/v3/certs');
   if (!r.ok) throw new Error('não consegui buscar as chaves do Google');
   jwksCache = { at: Date.now(), keys: (await r.json()).keys || [] };
   return jwksCache.keys;
@@ -98,7 +106,7 @@ const ACHIEVEMENTS = [
 ];
 
 function createAccounts(d) {
-  const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, getUpload, putUpload, onAuth } = d;
+  const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, getUpload, putUpload, onAuth, mailer, peerOf } = d;
   const googleClientId = d.googleClientId || null;
   const getKeys = d.googleKeys || googleKeys;
 
@@ -123,12 +131,12 @@ function createAccounts(d) {
   const one = async (text, params) => (await db.q(text, params)).rows[0] || null;
   const publicUser = (u) => ({ code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar });
 
-  async function createUser({ email, passHash, googleSub, name, avatar, bests }) {
+  async function createUser({ email, passHash, googleSub, name, avatar, bests, emailVerified }) {
     for (let tries = 0; tries < 6; tries++) {
       try {
         return await one(
-          'INSERT INTO users (email, pass_hash, google_sub, name, avatar, friend_code, bests) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-          [email, passHash, googleSub, name, avatar, newFriendCode(), JSON.stringify(bests || {})]
+          'INSERT INTO users (email, pass_hash, google_sub, name, avatar, friend_code, bests, email_verified, email_verified_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::boolean, CASE WHEN $8::boolean THEN now() END) RETURNING *',
+          [email, passHash, googleSub, name, avatar, newFriendCode(), JSON.stringify(bests || {}), !!emailVerified]
         );
       } catch (e) {
         if (e.code === '23505' && /friend_code/.test(e.constraint || e.detail || '')) continue;   // código repetido: sorteia outro
@@ -169,6 +177,16 @@ function createAccounts(d) {
     return s ? { imageLabel: s.image_label, pieces: s.pieces, locked: s.n, elapsedMs: Number(s.elapsed_ms), partner: s.partner_name, updatedAt: s.updated_at } : null;
   }
 
+  // frases liberadas (guardadas por alguns segundos para o bate-papo não consultar o banco a cada toque)
+  const phraseCache = new Map();
+  async function allowedPhrases(uid) {
+    const c = phraseCache.get(uid);
+    if (c && Date.now() - c.at < 15000) return c.set;
+    const set = phrases.unlockedFor(await statsOf(uid));
+    phraseCache.set(uid, { at: Date.now(), set });
+    return set;
+  }
+
   async function meOf(u) {
     const stats = await statsOf(u.id);
     const [save, pend, inv] = await Promise.all([
@@ -179,6 +197,7 @@ function createAccounts(d) {
     return {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
       createdAt: u.created_at, stats, achievements: achievementsOf(stats), save,
+      emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
       pending: { requests: pend.n, invites: inv.n }
     };
   }
@@ -231,7 +250,7 @@ function createAccounts(d) {
   }
   r.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
-  r.get('/status', (req, res) => res.json({ ok: true, enabled: true, google: googleClientId }));
+  r.get('/status', (req, res) => res.json({ ok: true, enabled: true, google: googleClientId, mail: !!mailer }));
 
   function sanitizeBests(b) {
     const out = {};
@@ -239,6 +258,33 @@ function createAccounts(d) {
       for (const [k, v] of Object.entries(b).slice(0, 100)) if (/^[\w.\-|]{1,80}$/.test(k) && Number.isFinite(v) && v > 0 && v < 1e8) out[k] = Math.round(v);
     }
     return out;
+  }
+
+  /* ----- códigos por e-mail (confirmar e-mail e trocar senha) ----- */
+  const CODE_TTL_MS = 15 * 60 * 1000, CODE_COOLDOWN_MS = process.env.CODE_COOLDOWN_MS !== undefined ? Number(process.env.CODE_COOLDOWN_MS) : 60 * 1000, CODE_MAX_TRIES = 5;
+  const codeHash = (uid, purpose, code) => sha256(uid + ':' + purpose + ':' + code);
+  async function sendCode(u, purpose) {
+    const last = await one('SELECT created_at FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
+    if (last && Date.now() - new Date(last.created_at).getTime() < CODE_COOLDOWN_MS) { const e = new Error('cooldown'); e.code = 'cooldown'; throw e; }
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    await db.q('DELETE FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
+    await db.q('INSERT INTO email_codes (user_id, purpose, code_hash, expires_at) VALUES ($1,$2,$3,$4)', [u.id, purpose, codeHash(u.id, purpose, code), new Date(Date.now() + CODE_TTL_MS)]);
+    try { await mailer.send(Object.assign({ to: u.email }, codeEmail(purpose, code, u.name))); }
+    catch (e) {
+      await db.q('DELETE FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
+      console.error('[contas] e-mail não enviado:', e.message);
+      const err = new Error('mail'); err.code = 'mail'; throw err;
+    }
+  }
+  async function checkCode(uid, purpose, code) {                 // 'ok' | 'bad_code' | 'expired' | 'too_many'
+    const row = await one('SELECT * FROM email_codes WHERE user_id = $1 AND purpose = $2', [uid, purpose]);
+    if (!row) return 'bad_code';
+    if (new Date(row.expires_at).getTime() < Date.now()) { await db.q('DELETE FROM email_codes WHERE id = $1', [row.id]); return 'expired'; }
+    if (row.attempts >= CODE_MAX_TRIES) return 'too_many';            // o código fica "queimado" até vencer ou o jogador pedir outro
+    const good = Buffer.from(row.code_hash, 'hex'), mine = Buffer.from(codeHash(uid, purpose, code), 'hex');
+    if (good.length !== mine.length || !crypto.timingSafeEqual(good, mine)) { await db.q('UPDATE email_codes SET attempts = attempts + 1 WHERE id = $1', [row.id]); return 'bad_code'; }
+    await db.q('DELETE FROM email_codes WHERE id = $1', [row.id]);
+    return 'ok';
   }
 
   r.post('/register', guard(async (req, res) => {
@@ -249,8 +295,26 @@ function createAccounts(d) {
     if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
     if (b.consent !== true) return bad(res, 400, 'consent');
     const name = cleanName(b.name) || 'Jogador', avatar = cleanAvatar(b.avatar) || '';
-    if (await one('SELECT 1 FROM users WHERE email = $1', [email])) return bad(res, 409, 'email_taken');
-    const u = await createUser({ email, passHash: await hashPassword(pw), googleSub: null, name, avatar, bests: sanitizeBests(b.bests) });
+    if (weakPassword(pw, email, name)) return bad(res, 400, 'password_weak');
+    const old = await one('SELECT * FROM users WHERE email = $1', [email]);
+    if (old) {
+      // Conta que NUNCA foi confirmada e está parada (sem amigos, partidas, progresso nem bloqueios) não tem dono comprovado: o endereço é liberado.
+      // Se ela tem QUALQUER atividade, ela NÃO é apagada (alguém poderia digitar o e-mail dos outros só para destruir a conta):
+      // o dono verdadeiro recupera pelo "Esqueci minha senha", que prova a posse do e-mail com o código.
+      let livre = false;
+      if (mailer && !old.email_verified && !old.legacy && !old.google_sub) {
+        const act = await one(`SELECT (SELECT count(*) FROM friendships WHERE user_a = $1 OR user_b = $1) + (SELECT count(*) FROM matches WHERE user_id = $1)
+                                    + (SELECT count(*) FROM saves WHERE user_id = $1) + (SELECT count(*) FROM blocks WHERE blocker = $1 OR blocked = $1) AS n`, [old.id]);
+        livre = Number(act.n) === 0;
+      }
+      if (livre) await db.q('DELETE FROM users WHERE id = $1', [old.id]);
+      else return bad(res, 409, 'email_taken');
+    }
+    const u = await createUser({ email, passHash: await hashPassword(pw), googleSub: null, name, avatar, bests: sanitizeBests(b.bests), emailVerified: false });
+    if (mailer) {                                                  // a conta só vale depois de digitar o código enviado ao e-mail
+      try { await sendCode(u, 'verify'); } catch (e) { await db.q('DELETE FROM users WHERE id = $1', [u.id]); return bad(res, 502, 'mail'); }
+      return res.json({ ok: true, needsVerify: true, email: maskEmail(email) });
+    }
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
   }));
 
@@ -261,8 +325,75 @@ function createAccounts(d) {
     const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
     const ok = await checkPassword(pw.slice(0, 128), u && u.pass_hash ? u.pass_hash : FAKE_HASH);
     if (!u || !u.pass_hash || !ok) return bad(res, 401, 'bad_login');
+    if (mailer && !u.email_verified) {                             // senha certa, mas o e-mail ainda não foi confirmado
+      let sent = false;
+      try { await sendCode(u, 'verify'); sent = true; } catch (e) { /* aguardando o intervalo entre envios, ou falha de e-mail */ }
+      return res.status(403).json({ ok: false, error: 'unverified', email: maskEmail(u.email), sent });
+    }
     await db.q('UPDATE users SET last_seen = now() WHERE id = $1', [u.id]);
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
+  }));
+
+  r.post('/verify', guard(async (req, res) => {
+    const b = req.body || {};
+    const email = normEmail(b.email), code = String(b.code || '').replace(/\D/g, '').slice(0, 6);
+    if (!allow('ver:' + req.ip, 30, 10 * 60 * 1000, true) || (email && !allow('ver:' + email, 10, 10 * 60 * 1000))) return bad(res, 429, 'rate');
+    if (!email || code.length !== 6) return bad(res, 400, 'bad_code');
+    const u = await one('SELECT * FROM users WHERE email = $1', [email]);
+    if (!u || u.email_verified) return bad(res, 400, 'bad_code');
+    const st = await checkCode(u.id, 'verify', code);
+    if (st !== 'ok') return bad(res, 400, st);
+    await db.q('UPDATE users SET email_verified = true, email_verified_at = now(), last_seen = now() WHERE id = $1', [u.id]);
+    u.email_verified = true;
+    res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
+  }));
+
+  r.post('/verify/resend', guard(async (req, res) => {
+    if (!mailer) return bad(res, 503, 'mail_off');
+    const email = normEmail((req.body || {}).email);
+    if (!allow('resend:' + req.ip, 20, 3600 * 1000, true) || (email && !allow('resend:' + email, 6, 3600 * 1000))) return bad(res, 429, 'rate');
+    const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
+    if (u && !u.email_verified) { try { await sendCode(u, 'verify'); } catch (e) { if (e.code === 'mail') return bad(res, 502, 'mail'); } }
+    res.json({ ok: true });                                        // sempre "ok": não revela quais e-mails têm conta
+  }));
+
+  r.post('/password/forgot', guard(async (req, res) => {
+    if (!mailer) return bad(res, 503, 'mail_off');
+    const email = normEmail((req.body || {}).email);
+    if (!allow('forgot:' + req.ip, 15, 3600 * 1000, true) || (email && !allow('forgot:' + email, 5, 3600 * 1000))) return bad(res, 429, 'rate');
+    const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
+    if (u) { try { await sendCode(u, 'reset'); } catch (e) { if (e.code === 'mail') return bad(res, 502, 'mail'); } }
+    res.json({ ok: true });
+  }));
+
+  r.post('/password/reset', guard(async (req, res) => {
+    const b = req.body || {};
+    const email = normEmail(b.email), code = String(b.code || '').replace(/\D/g, '').slice(0, 6), pw = String(b.password || '');
+    if (!allow('reset:' + req.ip, 30, 10 * 60 * 1000, true) || (email && !allow('reset:' + email, 10, 10 * 60 * 1000))) return bad(res, 429, 'rate');
+    if (!email || code.length !== 6) return bad(res, 400, 'bad_code');
+    if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
+    const u = await one('SELECT * FROM users WHERE email = $1', [email]);
+    if (!u) return bad(res, 400, 'bad_code');
+    if (weakPassword(pw, email, u.name)) return bad(res, 400, 'password_weak');
+    const st = await checkCode(u.id, 'reset', code);
+    if (st !== 'ok') return bad(res, 400, st);
+    await db.q('UPDATE users SET pass_hash = $1, email_verified = true, email_verified_at = coalesce(email_verified_at, now()) WHERE id = $2', [await hashPassword(pw), u.id]);
+    await db.q('DELETE FROM sessions WHERE user_id = $1', [u.id]);   // quem estava dentro (inclusive um invasor) é desconectado
+    res.json({ ok: true });
+  }));
+
+  r.post('/password/change', needUser, guard(async (req, res) => {
+    const b = req.body || {};
+    const cur = String(b.current || ''), pw = String(b.password || '');
+    if (!req.user.pass_hash) return bad(res, 400, 'no_password');
+    if (!allow('pwchg:' + req.user.id, 6, 10 * 60 * 1000)) return bad(res, 429, 'rate');
+    if (!(await checkPassword(cur.slice(0, 128), req.user.pass_hash))) return bad(res, 401, 'bad_login');
+    if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
+    if (weakPassword(pw, req.user.email, req.user.name)) return bad(res, 400, 'password_weak');
+    if (pw === cur) return bad(res, 400, 'same');
+    await db.q('UPDATE users SET pass_hash = $1 WHERE id = $2', [await hashPassword(pw), req.user.id]);
+    await db.q('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [req.user.id, sha256(req.token)]);   // sai dos outros aparelhos
+    res.json({ ok: true });
   }));
 
   r.post('/google', guard(async (req, res) => {
@@ -274,11 +405,17 @@ function createAccounts(d) {
     let u = await one('SELECT * FROM users WHERE google_sub = $1', [g.sub]);
     if (!u && g.email) {                                              // e-mail já cadastrado: vincula (o Google garante que o e-mail é dele)
       u = await one('SELECT * FROM users WHERE email = $1', [g.email]);
-      if (u) await db.q('UPDATE users SET google_sub = $1 WHERE id = $2', [g.sub, u.id]);
+      if (u) {
+        // Se a conta por senha nunca teve o e-mail confirmado, quem a criou pode não ser o dono: a senha antiga deixa de valer
+        const was = !!u.email_verified;
+        await db.q('UPDATE users SET google_sub = $1, email_verified = true, email_verified_at = coalesce(email_verified_at, now()), pass_hash = CASE WHEN $3::boolean THEN pass_hash ELSE NULL END WHERE id = $2', [g.sub, u.id, was]);
+        if (!was) await db.q('DELETE FROM sessions WHERE user_id = $1', [u.id]);
+        u.email_verified = true;
+      }
     }
     if (!u) {
       if (b.consent !== true) return bad(res, 400, 'consent');
-      u = await createUser({ email: g.email, passHash: null, googleSub: g.sub, name: cleanName(b.name) || cleanName(g.name) || 'Jogador', avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests) });
+      u = await createUser({ email: g.email, passHash: null, googleSub: g.sub, name: cleanName(b.name) || cleanName(g.name) || 'Jogador', avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests), emailVerified: true });
     }
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
   }));
@@ -289,6 +426,44 @@ function createAccounts(d) {
   }));
   r.post('/logout-all', needUser, guard(async (req, res) => {
     await db.q('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
+    res.json({ ok: true });
+  }));
+
+  /* ----- jogadores bloqueados ----- */
+  const blockSet = new Set();                                      // "quem bloqueou:quem foi bloqueado" (na memória, para consultas instantâneas)
+  const blockedBetween = (a, b) => !!a && !!b && (blockSet.has(a + ':' + b) || blockSet.has(b + ':' + a));
+  async function loadBlocks() { const rows = (await db.q('SELECT blocker, blocked FROM blocks')).rows; rows.forEach((x) => blockSet.add(x.blocker + ':' + x.blocked)); }
+  loadBlocks().catch((e) => console.error('[contas] bloqueios:', e.message));
+  async function blockUser(me, other) {
+    if (!other || me === other) return false;
+    await db.q('INSERT INTO blocks (blocker, blocked) VALUES ($1,$2) ON CONFLICT DO NOTHING', [me, other]);
+    blockSet.add(me + ':' + other);
+    const [x, y] = pairKey(me, other);
+    await db.q('DELETE FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]);
+    await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE status = 'pending' AND ((from_user = $1 AND to_user = $2) OR (from_user = $2 AND to_user = $1))", [me, other]);
+    phraseCache.delete(me); phraseCache.delete(other);
+    notify(other, { t: 'unfriend' });
+    notify(me, { t: 'blocks' });
+    return true;
+  }
+  r.get('/blocks', needUser, guard(async (req, res) => {
+    const rows = (await db.q('SELECT u.friend_code, u.name, u.avatar FROM blocks b JOIN users u ON u.id = b.blocked WHERE b.blocker = $1 ORDER BY b.created_at DESC', [req.user.id])).rows;
+    res.json({ ok: true, blocked: rows.map(publicUser) });
+  }));
+  r.post('/blocks', needUser, guard(async (req, res) => {
+    if (!allow('block:' + req.user.id, 30, 3600 * 1000)) return bad(res, 429, 'rate');
+    const t = await userByCode(normCode((req.body || {}).code));
+    if (!t) return bad(res, 404, 'notfound');
+    if (t.id === req.user.id) return bad(res, 400, 'self');
+    await blockUser(req.user.id, t.id);
+    res.json({ ok: true });
+  }));
+  r.post('/blocks/remove', needUser, guard(async (req, res) => {
+    const t = await userByCode(normCode((req.body || {}).code));
+    if (!t) return bad(res, 404, 'notfound');
+    await db.q('DELETE FROM blocks WHERE blocker = $1 AND blocked = $2', [req.user.id, t.id]);
+    blockSet.delete(req.user.id + ':' + t.id);
+    notify(req.user.id, { t: 'blocks' });
     res.json({ ok: true });
   }));
 
@@ -316,7 +491,8 @@ function createAccounts(d) {
     if (b.confirm !== 'EXCLUIR') return bad(res, 400, 'confirm');
     if (req.user.pass_hash && !(await checkPassword(String(b.password || '').slice(0, 128), req.user.pass_hash))) return bad(res, 401, 'bad_login');
     const fr = (await db.q("SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS other FROM friendships WHERE user_a = $1 OR user_b = $1", [req.user.id])).rows;
-    await db.q('DELETE FROM users WHERE id = $1', [req.user.id]);          // sessões, amizades, convites, saves e histórico saem em cascata
+    await db.q('DELETE FROM users WHERE id = $1', [req.user.id]);          // sessões, amizades, convites, saves, bloqueios e histórico saem em cascata
+    for (const k of [...blockSet]) if (k.indexOf(req.user.id) >= 0) blockSet.delete(k);
     for (const f of fr) notify(f.other, { t: 'unfriend' });
     io.to('u:' + req.user.id).emit('acc:ev', { t: 'deleted' });
     res.json({ ok: true });
@@ -330,8 +506,10 @@ function createAccounts(d) {
     if (!code) return bad(res, 400, 'code');
     const u = await userByCode(code);
     if (!u) return bad(res, 404, 'notfound');
+    if (u.id !== req.user.id && blockSet.has(u.id + ':' + req.user.id)) return bad(res, 404, 'notfound');   // quem foi bloqueado não encontra quem bloqueou
     let relation = 'none';
     if (u.id === req.user.id) relation = 'self';
+    else if (blockSet.has(req.user.id + ':' + u.id)) relation = 'blocked';
     else {
       const f = await friendRow(req.user.id, u.id);
       if (f) relation = f.status === 'accepted' ? 'friend' : (f.requested_by === req.user.id ? 'pending_out' : 'pending_in');
@@ -346,6 +524,7 @@ function createAccounts(d) {
     const t = await userByCode(code);
     if (!t) return bad(res, 404, 'notfound');
     if (t.id === req.user.id) return bad(res, 400, 'self');
+    if (blockedBetween(req.user.id, t.id)) return bad(res, 404, 'notfound');
     const old = await friendRow(req.user.id, t.id);
     if (old) {
       if (old.status === 'accepted') return bad(res, 409, 'already_friends');
@@ -449,6 +628,7 @@ function createAccounts(d) {
     try {
       await db.q('INSERT INTO matches (user_id, mode, image_label, pieces, result, completed, custom, duration_ms, opponent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [uid, m.mode, m.imageLabel, m.pieces, m.result, !!m.completed, !!m.custom, m.durationMs == null ? null : Math.round(m.durationMs), m.opponent || '']);
+      phraseCache.delete(uid);                          // novas frases podem ter sido liberadas
     } catch (e) { console.error('[contas] histórico:', e.message); }
   }
   async function finishCoop(room) {
@@ -568,16 +748,26 @@ function createAccounts(d) {
     socket.on('acc:logout', wrap(async () => { unbind(); if (onAuth) onAuth(socket, null); return { ok: true }; }));
     socket.on('inv:send', wrap((data) => sendInvite(socket, data)));
     socket.on('inv:respond', wrap((data) => respondInvite(socket, data || {})));
+    // dentro de uma sala: bloqueia a outra pessoa (precisa ter conta) e o aparelho sai da sala
+    socket.on('acc:blockPeer', wrap(async () => {
+      const uid = socket.data.uid;
+      if (!uid) return { ok: false, error: 'auth' };
+      const peer = peerOf ? peerOf(socket) : null;
+      if (!peer) return { ok: false, error: 'no_peer' };
+      if (!peer.uid) return { ok: false, error: 'guest' };
+      await blockUser(uid, peer.uid);
+      return { ok: true, name: peer.name };
+    }));
     socket.on('disconnect', () => unbind());
   });
 
   return {
     enabled: true,
     config: { google: googleClientId },
-    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, isOnline, expireInvites,
+    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
     verifyGoogleIdToken: (t) => verifyGoogleIdToken(t, googleClientId, getKeys),
     close: () => { clearInterval(sweeper); }
   };
 }
 
-module.exports = { createAccounts, verifyGoogleIdToken, hashPassword, checkPassword, normCode, fmtCode, ACHIEVEMENTS };
+module.exports = { createAccounts, verifyGoogleIdToken, hashPassword, checkPassword, normCode, fmtCode, weakPassword, maskEmail, ACHIEVEMENTS };

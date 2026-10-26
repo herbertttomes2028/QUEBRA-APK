@@ -495,3 +495,15 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - Segurança: senhas com scrypt; sessões por token (no banco só o hash); busca de amigos só pelo código exato; nenhum e-mail aparece para outros jogadores;
   limites de tentativas; cada rota só mexe nos dados de quem está logado; exclusão de conta apaga tudo.
 - Regras das partidas competitivas (inalteradas): quem cai tem 45 s para voltar; quem sai ou não volta perde; uma disputa encerrada nunca é retomada.
+
+### Tela inicial (organização atual)
+- **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil/nome fica no canto oposto (só existe com contas ligadas).
+- **Amigos** (ao lado de **Ajustes**): abre "Meus amigos" (busca por código, pedidos, convites, desafiar). Fica fora do perfil; o perfil tem só as abas Perfil e Partidas.
+
+## Segurança (resumo; detalhes e passo a passo em `SEGURANCA.md`)
+- **Frases prontas** no lugar da conversa livre (10 básicas + reações; outras são liberadas jogando, para quem tem conta).
+- **Código da sala com 6 caracteres** e **limite de tentativas** por endereço (6 erros = 15 min de bloqueio, com aumento a cada reincidência).
+- **Bloquear jogadores** (amigos, partida e lista de bloqueados).
+- **Código de confirmação por e-mail** (cadastro e recuperação de senha) por API web (Brevo/Resend), mais **trocar senha** e **sair de todos os aparelhos**.
+- **Cabeçalhos de segurança** em todas as respostas e **CSP** (modo `report` por padrão; `CSP_MODE=enforce` para obrigar).
+- **Banco de dados**: o certificado é conferido (saída de emergência: `DB_SSL_VERIFY=0`).
