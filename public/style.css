@@ -1886,3 +1886,6 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
    "Jogar como visitante" ficava 28 px mais largo, o que parecia descentralizado. Só alinhamento e espaçamento: cores, textos e fontes não mudam. */
 #screen-me #me-visitor { display: flex; width: calc(100% - 28px); margin-left: auto; margin-right: auto; }
 .me-scroll { overflow-x: hidden; }                  /* teclado aberto ou texto longo nunca empurram a tela para o lado */
+
+/* o link "Esqueci minha senha" agora fica sempre visível: área de toque de pelo menos 44 px de altura (antes 38 px) */
+.me-link { min-height: 44px; }

@@ -302,7 +302,7 @@
       go.disabled = false;
       if (!j || !j.ok) {
         if (up && j && j.error === 'email_taken') { setAuthMode('in'); say('#auth-error', 'Você já tem conta com este e-mail. Digite sua senha e toque em Entrar.'); QC.vibrate(30); return; }
-        if (j && j.error === 'unverified') { showVerify(body.email, j.email, j.sent); return; }
+        if (j && j.error === 'unverified') { showVerify(body.email, j.email, j.sent, j.why); return; }
         say('#auth-error', errText(j && j.error)); QC.vibrate(30); return;
       }
       if (j.needsVerify) { showVerify(body.email, j.email, true); return; }
@@ -323,13 +323,13 @@
       else b.textContent = 'Reenviar código (' + left + ' s)';
     }, 1000);
   }
-  function showVerify(email, masked, sent) {
+  function showVerify(email, masked, sent, why) {
     acc.ver = { email: String(email).trim().toLowerCase() };
     $('#ver-email').textContent = masked || email;
     $('#ver-code').value = '';
-    say('#ver-error', sent === false ? 'Já enviamos um código há pouco. Use o do último e-mail ou espere para reenviar.' : '');
+    say('#ver-error', sent === false ? (why === 'mail' ? errText('mail') : 'Já enviamos um código há pouco. Use o do último e-mail ou espere para reenviar.') : '');   // 'mail' = o envio falhou: NÃO dizer que já foi enviado
     showAuthPanel('verify');
-    startResendTimer(60);
+    startResendTimer(sent === false && why === 'mail' ? 10 : 60);
     setTimeout(function () { try { $('#ver-code').focus(); } catch (e) { /* ignora */ } }, 200);
   }
   $('#ver-code').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); say('#ver-error', ''); });
