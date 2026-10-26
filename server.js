@@ -10,7 +10,7 @@
 const crypto = require('crypto');
 const phrases = require('./phrases');
 const security = require('./security');
-const { createMailer } = require('./mailer');
+const { createMailer, mailerStatus } = require('./mailer');
 const express = require('express');
 const http = require('http');
 const fs = require('fs');
@@ -95,7 +95,9 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não 
 // 6 caracteres = ~1,07 bilhão de códigos (com 4 eram ~1 milhão): junto do limite de tentativas, ninguém consegue adivinhar uma sala
 const CODE_LEN = Math.max(4, Math.min(8, Number(process.env.CODE_LEN) || 6));
 const joinGuard = security.createJoinGuard(process.env);
-const mailer = createMailer(process.env);                      // e-mail de confirmação (por API web, não SMTP); nulo = desligado
+const mailer = createMailer(process.env);                      // e-mail pela API do Brevo (não SMTP); nulo = desligado
+const mailInfo = mailerStatus(process.env);
+console.log('[contas] e-mail: ' + (mailer ? 'LIGADO (' + mailer.provider + ')' : 'desligado' + (mailInfo.missing.length ? ' (faltam: ' + mailInfo.missing.join(', ') + ')' : (mailInfo.badEmail ? ' (BREVO_SENDER_EMAIL parece inválido)' : ''))));
 // Sem limite de imagens: todas as da pasta public/imagens aparecem. (Opcional: defina MAX_IMAGES no Render para limitar.)
 const MAX_IMAGES = Number(process.env.MAX_IMAGES) > 0 ? Math.floor(Number(process.env.MAX_IMAGES)) : Infinity;
 
@@ -227,7 +229,7 @@ app.get('/diagnostico', (req, res) => {
       csp: { modo: security.CSP_MODE, violacoes_registradas: security.cspStats.total, por_regra: security.cspStats.porRegra, ultimas: security.cspStats.ultimas },
       tamanho_do_codigo_da_sala: CODE_LEN,
       limite_de_tentativas: joinGuard.limits,
-      email: mailer ? 'configurado (' + mailer.provider + ')' : 'não configurado (sem confirmação de e-mail nem recuperação de senha)'
+      email: mailer ? 'configurado (' + mailer.provider + ')' : 'não configurado' + (mailInfo.missing.length ? ' — faltam as variáveis: ' + mailInfo.missing.join(', ') : (mailInfo.badEmail ? ' — BREVO_SENDER_EMAIL parece inválido' : '')) + ' (sem confirmação de e-mail nem recuperação de senha)'
     },
     contas: {
       ativas: !!accounts,

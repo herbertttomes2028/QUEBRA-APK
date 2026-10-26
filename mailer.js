@@ -1,60 +1,66 @@
 'use strict';
 /*
- * Envio de e-mails (código para confirmar o e-mail e código para trocar a senha) por API WEB (HTTPS).
+ * Envio de e-mails (código para confirmar o e-mail e código para trocar a senha) pela API do BREVO (HTTPS).
  * Não usa SMTP: o plano gratuito do Render bloqueia as portas de SMTP (25, 465 e 587).
  *
- * Variáveis do Render (escolha UM serviço):
- *   Brevo (recomendado, plano gratuito: 300 e-mails por dia, aceita um e-mail seu como remetente):
- *     BREVO_API_KEY   a chave da API (começa com "xkeysib-")
- *     MAIL_FROM       o e-mail remetente, JÁ CONFIRMADO no Brevo (ex.: seuemail@gmail.com)
- *   Resend (precisa de um domínio próprio verificado):
- *     RESEND_API_KEY  e  MAIL_FROM (um endereço do seu domínio)
- *   (opcional) MAIL_FROM_NAME  nome que aparece como remetente (padrão: "Quebra-cabeça a dois")
- *   (só para testes) MAIL_PROVIDER=test  guarda as mensagens na memória, sem enviar nada
- * Sem chave e sem remetente, o envio fica DESLIGADO (o jogo funciona, mas sem confirmação de e-mail nem recuperação de senha).
+ * Variáveis do Render (o e-mail só fica LIGADO quando as duas primeiras existem e não estão vazias):
+ *   BREVO_API_KEY       a chave da API do Brevo (começa com "xkeysib-"). Nunca vai para o código nem para o GitHub.
+ *   BREVO_SENDER_EMAIL  o e-mail remetente, JÁ CONFIRMADO no Brevo.
+ *   BREVO_SENDER_NAME   (opcional) nome que aparece como remetente. Padrão: "Quebra-cabeça a dois".
+ * Sem as duas primeiras, o envio fica DESLIGADO: o jogo funciona, só sem confirmação de e-mail nem recuperação de senha.
  */
+const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+const BREVO_URL = 'https://api.brevo.com/v3/smtp/email';
+
+function readEnv(env) {
+  return {
+    key: String(env.BREVO_API_KEY || '').trim(),
+    email: String(env.BREVO_SENDER_EMAIL || '').trim(),
+    name: (String(env.BREVO_SENDER_NAME || '').trim() || 'Quebra-cabeça a dois').slice(0, 60)
+  };
+}
+// só para os testes automáticos (precisa dos DOIS: MAIL_PROVIDER=test e NODE_ENV=test; no Render nunca acontece)
+const isTest = (env) => String(env.MAIL_PROVIDER || '').toLowerCase() === 'test' && String(env.NODE_ENV || '') === 'test';
+
+// diz se o e-mail está ligado e, se não estiver, QUAIS variáveis faltam (só os nomes, nunca os valores)
+function mailerStatus(env) {
+  if (isTest(env)) return { on: true, provider: 'test', missing: [], badEmail: false };
+  const b = readEnv(env), missing = [];
+  if (!b.key) missing.push('BREVO_API_KEY');
+  if (!b.email) missing.push('BREVO_SENDER_EMAIL');
+  const badEmail = !!b.email && !EMAIL_RE.test(b.email);       // remetente com cara de errado: melhor desligar do que travar os cadastros
+  return { on: !missing.length && !badEmail, provider: 'brevo', missing, badEmail };
+}
+
 function createMailer(env, fetchImpl) {
-  const kind = String(env.MAIL_PROVIDER || (env.BREVO_API_KEY ? 'brevo' : (env.RESEND_API_KEY ? 'resend' : ''))).toLowerCase();
-  const from = String(env.MAIL_FROM || '').trim();
-  const fromName = String(env.MAIL_FROM_NAME || 'Quebra-cabeça a dois').slice(0, 60);
-  const doFetch = fetchImpl || fetch;
-  const timeout = () => AbortSignal.timeout(12000);
-
-  if (kind === 'test') {                                           // só para testes automáticos: nada sai do servidor
+  if (isTest(env)) {
     const outbox = [];
-    return { provider: 'test', from: from || 'teste@exemplo.com', outbox, async send(msg) { outbox.push(Object.assign({ at: Date.now() }, msg)); } };
+    return { provider: 'test', from: 'teste@exemplo.com', outbox, async send(msg) { outbox.push(Object.assign({ at: Date.now() }, msg)); } };
   }
-  if (!from || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from.replace(/^.*<([^>]+)>$/, '$1'))) return null;
-
-  if (kind === 'brevo' && env.BREVO_API_KEY) {
-    const url = env.MAIL_API_URL || 'https://api.brevo.com/v3/smtp/email';
-    return {
-      provider: 'brevo', from,
-      async send({ to, subject, text, html }) {
-        const r = await doFetch(url, {
-          method: 'POST', signal: timeout(),
-          headers: { 'api-key': env.BREVO_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
-          body: JSON.stringify({ sender: { name: fromName, email: from.replace(/^.*<([^>]+)>$/, '$1') }, to: [{ email: to }], subject, htmlContent: html, textContent: text })
+  if (!mailerStatus(env).on) return null;
+  const b = readEnv(env);
+  const doFetch = fetchImpl || fetch;
+  const url = env.NODE_ENV === 'test' && env.MAIL_API_URL ? env.MAIL_API_URL : BREVO_URL;     // o endereço só pode ser trocado nos testes
+  const redact = (s) => String(s || '').split(b.key).join('***').slice(0, 160);
+  return {
+    provider: 'brevo', from: b.email,
+    async send({ to, subject, text, html }) {
+      let r;
+      try {
+        r = await doFetch(url, {
+          method: 'POST', signal: AbortSignal.timeout(12000),
+          headers: { 'api-key': b.key, 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({ sender: { name: b.name, email: b.email }, to: [{ email: to }], subject, htmlContent: html, textContent: text })
         });
-        if (!r.ok) throw new Error('Brevo respondeu ' + r.status);        // nunca registra a chave nem o corpo da resposta
+      } catch (e) { throw Object.assign(new Error('sem resposta do Brevo (rede ou tempo esgotado)'), { status: 0 }); }
+      if (!r.ok) {
+        let det = '';
+        try { const j = await r.json(); det = [j.code, j.message].filter(Boolean).join(': '); } catch (e) { /* sem detalhe */ }
+        // vai só para o registro do servidor; nunca para o usuário, e a chave é apagada do texto se aparecer
+        throw Object.assign(new Error('Brevo respondeu ' + r.status + (det ? ' (' + redact(det) + ')' : '')), { status: r.status });
       }
-    };
-  }
-  if (kind === 'resend' && env.RESEND_API_KEY) {
-    const url = env.MAIL_API_URL || 'https://api.resend.com/emails';
-    return {
-      provider: 'resend', from,
-      async send({ to, subject, text, html }) {
-        const r = await doFetch(url, {
-          method: 'POST', signal: timeout(),
-          headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
-          body: JSON.stringify({ from: fromName + ' <' + from.replace(/^.*<([^>]+)>$/, '$1') + '>', to: [to], subject, html, text })
-        });
-        if (!r.ok) throw new Error('Resend respondeu ' + r.status);
-      }
-    };
-  }
-  return null;
+    }
+  };
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -69,4 +75,4 @@ function codeEmail(purpose, code, name) {
   return { subject, text, html };
 }
 
-module.exports = { createMailer, codeEmail };
+module.exports = { createMailer, mailerStatus, codeEmail };
