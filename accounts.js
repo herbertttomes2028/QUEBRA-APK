@@ -570,6 +570,34 @@ function createAccounts(d) {
     res.json({ ok: true });
   }));
 
+  /* PERFIL DO AMIGO. Só quem é amigo (com amizade aceita) e sem bloqueio entre os dois pode ver.
+   * "código inexistente", "não é seu amigo", "pedido pendente" e "bloqueado" têm a MESMA resposta (ninguém descobre quem existe).
+   * Nunca devolve e-mail, id, partida salva, nem os nomes dos adversários de ninguém. */
+  r.get('/friends/profile', needUser, guard(async (req, res) => {
+    if (!allow('fprof:' + req.user.id, 60, 60 * 1000)) return bad(res, 429, 'rate');
+    const t = await userByCode(normCode(String(req.query.code || '')));
+    const fr = t && t.id !== req.user.id ? await friendRow(req.user.id, t.id) : null;
+    if (!t || !fr || fr.status !== 'accepted' || blockedBetween(req.user.id, t.id)) return bad(res, 403, 'forbidden');
+    const st = await statsOf(t.id);
+    const bests = (await db.q(
+      `SELECT image_label, pieces, min(duration_ms)::bigint AS best FROM matches
+        WHERE user_id = $1 AND completed AND duration_ms IS NOT NULL AND NOT custom AND image_label <> ''
+        GROUP BY image_label, pieces ORDER BY min(duration_ms) ASC LIMIT 6`, [t.id])).rows;
+    const recent = (await db.q(
+      `SELECT mode, image_label, pieces, result, completed, duration_ms, custom, created_at FROM matches
+        WHERE user_id = $1 ORDER BY created_at DESC LIMIT 8`, [t.id])).rows;
+    res.json({
+      ok: true,
+      profile: {
+        code: fmtCode(t.friend_code), name: t.name, avatar: t.avatar, online: isOnline(t.id), since: t.created_at,
+        stats: { games: st.games, wins: st.wins, losses: st.losses, completed: st.completed, maxPieces: st.maxPieces, friends: st.friends },
+        achievements: achievementsOf(st),
+        bests: bests.map((b) => ({ imageLabel: b.image_label, pieces: b.pieces, ms: Number(b.best) })),
+        recent: recent.map((m) => ({ mode: m.mode, imageLabel: m.custom ? 'Imagem própria' : m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, ms: m.duration_ms == null ? null : Number(m.duration_ms), at: m.created_at }))
+      }
+    });
+  }));
+
   r.get('/matches', needUser, guard(async (req, res) => {
     const rows = (await db.q('SELECT mode, image_label, pieces, result, completed, duration_ms, opponent, created_at FROM matches WHERE user_id = $1 ORDER BY created_at DESC LIMIT 30', [req.user.id])).rows;
     res.json({ ok: true, matches: rows.map((m) => ({ mode: m.mode, imageLabel: m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, durationMs: m.duration_ms == null ? null : Number(m.duration_ms), opponent: m.opponent, at: m.created_at })) });
