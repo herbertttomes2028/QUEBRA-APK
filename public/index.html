@@ -21,6 +21,8 @@
   <div id="app">
 
     <!-- ========== INÍCIO ========== -->
+    <div id="banner-wake" class="banner-wake" hidden role="status" aria-live="polite"><span class="wk-spin" aria-hidden="true"></span><span id="wake-text">Acordando o servidor…</span><button id="wake-retry" class="wk-btn" type="button" hidden>Tentar agora</button></div>
+
     <section id="screen-home" class="screen active">
       <!-- peças de quebra-cabeça decorativas, bem discretas, só nas laterais -->
       <svg class="bg-deco" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
@@ -118,7 +120,7 @@
                   <button id="auth-eye" class="me-eye" type="button" aria-label="Mostrar a senha">👁</button></span></label>
                 <label id="auth-consent-wrap" class="me-check" hidden>
                   <input id="auth-consent" type="checkbox">
-                  <span>Li a <a href="/privacidade.html" target="_blank" rel="noopener">política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
+                  <span>Li a <a href="/privacidade.html" data-privacy>política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
                 <p id="auth-error" class="error" role="alert" hidden></p>
                 <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
                 <button id="auth-forgot-link" class="me-link" type="button">Esqueci minha senha</button>
@@ -205,7 +207,7 @@
                   <p id="me-del-error" class="error" role="alert" hidden></p>
                   <button id="me-delete-go" class="btn me-danger" type="button">Excluir de vez</button>
                 </form>
-                <p class="me-small"><a href="/privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
+                <p class="me-small"><a href="/privacidade.html" data-privacy>Privacidade</a></p>
               </div>
             </div>
 
@@ -343,27 +345,57 @@
 
       <div id="milestone" class="milestone" hidden aria-hidden="true"></div>
 
+      <button id="res-reopen" class="res-chip" type="button" hidden>🏆 Ver resultado</button>
+
       <button id="chat-pop" class="chat-pop" type="button" hidden></button>
 
       <section id="chat-panel" class="chat-panel" hidden aria-label="Conversa">
         <header class="chat-head">
-          <strong>Conversa</strong>
+          <button id="chat-back" class="chat-x" type="button" aria-label="Voltar para a conversa" hidden>‹</button>
+          <strong id="chat-title">Conversa</strong>
           <button id="chat-close" class="chat-x" type="button" aria-label="Fechar conversa">✕</button>
         </header>
-        <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
-        <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
-          <button type="button" data-p="r_like">👍</button>
-          <button type="button" data-p="r_ri">😂</button>
-          <button type="button" data-p="r_palmas">👏</button>
-          <button type="button" data-p="r_uau">😮</button>
-          <button type="button" data-p="r_pensa">🤔</button>
-          <button type="button" data-p="r_amor">❤️</button>
-          <button type="button" data-p="r_festa">🎉</button>
+        <div id="chat-view-chat" class="chat-view">
+          <ol id="chat-list" class="chat-list" aria-live="polite"></ol>
+          <div id="chat-quick" class="chat-quick" aria-label="Reações rápidas">
+            <button type="button" data-p="r_like">👍</button>
+            <button type="button" data-p="r_ri">😂</button>
+            <button type="button" data-p="r_palmas">👏</button>
+            <button type="button" data-p="r_uau">😮</button>
+            <button type="button" data-p="r_pensa">🤔</button>
+            <button type="button" data-p="r_amor">❤️</button>
+            <button type="button" data-p="r_festa">🎉</button>
+          </div>
+          <button id="chat-open-phrases" class="btn btn-secondary chat-more" type="button">💬 Frases prontas</button>
         </div>
-        <div id="chat-phrases" class="chat-phrases" aria-label="Frases prontas"></div>
+        <div id="chat-view-phrases" class="chat-view" hidden>
+          <div id="chat-phrases" class="chat-phrases" aria-label="Frases prontas"></div>
+        </div>
       </section>
 
     </section>
+
+    <!-- ========== CONFIRMAÇÃO (substitui o confirm() do navegador) ========== -->
+    <div id="modal-confirm" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="cfm-title" aria-describedby="cfm-text">
+      <div class="sheet cfm-sheet">
+        <h3 id="cfm-title">Confirmar</h3>
+        <p id="cfm-text" class="cfm-text"></p>
+        <div class="sheet-actions">
+          <button id="cfm-ok" class="btn btn-primary" type="button">Confirmar</button>
+          <button id="cfm-cancel" class="btn btn-secondary" type="button" data-back>Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== PRIVACIDADE (abre dentro do aplicativo, sem sair para o navegador) ========== -->
+    <div id="modal-privacy" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="priv-title">
+      <div class="sheet priv-sheet">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
+        <h3 id="priv-title">🔒 Privacidade</h3>
+        <div id="priv-body" class="priv-body" tabindex="0"></div>
+        <button id="priv-close" class="btn btn-secondary btn-block" type="button" data-back>Fechar</button>
+      </div>
+    </div>
 
     <!-- ========== MENU ========== -->
     <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
@@ -376,7 +408,7 @@
         <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
         <button id="menu-block" class="btn btn-ghost btn-block" type="button" hidden>⛔ Bloquear jogador</button>
         <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
-        <button id="menu-close" class="btn btn-primary btn-block" type="button">Continuar jogando</button>
+        <button id="menu-close" data-back class="btn btn-primary btn-block" type="button">Continuar jogando</button>
       </div>
     </div>
 
@@ -471,7 +503,7 @@
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
         </div>
         <p id="push-note" class="set-note"></p>
-        <button id="set-close" class="btn btn-primary btn-block" type="button">Pronto</button>
+        <button id="set-close" data-back class="btn btn-primary btn-block" type="button">Pronto</button>
       </div>
     </div>
 
@@ -479,6 +511,7 @@
     <div id="modal-win" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
       <div id="confetti" aria-hidden="true"></div>
       <div class="sheet win">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
         <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
         <h3 id="win-title">Vocês conseguiram! 🎉</h3>
         <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
@@ -500,6 +533,7 @@
     <div id="modal-duel" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="duel-title">
       <div id="duel-confetti" aria-hidden="true"></div>
       <div class="sheet win duel-sheet">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
         <div id="duel-trophy" class="duel-trophy" aria-hidden="true">🏆</div>
         <h3 id="duel-title">Você venceu!</h3>
         <p id="duel-sub" class="duel-sub"></p>
@@ -568,7 +602,7 @@
           <button class="chal-opt" type="button" data-kind="comum"><span class="chal-ico" aria-hidden="true">🏁</span><span><b>Desafio comum</b><small>Quem terminar primeiro vence</small></span></button>
           <button class="chal-opt" type="button" data-kind="quebra"><span class="chal-ico" aria-hidden="true">🎁</span><span><b>Quebrando Cabeças</b><small>As peças saem de uma caixa</small></span></button>
         </div>
-        <div class="sheet-actions"><button id="chal-cancel" class="btn btn-secondary" type="button">Cancelar</button></div>
+        <div class="sheet-actions"><button id="chal-cancel" data-back class="btn btn-secondary" type="button">Cancelar</button></div>
       </div>
     </div>
 
@@ -578,7 +612,7 @@
         <div class="sheet-actions">
           <button id="fa-remove" class="btn btn-secondary" type="button">Remover dos amigos</button>
           <button id="fa-block" class="btn me-danger" type="button">⛔ Bloquear</button>
-          <button id="fa-cancel" class="btn btn-ghost" type="button">Cancelar</button>
+          <button id="fa-cancel" data-back class="btn btn-ghost" type="button">Cancelar</button>
         </div>
       </div>
     </div>

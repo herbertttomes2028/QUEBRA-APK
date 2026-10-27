@@ -479,8 +479,10 @@
     });
   });
   $('#sec-logout-all').addEventListener('click', function () {
-    if (!window.confirm('Sair da conta em TODOS os aparelhos, inclusive neste?')) return;
-    api('POST', '/logout-all', {}).then(function () { logoutLocal('Você saiu em todos os aparelhos.'); QC.showScreen('home'); });
+    QC.confirm({ title: 'Sair em todos os aparelhos?', text: 'Você será desconectado(a) deste e de todos os outros aparelhos.', ok: 'Sair em todos', danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/logout-all', {}).then(function () { logoutLocal('Você saiu em todos os aparelhos.'); QC.showScreen('home'); });
+    });
   });
   function loadBlocked() {
     return api('GET', '/blocks').then(function (j) {
@@ -499,9 +501,11 @@
   }
   $('#sec-blocked-open').addEventListener('click', function () { var b = $('#sec-blocked'); b.hidden = !b.hidden; if (!b.hidden) loadBlocked(); });
   function blockPerson(u) {
-    if (!window.confirm('Bloquear ' + u.name + '? Essa pessoa não poderá mais te achar, te chamar para jogar nem entrar nas suas salas.')) return;
-    api('POST', '/blocks', { code: u.code }).then(function (j) {
-      if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
+    QC.confirm({ title: 'Bloquear ' + u.name + '?', text: 'Essa pessoa não poderá mais te achar, te chamar para jogar nem entrar nas suas salas.', ok: 'Bloquear', danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/blocks', { code: u.code }).then(function (j) {
+        if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
+      });
     });
   }
   var faUser = null;
@@ -509,14 +513,14 @@
   $('#fa-cancel').addEventListener('click', function () { QC.closeModal('#modal-friend'); });
   $('#fa-remove').addEventListener('click', function () {
     var u = faUser; QC.closeModal('#modal-friend'); if (!u) return;
-    if (window.confirm('Remover ' + u.name + ' dos seus amigos?')) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); loadFriends(); } });
+    QC.confirm({ title: 'Remover ' + u.name + '?', text: 'Vocês deixam de ser amigos. Dá para adicionar de novo depois.', ok: 'Remover', danger: true }).then(function (ok) { if (ok) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); loadFriends(); } }); });
   });
   $('#fa-block').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) blockPerson(u); });
 
   function copyText(t, ok) {
     function done() { QC.toast(ok, 1800); QC.vibrate(10); }
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { window.prompt('Copie o código:', t); });
-    else window.prompt('Copie o código:', t);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { QC.toast('Não consegui copiar. Anote: ' + t, 7000); });
+    else QC.toast('Não consegui copiar. Anote: ' + t, 7000);
   }
   $('#me-copy').addEventListener('click', function () { copyText(acc.me.code, 'Código copiado!'); });
   $('#me-share').addEventListener('click', function () {
@@ -525,8 +529,10 @@
     else copyText(text, 'Convite copiado!');
   });
   $('#me-logout').addEventListener('click', function () {
-    if (!window.confirm('Sair da conta neste aparelho? Seu progresso continua guardado na conta.')) return;
-    api('POST', '/logout', {}).then(function () { logoutLocal('Você saiu da conta. Até logo! 👋'); QC.showScreen('home'); });
+    QC.confirm({ title: 'Sair da conta?', text: 'Seu progresso continua guardado na conta.', ok: 'Sair' }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/logout', {}).then(function () { logoutLocal('Você saiu da conta. Até logo! 👋'); QC.showScreen('home'); });
+    });
   });
   $('#me-delete').addEventListener('submit', function (e) { e.preventDefault(); $('#me-delete-go').click(); });
   $('#me-delete-open').addEventListener('click', function () { var d = $('#me-delete'); d.hidden = !d.hidden; });
@@ -549,7 +555,7 @@
         QC.setLoading(false);
         QC.toast(errText(res && res.error), 4200);
         if (res && res.error === 'nosave') { acc.me.save = null; paintContinue(); }
-        if (res && res.error === 'imagegone' && window.confirm('A imagem dessa partida não está mais disponível. Descartar o progresso salvo?')) api('POST', '/save/discard', {}).then(loadMe);
+        if (res && res.error === 'imagegone') QC.confirm({ title: 'Imagem indisponível', text: 'A imagem dessa partida não está mais disponível. Descartar o progresso salvo?', ok: 'Descartar', danger: true }).then(function (ok) { if (ok) api('POST', '/save/discard', {}).then(loadMe); });
         return;
       }
       QC.enterRoom(res);
@@ -742,6 +748,18 @@
   }
   $('#inv-yes').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, true); });
   $('#inv-no').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, false); });
+
+  /* ---------- botão voltar do Android: reaproveita os botões "Voltar" que já existem ---------- */
+  QC.nav.add(function () {                                   // convite recebido: voltar só DISPENSA a janela (não recusa o convite)
+    if (!$('#modal-invite').hidden) { closeInvite(); return true; }
+    return false;
+  });
+  QC.nav.add(function () {                                   // telas internas do "Entrar": código e "esqueci a senha" voltam ao formulário
+    if (!$('#screen-me').classList.contains('active')) return false;
+    if (!$('#auth-verify').hidden) { $('#ver-back').click(); return true; }
+    if (!$('#auth-forgot').hidden) { $('#fg-back').click(); return true; }
+    return false;
+  });
 
   /* =========================================================
    * 3) INÍCIO
