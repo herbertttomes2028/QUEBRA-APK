@@ -530,7 +530,7 @@ function lockedTotal(room) {
 }
 
 function playersInfo(room) {
-  return room.players.map((p, idx) => ({ idx, joined: !!p, connected: !!(p && p.connected), name: p ? p.name : '', avatar: p ? p.avatar || '' : '' }));
+  return room.players.map((p, idx) => ({ idx, joined: !!p, connected: !!(p && p.connected), name: p ? p.name : '', avatar: p ? p.avatar || '' : '', level: p ? p.level || 0 : 0 }));
 }
 
 function meta(room) {
@@ -682,6 +682,7 @@ function attach(room, socket, pid, name, avatar) {
     name: cleanName(name) || prevName || 'Jogador ' + (idx + 1),
     avatar: cleanAvatar(avatar) || prevAvatar || '',
     uid: socket.data.uid || null,           // conta do jogador (null = visitante)
+    level: socket.data.uid && accHooks.levelOf ? accHooks.levelOf(socket.data.uid) : 0,
     push: same ? old.push || null : null,
     lastPush: 0
   };
@@ -769,13 +770,14 @@ function leaveCurrent(socket) {
   }
 }
 
-const accHooks = { duelFinish: null };
+const accHooks = { duelFinish: null, levelOf: null };
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
   io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
+  levelOf: (uid) => (accHooks.levelOf && uid ? accHooks.levelOf(uid) : 0),                          // nível do jogador (0 = visitante)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
   phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases
 });
@@ -827,7 +829,14 @@ function roomOfSocket(socket) {
 // quando alguém entra/sai da conta com a sala aberta, a sala passa a saber quem é (para salvar e registrar a partida)
 function bindUserToRooms(socket, uid) {
   const room = socket.data.code && rooms.get(socket.data.code);
-  if (room) { const pl = room.players[socket.data.idx]; if (pl && pl.socketId === socket.id) pl.uid = uid || null; }
+  if (room) {
+    const pl = room.players[socket.data.idx];
+    if (pl && pl.socketId === socket.id) {
+      pl.uid = uid || null;
+      const lv = uid && accHooks.levelOf ? accHooks.levelOf(uid) : 0;
+      if (lv !== pl.level) { pl.level = lv; io.to(room.code).emit('meta', meta(room)); }      // o login terminou DEPOIS de entrar na sala: avisa os outros do nível
+    }
+  }
   challenge.bindUser(socket, uid);
 }
 // registra uma imagem própria vinda de um progresso salvo (devolve o código ou null)
@@ -1150,6 +1159,7 @@ async function start() {
         onAuth: bindUserToRooms, mailer, peerOf
       });
       accHooks.duelFinish = (room, result) => accounts.finishDuel(room, result);
+      accHooks.levelOf = (uid) => accounts.levelOf(uid);
       console.log('[contas] sistema de contas ATIVO' + (process.env.GOOGLE_CLIENT_ID ? ' (com login Google)' : ''));
     } catch (e) {
       console.error('[contas] NÃO foi possível ativar as contas (o jogo segue como visitante):', e.message);

@@ -1021,7 +1021,7 @@
     if (!mine) {
       var who = document.createElement('span');
       who.className = 'who';
-      who.textContent = (state.players && state.players[m.idx] && state.players[m.idx].avatar ? state.players[m.idx].avatar + ' ' : '') + (m.name || 'Amigo');
+      nameLv(who, m.name || 'Amigo', lvOfIdx(m.idx), state.players && state.players[m.idx] && state.players[m.idx].avatar ? state.players[m.idx].avatar + ' ' : '');
       li.appendChild(who);
     }
     var tx = document.createElement('span');
@@ -1050,11 +1050,76 @@
     b.textContent = state.unread > 9 ? '9+' : String(state.unread);
   }
 
+  /* ---------- XP: o que foi ganho na partida e a animação de subir de nível ---------- */
+  var XP_LABEL = { completion: 'Conclusão', friend: 'Amigo', win: 'Vitória', participation: 'Participação' };
+  function xpBox(box, ev) {
+    box.textContent = '';
+    var top = document.createElement('div'); top.className = 'xp-gain';
+    top.appendChild(document.createTextNode('⭐ +' + ev.gained + ' XP'));
+    var t = lvTag(ev.level); if (t) top.appendChild(t);
+    box.appendChild(top);
+    var bar = document.createElement('div'); bar.className = 'xp-bar t' + lvTier(ev.level); bar.setAttribute('role', 'progressbar');
+    bar.setAttribute('aria-label', 'Progresso para o próximo nível'); bar.setAttribute('aria-valuenow', ev.max ? 100 : ev.pct);
+    var fill = document.createElement('i'); fill.style.width = '0%'; bar.appendChild(fill); box.appendChild(bar);
+    setTimeout(function () { fill.style.width = (ev.max ? 100 : ev.pct) + '%'; }, 60);
+    var bits = [];
+    ['completion', 'friend', 'win', 'participation'].forEach(function (k) { if (ev.parts && ev.parts[k] > 0) bits.push(XP_LABEL[k] + ' +' + ev.parts[k]); });
+    (ev.ach || []).forEach(function (a) { bits.push(a.icon + ' ' + a.title + ' +' + a.xp); });
+    if (bits.length) { var d = document.createElement('small'); d.className = 'xp-det'; d.textContent = bits.join(' · '); box.appendChild(d); }
+    if (ev.rep != null && ev.rep < 1 && ev.parts && ev.parts.completion > 0) { var r = document.createElement('small'); r.className = 'xp-rep'; r.textContent = 'Quebra-cabeça repetido: ' + Math.round(ev.rep * 100) + '% do XP'; box.appendChild(r); }
+    box.hidden = false;
+  }
+  function hideXpBoxes() { $('#win-xp').hidden = true; $('#duel-xp').hidden = true; }
+  function refreshXp() {                                              // mostra o ganho guardado (se for recente) na conclusão que estiver abrindo
+    var ev = state.xpLast;
+    if (!ev || Date.now() - ev.at > 60000) return;
+    xpBox($('#win-xp'), ev); xpBox($('#duel-xp'), ev);
+    state.xpLast = null;
+  }
+  function showLevelUp(level) {
+    var box = $('#lvup'); if (!box) return;
+    $('#lvup-n').textContent = 'Nv ' + level;
+    box.hidden = true; void box.offsetWidth; box.hidden = false;       // reinicia a animação
+    playSound('chime');
+    if (!navigator.userActivation || navigator.userActivation.hasBeenActive) vibrate(30);      // (o navegador recusa vibrar antes do primeiro toque)
+    clearTimeout(state.lvTimer);
+    state.lvTimer = setTimeout(function () { box.hidden = true; }, 2400);
+    announce('Você subiu para o nível ' + level + '!');
+  }
+  function onXp(ev) {                                                 // o servidor pagou XP (vem por conta, nunca do celular)
+    ev.at = Date.now();
+    var resultOpen = !$('#modal-win').hidden || !$('#modal-duel').hidden;
+    state.xpLast = ev;
+    if (resultOpen) refreshXp();
+    else if (currentScreen() !== 'game') toast('⭐ +' + ev.gained + ' XP' + (ev.ach && ev.ach.length ? ' · ' + ev.ach.map(function (a) { return a.icon + ' ' + a.title; }).join(', ') : ''), 3000);
+    if (ev.leveledUp) setTimeout(function () { showLevelUp(ev.level); }, currentScreen() === 'game' ? 1900 : 250);
+  }
+
+  /* ---------- nível ao lado do nome: "[Nv 12] Nome" ---------- */
+  function lvTier(n) { return n >= 50 ? 5 : n >= 30 ? 4 : n >= 20 ? 3 : n >= 10 ? 2 : 1; }
+  function lvTag(level, big) {
+    level = level | 0;
+    if (level < 1) return null;                                      // visitante: sem nível
+    var t = document.createElement('span');
+    t.className = 'lv t' + lvTier(level) + (big ? ' lv-lg' : '');
+    t.textContent = 'Nv ' + level;
+    t.setAttribute('aria-label', 'Nível ' + level);
+    return t;
+  }
+  // escreve "[Nv N] texto" no elemento SEM usar HTML (o nome do jogador nunca vira código)
+  function nameLv(elm, text, level, prefix) {
+    elm.textContent = '';
+    if (prefix) elm.appendChild(document.createTextNode(prefix));
+    var t = lvTag(level); if (t) elm.appendChild(t);
+    var s = document.createElement('span'); s.className = 'nm'; s.textContent = text; elm.appendChild(s);
+  }
+  function lvOfIdx(i) { var p = state.players && state.players[i]; return p && p.level ? p.level : 0; }
+
   function showChatPop(m) {
     var p = $('#chat-pop');
     p.innerHTML = '';
     var n = document.createElement('b');
-    n.textContent = (m.name || 'Amigo') + ':';
+    nameLv(n, m.name || 'Amigo', lvOfIdx(m.idx)); n.appendChild(document.createTextNode(':'));
     p.appendChild(n);
     p.appendChild(document.createTextNode(m.text));
     p.hidden = false;
@@ -1202,12 +1267,13 @@
    * Vitória
    * --------------------------------------------------------- */
   function showWin(data) {
+    hideXpBoxes(); refreshXp();
     state.finalMs = data.elapsedMs;
     $('#win-time').textContent = fmtTime(data.elapsedMs);
     $('#win-me').textContent = data.counts[state.idx] || 0;
     $('#win-friend').textContent = data.counts[1 - state.idx] || 0;
-    $('#win-me-name').textContent = myName();
-    $('#win-friend-name').textContent = friendName();
+    nameLv($('#win-me-name'), myName(), lvOfIdx(state.idx));
+    nameLv($('#win-friend-name'), friendName(), lvOfIdx(1 - state.idx));
     paintAvatar($('#win-me-av'), state.idx, true, false);
     paintAvatar($('#win-friend-av'), 1 - state.idx, false, false);
     var art = $('#win-art');
@@ -1234,6 +1300,7 @@
       }
     }
     openModal('#modal-win', '#win-again');
+    refreshXp();                                   // (o aviso de XP pode ter chegado enquanto a janela ainda não abria)
     vibrate([40, 60, 40]);
     playSound('win');
     announce('Vocês conseguiram! Tempo: ' + fmtTime(data.elapsedMs) + '. ' + best.text);
@@ -2310,7 +2377,7 @@
       el.classList.toggle('online', !!(p.joined && p.connected));
       el.classList.toggle('away', !!(p.joined && !p.connected));
       el.classList.toggle('is-ready', !!p.ready);
-      el.querySelector('.lp-name').textContent = p.joined ? p.name : '—';
+      nameLv(el.querySelector('.lp-name'), p.joined ? p.name : '—', p.joined ? p.level : 0);
       el.querySelector('.lp-status').textContent = !p.joined ? 'aguardando…' : (i === state.idx ? 'você · ' : '') + (!p.connected ? 'desconectado' : (p.imgReady ? 'conectado' : 'preparando a imagem…'));
       el.querySelector('.lp-ready').hidden = !p.ready;
       paintAvatar($('#lp' + i + '-av'), i, i === state.idx, true);
@@ -2657,6 +2724,7 @@
 
   /* ----- resultado e revanche ----- */
   function showDuelResult(r) {
+    hideXpBoxes(); refreshXp();
     var d = state.duel;
     if (!d) return;
     d.phase = 'end';
@@ -2678,7 +2746,7 @@
     $('#duel-time').textContent = r.reason === 'complete' ? fmtTime(r.elapsedMs) : '—';
     [0, 1].forEach(function (i) {
       var p = r.players[i], row = $('#dr' + i);
-      row.querySelector('.dr-name').textContent = (p.name || (i === state.idx ? 'Você' : 'Adversário')) + (i === state.idx ? ' (você)' : '');
+      nameLv(row.querySelector('.dr-name'), (p.name || (i === state.idx ? 'Você' : 'Adversário')) + (i === state.idx ? ' (você)' : ''), p.level);
       row.querySelector('.dr-pct').textContent = p.pct + '%';
       row.querySelector('.dr-pcs').textContent = p.locked + '/' + p.total;
       row.classList.toggle('winner', r.winner === i);
@@ -2706,6 +2774,7 @@
     setTimeout(function () {
       if (!state.duel || state.duel.phase !== 'end') return;
       openModal('#modal-duel', '#duel-rematch');
+      refreshXp();                                 // (idem)
       playSound(won ? 'win' : 'chime');
       vibrate(won ? [40, 60, 40] : 30);
       announce(won ? 'Você venceu a disputa!' : opp + ' venceu a disputa.');
@@ -3236,7 +3305,7 @@
       if (duelMode) $('#duel-modes').hidden = true;                // o modo já foi escolhido no convite
     },
     join: doJoin, enterRoom: enterRoom,
-    confirm: askConfirm, openPrivacy: openPrivacy,
+    confirm: askConfirm, openPrivacy: openPrivacy, onXp: onXp, lvTag: lvTag, nameLv: nameLv,
     nav: { add: function (fn) { nav.extra.push(fn); } },
     goLabel: null,
     applyProfile: function (name, avatar) {

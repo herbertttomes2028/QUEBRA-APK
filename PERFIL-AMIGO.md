@@ -4,7 +4,7 @@
 Ao tocar no **cartão de um amigo** (Amigos > lista), abre o perfil dele. O menu **⋯** continua com "Remover" e "Bloquear".
 
 ## O que o perfil mostra
-- Avatar, nome, se está online e desde quando joga (mês e ano).
+- Avatar, nome com o **nível** (`Nv N`), se está online e desde quando joga (mês e ano). O XP bruto não é mostrado.
 - **Código de amigo**, com os botões **Copiar** e **Compartilhar**. Qualquer amigo pode ver e repassar o código.
 - Quatro quadros: **Partidas**, **Concluídos**, **Desafios jogados** e **Vitórias**.
 - O perfil **não mostra** melhores tempos, últimas partidas, derrotas nem quantidade de amigos (e esses dados nem saem do servidor).

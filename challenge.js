@@ -25,7 +25,7 @@ module.exports = function createChallenge(d) {
   const {
     io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
-    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish,
+    sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
     phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen
   } = d;
 
@@ -136,7 +136,7 @@ module.exports = function createChallenge(d) {
       status: room.status, match: room.match, graceMs: GRACE_MS,
       players: room.players.map((p, idx) => ({
         idx, joined: !!p, connected: !!(p && p.connected),
-        name: p ? p.name : '', avatar: p ? p.avatar || '' : '', ready: !!(p && p.ready), imgReady: !!(p && p.imgReady),
+        name: p ? p.name : '', avatar: p ? p.avatar || '' : '', level: p ? p.level || 0 : 0, ready: !!(p && p.ready), imgReady: !!(p && p.imgReady),
         graceLeft: p && !p.connected && room.graceUntil[idx] > now ? room.graceUntil[idx] - now : 0
       })),
       rematch: room.rematch.slice()
@@ -172,6 +172,7 @@ module.exports = function createChallenge(d) {
       ready: same ? !!old.ready : false,
       imgReady: false,                    // o celular avisa quando a imagem já está carregada e preparada
       uid: socket.data.uid || null,       // conta do jogador (null = visitante)
+      level: socket.data.uid && levelOf ? levelOf(socket.data.uid) : 0,
       push: same ? old.push || null : null, lastPush: 0
     };
     socket.data.ch = { code: room.code, idx };
@@ -290,7 +291,7 @@ module.exports = function createChallenge(d) {
       players: [0, 1].map((i) => {
         const pr = progress(room, i), p = room.players[i], b = room.boards[i];
         return {
-          idx: i, name: p ? p.name : '', avatar: p ? p.avatar || '' : '',
+          idx: i, name: p ? p.name : '', avatar: p ? p.avatar || '' : '', level: p ? p.level || 0 : 0,
           locked: pr.locked, total, pct: pr.pct,
           finishedMs: b && b.finishedAt ? b.finishedAt - room.startedAt : null
         };
@@ -623,7 +624,11 @@ module.exports = function createChallenge(d) {
       const ch = socket.data.ch;
       const r = ch && rooms.get(ch.code);
       const pl = r && r.players[ch.idx];
-      if (pl && pl.socketId === socket.id) pl.uid = uid || null;
+      if (pl && pl.socketId === socket.id) {
+        pl.uid = uid || null;
+        const lv = uid && levelOf ? levelOf(uid) : 0;
+        if (lv !== pl.level) { pl.level = lv; emitLobby(r); }      // o login terminou depois de entrar: avisa o outro jogador do nível
+      }
     },
     usesImage: (id) => { for (const r of rooms.values()) if (r.imageId === id) return true; return false; },
     size: () => rooms.size,

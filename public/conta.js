@@ -134,7 +134,11 @@
   socket.on('acc:ev', function (ev) {
     if (!ev || !acc.me) return;
     var screenMe = $('#screen-me').classList.contains('active');
-    if (ev.t === 'req') {
+    if (ev.t === 'xp') {
+      acc.me.xp = { total: ev.total, level: ev.level, into: ev.into, need: ev.need, pct: ev.pct, max: ev.max };
+      paintChip(); if (screenMe) renderProfile();
+      QC.onXp(ev);
+    } else if (ev.t === 'req') {
       QC.toast('👋 ' + ev.from.name + ' quer ser seu amigo!', 3200); QC.playSound('chime'); QC.vibrate(18);
       loadFriends();
     } else if (ev.t === 'friend') {
@@ -180,7 +184,7 @@
     var me = acc.me;
     chip.classList.toggle('has', !!me);
     $('#me-chip-face').textContent = me ? faceOf(me) : '👤';
-    $('#me-chip-text').textContent = me ? me.name.slice(0, 8) : 'Entrar';
+    if (me) QC.nameLv($('#me-chip-text'), me.name.slice(0, 8), me.xp ? me.xp.level : 0); else $('#me-chip-text').textContent = 'Entrar';
     var n = badgeCount();
     $('#link-friends').hidden = !acc.enabled;
     $('#friends-badge').hidden = !(me && n > 0);
@@ -423,6 +427,7 @@
     $('#me-avatar-face').textContent = faceOf(me);
     if (document.activeElement !== $('#me-name')) $('#me-name').value = me.name;
     $('#me-code').textContent = me.code;
+    paintXpCard(me.xp);
     $('#me-email').textContent = me.email || '(conta Google)';
     show('#me-del-pass', me.hasPassword);
     $('#sec-pw-open').hidden = !me.hasPassword;
@@ -434,6 +439,20 @@
     });
     paintAch($('#me-ach'), $('#me-ach-count'), me.achievements);
     paintContinue();
+  }
+  // selo ao lado do rótulo do nome + barra de progresso até o próximo nível
+  function paintXpCard(xp) {
+    var lvEl = $('#me-lv'), card = $('#me-xp');
+    lvEl.textContent = '';
+    if (!xp) { lvEl.hidden = true; card.hidden = true; return; }
+    var t = QC.lvTag(xp.level); if (t) { lvEl.appendChild(t); lvEl.hidden = false; }
+    card.hidden = false;
+    var big = $('#xp-lv'); big.textContent = ''; var tb = QC.lvTag(xp.level, true); if (tb) big.appendChild(tb);
+    var bar = card.querySelector('.xp-bar'); bar.className = 'xp-bar t' + (xp.level >= 50 ? 5 : xp.level >= 30 ? 4 : xp.level >= 20 ? 3 : xp.level >= 10 ? 2 : 1);
+    bar.setAttribute('aria-valuenow', xp.max ? 100 : xp.pct);
+    $('#xp-fill').style.width = (xp.max ? 100 : xp.pct) + '%';
+    $('#xp-txt').textContent = xp.max ? xp.total.toLocaleString('pt-BR') + ' XP' : xp.into.toLocaleString('pt-BR') + ' / ' + xp.need.toLocaleString('pt-BR') + ' XP';
+    $('#xp-next').textContent = xp.max ? 'Nível máximo! 🏆' : 'Faltam ' + (xp.need - xp.into).toLocaleString('pt-BR') + ' XP para o nível ' + (xp.level + 1);
   }
   function paintAch(box, countEl, list) {
     var done = 0;
@@ -583,7 +602,7 @@
   function row(u, sub, online, cls) {
     var r = el('div', 'fr-row' + (online ? ' on' : '') + (cls ? ' ' + cls : ''));
     r.appendChild(avatarBox(u, online));
-    var i = el('div', 'fr-info'); i.appendChild(el('b', '', u.name)); i.appendChild(el('small', '', sub)); r.appendChild(i);
+    var i = el('div', 'fr-info'); var nb = el('b'); QC.nameLv(nb, u.name, u.level); i.appendChild(nb); i.appendChild(el('small', '', sub)); r.appendChild(i);
     return r;
   }
   function renderFriends() {
@@ -766,7 +785,7 @@
   var fpUser = null, fpSeq = 0;
   function openFriendProfile(u) {
     fpUser = u; var seq = ++fpSeq;
-    $('#fp-name').textContent = u.name;
+    QC.nameLv($('#fp-name'), u.name, u.level);
     var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(u));
     $('#fp-status').textContent = 'Carregando…';
     $('#fp-code').textContent = u.code;
@@ -779,8 +798,8 @@
     });
   }
   function paintFriendProfile(p) {
-    fpUser = { code: p.code, name: p.name, avatar: p.avatar };
-    $('#fp-name').textContent = p.name;
+    fpUser = { code: p.code, name: p.name, avatar: p.avatar, level: p.level };
+    QC.nameLv($('#fp-name'), p.name, p.level);
     var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(p, p.online));
     var since = '';
     try { since = ' · joga desde ' + new Date(p.since).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); } catch (e) { /* sem data */ }
