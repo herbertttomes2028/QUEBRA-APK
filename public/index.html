@@ -593,6 +593,41 @@
       </div>
     </div>
 
+    <!-- ========== PERFIL DO AMIGO ========== -->
+    <div id="modal-fprofile" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fp-name">
+      <div class="sheet fp-sheet">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
+        <div class="fp-head">
+          <span id="fp-av" class="fp-av"></span>
+          <h3 id="fp-name">Amigo</h3>
+          <p id="fp-status" class="fp-status" role="status"></p>
+        </div>
+        <div class="fp-codebox">
+          <small>Código de amigo</small>
+          <b id="fp-code">----</b>
+          <div class="fp-codebtns">
+            <button id="fp-copy" class="btn btn-secondary" type="button">📋 Copiar</button>
+            <button id="fp-share" class="btn btn-secondary" type="button">↗ Compartilhar</button>
+          </div>
+        </div>
+        <div id="fp-body" hidden>
+          <div id="fp-stats" class="me-stats"></div>
+          <p id="fp-small" class="fp-small"></p>
+          <h4 class="fp-h">🏅 Conquistas <span id="fp-ach-count"></span></h4>
+          <div id="fp-ach" class="me-ach"></div>
+          <h4 class="fp-h">⏱ Melhores tempos</h4>
+          <ol id="fp-bests" class="fp-list"></ol>
+          <h4 class="fp-h">🕘 Últimas partidas</h4>
+          <ul id="fp-recent" class="fp-list"></ul>
+        </div>
+        <div class="fp-actions">
+          <button id="fp-invite" class="btn btn-primary btn-block" type="button">🎮 Convidar para jogar</button>
+          <button id="fp-remove" class="btn btn-secondary btn-block" type="button">Remover dos amigos</button>
+          <button id="fp-block" class="btn btn-ghost btn-block" type="button">⛔ Bloquear</button>
+        </div>
+      </div>
+    </div>
+
     <div id="modal-challenge" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="chal-title">
       <div class="sheet">
         <h2 id="chal-title">Desafiar</h2>

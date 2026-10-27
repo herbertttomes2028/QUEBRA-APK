@@ -55,6 +55,7 @@
     no_password: 'Sua conta entra pelo Google e não tem senha. Use "Esqueci minha senha" para criar uma.',
     same: 'A senha nova precisa ser diferente da atual.'
   };
+  MSG.forbidden = 'Não foi possível abrir este perfil. Só amigos podem ver.';
   var errText = function (e) { return MSG[e] || MSG.server; };
 
   // quiet = pedido de segundo plano: uma recusa dele nunca desconecta a pessoa
@@ -205,7 +206,10 @@
   function loadFriends() {
     if (!acc.token) return Promise.resolve();
     return api('GET', '/friends').then(function (j) {
-      if (j && j.ok) { acc.friends = j; paintChip(); if ($('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends(); }
+      if (j && j.ok) {
+        acc.friends = j; paintChip(); if ($('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends();
+        if (!$('#modal-fprofile').hidden && fpUser && !j.friends.some(function (x) { return x.code === fpUser.code; })) { QC.closeModal('#modal-fprofile'); QC.toast('Esta pessoa não está mais na sua lista de amigos.', 3200); }
+      }
     });
   }
 
@@ -428,18 +432,21 @@
       var c = el('div', 'me-stat ' + x[2]); c.style.animationDelay = (i * 60) + 'ms';
       c.appendChild(el('b', '', String(x[1]))); c.appendChild(el('span', '', x[0])); stats.appendChild(c);
     });
-    var ach = $('#me-ach'), done = 0;
-    ach.innerHTML = '';
-    me.achievements.forEach(function (a) {
+    paintAch($('#me-ach'), $('#me-ach-count'), me.achievements);
+    paintContinue();
+  }
+  function paintAch(box, countEl, list) {
+    var done = 0;
+    box.innerHTML = '';
+    list.forEach(function (a) {
       if (a.done) done++;
       var d = el('div', 'me-a' + (a.done ? '' : ' lock'));
       d.setAttribute('aria-label', a.title + (a.done ? ' (conquistada)' : ' (bloqueada): ' + a.desc));
       d.appendChild(el('i', '', a.icon));
       var t = el('span'); t.appendChild(el('b', '', a.title)); t.appendChild(el('small', '', a.desc)); d.appendChild(t);
-      ach.appendChild(d);
+      box.appendChild(d);
     });
-    $('#me-ach-count').textContent = done + ' de ' + me.achievements.length;
-    paintContinue();
+    countEl.textContent = done + ' de ' + list.length;
   }
   function renderAvatarChoices() {
     var g = $('#me-avatar-grid');
@@ -504,16 +511,18 @@
     QC.confirm({ title: 'Bloquear ' + u.name + '?', text: 'Essa pessoa não poderá mais te achar, te chamar para jogar nem entrar nas suas salas.', ok: 'Bloquear', danger: true }).then(function (ok) {
       if (!ok) return;
       api('POST', '/blocks', { code: u.code }).then(function (j) {
-        if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
+        if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); QC.closeModal('#modal-fprofile'); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
       });
     });
   }
   var faUser = null;
   function openFriendActions(u) { faUser = u; $('#fa-title').textContent = u.name; QC.openModal('#modal-friend', '#fa-cancel'); }
   $('#fa-cancel').addEventListener('click', function () { QC.closeModal('#modal-friend'); });
+  function removeFriend(u) {
+    QC.confirm({ title: 'Remover ' + u.name + '?', text: 'Vocês deixam de ser amigos. Dá para adicionar de novo depois.', ok: 'Remover', danger: true }).then(function (ok) { if (ok) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); QC.closeModal('#modal-fprofile'); loadFriends(); } }); });
+  }
   $('#fa-remove').addEventListener('click', function () {
-    var u = faUser; QC.closeModal('#modal-friend'); if (!u) return;
-    QC.confirm({ title: 'Remover ' + u.name + '?', text: 'Vocês deixam de ser amigos. Dá para adicionar de novo depois.', ok: 'Remover', danger: true }).then(function (ok) { if (ok) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); loadFriends(); } }); });
+    var u = faUser; QC.closeModal('#modal-friend'); if (u) removeFriend(u);
   });
   $('#fa-block').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) blockPerson(u); });
 
@@ -613,6 +622,10 @@
     }
     f.friends.forEach(function (u) {
       var r = row(u, u.online ? 'online agora' : 'offline', u.online);
+      var open = el('button', 'fr-open'); open.type = 'button'; open.setAttribute('aria-label', 'Ver o perfil de ' + u.name);
+      while (r.firstChild) open.appendChild(r.firstChild);
+      open.addEventListener('click', function () { openFriendProfile(u); });
+      r.appendChild(open);
       var b = el('div', 'fr-btns');
       b.appendChild(btn('Desafiar', 'btn-primary me-mini', function () { openChallenge(u); }, 'Desafiar ' + u.name));
       b.appendChild(btn('⋯', 'btn-ghost me-mini', function () { openFriendActions(u); }, 'Mais opções de ' + u.name));
@@ -748,6 +761,66 @@
   }
   $('#inv-yes').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, true); });
   $('#inv-no').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, false); });
+
+  /* ---------- PERFIL DO AMIGO ---------- */
+  var fpUser = null, fpSeq = 0;
+  var RES_TXT = { win: 'Venceu', loss: 'Jogou', done: 'Concluíram juntos' };
+  var RES_ICO = { win: '🏆', loss: '🎯', done: '🤝' };
+  function listOf(box, items, emptyText) {
+    box.innerHTML = '';
+    if (!items.length) { var li = el('li', 'fp-empty', emptyText); li.style.background = 'none'; li.style.boxShadow = 'none'; box.appendChild(li); }
+    items.forEach(function (x) { box.appendChild(x); });
+  }
+  function openFriendProfile(u) {
+    fpUser = u; var seq = ++fpSeq;
+    $('#fp-name').textContent = u.name;
+    var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(u));
+    $('#fp-status').textContent = 'Carregando…';
+    $('#fp-code').textContent = u.code;
+    $('#fp-body').hidden = true;
+    QC.openModal('#modal-fprofile', '.sheet-x');
+    api('GET', '/friends/profile?code=' + encodeURIComponent(u.code)).then(function (j) {
+      if (seq !== fpSeq || $('#modal-fprofile').hidden) return;       // já fechou ou abriu outro perfil
+      if (!j || !j.ok) { QC.toast(errText(j && j.error), 3400); QC.closeModal('#modal-fprofile'); return; }
+      paintFriendProfile(j.profile);
+    });
+  }
+  function paintFriendProfile(p) {
+    fpUser = { code: p.code, name: p.name, avatar: p.avatar };
+    $('#fp-name').textContent = p.name;
+    var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(p, p.online));
+    var since = '';
+    try { since = ' · joga desde ' + new Date(p.since).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); } catch (e) { /* sem data */ }
+    $('#fp-status').textContent = (p.online ? '🟢 online agora' : 'offline') + since;
+    $('#fp-code').textContent = p.code;
+    var st = p.stats, box = $('#fp-stats'); box.innerHTML = '';
+    [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.wins + st.losses, 'c1'], ['Vitórias', st.wins, 'c2']].forEach(function (x, i) {
+      var t = el('div', 'me-stat ' + x[2]); t.style.animationDelay = (i * 60) + 'ms';
+      t.appendChild(el('b', '', String(x[1]))); t.appendChild(el('span', '', x[0])); box.appendChild(t);
+    });
+    $('#fp-small').textContent = 'Derrotas: ' + st.losses + ' · Amigos: ' + st.friends;
+    paintAch($('#fp-ach'), $('#fp-ach-count'), p.achievements);
+    listOf($('#fp-bests'), p.bests.map(function (b) {
+      var li = el('li'); li.appendChild(el('span', '', '⏱ ' + b.imageLabel + ' · ' + b.pieces + ' peças')); li.appendChild(el('small', '', fmtTime(b.ms))); return li;
+    }), 'Ainda sem tempos.');
+    listOf($('#fp-recent'), p.recent.map(function (m) {
+      var li = el('li', m.result === 'loss' ? 'soft' : '');
+      li.appendChild(el('span', '', (RES_ICO[m.result] || '🧩') + ' ' + (KIND[m.mode] || 'Partida') + ' · ' + m.imageLabel + ' · ' + m.pieces + ' peças'));
+      li.appendChild(el('small', '', (RES_TXT[m.result] || '') + (m.ms != null && m.completed ? ' · ' + fmtTime(m.ms) : '')));
+      return li;
+    }), 'Ainda sem partidas.');
+    $('#fp-body').hidden = false;
+  }
+  $('#fp-copy').addEventListener('click', function () { if (fpUser) copyText(fpUser.code, 'Código de ' + fpUser.name + ' copiado!'); });
+  $('#fp-share').addEventListener('click', function () {
+    if (!fpUser) return;
+    var text = fpUser.name + ' joga Quebra-cabeça a dois! Código de amigo: ' + fpUser.code + '.';
+    if (navigator.share) navigator.share({ title: 'Quebra-cabeça a dois', text: text, url: location.origin }).catch(function () { /* cancelou */ });
+    else copyText(fpUser.code, 'Código copiado!');
+  });
+  $('#fp-invite').addEventListener('click', function () { if (fpUser) openChallenge(fpUser); });
+  $('#fp-remove').addEventListener('click', function () { if (fpUser) removeFriend(fpUser); });
+  $('#fp-block').addEventListener('click', function () { if (fpUser) blockPerson(fpUser); });
 
   /* ---------- botão voltar do Android: reaproveita os botões "Voltar" que já existem ---------- */
   QC.nav.add(function () {                                   // convite recebido: voltar só DISPENSA a janela (não recusa o convite)
