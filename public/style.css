@@ -1980,3 +1980,15 @@ html[data-motion="reduce"] .wk-spin { animation: none; border-top-color: rgba(25
 .fp-h span { font-size: .8rem; color: var(--ink-soft); font-weight: 800; }
 .fp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 
+
+/* ---------- Botão de Destacar Bordas ---------- */
+.icon-btn.edge {
+  font-size: 1.25rem;
+  transition: all .2s ease;
+}
+.icon-btn.edge.active {
+  background: var(--sun, #ffcf33);
+  color: var(--on-sun, #1b2559);
+  box-shadow: 0 0 12px rgba(255, 207, 51, .75);
+  transform: scale(1.1);
+}
