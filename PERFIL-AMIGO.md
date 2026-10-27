@@ -6,16 +6,14 @@ Ao tocar no **cartão de um amigo** (Amigos > lista), abre o perfil dele. O menu
 ## O que o perfil mostra
 - Avatar, nome, se está online e desde quando joga (mês e ano).
 - **Código de amigo**, com os botões **Copiar** e **Compartilhar**. Qualquer amigo pode ver e repassar o código.
-- Quadros em destaque: **Partidas**, **Concluídos**, **Desafios jogados** (vitórias + derrotas) e **Vitórias**.
-- As **derrotas** aparecem de forma discreta, numa linha pequena ("Derrotas: 2 · Amigos: 1").
+- Quatro quadros: **Partidas**, **Concluídos**, **Desafios jogados** e **Vitórias**.
+- O perfil **não mostra** melhores tempos, últimas partidas, derrotas nem quantidade de amigos (e esses dados nem saem do servidor).
 - As **10 conquistas** (as ganhas em cor; as demais apagadas, com a dica de como ganhar).
-- **Melhores tempos** (por imagem) e **últimas partidas** (até 8).
 - Ações: **Convidar para jogar**, **Remover dos amigos** e **Bloquear**.
 
 ## Regras de privacidade
 - Só **amigos** veem o perfil. Quem foi bloqueado (ou bloqueou) **não vê** o perfil do outro, e a amizade acaba no bloqueio.
 - O **e-mail nunca aparece**, nem o identificador interno, nem partidas salvas, nem o **nome dos adversários**.
-- Imagens enviadas pela pessoa aparecem só como "Imagem própria" (o nome do arquivo não vaza).
 - "Código inexistente", "não é seu amigo", "pedido pendente" e "bloqueado" dão **exatamente a mesma resposta**: ninguém descobre quem existe.
 - Limite de **60 consultas por minuto** por pessoa.
 - Se a amizade acabar do outro lado enquanto o perfil está aberto, ele **fecha sozinho** com um aviso.
