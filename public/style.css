@@ -1973,14 +1973,7 @@ html[data-motion="reduce"] .wk-spin { animation: none; border-top-color: rgba(25
 .fp-codebtns { display: flex; gap: 8px; }
 .fp-codebtns .btn { flex: 1; min-width: 0; min-height: 44px; padding-left: 10px; padding-right: 10px; white-space: nowrap; font-size: .95rem; }
 @media (max-width: 380px) { .fp-codebtns { flex-direction: column; } }      /* telas bem estreitas: os dois botões ficam um embaixo do outro */
-.fp-small { margin: -4px 0 4px; text-align: center; color: var(--ink-soft); font-weight: 700; font-size: .8rem; opacity: .8; }
 .fp-h { margin: 8px 0 6px; font: 700 1.05rem "Fredoka", var(--font); color: var(--ink); display: flex; justify-content: space-between; align-items: baseline; }
 .fp-h span { font-size: .8rem; color: var(--ink-soft); font-weight: 800; }
-.fp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.fp-list li { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 14px; padding: 8px 10px; font-weight: 700; color: var(--ink); font-size: .88rem; box-shadow: 0 3px 0 var(--line-2); }
-.fp-list li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.fp-list li small { flex: none; color: var(--ink-soft); font-weight: 800; }
-.fp-list li.soft { opacity: .75; }
-.fp-empty { color: var(--ink-soft); font-weight: 700; font-size: .85rem; padding: 4px 2px; }
 .fp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 

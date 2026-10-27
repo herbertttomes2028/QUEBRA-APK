@@ -764,13 +764,6 @@
 
   /* ---------- PERFIL DO AMIGO ---------- */
   var fpUser = null, fpSeq = 0;
-  var RES_TXT = { win: 'Venceu', loss: 'Jogou', done: 'Concluíram juntos' };
-  var RES_ICO = { win: '🏆', loss: '🎯', done: '🤝' };
-  function listOf(box, items, emptyText) {
-    box.innerHTML = '';
-    if (!items.length) { var li = el('li', 'fp-empty', emptyText); li.style.background = 'none'; li.style.boxShadow = 'none'; box.appendChild(li); }
-    items.forEach(function (x) { box.appendChild(x); });
-  }
   function openFriendProfile(u) {
     fpUser = u; var seq = ++fpSeq;
     $('#fp-name').textContent = u.name;
@@ -794,21 +787,11 @@
     $('#fp-status').textContent = (p.online ? '🟢 online agora' : 'offline') + since;
     $('#fp-code').textContent = p.code;
     var st = p.stats, box = $('#fp-stats'); box.innerHTML = '';
-    [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.wins + st.losses, 'c1'], ['Vitórias', st.wins, 'c2']].forEach(function (x, i) {
+    [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.challenges, 'c1'], ['Vitórias', st.wins, 'c2']].forEach(function (x, i) {
       var t = el('div', 'me-stat ' + x[2]); t.style.animationDelay = (i * 60) + 'ms';
       t.appendChild(el('b', '', String(x[1]))); t.appendChild(el('span', '', x[0])); box.appendChild(t);
     });
-    $('#fp-small').textContent = 'Derrotas: ' + st.losses + ' · Amigos: ' + st.friends;
     paintAch($('#fp-ach'), $('#fp-ach-count'), p.achievements);
-    listOf($('#fp-bests'), p.bests.map(function (b) {
-      var li = el('li'); li.appendChild(el('span', '', '⏱ ' + b.imageLabel + ' · ' + b.pieces + ' peças')); li.appendChild(el('small', '', fmtTime(b.ms))); return li;
-    }), 'Ainda sem tempos.');
-    listOf($('#fp-recent'), p.recent.map(function (m) {
-      var li = el('li', m.result === 'loss' ? 'soft' : '');
-      li.appendChild(el('span', '', (RES_ICO[m.result] || '🧩') + ' ' + (KIND[m.mode] || 'Partida') + ' · ' + m.imageLabel + ' · ' + m.pieces + ' peças'));
-      li.appendChild(el('small', '', (RES_TXT[m.result] || '') + (m.ms != null && m.completed ? ' · ' + fmtTime(m.ms) : '')));
-      return li;
-    }), 'Ainda sem partidas.');
     $('#fp-body').hidden = false;
   }
   $('#fp-copy').addEventListener('click', function () { if (fpUser) copyText(fpUser.code, 'Código de ' + fpUser.name + ' copiado!'); });
