@@ -35,6 +35,7 @@
     phrases: [],         // catálogo de frases prontas
     unlocked: null,      // frases liberadas (null = só as básicas)
     chatOpen: false,
+    comm: 'closed',          // visão do bate-papo: 'closed' | 'chat' | 'phrases' (nunca duas ao mesmo tempo)
     unread: 0,
     popTimer: null,
     names: ['', ''],
@@ -166,6 +167,8 @@
       $('#screen-' + n).classList.toggle('active', n === name);
     });
     if (name === 'game') layout();
+    syncResultChip();
+    if (name === 'home') maybeApplyUpdate();
     if (window.QC && window.QC.onScreen) window.QC.onScreen(name);
   }
 
@@ -241,10 +244,13 @@
     });
   }
 
+  var wake = { n: 0, timer: null, slow: null, retry: null };
+  function showWake(text, retry) { $('#banner-wake').hidden = false; $('#wake-text').textContent = text; $('#wake-retry').hidden = !retry; }
+  function hideWake() { clearTimeout(wake.slow); $('#banner-wake').hidden = true; }
   function fetchConfig() {
-    imagesReady = fetch('api/config', { cache: 'no-store' })
-      .then(function (r) { return r.json(); })
-      .then(function (c) {
+    var resolveReady;
+    imagesReady = new Promise(function (res) { resolveReady = res; });
+    function apply(c) {
         state.images = Array.isArray(c.images) ? c.images : [];
         state.presets = Array.isArray(c.presets) ? c.presets : [];
         state.defaultPieces = c.defaultPieces || 12;
@@ -259,8 +265,24 @@
         state.spots = c.spots || 5;
         state.pushKey = c.push && c.push.key ? c.push.key : null;
         state.accounts = c.accounts && c.accounts.enabled ? c.accounts : null;     // contas só aparecem se o servidor tiver banco de dados
-      })
-      .catch(function () { state.images = []; });
+    }
+    function attempt() {
+      wake.n++;
+      clearTimeout(wake.timer); clearTimeout(wake.slow);
+      var ctl = window.AbortController ? new AbortController() : null;
+      var cut = setTimeout(function () { if (ctl) ctl.abort(); }, 70000);
+      wake.slow = setTimeout(function () { showWake('Acordando o servidor… isso pode levar até 1 minuto.', wake.n > 1); }, 2500);
+      fetch('api/config', { cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error('http'); return r.json(); })
+        .then(function (c) { clearTimeout(cut); hideWake(); apply(c); resolveReady(); })
+        .catch(function () {
+          clearTimeout(cut); clearTimeout(wake.slow);
+          showWake(navigator.onLine === false ? 'Sem internet. Tentamos de novo assim que a conexão voltar.' : 'Ainda conectando ao servidor… tentando de novo.', true);
+          wake.timer = setTimeout(attempt, Math.min(3000 + wake.n * 1500, 12000));
+        });
+    }
+    wake.retry = attempt;
+    attempt();
     return imagesReady;
   }
 
@@ -512,7 +534,7 @@
       closeHint();
       clearSpot();
       markMilestones();
-      try { history.replaceState(null, '', '?sala=' + snap.code); } catch (e) { /* ignora */ }
+      try { urlSet('?sala=' + snap.code); } catch (e) { /* ignora */ }
       state.inGame = true;
       $('#duel-strip').hidden = true; $('#duel-banner').hidden = true;
       $('#menu-change').hidden = false; $('#menu-restart').hidden = false;
@@ -1048,8 +1070,8 @@
     if (state.chat.length > 50) { state.chat.shift(); if ($('#chat-list').firstChild) $('#chat-list').removeChild($('#chat-list').firstChild); }
     $('#chat-list').appendChild(chatEl(m));
     if (m.idx !== state.idx) { playSound('msg'); announce((m.name || 'Amigo') + ' escreveu: ' + m.text); }
-    if (state.chatOpen) { scrollChat(); return; }
-    if (m.idx !== state.idx) {               // chegou do amigo com a conversa fechada
+    if (state.comm === 'chat') { scrollChat(); return; }
+    if (m.idx !== state.idx) {               // chegou do amigo com a conversa fechada (ou na tela de frases)
       state.unread++;
       updateChatBadge();
       showChatPop(m);
@@ -1057,21 +1079,28 @@
     }
   }
 
+  // O painel mostra UMA visão por vez: 'chat' (histórico + reações) OU 'phrases' (frases prontas). O histórico fica guardado
+  // no mesmo elemento (não é recriado), então trocar de visão não perde nada nem duplica mensagens.
+  function setComm(v) {
+    state.comm = v;
+    var open = v !== 'closed';
+    state.chatOpen = open;
+    $('#chat-panel').hidden = !open;
+    $('#chat-view-chat').hidden = v !== 'chat';
+    $('#chat-view-phrases').hidden = v !== 'phrases';
+    $('#chat-back').hidden = v !== 'phrases';
+    $('#chat-title').textContent = v === 'phrases' ? 'Frases prontas' : 'Conversa';
+    if (v !== 'closed') $('#chat-pop').hidden = true;
+    if (open) renderPhrases();                // as frases ficam prontas (e com o estado de liberação em dia) sempre que o painel abre
+    if (v === 'chat') { state.unread = 0; updateChatBadge(); updateKeyboardOffset(); scrollChat(); }
+    if (v === 'phrases') { updateKeyboardOffset(); $('#chat-phrases').scrollTop = 0; }
+  }
   function openChat() {
     if (!state.chatOn) return;
-    state.chatOpen = true;
-    state.unread = 0;
-    updateChatBadge();
-    $('#chat-pop').hidden = true;
-    $('#chat-panel').hidden = false;
-    updateKeyboardOffset();
-    scrollChat();
-    renderPhrases();
+    setComm('chat');
   }
-
   function closeChat() {
-    state.chatOpen = false;
-    $('#chat-panel').hidden = true;
+    setComm('closed');
   }
 
   // manda uma FRASE PRONTA (só o código dela; o servidor confere se está liberada e escreve o texto)
@@ -1124,6 +1153,7 @@
   }
 
   function updateHud() {
+    syncResultChip();
     $('#hud-count').textContent = state.locked + '/' + state.total;
     $('#hud-bar').style.width = (state.total ? (100 * state.locked) / state.total : 0) + '%';
     var pg = $('#hud-progress');
@@ -1266,6 +1296,7 @@
     m.hidden = false;
     var f = focusSel ? m.querySelector(focusSel) : m.querySelector('button');
     try { if (f) f.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+    syncResultChip();
   }
   function closeModal(sel) {
     var m = $(sel);
@@ -1274,6 +1305,7 @@
     var r = m._ret;
     m._ret = null;
     try { if (r && r.focus && document.contains(r)) r.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+    syncResultChip();
   }
 
   // anúncio para leitores de tela
@@ -1575,8 +1607,12 @@
   function hideRematchRequest() { closeModal('#modal-rematch'); }
   function requestRestart(imageId, pieces) {
     if (!state.friendOnline && state.status !== 'won' && state.locked > 0) {
-      if (!window.confirm('Recomeçar? O progresso será perdido.')) return;
+      askConfirm({ title: 'Recomeçar?', text: 'O progresso será perdido.', ok: 'Recomeçar', danger: true }).then(function (ok) { if (ok) restartNow(imageId, pieces); });
+      return;
     }
+    restartNow(imageId, pieces);
+  }
+  function restartNow(imageId, pieces) {
     socket.emit('restart', { imageId: imageId, pieces: pieces }, function (res) {
       if (res && res.ok && res.pending) {
         $('#rw-text').textContent = 'Esperando ' + friendName() + '…';
@@ -1892,7 +1928,7 @@
     state.inGame = false;
     state.code = null;
     state.pieces = [];
-    try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
+    try { urlSet(location.pathname); } catch (e) { /* ignora */ }
     $('#banner-conn').hidden = true;
     ['#modal-win', '#modal-menu', '#modal-settings', '#modal-help', '#modal-rematch'].forEach(closeModal);
     hideRematchWait();
@@ -2195,7 +2231,7 @@
     setChatAvailability(res.chatOn !== false);
     setChatHistory(res.chat || []);
     saveDuelLocal();
-    try { history.replaceState(null, '', '?sala=' + l.code); } catch (e) { /* ignora */ }
+    try { urlSet('?sala=' + l.code); } catch (e) { /* ignora */ }
     setLoading(false);
     applyLobby(l);
     prepareDuelImage();
@@ -2826,6 +2862,8 @@
 
   $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
   $('#chat-close').addEventListener('click', closeChat);
+  $('#chat-open-phrases').addEventListener('click', function () { setComm('phrases'); });
+  $('#chat-back').addEventListener('click', function () { setComm('chat'); });
   $('#chat-pop').addEventListener('click', openChat);
   $('#chat-quick').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('button') : null;
@@ -2836,6 +2874,7 @@
     if (!b) return;
     if (b.classList.contains('lock')) { toast(window.QC && window.QC.canBlock ? 'Para liberar: ' + (b.textContent.replace('🔒 ', '')) + '.' : 'Entre na sua conta e jogue para liberar mais frases!', 3200); return; }
     sendChat(b.dataset.p);
+    setComm('chat');                        // depois de mandar a frase, volta para a conversa (as frases saem da tela)
   });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', updateKeyboardOffset);
@@ -2845,14 +2884,16 @@
   $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = !(window.QC && window.QC.canBlock); openModal('#modal-menu', '#menu-close'); });
   // "Bloquear jogador": só para quem tem conta (a outra pessoa também precisa ter conta para poder ser bloqueada)
   $('#menu-block').addEventListener('click', function () {
-    if (!window.confirm('Bloquear esta pessoa? Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.')) return;
+    askConfirm({ title: 'Bloquear esta pessoa?', text: 'Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.', ok: 'Bloquear', danger: true }).then(function (ok) {
+      if (!ok) return;
     socket.emit('acc:blockPeer', {}, function (res) {
       if (res && res.ok) {
         toast((res.name || 'A pessoa') + ' foi bloqueada.', 3200);
-        if (state.duel) leaveDuel(); else { socket.disconnect(); window.location.href = location.pathname; }
+        if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
       } else if (res && res.error === 'guest') toast('Essa pessoa não tem conta, então não dá para bloquear. Você pode sair da partida pelo menu.', 5200);
       else if (res && res.error === 'no_peer') toast('Não há ninguém na sala para bloquear.', 3200);
       else toast('Não foi possível bloquear agora. Tente de novo.', 3200);
+    });
     });
   });
   $('#menu-close').addEventListener('click', function () { closeModal('#modal-menu'); });
@@ -2865,16 +2906,7 @@
     closeModal('#modal-menu');
     requestRestart(state.imageId, state.cfg.PIECES);
   });
-  $('#menu-leave').addEventListener('click', function () {
-    if (state.duel) {
-      if (window.confirm(state.duel.phase === 'game' ? 'Sair da disputa? Seu adversário vence.' : 'Sair da sala?')) leaveDuel();
-      return;
-    }
-    if (window.confirm('Sair da partida?')) {
-      socket.disconnect();
-      window.location.href = location.pathname;
-    }
-  });
+  $('#menu-leave').addEventListener('click', askLeave);
 
   $('#win-again').addEventListener('click', function () { requestRestart(state.imageId, state.cfg.PIECES); });
   $('#win-change').addEventListener('click', function () { closeModal('#modal-win'); openPick('change'); });
@@ -3022,6 +3054,177 @@
     }
   });
 
+  /* ---------------------------------------------------------
+   * Histórico do navegador: trocar a URL sem perder a marca da navegação; recarregar sem empilhar entradas
+   * --------------------------------------------------------- */
+  function urlSet(u) { history.replaceState(history.state, '', u); }
+  function reloadClean() {
+    try { history.replaceState(history.state, '', location.pathname); } catch (e) { /* ignora */ }
+    location.reload();
+  }
+
+  /* ---------------------------------------------------------
+   * Janela de confirmação do aplicativo (no lugar do confirm() do navegador, que escreve o endereço do site no título)
+   * --------------------------------------------------------- */
+  var cfm = { resolve: null };
+  function askConfirm(o) {
+    o = o || {};
+    return new Promise(function (resolve) {
+      if (cfm.resolve) { var old = cfm.resolve; cfm.resolve = null; old(false); }
+      cfm.resolve = resolve;
+      $('#cfm-title').textContent = o.title || 'Confirmar';
+      $('#cfm-text').textContent = o.text || '';
+      var ok = $('#cfm-ok');
+      ok.textContent = o.ok || 'Confirmar';
+      ok.classList.toggle('me-danger', !!o.danger);
+      $('#cfm-cancel').textContent = o.cancel || 'Cancelar';
+      openModal('#modal-confirm', '#cfm-cancel');          // o foco começa no "Cancelar" (o lado seguro)
+    });
+  }
+  function endConfirm(v) { var r = cfm.resolve; cfm.resolve = null; closeModal('#modal-confirm'); if (r) r(v); }
+  $('#cfm-ok').addEventListener('click', function () { endConfirm(true); });
+  $('#cfm-cancel').addEventListener('click', function () { endConfirm(false); });
+  $('#modal-confirm').addEventListener('click', function (e) { if (e.target === this) endConfirm(false); });
+
+  /* ---------------------------------------------------------
+   * Fechar janelas pelo X (conclusão cooperativa, resultado do desafio, privacidade) e rever o resultado
+   * --------------------------------------------------------- */
+  document.addEventListener('click', function (e) {
+    var x = e.target.closest && e.target.closest('.sheet-x');
+    if (!x) return;
+    var m = x.closest('.modal');
+    if (m) closeModal('#' + m.id);
+  });
+  $('#priv-close').addEventListener('click', function () { closeModal('#modal-privacy'); });
+  function resultModalSel() { return state.duel ? '#modal-duel' : '#modal-win'; }
+  function syncResultChip() {
+    var chip = $('#res-reopen');
+    if (!chip) return;
+    chip.hidden = !(state.status === 'won' && $('#screen-game').classList.contains('active') && $(resultModalSel()).hidden);
+  }
+  $('#res-reopen').addEventListener('click', function () { openModal(resultModalSel(), state.duel ? '#duel-rematch' : '#win-again'); });
+
+  /* política de privacidade dentro do aplicativo (abrir uma aba externa mostraria o endereço do site) */
+  function openPrivacy() {
+    var body = $('#priv-body');
+    if (body.childNodes.length) { openModal('#modal-privacy', '#priv-close'); body.scrollTop = 0; return; }
+    fetch('/privacidade.html').then(function (r) { if (!r.ok) throw new Error('http'); return r.text(); }).then(function (t) {
+      var main = new DOMParser().parseFromString(t, 'text/html').querySelector('main');
+      if (!main) throw new Error('vazio');
+      Array.prototype.forEach.call(main.childNodes, function (n) { body.appendChild(document.importNode(n, true)); });
+      openModal('#modal-privacy', '#priv-close');
+    }).catch(function () { toast('Não consegui abrir a política agora. Confira a conexão e tente de novo.', 3600); });
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[data-privacy]');
+    if (a) { e.preventDefault(); openPrivacy(); }
+  });
+
+  /* ---------------------------------------------------------
+   * Sair da partida / da sala (menu e botão voltar usam o MESMO caminho)
+   * --------------------------------------------------------- */
+  function askLeave() {
+    var d = state.duel, inMatch = !!(d && d.phase === 'game');
+    askConfirm({
+      title: d ? (inMatch ? 'Sair da disputa?' : 'Sair da sala?') : 'Sair da partida?',
+      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : 'Você vai sair da partida. Seu amigo pode continuar na sala.',
+      ok: 'Sair', cancel: 'Continuar jogando', danger: true
+    }).then(function (ok) {
+      if (!ok) return;
+      if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
+    });
+  }
+
+  /* ---------------------------------------------------------
+   * Botão VOLTAR do Android (aplicativo instalado/TWA): um nível por toque; na tela inicial, dois toques para sair.
+   * Em navegador comum não mexe em nada (a barra e o histórico pertencem ao navegador).
+   * --------------------------------------------------------- */
+  var nav = { extra: [], rearm: null };
+  function isAppMode() {
+    try {
+      return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: fullscreen)').matches ||
+        window.navigator.standalone === true || sessionStorage.getItem('qc.app') === '1';
+    } catch (e) { return false; }
+  }
+  function topModal() {
+    var best = null, bz = -1;
+    Array.prototype.forEach.call(document.querySelectorAll('.modal:not([hidden])'), function (m) {
+      var z = parseInt(getComputedStyle(m).zIndex, 10) || 0;
+      if (z >= bz) { bz = z; best = m; }
+    });
+    return best;
+  }
+  function closeTopModal(m) {
+    if (m.id === 'modal-help') { closeTutorial(); return true; }
+    if (m.id === 'modal-crop') { closeCrop(); return true; }
+    if (m.id === 'modal-rematch') return true;              // pedido de revanche precisa de resposta: voltar não decide por ninguém
+    var b = m.querySelector('[data-back]');
+    if (b && !b.hidden) { b.click(); return true; }
+    closeModal('#' + m.id);
+    return true;
+  }
+  function currentScreen() {
+    var n = ['game', 'lobby', 'pick', 'me', 'home'].filter(function (s) { return $('#screen-' + s).classList.contains('active'); })[0];
+    return n || 'home';
+  }
+  // devolve true se "consumiu" o toque (fechou algo, voltou um nível ou perguntou); false se já está na raiz
+  function navBack() {
+    if (cfm.resolve) { endConfirm(false); return true; }
+    for (var i = 0; i < nav.extra.length; i++) { if (nav.extra[i]()) return true; }
+    var m = topModal();
+    if (m) return closeTopModal(m);
+    if (!$('#loading').hidden) return true;
+    if (!$('#go-splash').hidden) { var gc = $('#go-cancel'); if (!gc.hidden) gc.click(); return true; }
+    if (!$('#countdown').hidden) return true;
+    if (state.comm === 'phrases') { setComm('chat'); return true; }
+    if (state.comm === 'chat') { closeChat(); return true; }
+    var scr = currentScreen();
+    if (scr === 'pick') { if (!$('#pick-sheet').hidden) $('#ps-close').click(); else $('#btn-pick-back').click(); return true; }
+    if (scr === 'me') { $('#me-back').click(); return true; }
+    if (scr === 'lobby' || scr === 'game') { askLeave(); return true; }
+    return false;
+  }
+  function navRearm() {
+    clearTimeout(nav.rearm); nav.rearm = null;
+    try { if ((history.state || {}).qcb !== 'guard') history.pushState({ qcb: 'guard' }, '', location.href); } catch (e) { /* ignora */ }
+  }
+  function onPop() {
+    if ((history.state || {}).qcb !== 'base') return;       // só reage quando o toque em "voltar" chegou à entrada-base
+    var handled = true;
+    try { handled = navBack(); } catch (e) { handled = true; }
+    if (handled) { navRearm(); return; }
+    toast('Pressione voltar novamente para sair do aplicativo.', 2000);
+    clearTimeout(nav.rearm);
+    nav.rearm = setTimeout(navRearm, 2000);                  // se o 2º toque não vier em ~2 s, a proteção volta
+  }                                                          // (com a proteção desarmada, o 2º toque em até 2 s fecha o aplicativo pelo próprio Android)
+  (function navInit() {
+    try { if (/^android-app:\/\//.test(document.referrer)) sessionStorage.setItem('qc.app', '1'); } catch (e) { /* ignora */ }
+    if (!isAppMode()) return;
+    try {
+      var st = history.state;
+      if (!st || !st.qcb) { history.replaceState({ qcb: 'base' }, '', location.href); history.pushState({ qcb: 'guard' }, '', location.href); }
+      else if (st.qcb === 'base') history.pushState({ qcb: 'guard' }, '', location.href);
+    } catch (e) { return; }
+    window.addEventListener('popstate', onPop);
+  })();
+
+  /* ---------------------------------------------------------
+   * Aviso de conexão ao abrir e atualização do aplicativo
+   * --------------------------------------------------------- */
+  $('#wake-retry').addEventListener('click', function () { if (wake.retry) { clearTimeout(wake.timer); wake.retry(); } });
+  window.addEventListener('online', function () { if (!$('#banner-wake').hidden && wake.retry) { clearTimeout(wake.timer); wake.retry(); } });
+  function maybeApplyUpdate() {
+    if (!state.updateReady) return;
+    if (currentScreen() !== 'home' || state.inGame || state.duel || document.querySelector('.modal:not([hidden])')) return;   // nunca recarrega no meio de uma partida
+    state.updateReady = false;
+    location.reload();
+  }
+  if ('serviceWorker' in navigator && navigator.serviceWorker && typeof navigator.serviceWorker.addEventListener === 'function') {
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'shell-updated') { state.updateReady = true; maybeApplyUpdate(); }
+    });
+  }
+
   // ponte para a área de contas (conta.js): só expõe o que ela precisa, sem duplicar nada
   window.QC = {
     state: state, socket: socket, store: store, ready: imagesReady,
@@ -3033,6 +3236,8 @@
       if (duelMode) $('#duel-modes').hidden = true;                // o modo já foi escolhido no convite
     },
     join: doJoin, enterRoom: enterRoom,
+    confirm: askConfirm, openPrivacy: openPrivacy,
+    nav: { add: function (fn) { nav.extra.push(fn); } },
     goLabel: null,
     applyProfile: function (name, avatar) {
       state.name = String(name || '').slice(0, 12);

@@ -1,19 +1,61 @@
 /*
  * Service worker do Quebra-Cabeça a Dois.
  * - Deixa o jogo instalável (tela inicial / APK).
- * - NUNCA guarda o que é do jogo em tempo real (/socket.io, /api): isso vai sempre pela rede.
- * - Páginas, scripts e estilos: "rede primeiro" (você sempre recebe a versão mais nova;
- *   o que foi guardado só serve se a internet cair).
+ * - ABERTURA INSTANTÂNEA: a tela do jogo (página, estilos e scripts) vem do próprio celular na hora, mesmo que o servidor
+ *   esteja dormindo (o plano gratuito do Render pode levar mais de 20 s para acordar). A internet só atualiza essa cópia
+ *   por trás, de uma vez só (todos os arquivos juntos, para nunca misturar versões) e avisa o jogo quando houver novidade.
+ * - NUNCA guarda o que é do jogo em tempo real (conexão /socket.io, /api): isso vai sempre pela rede.
  * - Imagens: usa a guardada e atualiza em segundo plano.
  * - Avisos (push): mostra "fulano entrou" / "nova mensagem" quando o aplicativo está fechado.
- * O jogo em si precisa de internet: sem ela aparece um aviso simples.
+ * O jogo em si precisa de internet; sem ela aparece um aviso simples (e o app mostra "Conectando…").
  */
-const CACHE = 'quebra-cabeca-v8';
-const SHELL = ['/', '/style.css', '/boot.js', '/game.js', '/conta.js', '/manifest.webmanifest', '/icons/icon-192.png'];
+const CACHE = 'quebra-cabeca-v9';
+// (o cliente do Socket.IO é um arquivo estático que o index.html carrega ANTES do jogo: precisa vir do celular também, senão um servidor dormindo trava o início)
+const SHELL = ['/', '/style.css', '/boot.js', '/socket.io/socket.io.js', '/game.js', '/conta.js', '/manifest.webmanifest', '/privacidade.html', '/icons/icon-192.png'];
+const SHELL_SET = new Set(SHELL);
+const REFRESH_EVERY = 5 * 60 * 1000;
+let lastRefresh = 0;
+
+async function precache() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(SHELL.map(async (u) => {
+    try { const r = await fetch(new Request(u, { cache: 'reload' })); if (r && r.ok) await cache.put(u, r); } catch (e) { /* tenta de novo no próximo refresh */ }
+  }));
+}
+
+// busca TODOS os arquivos novos; só troca a cópia se todos vierem bem (assim nunca mistura versão nova com velha)
+async function refreshShell() {
+  const now = Date.now();
+  if (now - lastRefresh < REFRESH_EVERY) return;
+  lastRefresh = now;
+  try {
+    const cache = await caches.open(CACHE);
+    const fresh = [];
+    for (const u of SHELL) {
+      const r = await fetch(new Request(u, { cache: 'reload' }));
+      if (!r || !r.ok) { lastRefresh = 0; return; }
+      fresh.push([u, r]);
+    }
+    let changed = false;
+    for (const [u, r] of fresh) {
+      const old = await cache.match(u);
+      if (!old) changed = true;
+      else {
+        const [a, b] = await Promise.all([old.clone().arrayBuffer(), r.clone().arrayBuffer()]);
+        if (a.byteLength !== b.byteLength || new Uint8Array(a).some((v, i) => v !== new Uint8Array(b)[i])) changed = true;
+      }
+    }
+    for (const [u, r] of fresh) await cache.put(u, r);
+    if (changed) {
+      const wins = await self.clients.matchAll({ type: 'window' });
+      wins.forEach((w) => w.postMessage({ type: 'shell-updated' }));
+    }
+  } catch (e) { lastRefresh = 0; }
+}
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).catch(() => {}));
+  event.waitUntil(precache());
 });
 
 self.addEventListener('activate', (event) => {
@@ -39,7 +81,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   const p = url.pathname;
-  if (p.startsWith('/socket.io') || p.startsWith('/api') || p === '/health' || p.startsWith('/.well-known')) return;  // sempre rede
+  if ((p.startsWith('/socket.io') && p !== '/socket.io/socket.io.js') || p.startsWith('/api') || p === '/health' || p === '/diagnostico' || p.startsWith('/.well-known')) return;  // sempre rede
 
   // imagens: usa a guardada e atualiza em segundo plano
   if (p.startsWith('/imagens/') || p.startsWith('/icons/')) {
@@ -52,6 +94,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // abrir o aplicativo: a tela vem do celular NA HORA (o servidor só atualiza por trás)
+  if (req.mode === 'navigate' && (p === '/' || p === '/index.html')) {
+    event.waitUntil(refreshShell());
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      const hit = await cache.match('/');
+      if (hit) return hit;
+      try { const res = await fetch(req); if (res && res.ok && !url.search) cache.put('/', res.clone()); return res; }
+      catch (e) { return new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); }
+    })());
+    return;
+  }
+
+  // scripts, estilos e manifesto do jogo: também da cópia do celular
+  if (SHELL_SET.has(p)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      const hit = await cache.match(p);
+      if (hit) return hit;
+      try { const res = await fetch(req); if (res && res.ok) cache.put(p, res.clone()); return res; } catch (e) { return Response.error(); }
+    })());
+    return;
+  }
+
   // o resto: rede primeiro; se cair a internet, usa o que foi guardado
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
@@ -60,7 +126,7 @@ self.addEventListener('fetch', (event) => {
       if (res && res.ok) cache.put(req, res.clone());
       return res;
     } catch (e) {
-      const hit = (await cache.match(req)) || (req.mode === 'navigate' ? await cache.match('/') : null);
+      const hit = await cache.match(req);
       if (hit) return hit;
       if (req.mode === 'navigate') return new Response(OFFLINE_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       return Response.error();
