@@ -12,6 +12,7 @@
  */
 const crypto = require('crypto');
 const phrases = require('./phrases');
+const xpm = require('./xp');
 const { codeEmail } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
@@ -129,7 +130,7 @@ function createAccounts(d) {
 
   /* ----- consultas ----- */
   const one = async (text, params) => (await db.q(text, params)).rows[0] || null;
-  const publicUser = (u) => ({ code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar });
+  const publicUser = (u) => ({ code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, level: u.xp == null ? 0 : xpm.levelFromXp(u.xp) });
 
   async function createUser({ email, passHash, googleSub, name, avatar, bests, emailVerified }) {
     for (let tries = 0; tries < 6; tries++) {
@@ -188,6 +189,7 @@ function createAccounts(d) {
   }
 
   async function meOf(u) {
+    const xpTot = await xpTotal(u.id);                                   // converte o histórico antigo na primeira vez
     const stats = await statsOf(u.id);
     const [save, pend, inv] = await Promise.all([
       saveSummary(u.id),
@@ -197,7 +199,7 @@ function createAccounts(d) {
     return {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
       createdAt: u.created_at, stats, achievements: achievementsOf(stats), save,
-      emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
+      xp: xpm.progress(xpTot), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
       pending: { requests: pend.n, invites: inv.n }
     };
   }
@@ -205,10 +207,11 @@ function createAccounts(d) {
   /* ----- amigos ----- */
   async function friendsOf(uid) {
     const rows = (await db.q(
-      `SELECT f.status, f.requested_by, f.created_at, u.id AS other, u.friend_code, u.name, u.avatar
+      `SELECT f.status, f.requested_by, f.created_at, u.id AS other, u.friend_code, u.name, u.avatar, u.xp, u.xp_seeded
          FROM friendships f JOIN users u ON u.id = CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
         WHERE f.user_a = $1 OR f.user_b = $1 ORDER BY f.created_at DESC`, [uid])).rows;
     const out = { friends: [], incoming: [], outgoing: [] };
+    await seedMany(rows);                                  // quem ainda não teve o histórico convertido em XP é convertido agora
     for (const r of rows) {
       const p = publicUser(r);
       if (r.status === 'accepted') out.friends.push(Object.assign(p, { online: isOnline(r.other) }));
@@ -216,10 +219,12 @@ function createAccounts(d) {
       else out.incoming.push(Object.assign(p, { at: r.created_at }));
     }
     out.friends.sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name, 'pt'));
-    out.invites = (await db.q(
-      `SELECT i.id, i.kind, i.image_label, i.pieces, i.room_code, i.expires_at, u.friend_code, u.name, u.avatar
+    const invRows = (await db.q(
+      `SELECT i.id, i.kind, i.image_label, i.pieces, i.room_code, i.expires_at, u.id AS other, u.friend_code, u.name, u.avatar, u.xp, u.xp_seeded
          FROM invites i JOIN users u ON u.id = i.from_user
-        WHERE i.to_user = $1 AND i.status = 'pending' AND i.expires_at > now() ORDER BY i.created_at DESC`, [uid])).rows
+        WHERE i.to_user = $1 AND i.status = 'pending' AND i.expires_at > now() ORDER BY i.created_at DESC`, [uid])).rows;
+    await seedMany(invRows);
+    out.invites = invRows
       .map((i) => ({ id: i.id, kind: i.kind, imageLabel: i.image_label, pieces: i.pieces, expiresAt: i.expires_at, from: publicUser(i) }));
     return out;
   }
@@ -533,6 +538,7 @@ function createAccounts(d) {
       const [a, b] = pairKey(req.user.id, t.id);
       await db.q("UPDATE friendships SET status = 'accepted', accepted_at = now() WHERE user_a = $1 AND user_b = $2", [a, b]);
       notify(t.id, { t: 'friend', from: publicUser(req.user) });
+      payAfterFriend(req.user.id); payAfterFriend(t.id);
       return res.json({ ok: true, state: 'accepted', user: publicUser(t) });
     }
     const n = await one("SELECT count(*)::int AS n FROM friendships WHERE status = 'pending' AND requested_by = $1", [req.user.id]);
@@ -554,6 +560,7 @@ function createAccounts(d) {
     if (b.accept === true) {
       await db.q("UPDATE friendships SET status = 'accepted', accepted_at = now() WHERE user_a = $1 AND user_b = $2", [x, y]);
       notify(t.id, { t: 'friend', from: publicUser(req.user) });
+      payAfterFriend(req.user.id); payAfterFriend(t.id);
     } else {
       await db.q('DELETE FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]);
     }
@@ -583,7 +590,7 @@ function createAccounts(d) {
     res.json({
       ok: true,
       profile: {
-        code: fmtCode(t.friend_code), name: t.name, avatar: t.avatar, online: isOnline(t.id), since: t.created_at,
+        code: fmtCode(t.friend_code), name: t.name, avatar: t.avatar, level: xpm.levelFromXp(await xpTotal(t.id)), online: isOnline(t.id), since: t.created_at,
         stats: { games: st.games, completed: st.completed, challenges: st.wins + st.losses, wins: st.wins },
         achievements: achievementsOf(st)
       }
@@ -643,6 +650,134 @@ function createAccounts(d) {
   }
   const deleteSave = async (uid) => { const e = timers.get(uid); if (e) { clearTimeout(e.t); timers.delete(uid); } await db.q('DELETE FROM saves WHERE user_id = $1', [uid]); };
 
+  /* ===================== XP E NÍVEIS =====================
+   * Tudo que vale XP é calculado AQUI no servidor (o celular só mostra). Cada pagamento acontece dentro de uma transação que trava a
+   * linha do jogador e grava uma "ref" única: reconectar, recarregar a página ou chamar duas vezes NUNCA paga duas vezes.
+   * As fórmulas e tabelas ficam em xp.js. */
+  const levelMap = new Map();                                    // uid -> nível (as salas mostram o nível sem consultar o banco)
+  const levelOf = (uid) => levelMap.get(uid) || 0;
+  async function tx(fn) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const r = await fn((text, params) => client.query(text, params));
+      await client.query('COMMIT');
+      return r;
+    } catch (e) { try { await client.query('ROLLBACK'); } catch (e2) { /* ignora */ } throw e; }
+    finally { client.release(); }
+  }
+  const DAY_START = "(date_trunc('day', now() AT TIME ZONE 'America/Fortaleza') AT TIME ZONE 'America/Fortaleza')";   // "hoje" no horário de Fortaleza
+
+  // Converte o HISTÓRICO ANTIGO em XP, uma única vez por jogador (conclusões, com a mesma redução por repetição; conquistas vêm à parte).
+  async function ensureSeeded(uid) {
+    const r = await seedTx(uid);
+    if (r.fresh) {                                                // as conquistas que o jogador JÁ tinha também valem XP, sem aviso de "nova conquista"
+      try { const ach = await awardAchievements(uid); if (ach) { r.xp = ach.after; levelMap.set(uid, xpm.levelFromXp(ach.after)); } } catch (e) { /* segue */ }
+    }
+    return r.xp;
+  }
+  async function seedTx(uid) {
+    return tx(async (q) => {
+      const u = (await q('SELECT xp, xp_seeded FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
+      if (!u) return { xp: 0, fresh: false };
+      if (u.xp_seeded) { levelMap.set(uid, xpm.levelFromXp(u.xp)); return { xp: u.xp, fresh: false }; }
+      const rows = (await q('SELECT image_label, pieces, completed, custom, duration_ms FROM matches WHERE user_id = $1 ORDER BY created_at, id', [uid])).rows;
+      const clears = new Map(); let total = 0, n = 0;
+      for (const m of rows) {
+        if (!m.completed) continue;
+        if (m.duration_ms != null && Number(m.duration_ms) < xpm.minMs(m.pieces)) continue;       // mesmo tempo mínimo das partidas novas
+        const key = xpm.puzzleKey(m.image_label, m.pieces, m.custom), c = clears.get(key) || 0;
+        total += Math.max(1, Math.round(xpm.baseXp(m.pieces) * xpm.repFactor(c) * (m.custom ? xpm.CUSTOM_MULT : 1)));
+        clears.set(key, c + 1); n++;
+      }
+      for (const [k, c] of clears) await q('INSERT INTO puzzle_clears (user_id, puzzle_key, clears) VALUES ($1,$2,$3) ON CONFLICT (user_id, puzzle_key) DO UPDATE SET clears = puzzle_clears.clears + EXCLUDED.clears', [uid, k, c]);
+      if (total > 0) await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,'seed','seed',$2,$3) ON CONFLICT (user_id, ref) DO NOTHING", [uid, total, JSON.stringify({ matches: rows.length, completions: n })]);
+      const r = await q('UPDATE users SET xp = xp + $1, xp_seeded = true WHERE id = $2 RETURNING xp', [total, uid]);
+      levelMap.set(uid, xpm.levelFromXp(r.rows[0].xp));
+      return { xp: r.rows[0].xp, fresh: true };
+    });
+  }
+  // para listas: converte quem ainda não foi convertido e atualiza o campo xp das linhas
+  async function seedMany(rows) {
+    for (const r of rows) {
+      if (r.xp_seeded === false && r.other) { try { r.xp = await ensureSeeded(r.other); } catch (e) { /* segue com o que tem */ } }
+      if (r.other && r.xp != null) levelMap.set(r.other, xpm.levelFromXp(r.xp));
+    }
+    return rows;
+  }
+  async function xpTotal(uid) { const r = await one('SELECT xp, xp_seeded FROM users WHERE id = $1', [uid]); if (!r) return 0; return r.xp_seeded ? r.xp : ensureSeeded(uid); }
+
+  // Paga UMA partida para UM jogador. Devolve null se já foi paga antes (ref repetida).
+  async function awardMatch(uid, o) {
+    return tx(async (q) => {
+      const u = (await q('SELECT xp FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
+      if (!u) return null;
+      if ((await q('SELECT 1 FROM xp_events WHERE user_id = $1 AND ref = $2', [uid, o.ref])).rowCount) return null;
+      const key = xpm.puzzleKey(o.label, o.pieces, o.custom);
+      const clears = ((await q('SELECT clears FROM puzzle_clears WHERE user_id = $1 AND puzzle_key = $2', [uid, key])).rows[0] || {}).clears || 0;
+      const pk = o.partnerUid || 'guest';
+      const t = (await q(
+        `SELECT count(*) FILTER (WHERE (meta->'parts'->>'participation')::int > 0)::int AS part,
+                count(*) FILTER (WHERE meta->>'partner' = $2 AND (meta->'parts'->>'friend')::int > 0)::int AS pf,
+                count(*) FILTER (WHERE meta->>'partner' = $2 AND (meta->'parts'->>'win')::int > 0)::int AS pw
+           FROM xp_events WHERE user_id = $1 AND kind = 'match' AND created_at >= ${DAY_START}`, [uid, pk])).rows[0];
+      const rw = xpm.matchReward({ pieces: o.pieces, completed: o.completed, won: o.won, custom: o.custom, elapsedMs: o.elapsedMs, gameMs: o.gameMs, clears, humans: o.humans, friend: o.friend, partCount: t.part, pairFriend: t.pf, pairWin: t.pw });
+      if (rw.total <= 0) return { gained: 0, parts: rw.parts, before: u.xp, after: u.xp, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
+      await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'match',$3,$4)", [uid, o.ref, rw.total, JSON.stringify({ parts: rw.parts, puzzle: key, pieces: o.pieces, partner: pk, clears, label: o.label })]);
+      if (rw.earnedCompletion) await q('INSERT INTO puzzle_clears (user_id, puzzle_key, clears, last_at) VALUES ($1,$2,1,now()) ON CONFLICT (user_id, puzzle_key) DO UPDATE SET clears = puzzle_clears.clears + 1, last_at = now()', [uid, key]);
+      const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [rw.total, uid]);
+      return { gained: rw.total, parts: rw.parts, before: u.xp, after: r.rows[0].xp, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
+    });
+  }
+  // Paga as conquistas que acabaram de ser ganhas (uma única vez cada).
+  async function awardAchievements(uid) {
+    const st = await statsOf(uid);
+    const done = ACHIEVEMENTS.filter((a) => a.test(st) && xpm.ACH_XP[a.id]);
+    if (!done.length) return null;
+    return tx(async (q) => {
+      const u = (await q('SELECT xp FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
+      if (!u) return null;
+      const got = []; let add = 0;
+      for (const a of done) {
+        const r = await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'ach',$3,$4) ON CONFLICT (user_id, ref) DO NOTHING RETURNING id", [uid, 'ach:' + a.id, xpm.ACH_XP[a.id], JSON.stringify({ id: a.id, title: a.title })]);
+        if (r.rowCount) { got.push({ id: a.id, icon: a.icon, title: a.title, xp: xpm.ACH_XP[a.id] }); add += xpm.ACH_XP[a.id]; }
+      }
+      if (!add) return null;
+      const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [add, uid]);
+      return { got, add, before: u.xp, after: r.rows[0].xp };
+    });
+  }
+  // junta partida + conquistas em UM aviso para o celular (e atualiza o nível guardado)
+  function xpEvent(m, ach) {
+    if (!m && !ach) return null;                                // nada novo (partida já paga e nenhuma conquista nova)
+    const before = m ? m.before : ach.before, after = ach ? ach.after : m.after;
+    const gained = (m ? m.gained : 0) + (ach ? ach.add : 0);
+    if (!gained) return null;
+    const pr = xpm.progress(after), lvBefore = xpm.levelFromXp(before);
+    return { t: 'xp', gained, parts: m ? m.parts : {}, ach: ach ? ach.got : [], puzzle: m ? m.puzzle : '', pieces: m ? m.pieces : 0, rep: m ? m.rep : 1,
+             total: pr.total, level: pr.level, prevLevel: lvBefore, leveledUp: pr.level > lvBefore, into: pr.into, need: pr.need, pct: pr.pct, max: pr.max };
+  }
+  async function payAfterFriend(uid) {
+    try {
+      await ensureSeeded(uid);                                  // o histórico antigo (e as conquistas que já existiam) entra antes, sem aviso
+      const ach = await awardAchievements(uid);
+      const ev = ach ? xpEvent(null, ach) : null;
+      if (ach) levelMap.set(uid, xpm.levelFromXp(ach.after));
+      if (ev) notify(uid, ev);
+    } catch (e) { console.error('[contas] xp (amizade):', e.message); }
+  }
+  async function payMatch(uid, o) {
+    try {
+      await ensureSeeded(uid);
+      const m = await awardMatch(uid, o);
+      const ach = await awardAchievements(uid);
+      const ev = xpEvent(m, ach);
+      const fin = ach ? ach.after : (m ? m.after : null);
+      if (fin != null) levelMap.set(uid, xpm.levelFromXp(fin));
+      if (ev) notify(uid, ev);
+    } catch (e) { console.error('[contas] xp:', e.message); }
+  }
+
   /* ===================== histórico ===================== */
   async function addMatch(uid, m) {
     try {
@@ -651,25 +786,42 @@ function createAccounts(d) {
       phraseCache.delete(uid);                          // novas frases podem ter sido liberadas
     } catch (e) { console.error('[contas] histórico:', e.message); }
   }
+  async function areFriends(x, y) { try { const f = await friendRow(x, y); return !!(f && f.status === 'accepted'); } catch (e) { return false; } }
   async function finishCoop(room) {
+    const gameMs = d.elapsedOf(room);
     for (let i = 0; i < 2; i++) {
       const p = room.players[i];
       if (!p || !p.uid) continue;
       const other = room.players[1 - i];
+      const same = !!(other && other.uid && other.uid === p.uid);               // a mesma conta nos dois lados não conta como "outra pessoa"
+      const partnerUid = other && other.uid && !same ? other.uid : null;
+      await ensureSeeded(p.uid).catch(() => {});                                 // o histórico antigo entra ANTES desta partida
       await deleteSave(p.uid).catch(() => {});
-      await addMatch(p.uid, { mode: 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: d.elapsedOf(room), opponent: other ? other.name : '' });
+      await addMatch(p.uid, { mode: 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: gameMs, opponent: other ? other.name : '' });
+      await payMatch(p.uid, {
+        ref: 'c:' + room.code + ':' + room.startedAt, label: imageLabel(room.imageId), pieces: room.pieces.length, custom: /^custom:/.test(room.imageId),
+        completed: true, won: false, humans: !!other && !same, partnerUid, friend: partnerUid ? await areFriends(p.uid, partnerUid) : false, elapsedMs: gameMs, gameMs
+      });
     }
   }
   async function finishDuel(room, result) {
     for (let i = 0; i < 2; i++) {
       const p = room.players[i];
       if (!p || !p.uid) continue;
-      const me = result.players[i], other = result.players[1 - i];
-      const won = result.winner === i;
+      const me = result.players[i], other = result.players[1 - i], op = room.players[1 - i];
+      const won = result.winner === i, completed = me.locked >= result.total;
+      const same = !!(op && op.uid && op.uid === p.uid);
+      const partnerUid = op && op.uid && !same ? op.uid : null;
+      await ensureSeeded(p.uid).catch(() => {});
       await addMatch(p.uid, {
         mode: result.mode, imageLabel: imageLabel(result.imageId), pieces: result.total, result: won ? 'win' : 'loss',
-        completed: me.locked >= result.total, custom: /^custom:/.test(result.imageId),
+        completed, custom: /^custom:/.test(result.imageId),
         durationMs: me.finishedMs != null ? me.finishedMs : null, opponent: other.name
+      });
+      await payMatch(p.uid, {
+        ref: 'd:' + room.code + ':' + result.match + ':' + room.startedAt, label: imageLabel(result.imageId), pieces: result.total, custom: /^custom:/.test(result.imageId),
+        completed, won, humans: !!op && !same, partnerUid, friend: partnerUid ? await areFriends(p.uid, partnerUid) : false,
+        elapsedMs: me.finishedMs != null ? me.finishedMs : null, gameMs: result.elapsedMs
       });
     }
   }
@@ -698,7 +850,7 @@ function createAccounts(d) {
     if (old) { await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE id = $1", [old.id]); notify(t.id, { t: 'inv-up', id: old.id, status: 'expired' }); }
     const inv = await one('INSERT INTO invites (from_user, to_user, kind, room_code, image_label, pieces, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, expires_at',
       [uid, t.id, room.kind, room.code, imageLabel(room.imageId), room.pieces, new Date(Date.now() + INVITE_MS)]);
-    const me = await one('SELECT friend_code, name, avatar FROM users WHERE id = $1', [uid]);
+    const me = await one('SELECT friend_code, name, avatar, xp FROM users WHERE id = $1', [uid]);
     notify(t.id, { t: 'inv', invite: { id: inv.id, kind: room.kind, imageLabel: imageLabel(room.imageId), pieces: room.pieces, expiresAt: inv.expires_at, from: publicUser(me) } });
     return { ok: true, id: inv.id, expiresAt: inv.expires_at };
   }
@@ -717,7 +869,7 @@ function createAccounts(d) {
       notify(inv.from_user, { t: 'inv-up', id, status: 'expired' });
       return { ok: false, error: 'expired' };
     }
-    const me = await one('SELECT friend_code, name, avatar FROM users WHERE id = $1', [uid]);
+    const me = await one('SELECT friend_code, name, avatar, xp FROM users WHERE id = $1', [uid]);
     if (data.accept !== true) {
       await db.q("UPDATE invites SET status = 'declined', responded_at = now() WHERE id = $1 AND status = 'pending'", [id]);
       notify(inv.from_user, { t: 'inv-up', id, status: 'declined', by: publicUser(me) });
@@ -754,6 +906,7 @@ function createAccounts(d) {
       if (!u) return { ok: false, error: 'auth' };
       if (socket.data.uid && socket.data.uid !== u.id) unbind();
       socket.data.uid = u.id;
+      await ensureSeeded(u.id).catch(() => {});                          // (deixa o nível pronto para mostrar nas salas)
       socket.join('u:' + u.id);
       let set = online.get(u.id);
       if (!set) { set = new Set(); online.set(u.id, set); }
@@ -784,7 +937,7 @@ function createAccounts(d) {
   return {
     enabled: true,
     config: { google: googleClientId },
-    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
+    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, levelOf, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
     verifyGoogleIdToken: (t) => verifyGoogleIdToken(t, googleClientId, getKeys),
     close: () => { clearInterval(sweeper); }
   };
