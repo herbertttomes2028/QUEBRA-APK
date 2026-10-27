@@ -1913,9 +1913,12 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
   min-height: 44px; padding: 10px 20px; border-radius: 999px; white-space: nowrap;
   background: var(--sun); color: var(--on-sun); font: 700 .98rem "Fredoka", var(--font);
   box-shadow: 0 4px 0 var(--sun-deep), 0 10px 20px rgba(27, 37, 89, .25);
-  animation: sheet-in .25s ease-out;
+  animation: chip-in .25s ease-out;
 }
 .res-chip[hidden] { display: none; }
+/* animação própria: a de "sheet-in" terminava em transform:none e apagava o translateX(-50%), então o atalho nascia torto e dava um pulo */
+@keyframes chip-in { from { transform: translateX(-50%) translateY(24px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+html[data-motion="reduce"] .res-chip { animation: none; }
 
 /* bate-papo: o painel só mostra UMA visão por vez (conversa OU frases prontas); nada fica por trás */
 .chat-panel { height: clamp(250px, 48vh, 420px); overflow: hidden; }
