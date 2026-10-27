@@ -167,9 +167,14 @@
               <div class="me-card me-profile">
                 <button id="me-avatar" class="me-avatar" type="button" aria-label="Trocar meu avatar"><span id="me-avatar-face">👤</span><i class="me-avatar-pen" aria-hidden="true">✎</i></button>
                 <div class="me-profile-main">
-                  <label class="me-field me-field-tight"><span>Nome de jogador</span>
+                  <label class="me-field me-field-tight"><span>Nome de jogador <span id="me-lv" hidden></span></span>
                     <span class="me-name-row"><input id="me-name" type="text" maxlength="12" autocomplete="nickname"><button id="me-name-save" class="btn btn-secondary me-mini" type="button">Salvar</button></span></label>
                 </div>
+              </div>
+              <div id="me-xp" class="me-card me-xp" hidden>
+                <div class="xp-top"><span id="xp-lv"></span><b id="xp-txt">0 / 50 XP</b></div>
+                <div class="xp-bar" role="progressbar" aria-label="Progresso para o próximo nível" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="xp-fill"></i></div>
+                <small id="xp-next">Faltam 50 XP para o nível 2</small>
               </div>
               <div id="me-avatars" class="me-card me-avatars" hidden><div id="me-avatar-grid" class="avatar-grid"></div></div>
               <div class="me-card me-code">
@@ -375,6 +380,11 @@
 
     </section>
 
+    <!-- ========== SUBIU DE NÍVEL (animação rápida, sem tocar em nada) ========== -->
+    <div id="lvup" class="lvup" hidden role="status" aria-live="polite">
+      <div class="lvup-card"><span class="lvup-burst" aria-hidden="true"></span><small>Subiu de nível!</small><b id="lvup-n">Nv 2</b></div>
+    </div>
+
     <!-- ========== CONFIRMAÇÃO (substitui o confirm() do navegador) ========== -->
     <div id="modal-confirm" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="cfm-title" aria-describedby="cfm-text">
       <div class="sheet cfm-sheet">
@@ -516,6 +526,7 @@
         <h3 id="win-title">Vocês conseguiram! 🎉</h3>
         <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
         <p id="win-best" class="win-best" hidden></p>
+        <div id="win-xp" class="xp-line" hidden role="status"></div>
         <div class="win-split">
           <span class="win-p me"><span id="win-me-av" class="avatar sm"><span class="av-face">V</span></span><span id="win-me-name" class="win-name">Você</span><b id="win-me">0</b> peças</span>
           <span class="win-p friend"><span id="win-friend-av" class="avatar sm"><span class="av-face">A</span></span><span id="win-friend-name" class="win-name">Amigo</span><b id="win-friend">0</b> peças</span>
@@ -538,6 +549,7 @@
         <h3 id="duel-title">Você venceu!</h3>
         <p id="duel-sub" class="duel-sub"></p>
         <p class="win-time">Tempo: <strong id="duel-time">00:00</strong></p>
+        <div id="duel-xp" class="xp-line" hidden role="status"></div>
         <div class="duel-rows">
           <div id="dr0" class="duel-row"><span id="dr0-av" class="avatar sm"><span class="av-face">V</span></span><span class="dr-main"><b class="dr-name">Você</b><span class="dr-bar"><i></i></span></span><span class="dr-num"><b class="dr-pct">0%</b><small class="dr-pcs">0/0</small></span><span class="dr-crown" hidden aria-hidden="true">👑</span></div>
           <div id="dr1" class="duel-row"><span id="dr1-av" class="avatar sm p1"><span class="av-face">?</span></span><span class="dr-main"><b class="dr-name">Adversário</b><span class="dr-bar"><i></i></span></span><span class="dr-num"><b class="dr-pct">0%</b><small class="dr-pcs">0/0</small></span><span class="dr-crown" hidden aria-hidden="true">👑</span></div>

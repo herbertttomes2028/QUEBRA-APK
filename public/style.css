@@ -1980,3 +1980,52 @@ html[data-motion="reduce"] .wk-spin { animation: none; border-top-color: rgba(25
 .fp-h span { font-size: .8rem; color: var(--ink-soft); font-weight: 800; }
 .fp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 
+/* =========================================================
+ * Nível e XP
+ * ========================================================= */
+/* selo de nível colado ao nome: "[Nv 12] Nome". Pequeno, não quebra linha e muda de cor por faixa */
+.lv { display: inline-block; flex: none; vertical-align: .08em; margin-right: .38em; padding: .05em .5em .08em; border-radius: 999px; font: 700 .66em/1.25 "Fredoka", var(--font); letter-spacing: .02em; white-space: nowrap; color: #fff; background-color: var(--lv-b); background-image: linear-gradient(180deg, var(--lv-a), var(--lv-b)); box-shadow: 0 1px 0 rgba(0, 0, 0, .18), inset 0 1px 0 rgba(255, 255, 255, .22); text-shadow: 0 1px 0 rgba(0, 0, 0, .2); }
+/* cores com contraste de pelo menos 4,5:1 entre o texto e as DUAS pontas do degradê */
+.lv.t1 { --lv-a: #3f67e0; --lv-b: #2c4fb5; }
+.lv.t2 { --lv-a: #0b8461; --lv-b: #087052; }
+.lv.t3 { --lv-a: #7c4fe0; --lv-b: #5f34b8; }
+.lv.t4 { --lv-a: #ffa347; --lv-b: #e0791f; color: #2b1a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .35); }
+.lv.t5 { --lv-a: #ffd24a; --lv-b: #e0a400; color: #3a2a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
+.lv.lv-lg { font-size: .95rem; padding: .12em .7em .15em; margin-right: 0; }
+.nm { min-width: 0; overflow-wrap: anywhere; }
+.fr-info b, .lp-name, .dr-name, .chat-msg .who, #chat-pop b, #fp-name, #win-me-name, #win-friend-name { min-width: 0; }
+#fp-name .lv { font-size: .5em; }
+.me-field > span .lv { font-size: .8em; margin-left: .35em; margin-right: 0; vertical-align: .05em; }
+#me-chip-text .lv { font-size: .62em; margin-right: .3em; }
+
+/* cartão de progresso no perfil */
+.me-xp { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px 12px; }
+.xp-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.xp-top b { font: 700 .95rem "Fredoka", var(--font); color: var(--ink); }
+.xp-bar { height: 10px; border-radius: 999px; background: var(--paper-3); box-shadow: inset 0 0 0 2px var(--line); overflow: hidden; }
+.xp-bar.t1 { --lv-a: #5b8cff; --lv-b: #3f67e0; } .xp-bar.t2 { --lv-a: #2fd3a3; --lv-b: #0b9d74; } .xp-bar.t3 { --lv-a: #a06bff; --lv-b: #7c4fe0; } .xp-bar.t4 { --lv-a: #ffb55c; --lv-b: #e0791f; } .xp-bar.t5 { --lv-a: #ffd24a; --lv-b: #e0a400; }
+.xp-bar i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--lv-a, #5b8cff), var(--lv-b, #3b63d9)); transition: width .8s cubic-bezier(.22, 1, .36, 1); }
+.me-xp small { color: var(--ink-soft); font-weight: 700; font-size: .78rem; }
+html[data-motion="reduce"] .xp-bar i { transition: none; }
+
+/* XP ganho, nas telas de conclusão */
+.xp-line { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 12px 10px; border-radius: 16px; background: var(--paper-2); box-shadow: inset 0 0 0 2px var(--line); text-align: center; }
+.xp-line[hidden] { display: none; }
+.xp-gain { display: flex; align-items: center; justify-content: center; gap: 8px; font: 700 1.15rem "Fredoka", var(--font); color: var(--ink); }
+.xp-line .xp-bar { width: 100%; max-width: 260px; height: 8px; }
+.xp-det { color: var(--ink-soft); font-weight: 700; font-size: .76rem; line-height: 1.35; overflow-wrap: anywhere; }
+.xp-rep { color: var(--ink-soft); font-weight: 700; font-size: .72rem; opacity: .85; }
+
+/* animação de subir de nível: breve, por cima de tudo e sem capturar toques */
+.lvup { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; pointer-events: none; }
+.lvup[hidden] { display: none; }
+.lvup-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 30px 18px; border-radius: 26px; color: #fff; background: linear-gradient(180deg, #6f52ff, #4a32c9); box-shadow: 0 12px 0 #321f96, 0 24px 44px rgba(27, 37, 89, .45); animation: lvup-pop 2.3s cubic-bezier(.34, 1.56, .64, 1) both; }
+.lvup-card small { font-weight: 800; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; opacity: .92; }
+.lvup-card b { font: 700 2.6rem/1.05 "Fredoka", var(--font); text-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+.lvup-burst { position: absolute; z-index: -1; left: 50%; top: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 220, 90, .0), rgba(255, 220, 90, .55), rgba(255, 220, 90, 0), rgba(255, 220, 90, .55), rgba(255, 220, 90, 0)); animation: lvup-spin 2.3s linear both; filter: blur(2px); }
+@keyframes lvup-pop { 0% { transform: scale(.4) translateY(30px); opacity: 0; } 14% { transform: scale(1.08); opacity: 1; } 24% { transform: scale(1); } 80% { transform: scale(1); opacity: 1; } 100% { transform: scale(.92) translateY(-14px); opacity: 0; } }
+@keyframes lvup-spin { 0% { transform: rotate(0); opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { transform: rotate(160deg); opacity: 0; } }
+html[data-motion="reduce"] .lvup-card { animation: lvup-fade 2.3s ease both; }
+html[data-motion="reduce"] .lvup-burst { display: none; }
+@keyframes lvup-fade { 0% { opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+
