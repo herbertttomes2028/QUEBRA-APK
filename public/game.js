@@ -60,6 +60,7 @@
     pickMode: 'create',
     pickChoice: null,
     pickPieces: 12,
+    showOnlyEdges: false,
     idleTimer: null
   };
 
@@ -538,6 +539,12 @@
       state.inGame = true;
       $('#duel-strip').hidden = true; $('#duel-banner').hidden = true;
       $('#menu-change').hidden = false; $('#menu-restart').hidden = false;
+      state.showOnlyEdges = false;
+    var bEdge = $('#btn-edge');
+    if (bEdge) {
+      bEdge.classList.remove('active');
+      bEdge.onclick = toggleEdgeFilter;
+    }
       showScreen('game');
       if (!state.tipShown) {
         state.tipShown = true;
@@ -1151,7 +1158,31 @@
     refreshLamp();
     updateHud();
   }
+/* ---------- Alternar filtro de bordas ---------- */
+  function toggleEdgeFilter() {
+    state.showOnlyEdges = !state.showOnlyEdges;
+    var b = $('#btn-edge');
+    if (b) b.classList.toggle('active', state.showOnlyEdges);
 
+    if (!state.cfg || !state.pieces) return;
+    var cols = state.cfg.COLS, rows = state.cfg.ROWS;
+
+    state.pieces.forEach(function (p) {
+      if (p.locked) return; // peças já encaixadas continuam normais
+      var isEdge = (p.col === 0 || p.col === cols - 1 || p.row === 0 || p.row === rows - 1);
+      if (state.showOnlyEdges && !isEdge) {
+        p.el.style.opacity = '0.15';
+        p.el.style.filter = 'grayscale(80%)';
+        p.el.style.pointerEvents = 'none';
+      } else {
+        p.el.style.opacity = '1';
+        p.el.style.filter = '';
+        p.el.style.pointerEvents = '';
+      }
+    });
+
+    toast(state.showOnlyEdges ? 'Mostrando peças de borda' : 'Todas as peças visíveis');
+  }
   function updateHud() {
     syncResultChip();
     $('#hud-count').textContent = state.locked + '/' + state.total;
@@ -1398,7 +1429,19 @@
     gift: function (c) { tone(c, 330, 0, .07, 'triangle', .12); tone(c, 494, .05, .08, 'triangle', .12); tone(c, 740, .1, .16, 'sine', .12); },
     tick: function (c) { tone(c, 520, 0, .14, 'sine', .15); },
     tick2: function (c) { tone(c, 760, 0, .18, 'sine', .17); },
-    snap: function (c) { tone(c, 523, 0, .09, 'triangle', .13); tone(c, 784, .07, .15, 'triangle', .13); },
+  snap: function (c) {
+      var t = c.currentTime;
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(340, t);
+      o.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+      g.gain.setValueAtTime(0.65, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      o.connect(g);
+      g.connect(c.destination);
+      o.start(t);
+      o.stop(t + 0.08);
+    },
     win: function (c) { [523, 659, 784, 1047].forEach(function (f, i) { tone(c, f, i * .13, .28, 'triangle', .15); }); tone(c, 1319, .55, .5, 'sine', .12); },
     msg: function (c) { tone(c, 880, 0, .1, 'sine', .09); tone(c, 1175, .09, .16, 'sine', .09); },
     chime: function (c) { tone(c, 659, 0, .12, 'triangle', .11); tone(c, 988, .1, .22, 'triangle', .11); },
@@ -1845,8 +1888,7 @@
     classify(p);
     state.counts = d.counts;
     state.locked = d.locked;
-    if (d.by === state.idx) vibrate(25);
-    if (state.spotPiece === p.id) { clearSpot(); }
+if (d.by === state.idx) vibrate([18, 25, 22]);    if (state.spotPiece === p.id) { clearSpot(); }
     updateUi();
     if (state.locked < state.total) { playSound('snap'); announce('Peça encaixada. ' + state.locked + ' de ' + state.total + '.'); }
     checkMilestones();
