@@ -418,8 +418,9 @@
     return 'Não foi possível conectar. Tente de novo.';
   }
 
+  // O nome e o avatar agora são definidos no PERFIL da conta (não mais na tela inicial). Sem nome, o servidor atribui "Jogador 1" ou "Jogador 2".
   function readName() {
-    state.name = $('#input-name').value.replace(/\s+/g, ' ').trim().slice(0, 12);
+    state.name = String(state.name || '').replace(/\s+/g, ' ').trim().slice(0, 12);
     store.set('name', state.name);
     return state.name;
   }
@@ -1516,26 +1517,6 @@
       el.classList.toggle('off', !online);
       el.setAttribute('aria-label', isMe ? name + ' (você)' : (joined ? name + (online ? '' : ' (fora da sala)') : 'Amigo: aguardando'));
     }
-  }
-
-  function renderAvatarPicker() {
-    var grid = $('#avatar-grid');
-    grid.innerHTML = '';
-    function add(face, val, label, cls) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.setAttribute('role', 'radio');
-      b.setAttribute('aria-checked', state.avatar === val ? 'true' : 'false');
-      b.setAttribute('aria-label', label);
-      b.dataset.v = val;
-      if (cls) b.className = cls;
-      b.textContent = face;
-      grid.appendChild(b);
-      return b;
-    }
-    var letter = add(initialOf($('#input-name').value) || 'A', '', 'Usar a inicial do meu nome', 'letter');
-    letter.id = 'avatar-letter';
-    state.avatars.forEach(function (e) { add(e, e, 'Avatar ' + e); });
   }
 
   /* ---------------------------------------------------------
@@ -2882,9 +2863,6 @@
     row.classList.toggle('ready', ready);
   });
   $('#input-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-join').click(); });
-  $('#input-name').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { if ($('#input-code').value.length === state.codeLen) $('#btn-join').click(); else $('#input-name').blur(); }
-  });
 
   $('#pick-grid').addEventListener('click', function (e) {
     if (e.target.closest('.add-card')) { chooseFile(); return; }
@@ -3016,17 +2994,6 @@
   $('#av-me').addEventListener('click', function () { toast(this.getAttribute('aria-label')); });
   $('#av-friend').addEventListener('click', function () { toast(this.getAttribute('aria-label')); });
 
-  // avatar da tela inicial
-  $('#avatar-grid').addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('button');
-    if (!b) return;
-    var changed = (b.dataset.v || '') !== state.avatar;
-    state.avatar = b.dataset.v || '';
-    store.set('avatar', state.avatar);
-    Array.prototype.forEach.call($('#avatar-grid').children, function (x) { x.setAttribute('aria-checked', x === b ? 'true' : 'false'); });
-    popEl(b, 'pop');
-    if (changed) vibrate(8);
-  });
 
   // toque no logotipo: os quatro blocos se encaixam de novo (só quando o movimento está liberado)
   $('#logo').addEventListener('click', function () {
@@ -3053,13 +3020,12 @@
       if (Math.abs(dy) > 1) { try { home.scrollBy({ top: dy, behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { home.scrollTop += dy; } }
     }
     if (vv) { vv.addEventListener('resize', sync); vv.addEventListener('scroll', sync); }
-    ['#input-name', '#input-code'].forEach(function (sel) {
+    ['#input-code'].forEach(function (sel) {
       var el = $(sel);
       el.addEventListener('focus', function () { setTimeout(function () { sync(); reveal(el); }, 320); });
       el.addEventListener('blur', function () { setTimeout(sync, 150); });
     });
   })();
-  $('#input-name').addEventListener('input', function () { var l = $('#avatar-letter'); if (l) l.textContent = initialOf(this.value) || 'A'; });
 
   var stageEl = $('#stage');
   stageEl.addEventListener('pointerdown', onPointerDown);
@@ -3098,12 +3064,9 @@
    * --------------------------------------------------------- */
   // nome e avatar lembrados neste aparelho
   state.name = store.get('name', '') || '';
-  $('#input-name').value = state.name;
   applySettings();
-  renderAvatarPicker();
 
   fetchConfig().then(function () {
-    renderAvatarPicker();
     updatePushNote();
     var param = '';
     try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, state.codeLen); } catch (e) { /* ignora */ }
@@ -3112,14 +3075,14 @@
       $('#input-code').value = param;
       if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
       var inv = $('#home-invite');
-      inv.innerHTML = 'Você foi convidado para a sala <strong></strong>.<br>Digite seu nome e toque em <b>Entrar</b>.';
+      inv.innerHTML = 'Você foi convidado para a sala <strong></strong>.<br>Toque em <b>Entrar</b>.';
       inv.querySelector('strong').textContent = param;
       inv.hidden = false;
       $('#btn-create').hidden = true;
       $('#cta-row').hidden = true;
       $('#btn-join').classList.remove('btn-secondary');
       $('#btn-join').classList.add('btn-primary');
-      try { $('#input-name').focus(); } catch (e) { /* ignora */ }
+      try { $('#btn-join').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
     }
   });
 
@@ -3310,11 +3273,9 @@
     goLabel: null,
     applyProfile: function (name, avatar) {
       state.name = String(name || '').slice(0, 12);
-      $('#input-name').value = state.name;
       store.set('name', state.name);
       state.avatar = avatar || '';
       store.set('avatar', state.avatar);
-      renderAvatarPicker();
     },
     afterEnter: null, onScreen: null, canBlock: false,
     setUnlocked: function (ids) { state.unlocked = null; if (ids) { state.unlocked = {}; ids.forEach(function (id) { state.unlocked[id] = true; }); } if (state.chatOpen) renderPhrases(); }
