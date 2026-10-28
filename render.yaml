@@ -20,9 +20,3 @@ services:
         sync: false          # e-mail remetente já confirmado no Brevo
       - key: BREVO_SENDER_NAME
         sync: false          # opcional: nome do remetente
-    envVars:
-      # Contas e amigos (opcional). Veja o CONTAS.md. Os valores são preenchidos no painel do Render (nunca aqui).
-      - key: DATABASE_URL
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
