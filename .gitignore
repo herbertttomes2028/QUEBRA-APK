@@ -1,0 +1,25 @@
+# Dependências: vêm do "npm install" (nunca enviar a pasta inteira)
+node_modules/
+
+# Segredos e configuração local: NUNCA enviar ao GitHub
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+signing-key-info.txt
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Saídas locais
+coverage/
