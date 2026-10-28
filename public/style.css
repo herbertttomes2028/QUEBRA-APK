@@ -1855,6 +1855,14 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
   transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
 }
 .sheet-x:active { transform: scale(.9); }
+/* X da tela da partida concluída (depois que a janela de resultado fecha): 44×44 sem aumentar a altura do cabeçalho */
+.hud .hud-x { width: 44px; height: 44px; margin: -2px; border-radius: 50%; font: 800 1.2rem/1 system-ui, sans-serif; }   /* 44 px visíveis, 40 px de espaço: o cabeçalho não cresce nem em altura nem em largura */
+.hud .hud-x[hidden] { display: none; }
+.hud .hud-x:active { transform: scale(.9); }
+/* partida concluída: a lâmpada não serve mais e dá a largura ao X */
+#screen-game.done #btn-hint { display: none; }
+/* telas de até 340 px: o cabeçalho já não sobra largura; com a partida concluída os avatares saem para o X caber inteiro */
+@media (max-width: 340px) { #screen-game.done .hud-players { display: none; } }
 .priv-sheet .sheet-x { margin-bottom: -38px; }
 .modal[hidden], #modal-confirm[hidden], #modal-privacy[hidden] { display: none !important; }
 

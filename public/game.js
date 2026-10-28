@@ -3132,8 +3132,14 @@
   function syncResultChip() {
     var chip = $('#res-reopen');
     if (!chip) return;
-    chip.hidden = !(state.status === 'won' && $('#screen-game').classList.contains('active') && $(resultModalSel()).hidden);
+    var onGame = $('#screen-game').classList.contains('active');
+    chip.hidden = !(state.status === 'won' && onGame && $(resultModalSel()).hidden);
+    // partida concluída (cooperativo, desafio): o X no cabeçalho fecha a tela e volta ao início; a lâmpada dá o lugar a ele
+    var done = state.status === 'won' && onGame;
+    $('#screen-game').classList.toggle('done', done);
+    $('#res-close').hidden = !done;
   }
+  $('#res-close').addEventListener('click', leaveNow);
   $('#res-reopen').addEventListener('click', function () { openModal(resultModalSel(), state.duel ? '#duel-rematch' : '#win-again'); });
 
   /* política de privacidade dentro do aplicativo (abrir uma aba externa mostraria o endereço do site) */
@@ -3163,8 +3169,12 @@
       ok: 'Sair', cancel: 'Continuar jogando', danger: true
     }).then(function (ok) {
       if (!ok) return;
-      if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
+      leaveNow();
     });
+  }
+  // sair de verdade (sem perguntar): usado pela confirmação acima e pelo X da partida concluída
+  function leaveNow() {
+    if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
   }
 
   /* ---------------------------------------------------------

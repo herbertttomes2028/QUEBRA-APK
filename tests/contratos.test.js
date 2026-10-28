@@ -176,3 +176,15 @@ test('.gitignore protege node_modules, segredos e a chave do APK', () => {
   for (const p of ['node_modules/', '.env', '.env.*', '*.keystore', '*.jks', 'signing-key-info.txt']) assert.ok(gi.includes(p), '.gitignore perdeu ' + p);
   assert.ok(gi.includes('!.env.example'), '.env.example deve continuar versionável');
 });
+
+test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, e o botão voltar continua perguntando', () => {
+  const html = read('public/index.html'), game = read('public/game.js'), css = read('public/style.css');
+  assert.ok(/<button id="res-close"[^>]*\bhidden\b/.test(html), '#res-close deve existir e nascer escondido');
+  assert.ok(/addEventListener\('click', leaveNow\)/.test(game), 'o X deve chamar leaveNow');
+  assert.ok(/function leaveNow\(\)\s*\{\s*if \(state\.duel\) leaveDuel\(\); else \{ socket\.disconnect\(\); reloadClean\(\); \}/.test(game), 'leaveNow mudou');
+  const ask = body(game, /function askLeave\(\)/);
+  assert.ok(/leaveNow\(\)/.test(ask), 'askLeave deve usar o mesmo caminho (leaveNow)');
+  assert.ok(/if \(scr === 'lobby' \|\| scr === 'game'\) \{ askLeave\(\); return true; \}/.test(game), 'o botão voltar na tela da partida deve continuar perguntando (askLeave)');
+  assert.ok(/\.hud \.hud-x\s*\{[^}]*width: 44px; height: 44px;/.test(css), 'o X deve ter 44×44');
+  assert.ok(/#screen-game\.done #btn-hint\s*\{\s*display: none;/.test(css));
+});
