@@ -57,6 +57,7 @@
     finalMs: 0,
     inGame: false,
     friendOnline: false,
+    solo: false,
     pickMode: 'create',
     pickChoice: null,
     pickPieces: 12,
@@ -291,8 +292,8 @@
    * --------------------------------------------------------- */
   function openPick(mode) {
     state.pickMode = mode;
-    $('#pick-title').textContent = mode === 'create' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
-    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
+    $('#pick-title').textContent = mode === 'create' || mode === 'solo' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
+    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : mode === 'solo' ? 'Toque numa imagem para escolher.' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
     $('#duel-modes').hidden = mode !== 'duel';
     $('#btn-pick-go').textContent = goButtonText();
     showError($('#pick-error'), '');
@@ -310,7 +311,7 @@
 
   function goButtonText() {
     if (window.QC && window.QC.goLabel) return window.QC.goLabel;       // convite a um amigo: "Criar e convidar Fulano"
-    return state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
+    return state.pickMode === 'solo' ? 'Jogar' : state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
   }
 
   var PLUS_SVG = '<svg class="add-plus" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="plusg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6bff"/><stop offset=".5" stop-color="#ff4f8b"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="#fff" stroke="url(#plusg)" stroke-width="5"/><path d="M32 17v30M17 32h30" stroke="url(#plusg)" stroke-width="8" stroke-linecap="round"/></svg>';
@@ -469,10 +470,12 @@
     }
   }
 
-  function doCreate(imageId, pieces) {
-    setLoading(true, 'Criando a sala…');
+  function doCreate(imageId, pieces, solo) {
+    setLoading(true, solo ? 'Preparando a partida…' : 'Criando a sala…');
     leaveDuelQuiet();
-    socket.emit('create', { pid: state.pid, imageId: imageId, pieces: pieces, name: readName(), avatar: state.avatar }, function (res) {
+    var payload = { pid: state.pid, imageId: imageId, pieces: pieces, name: readName(), avatar: state.avatar };
+    if (solo) payload.solo = true;
+    socket.emit('create', payload, function (res) {
       if (!res || !res.ok) {
         setLoading(false);
         hideGoSplash(true);
@@ -515,6 +518,7 @@
     return imagesReady.then(function () {
       return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
     }).then(function (url) {
+      setSolo(!!snap.solo);
       state.cfg = snap.cfg;
       state.code = snap.code;
       state.imageId = snap.imageId;
@@ -535,7 +539,7 @@
       closeHint();
       clearSpot();
       markMilestones();
-      try { urlSet('?sala=' + snap.code); } catch (e) { /* ignora */ }
+      if (!state.solo) { try { urlSet('?sala=' + snap.code); } catch (e) { /* ignora */ } }     // Solo: sem código e sem link para compartilhar
       state.inGame = true;
       $('#duel-strip').hidden = true; $('#duel-banner').hidden = true;
       $('#menu-change').hidden = false; $('#menu-restart').hidden = false;
@@ -544,7 +548,7 @@
         state.tipShown = true;
         if (!store.get('tutorial', 0)) setTimeout(openTutorial, 800 + goRemaining());    // primeira vez neste aparelho (depois da abertura)
       }
-      ensurePush();
+      if (!state.solo) ensurePush();
       layout();
       updateUi();
       setLoading(false);
@@ -1007,8 +1011,13 @@
   var EMOJI_ONLY = null;
   try { EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}|\\u200d|\\ufe0f|\\s){1,8}$', 'u'); } catch (e) { /* navegador antigo: sem destaque */ }
 
+  // Solo: sem tela de código, sem amigo, sem bate-papo; só isso muda (as ajudas, o giro, o cronômetro e os sons continuam)
+  function setSolo(on) {
+    state.solo = !!on;
+    $('#screen-game').classList.toggle('solo', state.solo);
+  }
   function setChatAvailability(on) {
-    state.chatOn = !!on;
+    state.chatOn = !!on && !state.solo;
     $('#btn-chat').hidden = !state.chatOn;
     if (!state.chatOn) closeChat();
   }
@@ -1220,7 +1229,7 @@
 
   function updateHud() {
     syncResultChip();
-    $('#hud-count').textContent = state.locked + '/' + state.total;
+    $('#hud-count').textContent = state.solo && state.total ? state.locked + '/' + state.total + ' · ' + Math.round((100 * state.locked) / state.total) + '%' : state.locked + '/' + state.total;
     $('#hud-bar').style.width = (state.total ? (100 * state.locked) / state.total : 0) + '%';
     var pg = $('#hud-progress');
     pg.setAttribute('aria-valuemax', String(state.total));
@@ -1231,7 +1240,7 @@
     }
     // faixa com o código: só aparece enquanto o amigo não está na sala
     var fp = state.idx !== null && state.players ? state.players[1 - state.idx] : null;
-    $('#banner-wait').hidden = !(state.inGame && !state.duel && !state.friendOnline && state.status !== 'won');
+    $('#banner-wait').hidden = !(state.inGame && !state.duel && !state.solo && !state.friendOnline && state.status !== 'won');
     if (state.duel) paintStrip();
     $('#wait-msg').textContent = fp && fp.joined ? 'amigo saiu' : 'aguardando…';
   }
@@ -1252,7 +1261,7 @@
     state.status = m.status;
     if (!state.duel) {                                           // imagem própria: a partida só começa quando os dois celulares a prepararam
       var wait = $('#duel-banner');
-      if (m.loading) { wait.className = 'banner warn duel-banner info'; wait.textContent = 'Preparando a imagem nos dois celulares…'; wait.hidden = false; }
+      if (m.loading) { wait.className = 'banner warn duel-banner info'; wait.textContent = state.solo ? 'Preparando a imagem…' : 'Preparando a imagem nos dois celulares…'; wait.hidden = false; }
       else if (wait.classList.contains('info')) { wait.hidden = true; }
     }
     state.counts = m.counts || [0, 0];
@@ -1271,6 +1280,9 @@
     hideXpBoxes(); refreshXp();
     state.finalMs = data.elapsedMs;
     $('#win-time').textContent = fmtTime(data.elapsedMs);
+    $('#win-title').textContent = state.solo ? 'Você conseguiu! 🎉' : 'Vocês conseguiram! 🎉';
+    $('#win-art').setAttribute('aria-label', state.solo ? 'A imagem que você montou' : 'A imagem montada por vocês');
+    $('#modal-win .win-split').hidden = state.solo;          // sem o quadro de peças de cada jogador
     $('#win-me').textContent = data.counts[state.idx] || 0;
     $('#win-friend').textContent = data.counts[1 - state.idx] || 0;
     nameLv($('#win-me-name'), myName(), lvOfIdx(state.idx));
@@ -1304,7 +1316,7 @@
     refreshXp();                                   // (o aviso de XP pode ter chegado enquanto a janela ainda não abria)
     vibrate([40, 60, 40]);
     playSound('win');
-    announce('Vocês conseguiram! Tempo: ' + fmtTime(data.elapsedMs) + '. ' + best.text);
+    announce((state.solo ? 'Você conseguiu!' : 'Vocês conseguiram!') + ' Tempo: ' + fmtTime(data.elapsedMs) + '. ' + best.text);
   }
 
 
@@ -1974,6 +1986,7 @@
     state.chat = [];
     state.unread = 0;
     state.inGame = false;
+    setSolo(false);
     state.code = null;
     state.pieces = [];
     try { urlSet(location.pathname); } catch (e) { /* ignora */ }
@@ -2276,6 +2289,7 @@
     };
     state.code = l.code;
     state.imageId = l.imageId;
+    setSolo(false);
     setChatAvailability(res.chatOn !== false);
     setChatHistory(res.chat || []);
     saveDuelLocal();
@@ -2460,6 +2474,7 @@
       state.timerBase = Date.now() - snap.elapsedMs;
       clearTimeout(state.idleTimer);
       buildField(snap);
+      setSolo(false);
       setChatAvailability(snap.chatOn !== false);
       setChatHistory(snap.chat || []);
       ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
@@ -2847,7 +2862,10 @@
   /* ---------------------------------------------------------
    * Botões e teclado
    * --------------------------------------------------------- */
-  $('#btn-create').addEventListener('click', function () { popEl(this, 'go'); readName(); openPick('create'); });
+  // "Jogar" abre a escolha: Sozinho (Solo) ou Com um amigo (o cooperativo de sempre, com código)
+  $('#btn-play').addEventListener('click', function () { popEl(this, 'go'); openModal('#modal-play', '#btn-solo'); });
+  $('#btn-solo').addEventListener('click', function () { closeModal('#modal-play'); readName(); openPick('solo'); });
+  $('#btn-create').addEventListener('click', function () { closeModal('#modal-play'); readName(); openPick('create'); });
 
   $('#btn-join').addEventListener('click', function () {
     var code = $('#input-code').value.trim().toUpperCase();
@@ -2894,6 +2912,9 @@
     if (!state.pickChoice) return;
     if (state.pickMode === 'duel') {
       createDuel();
+    } else if (state.pickMode === 'solo') {
+      showGoSplash(state.pickChoice);
+      doCreate(state.pickChoice, state.pickPieces, true);
     } else if (state.pickMode === 'create') {
       showGoSplash(state.pickChoice);
       doCreate(state.pickChoice, state.pickPieces);
@@ -2928,7 +2949,7 @@
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
   }
 
-  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = !(window.QC && window.QC.canBlock); openModal('#modal-menu', '#menu-close'); });
+  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = !(window.QC && window.QC.canBlock) || state.solo; openModal('#modal-menu', '#menu-close'); });
   // "Bloquear jogador": só para quem tem conta (a outra pessoa também precisa ter conta para poder ser bloqueada)
   $('#menu-block').addEventListener('click', function () {
     askConfirm({ title: 'Bloquear esta pessoa?', text: 'Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.', ok: 'Bloquear', danger: true }).then(function (ok) {
@@ -3165,7 +3186,7 @@
     var d = state.duel, inMatch = !!(d && d.phase === 'game');
     askConfirm({
       title: d ? (inMatch ? 'Sair da disputa?' : 'Sair da sala?') : 'Sair da partida?',
-      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : 'Você vai sair da partida. Seu amigo pode continuar na sala.',
+      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : state.solo ? 'Você vai sair da partida e o progresso será perdido.' : 'Você vai sair da partida. Seu amigo pode continuar na sala.',
       ok: 'Sair', cancel: 'Continuar jogando', danger: true
     }).then(function (ok) {
       if (!ok) return;

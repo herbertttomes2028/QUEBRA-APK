@@ -14,7 +14,7 @@ const dorme = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function largada(mode, pieces) {
   const a = await client(srv.url), b = await client(srv.url);
-  const c1 = await a.emitAck('ch:create', { pid: 'pid-a-' + Math.random(), imageId: cfgJson.images[0].id, pieces, mode, name: 'Ana' });
+  const c1 = await a.emitAck('ch:create', { pid: 'pid-a-' + Math.random(), imageId: cfgJson.images[0].file, pieces, mode, name: 'Ana' });
   assert.ok(c1.ok, JSON.stringify(c1));
   const code = c1.lobby.code;
   const c2 = await b.emitAck('ch:join', { pid: 'pid-b-' + Math.random(), code, name: 'Beto' });

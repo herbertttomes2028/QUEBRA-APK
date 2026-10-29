@@ -628,6 +628,7 @@ function createAccounts(d) {
   }
   // chamado pelo servidor quando algo muda numa sala cooperativa: guarda o ESTADO ATUAL de cada jogador com conta (com atraso, sem pesar)
   function noteCoop(room, immediate) {
+    if (room.solo) return;                       // o Solo nunca grava no "Continuar jogando" do cooperativo (tabela saves: uma linha por jogador)
     for (let i = 0; i < 2; i++) {
       const p = room.players[i];
       if (!p || !p.uid) continue;
@@ -788,6 +789,7 @@ function createAccounts(d) {
   }
   async function areFriends(x, y) { try { const f = await friendRow(x, y); return !!(f && f.status === 'accepted'); } catch (e) { return false; } }
   async function finishCoop(room) {
+    const solo = room.solo === true;            // Solo: grava mode 'solo' e NÃO apaga o progresso salvo do cooperativo
     const gameMs = d.elapsedOf(room);
     for (let i = 0; i < 2; i++) {
       const p = room.players[i];
@@ -796,8 +798,8 @@ function createAccounts(d) {
       const same = !!(other && other.uid && other.uid === p.uid);               // a mesma conta nos dois lados não conta como "outra pessoa"
       const partnerUid = other && other.uid && !same ? other.uid : null;
       await ensureSeeded(p.uid).catch(() => {});                                 // o histórico antigo entra ANTES desta partida
-      await deleteSave(p.uid).catch(() => {});
-      await addMatch(p.uid, { mode: 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: gameMs, opponent: other ? other.name : '' });
+      if (!solo) await deleteSave(p.uid).catch(() => {});
+      await addMatch(p.uid, { mode: solo ? 'solo' : 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: gameMs, opponent: other ? other.name : '' });
       await payMatch(p.uid, {
         ref: 'c:' + room.code + ':' + room.startedAt, label: imageLabel(room.imageId), pieces: room.pieces.length, custom: /^custom:/.test(room.imageId),
         completed: true, won: false, humans: !!other && !same, partnerUid, friend: partnerUid ? await areFriends(p.uid, partnerUid) : false, elapsedMs: gameMs, gameMs

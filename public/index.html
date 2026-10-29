@@ -58,7 +58,7 @@
         </button>
 
         <div id="cta-row" class="cta-row">
-          <button id="btn-create" class="btn btn-primary btn-xl" type="button">Criar partida</button>
+          <button id="btn-play" class="btn btn-primary btn-xl" type="button">Jogar</button>
           <button id="btn-duel" class="btn btn-duel" type="button"><span class="duel-ico" aria-hidden="true">🏆</span><span>Sala Desafio</span></button>
         </div>
 
@@ -398,6 +398,16 @@
     </div>
 
     <!-- ========== MENU ========== -->
+    <!-- ========== JOGAR: SOZINHO OU COM UM AMIGO ========== -->
+    <div id="modal-play" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="play-title">
+      <div class="sheet play-sheet">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
+        <h3 id="play-title">Como você quer jogar?</h3>
+        <button id="btn-solo" class="btn btn-primary btn-block btn-xl" type="button"><span aria-hidden="true">🧩</span> Sozinho</button>
+        <button id="btn-create" class="btn btn-secondary btn-block btn-xl" type="button"><span aria-hidden="true">👫</span> Com um amigo</button>
+      </div>
+    </div>
+
     <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
       <div class="sheet">
         <h3 id="menu-title">Menu</h3>

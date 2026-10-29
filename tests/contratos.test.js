@@ -18,6 +18,7 @@ test('migrações 001–003 são imutáveis (novas entram como 004 em diante)', 
   }
   const files = fs.readdirSync(path.join(ROOT, 'migrations')).filter((f) => f.endsWith('.sql')).sort();
   for (const f of Object.keys(lock)) assert.ok(files.includes(f), f + ' sumiu');
+  for (const f of files) assert.ok(lock[f], f + ' não está em tests/migrations.sha256.json: acrescente o hash (sha256sum) junto com a migração');
 });
 
 function body(src, startRe) {                       // devolve o corpo da função que começa em startRe (conta chaves)
@@ -187,4 +188,51 @@ test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, 
   assert.ok(/if \(scr === 'lobby' \|\| scr === 'game'\) \{ askLeave\(\); return true; \}/.test(game), 'o botão voltar na tela da partida deve continuar perguntando (askLeave)');
   assert.ok(/\.hud \.hud-x\s*\{[^}]*width: 44px; height: 44px;/.test(css), 'o X deve ter 44×44');
   assert.ok(/#screen-game\.done #btn-hint\s*\{\s*display: none;/.test(css));
+});
+
+
+/* ---------- modo Solo ---------- */
+
+test('Solo: o progresso salvo do cooperativo (saves) e a entrada pelo código têm guardas no código', () => {
+  const acc = read('accounts.js'), srv = read('server.js');
+  assert.ok(/function noteCoop\(room, immediate\) \{\s*if \(room\.solo\) return;/.test(acc), 'noteCoop precisa ignorar sala Solo');
+  const fin = body(acc, /async function finishCoop\(room\)/);
+  assert.ok(/if \(!solo\) await deleteSave\(p\.uid\)/.test(fin), 'finishCoop não pode apagar o progresso salvo no Solo');
+  assert.ok(/mode: solo \? 'solo' : 'coop'/.test(fin), 'finishCoop grava mode solo no Solo');
+  assert.equal((srv.match(/accounts && !room\.solo\) accounts\.noteCoop\(/g) || []).length, 2, 'as duas chamadas a noteCoop do servidor precisam da guarda');
+  assert.ok(/accounts && !room\.solo\) for \(const p of room\.players\) if \(p && p\.uid\) accounts\.deleteSave/.test(srv), 'reiniciar não pode apagar o progresso salvo no Solo');
+  assert.ok(/if \(room\.solo && !room\.players\.some\(\(p\) => p && p\.pid === pid\)\)/.test(srv), 'join precisa recusar quem não é o dono da sala Solo');
+  assert.ok(/joinGuard\.fail\(security\.ipOfSocket\(socket\), code\)/.test(srv), 'a recusa do Solo precisa contar como palpite errado (joinMiss não conta salas que existem)');
+  assert.ok(/if \(c\.room\.solo\) return reply\(cb, \{ ok: false, error: 'solo' \}\)/.test(srv), 'o bate-papo precisa ser recusado no Solo');
+});
+
+test('tela inicial: "Jogar" abre a janela; os ids de sempre continuam; o cooperativo mantém #btn-create', () => {
+  const html = read('public/index.html');
+  const cta = /<div id="cta-row"[^>]*>([\s\S]*?)<\/div>/.exec(html); assert.ok(cta, 'cta-row');
+  assert.ok(/id="btn-play"/.test(cta[1]) && /id="btn-duel"/.test(cta[1]), '#btn-play e #btn-duel na tela inicial');
+  assert.ok(!/id="btn-create"/.test(cta[1]), '#btn-create saiu da tela inicial (agora está na janela Jogar)');
+  const play = /<div id="modal-play"[\s\S]*?<\/div>\s*<\/div>/.exec(html); assert.ok(play, 'janela Jogar');
+  assert.ok(/id="btn-solo"/.test(play[0]) && /id="btn-create"/.test(play[0]) && /data-back/.test(play[0]), 'Sozinho e Com um amigo (#btn-create) na janela, com ✕ (data-back) para o botão voltar');
+  for (const id of ['btn-join', 'input-code', 'btn-duel']) assert.ok(new RegExp('id="' + id + '"').test(html), id + ' precisa continuar');
+  assert.ok(!/id="input-name"/.test(html) && !/id="avatar-grid"/.test(html));
+  assert.equal((html.match(/id="btn-create"/g) || []).length, 1, '#btn-create deve ser único');
+});
+
+test('Solo: o formato do create do cooperativo não muda (o campo solo só vai quando é Solo)', () => {
+  const game = read('public/game.js');
+  assert.ok(/var payload = \{ pid: state\.pid, imageId: imageId, pieces: pieces, name: readName\(\), avatar: state\.avatar \};\s*if \(solo\) payload\.solo = true;/.test(game));
+  assert.ok(/doCreate\(state\.pickChoice, state\.pickPieces, true\)/.test(game) && /doCreate\(state\.pickChoice, state\.pickPieces\);/.test(game));
+});
+
+test('histórico: rótulo "Sozinho" e texto de reserva para modo desconhecido (nunca "undefined")', () => {
+  const c = read('public/conta.js');
+  assert.ok(/solo: 'Sozinho'/.test(c));
+  assert.ok(/\(KIND\[m\.mode\] \|\| 'Partida'\)/.test(c));
+});
+
+test('migração 004: idempotente, só alarga a restrição de matches.mode e não tem comando destrutivo', () => {
+  const sql = read('migrations/004_modo_solo.sql');
+  assert.ok(/DO \$\$/.test(sql) && /pg_constraint/.test(sql) && /DROP CONSTRAINT %I/.test(sql), 'remove a restrição de mode, qualquer que seja o nome');
+  assert.ok(/ADD CONSTRAINT matches_mode_check CHECK \(mode IN \('coop', 'comum', 'quebra', 'solo'\)\)/.test(sql));
+  assert.ok(!/\b(UPDATE|DELETE\s+FROM|DROP\s+TABLE|TRUNCATE|ALTER\s+TABLE\s+\w+\s+DROP\s+COLUMN)\b/i.test(sql.replace(/--.*$/gm, '')), 'a migração não pode mexer em dados');
 });

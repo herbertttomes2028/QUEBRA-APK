@@ -871,9 +871,9 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   box-shadow: 0 0 0 2px var(--card);
 }
 
-/* Criar partida: amarelo, com relevo, que afunda ao toque e volta com mola */
+/* Jogar (antes "Criar partida"): amarelo, com relevo, que afunda ao toque e volta com mola */
 #screen-home .invite { margin: 10px 0 0; }
-#btn-create {
+#btn-play {
   margin-top: 12px;
   min-height: 56px;
   font-size: 1.25rem;
@@ -883,7 +883,7 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   box-shadow: 0 7px 0 var(--sun-deep), 0 14px 20px rgba(232, 180, 0, .28), inset 0 2px 0 rgba(255, 255, 255, .55);
   transition: transform .32s cubic-bezier(.34, 1.56, .64, 1), box-shadow .32s cubic-bezier(.34, 1.56, .64, 1);
 }
-#btn-create:active:not(:disabled) {
+#btn-play:active:not(:disabled) {
   transform: translateY(6px) scale(.985);
   box-shadow: 0 1px 0 var(--sun-deep), 0 3px 6px rgba(232, 180, 0, .22), inset 0 2px 0 rgba(255, 255, 255, .4);
   transition-duration: .06s;
@@ -966,12 +966,12 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   html:not([data-motion="reduce"]) .lg.d { --fx: calc(50px * var(--u)); --fy: calc(46px * var(--u)); --fr: 74deg; --er: 14deg; animation-delay: .38s; }
   html:not([data-motion="reduce"]) #screen-home h1,
   html:not([data-motion="reduce"]) #screen-home .lead,
-  html:not([data-motion="reduce"]) #btn-create,
+  html:not([data-motion="reduce"]) #btn-play,
   html:not([data-motion="reduce"]) .join-card,
   html:not([data-motion="reduce"]) .home-links { animation: rise .5s cubic-bezier(.2, .85, .3, 1) backwards; }
   html:not([data-motion="reduce"]) #screen-home h1 { animation-delay: .42s; }
   html:not([data-motion="reduce"]) #screen-home .lead { animation-delay: .5s; }
-  html:not([data-motion="reduce"]) #btn-create { animation-delay: .58s; }
+  html:not([data-motion="reduce"]) #btn-play { animation-delay: .58s; }
   html:not([data-motion="reduce"]) .join-card { animation-delay: .66s; }
   html:not([data-motion="reduce"]) .home-links { animation-delay: .74s; }
   html:not([data-motion="reduce"]) .avatar-grid button.pop { animation: av-pop .5s ease-out; }
@@ -1046,7 +1046,7 @@ html[data-theme="dark"] { --sel: #ffcf33; --on-ok: #5fe3bd; }
 
 /* botão na tela inicial, ao lado de "Criar partida" */
 .cta-row { display: flex; gap: 10px; width: 100%; margin-top: 12px; }
-.cta-row .btn-xl, .cta-row #btn-create { width: auto; max-width: none; flex: 1.15 1 0; min-width: 0; margin-top: 0; padding: 0 10px; }
+.cta-row .btn-xl, .cta-row #btn-play { width: auto; max-width: none; flex: 1.15 1 0; min-width: 0; margin-top: 0; padding: 0 10px; }
 .btn-duel {
   flex: 1 1 0;
   min-width: 0;
@@ -1861,6 +1861,12 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 .hud .hud-x:active { transform: scale(.9); }
 /* partida concluída: a lâmpada não serve mais e dá a largura ao X */
 #screen-game.done #btn-hint { display: none; }
+/* modo Solo: sem o par de avatares dos amigos, sem bate-papo e sem a faixa do código (o resto da tela é igual) */
+#screen-game.solo .hud-players { display: none; }
+#screen-game.solo #hud-count { white-space: nowrap; }
+/* janela "Jogar": Sozinho ou Com um amigo */
+.play-sheet h3 { margin: 4px 0 14px; padding: 0 50px; text-align: center; }     /* folga dos dois lados: o ✕ do canto não pode cobrir o título */
+.play-sheet .btn + .btn { margin-top: 10px; }
 /* telas de até 340 px: o cabeçalho já não sobra largura; com a partida concluída os avatares saem para o X caber inteiro */
 @media (max-width: 340px) { #screen-game.done .hud-players { display: none; } }
 .priv-sheet .sheet-x { margin-bottom: -38px; }
