@@ -84,8 +84,8 @@
     if (days === 1) return 'ontem';
     return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2);
   }
-  var KIND = { coop: 'Cooperativo', comum: 'Desafio comum', quebra: 'Quebrando Cabeças' };
-  var KIND_ICO = { coop: '🧩', comum: '🏁', quebra: '🎁' };
+  var KIND = { coop: 'Cooperativo', comum: 'Desafio comum', quebra: 'Quebrando Cabeças', solo: 'Sozinho' };
+  var KIND_ICO = { coop: '🧩', comum: '🏁', quebra: '🎁', solo: '🧩' };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function btn(text, cls, fn, label) { var b = el('button', 'btn ' + cls, text); b.type = 'button'; if (label) b.setAttribute('aria-label', label); b.addEventListener('click', fn); return b; }
   function show(id, on) { $(id).hidden = !on; }
@@ -711,7 +711,7 @@
         r.appendChild(el('span', 'fr-av', KIND_ICO[m.mode] || '🧩'));
         var info = el('div', 'fr-info');
         info.appendChild(el('b', '', m.imageLabel + ' · ' + m.pieces + ' peças'));
-        info.appendChild(el('small', '', KIND[m.mode] + (m.opponent ? ' com ' + m.opponent : '') + (m.durationMs ? ' · ' + fmtTime(m.durationMs) : '') + ' · ' + fmtDay(m.at)));
+        info.appendChild(el('small', '', (KIND[m.mode] || 'Partida') + (m.opponent ? ' com ' + m.opponent : '') + (m.durationMs ? ' · ' + fmtTime(m.durationMs) : '') + ' · ' + fmtDay(m.at)));
         r.appendChild(info);
         r.appendChild(el('span', 'hi-pill ' + m.result, { win: 'Vitória', loss: 'Derrota', done: 'Concluído' }[m.result]));
         box.appendChild(r);

@@ -10,7 +10,7 @@ test.after(async () => { await srv.stop(); });
 
 async function novaSala(pieces) {
   const a = await client(srv.url), b = await client(srv.url);
-  const r1 = await a.emitAck('create', { pid: 'pid-a-' + Math.random(), imageId: cfgJson.images[0].id, pieces, name: 'Ana' });
+  const r1 = await a.emitAck('create', { pid: 'pid-a-' + Math.random(), imageId: cfgJson.images[0].file, pieces, name: 'Ana' });
   assert.ok(r1.ok, JSON.stringify(r1));
   const r2 = await b.emitAck('join', { pid: 'pid-b-' + Math.random(), code: r1.snapshot.code, name: 'Beto' });
   assert.ok(r2.ok, JSON.stringify(r2));

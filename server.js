@@ -485,11 +485,12 @@ function buildPieces(cfg) {
   return pieces;
 }
 
-function createRoom(code, imageId, pieces) {
+function createRoom(code, imageId, pieces, solo) {
   const now = Date.now();
   const cfg = layoutFor(pieces);
   return {
     code,
+    solo: solo === true,          // modo Solo: sala de 1 pessoa (sem amigo, sem bate-papo, sem progresso salvo)
     imageId,
     cfg,
     hints: [HINTS, HINTS],
@@ -543,7 +544,8 @@ function meta(room) {
     total: room.pieces.length,
     hints: room.hints,
     spots: room.spots,
-    loading: isCustomImage(room) && room.status === 'waiting' && connectedCount(room) === 2 && !(room.imgReady[0] && room.imgReady[1])
+    loading: isCustomImage(room) && room.status === 'waiting' && connectedCount(room) === seatsNeeded(room) && !imagesReady(room),
+    solo: room.solo === true
   };
 }
 
@@ -579,9 +581,16 @@ function broadcastMeta(room) {
 
 function isCustomImage(room) { return typeof room.imageId === 'string' && room.imageId.indexOf('custom:') === 0; }
 
+// quantas pessoas precisam estar conectadas para a partida começar (Solo: 1; cooperativo: 2)
+function seatsNeeded(room) { return room.solo ? 1 : 2; }
+// imagem própria: espera o celular de cada pessoa da sala (Solo: só o do dono)
+function imagesReady(room) {
+  if (!isCustomImage(room)) return true;
+  return room.solo ? !!room.imgReady[0] : !!(room.imgReady[0] && room.imgReady[1]);
+}
+
 function startIfReady(room) {
-  const imagesOk = !isCustomImage(room) || (room.imgReady[0] && room.imgReady[1]);     // imagem própria: espera os dois
-  if (room.status === 'waiting' && connectedCount(room) === 2 && imagesOk) {
+  if (room.status === 'waiting' && connectedCount(room) === seatsNeeded(room) && imagesReady(room)) {
     room.status = 'playing';
     if (!room.startedAt) room.startedAt = Date.now() - (room.carriedMs || 0);     // partida retomada: continua de onde o tempo parou
   }
@@ -612,7 +621,7 @@ function tryLock(room, p, idx) {
   p.heldBy = null;
   p.z = 1;
   io.to(room.code).emit('locked', { id: p.id, x: tx, y: ty, by: idx, counts: counts(room), locked: lockedTotal(room) });
-  if (accounts) accounts.noteCoop(room);                    // progresso salvo (com um pequeno atraso, sem pesar)
+  if (accounts && !room.solo) accounts.noteCoop(room);      // progresso salvo (com um pequeno atraso, sem pesar); o Solo nunca grava
 
   if (lockedTotal(room) === room.pieces.length) {
     room.status = 'won';
@@ -728,7 +737,7 @@ function performRestart(room, params) {
   room.carriedMs = 0;
   room.status = 'waiting';
   room.imgReady = [false, false];
-  if (accounts) for (const p of room.players) if (p && p.uid) accounts.deleteSave(p.uid).catch(() => {});   // recomeçou: o progresso antigo não vale mais
+  if (accounts && !room.solo) for (const p of room.players) if (p && p.uid) accounts.deleteSave(p.uid).catch(() => {});   // recomeçou: o progresso antigo não vale mais (o Solo nunca apaga o progresso do cooperativo)
   startIfReady(room);
   io.to(room.code).emit('state', snapshot(room));
 }
@@ -765,7 +774,7 @@ function leaveCurrent(socket) {
       emitToPlayer(room, 1 - idx, 'rematch', { state: 'expired' });
     }
     room.lastActive = Date.now();
-    if (accounts) accounts.noteCoop(room, true);
+    if (accounts && !room.solo) accounts.noteCoop(room, true);
     broadcastMeta(room);
   }
 }
@@ -863,7 +872,7 @@ io.on('connection', (socket) => {
     if (!code) return reply(cb, { ok: false, error: 'busy' });
 
     leaveCurrent(socket);
-    const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES));
+    const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES), data.solo === true);
     rooms.set(code, room);
     const res = attach(room, socket, pid, data.name, data.avatar);
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
@@ -916,6 +925,10 @@ io.on('connection', (socket) => {
     if (lk.locked) return reply(cb, { ok: false, error: 'locked', retryMs: lk.retryMs });
     const room = rooms.get(code);
     if (!room) { const m = joinMiss(socket, code); return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' }); }
+    if (room.solo && !room.players.some((p) => p && p.pid === pid)) {      // sala Solo: só o dono volta; os outros recebem a MESMA resposta de "sala inexistente"
+      const m = joinGuard.fail(security.ipOfSocket(socket), code);             // e a tentativa conta como palpite errado (joinMiss não contaria, porque a sala existe): sem diferença que revele a sala
+      return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' });
+    }
     if (blockedWithRoom(socket, room.players)) return reply(cb, { ok: false, error: 'notfound' });    // alguém da sala bloqueou esta pessoa
 
     if (socket.data.code && socket.data.code !== code) leaveCurrent(socket);
@@ -1054,6 +1067,7 @@ io.on('connection', (socket) => {
     if (!(await phraseOk(socket, phrase.id))) return reply(cb, { ok: false, error: 'locked' });
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false, error: 'room' });
+    if (c.room.solo) return reply(cb, { ok: false, error: 'solo' });          // no Solo não há com quem conversar
     const now = Date.now();
     const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
     if (times.length >= 12 || (times.length && now - times[times.length - 1] < 400)) {
