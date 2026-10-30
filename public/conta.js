@@ -138,6 +138,7 @@
     var screenMe = $('#screen-me').classList.contains('active');
     if (ev.t === 'xp') {
       acc.me.xp = { total: ev.total, level: ev.level, into: ev.into, need: ev.need, pct: ev.pct, max: ev.max };
+      if (Number.isSafeInteger(ev.gemsBalance) && ev.gemsBalance >= 0) acc.me.gems = Math.max(Number(acc.me.gems || 0), ev.gemsBalance);
       paintChip(); if (screenMe) renderProfile();
       QC.onXp(ev);
     } else if (ev.t === 'req') {
@@ -187,6 +188,8 @@
     chip.classList.toggle('has', !!me);
     $('#me-chip-face').textContent = me ? faceOf(me) : '👤';
     if (me) QC.nameLv($('#me-chip-text'), me.name.slice(0, 8), me.xp ? me.xp.level : 0); else $('#me-chip-text').textContent = 'Entrar';
+    $('#me-chip-gems').hidden = !me;
+    if (me) $('#me-chip-gems').textContent = '💎 ' + Number(me.gems || 0).toLocaleString('pt-BR');
     var n = badgeCount();
     $('#link-friends').hidden = !acc.enabled;
     $('#friends-badge').hidden = !(me && n > 0);
@@ -429,6 +432,8 @@
     if (document.activeElement !== $('#me-name')) $('#me-name').value = me.name;
     $('#me-code').textContent = me.code;
     paintXpCard(me.xp);
+    $('#me-gems').hidden = false;
+    $('#me-gems-amount').textContent = Number(me.gems || 0).toLocaleString('pt-BR');
     $('#me-email').textContent = me.email || '(conta Google)';
     show('#me-del-pass', me.hasPassword);
     $('#sec-pw-open').hidden = !me.hasPassword;

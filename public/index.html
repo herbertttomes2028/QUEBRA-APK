@@ -40,7 +40,7 @@
       <button id="link-help" class="help-chip" type="button" aria-label="Como jogar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.3 1-1.3 1.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1.3" fill="currentColor"/></svg></button>
       <button id="btn-me" class="me-chip" type="button" hidden aria-label="Meu perfil, amigos e partidas">
         <span id="me-chip-face" class="me-chip-face" aria-hidden="true">👤</span>
-        <span id="me-chip-text" class="me-chip-text">Entrar</span>
+        <span id="me-chip-text" class="me-chip-text">Entrar</span><span id="me-chip-gems" class="me-chip-gems" hidden aria-label="Meu saldo de gemas"></span>
       </button>
       <div class="home-inner">
         <div class="logo" id="logo" aria-hidden="true">
@@ -160,6 +160,7 @@
                     <span class="me-name-row"><input id="me-name" type="text" maxlength="12" autocomplete="nickname"><button id="me-name-save" class="btn btn-secondary me-mini" type="button">Salvar</button></span></label>
                 </div>
               </div>
+              <div id="me-gems" class="me-card me-gems" hidden role="status"><span class="me-gems-icon" aria-hidden="true">💎</span><div><b>Minhas gemas</b><small>Ganhe ao concluir quebra-cabeças e subir de nível</small></div><strong id="me-gems-amount">0</strong></div>
               <div id="me-xp" class="me-card me-xp" hidden>
                 <div class="xp-top"><span id="xp-lv"></span><b id="xp-txt">0 / 50 XP</b></div>
                 <div class="xp-bar" role="progressbar" aria-label="Progresso para o próximo nível" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="xp-fill"></i></div>
@@ -383,6 +384,7 @@
           </div>
         </div>
         <p id="lvup-from" class="lvup-from">DO NÍVEL 1</p>
+        <p id="lvup-gems" class="lvup-gems" hidden>💎 <b id="lvup-gems-count">+10</b> gemas de bônus!</p>
         <p id="lvup-sr-level" class="sr-only">Você chegou ao nível 2.</p>
         <p id="lvup-desc" class="lvup-message">Você evoluiu!<br>Novos desafios te esperam.</p>
         <button id="lvup-continue" class="lvup-continue" type="button">CONTINUAR <span aria-hidden="true">✦</span></button>

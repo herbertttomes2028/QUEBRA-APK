@@ -2080,3 +2080,18 @@ html[data-motion="reduce"] .lvup, html[data-motion="reduce"] .lvup-card, html[da
   #screen-home .join-card { margin-top: 10px; }
 }
 
+
+/* Rodada 2: gemas; elementos leves, sem filtros animados sobre o tabuleiro */
+.me-chip-gems { display: inline-flex; align-items: center; gap: 2px; padding: 4px 7px; border-radius: 99px; background: var(--paper-3); font: 700 .7rem/1.1 "Fredoka", var(--font); white-space: nowrap; }
+.me-chip-gems[hidden] { display: none; }
+.me-gems { display: flex; gap: 10px; align-items: center; padding: 13px 15px; }
+.me-gems[hidden] { display: none; }
+.me-gems-icon { font-size: 1.85rem; }
+.me-gems > div { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.me-gems > div b { font: 700 1rem "Fredoka", var(--font); }
+.me-gems > div small { font-size: .76rem; color: var(--ink-soft); }
+.me-gems > strong { font: 800 1.5rem "Fredoka", var(--font); color: var(--cobalt); }
+.xp-gems { font: 700 .95rem "Fredoka", var(--font); color: var(--cobalt); }
+.lvup-gems { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 8px auto 0; padding: 9px 15px; border: 1px solid rgba(255,236,164,.58); border-radius: 18px; background: rgba(255,255,255,.12); color: #fff1ae; font: 700 1rem "Fredoka", var(--font); }
+.lvup-gems[hidden] { display: none; }
+.lvup-gems b { font-size: 1.25rem; }
