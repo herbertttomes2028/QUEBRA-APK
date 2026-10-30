@@ -1,0 +1,424 @@
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
+**Atualizado:** 30/10/2026 · **Rodada 2: gemas gratuitas por conclusão e nível**  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Base verificada da `main`:** `e5e39fc9e8539ea3f16eba2498aaf99cc67557fe`  
+**Árvore da base GitHub:** `76c2858f0e91f9451e2e6abdc1e3478a6439a872`.
+
+> ATENÇÃO: este arquivo foi gerado junto com o ZIP da Rodada 2. **Não está no GitHub até o proprietário enviá-lo**, nem é memória automática do ChatGPT. Conferir a `main` novamente antes de uma nova rodada. Abaixo dele estão os documentos anteriores preservados, que são históricos. Não confundir os commits antigos com o estado atual.
+
+## 1. O que existe nesta entrega
+
+- Gemas **gratuitas**, somente para contas autenticadas, sem loja, compras, dinheiro real ou gastos.
+- Bônus por conclusão válida: **6 peças = 1**, **12 = 2**, **20 = 3**, **30 = 5**, **48 = 8** gemas. Partidas Solo, Cooperativas e Desafio passam pelo mesmo pagamento `payMatch` já existente. No Desafio, somente o jogador que **concluiu** ganha as gemas de conclusão; só vencer ou participar não basta.
+- A conclusão deve atender ao **tempo mínimo plausível** já exigido pelo XP (`xp.js`, `matchReward.earnedCompletion`); conclusão inválida/rápida não credita gemas.
+- Bônus por novo nível: **2–9 = 10**, **10–19 = 15**, **20–29 = 20**, **30–49 = 30**, **50–100 = 50** gemas **por nível efetivamente atravessado**. Até níveis alcançados por XP de conquistas/amigos podem dar bônus. Níveis anteriores à instalação **não dão crédito retroativo**.
+- `users.gems` guarda o saldo e `gem_events` guarda a trilha de créditos. `UNIQUE(user_id, ref)` garante **uma vez por partida** e **uma vez por nível**. `UPDATE users SET gems = gems + ...` ocorre na mesma **transação SQL do XP**, com `SELECT ... FOR UPDATE` já existente em `awardMatch/awardAchievements`. Ao repetir o pagamento, a mesma partida não credita gemas novamente.
+- O servidor mantém o controle do crédito, o navegador apenas recebe o saldo **privado** em `/api/acc/me` e no evento `acc:ev` de XP. Nenhuma rota aceita saldo ou premiação informados pelo cliente. Saldo mostrado na tela inicial e no perfil; gemas da conclusão no resultado; bônus de nível somente na celebração que aparece após retornar à tela inicial. O aviso de nível segue guardado no armazenamento local por código de conta; eventos fora de ordem não reduzem o saldo visual.
+- A migração `005_gemas.sql` é **aditiva**. As migrações anteriores `001`–`004` continuam imutáveis. O arquivo `tests/migrations.sha256.json` ganha apenas o hash da migração 005.
+
+## 2. Arquivos a enviar (relativos à raiz)
+
+| Arquivo | Operação |
+| --- | --- |
+| `accounts.js` | substituir |
+| `gems.js` | adicionar |
+| `migrations/005_gemas.sql` | adicionar |
+| `public/conta.js` | substituir |
+| `public/game.js` | substituir |
+| `public/index.html` | substituir |
+| `public/style.css` | substituir |
+| `tests/migrations.sha256.json` | substituir |
+| `tests/nivel-celebracao.test.js` | substituir (regra nova para aviso pendente de bônus) |
+| `tests/gemas.test.js` | adicionar |
+| `tests/gemas-postgres.test.js` | adicionar |
+| `.github/workflows/gemas-postgres.yml` | adicionar |
+| `CONTINUIDADE.md` | adicionar na raiz; preservar esta versão na memória do projeto, se desejado |
+
+**Não alterados:** `server.js`, `challenge.js`, `xp.js`, `db.js`, `package.json`, scripts de migração, migrações anteriores, geometria das peças, `SNAP` e as duas versões de `tryLock`, bate-papo de frases prontas, regras de XP e demais modos.
+
+## 3. Testes / restrições de publicação
+
+- A base foi comparada ao GitHub `main` no commit acima antes da implementação; inclusive `public/game.js` da Rodada 1, já mesclada na `main` pelo PR #15. `CONTINUIDADE.md` anterior **não** havia sido enviado à `main`, por isso esta entrega o inclui.
+- Locais: testes Node sem dependências externas (tabelas, simulação de créditos, contratos, SVG e animação); ver resumo na resposta de entrega. Em Chromium local, renderizações com API e socket **simulados**, incluindo 320x550 e 360x740, também validadas.
+- **PostgreSQL real NÃO executado neste ambiente.** Sem pacote instalado/servidor e sem acesso disponível ao Debian/npm. Não confundir testes simulados com SQL real.
+- Incluído fluxo GitHub Actions `.github/workflows/gemas-postgres.yml`: ao abrir **Pull Request para `main`**, cria um PostgreSQL 16 descartável com `qc/qc_test` e `DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test`, executa `npm ci`, `npm run migrate` e `npm test`. O teste `tests/gemas-postgres.test.js` valida migrações, créditos, UNIQUE, rollback e concorrência com o **PostgreSQL verdadeiro**. Esse teste só é habilitado por `GEMAS_TEST_DB=1` e **recusa qualquer banco que não seja `localhost/qc_test`**. Jamais usar Neon de produção para testes destrutivos.
+- **A execução do GitHub Actions ainda NÃO ocorreu** porque o assistente não tem permissão de publicar. O proprietário deve confirmar no PR que o check está **verde** antes do Merge. Em caso de falha, não fazer Merge/deploy até corrigir e reexecutar.
+- Nem Render, Neon, nem Android real foram testados pelo assistente. O teste Android só conta depois da validação do proprietário. A migração 005 será aplicada no deploy pelo mecanismo existente de inicialização; verificar logs do Render e saldo de conta no aparelho.
+
+## 4. Procedimento e próxima rodada
+
+1. Confirmar `main` atual antes de cada novo pacote; `/home/claude/repo` pode conter cópia anterior, nunca confiar sem comparar com GitHub. Modificar somente arquivos da tarefa.
+2. Proprietário cria **ramificação nova**, envia somente os 13 arquivos acima mantendo os caminhos, abre PR para `main`.
+3. Aguardar GitHub Actions validar o PostgreSQL temporário e o conjunto de testes; revisar mudanças do PR e **não mesclar se houver erro**.
+4. Proprietário faz Merge, deploy **manual** no Render e teste no Android. Assistente não faz GitHub write, deploy nem testes Android real.
+5. Conferir Solo, Cooperativo e Desafio: uma única recompensa válida por partida, sem gemas por derrota incompleta; barra de XP, animação da medalha só após voltar à home, saldo privado consistente.
+6. Após aprovação, poderá haver melhorias visuais ou de economia, mas **loja e gasto de gemas continuam fora de escopo até nova autorização**.
+
+## 5. Contratos inegociáveis
+
+Preservar `SNAP = Math.round(tile * .33)` nas duas cópias, `tryLock` em `server.js` e `challenge.js`, eventos Socket.IO existentes, migracões imutáveis, XP somente pelo `payMatch`, privacidade (nunca mostrar e-mail ou XP bruto de terceiros), bate-papo exclusivamente por frases prontas. Não mexer em partes já funcionais sem necessidade. Sempre entregar ZIP com `CONTINUIDADE.md`, lista exata de arquivos, testes executados/não executados e instruções de ramificação nova.
+
+---
+
+# HISTÓRICO DA RODADA 1 E DOCUMENTO DE 28/10/2026 (PRESERVADO)
+
+> O conteúdo a seguir foi gerado antes da Rodada 2. Suas seções sobre gemas como "não implementadas" e suas regras de aprovação anteriores são **históricas e foram substituídas** pelas informações acima.
+
+# CONTINUIDADE — ESTADO ATUAL E PRÓXIMA RODADA
+
+**Atualizado em 30/10/2026 · Rodada 1: animação de subida de nível**  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Ramificação usada como base:** `main` · **commit:** `b37097ca02d14146f177ae178663d38ae680b53b`  
+**Árvore Git verificada da base:** `d829470bc6a645de7f833daec988c33ffb1bfb93`.
+
+> **IMPORTANTE:** este arquivo vem junto com o ZIP para ser publicado na nova ramificação. **Não está publicado pelo assistente**, nem representa um commit posterior. A `main` deve ser conferida novamente antes de qualquer nova rodada; o commit acima é a base desta entrega, não uma promessa de que continuará sendo o mais recente. O documento de 28/10, preservado integralmente após este adendo, é histórico: seus totais de arquivos, linhas, funcionalidades pendentes e commit `9c0471b` não representam a `main` em 30/10.
+
+## A. Resultado da rodada atual — ANIMAÇÃO DE NÍVEL (aguarda validação do usuário)
+
+**Escopo aprovado:** animação mais sofisticada, com medalha dourada, estrela, brilhos leves, efeitos de entrada, som e botão CONTINUAR. A nova celebração **somente aparece na tela inicial**, depois de o resultado e o fluxo da partida terem terminado. Suporta movimento reduzido, leitores de tela e botão Voltar do Android. Não há números de gemas nem loja nesta rodada.
+
+**Arquivos alterados, relativos à raiz do repositório:**
+
+| Arquivo | Mudança |
+| --- | --- |
+| `public/game.js` | remove o temporizador que exibia subida de nível durante o resultado; salva um aviso local pendente `qc.levelPending.<codigo_da_conta>` quando chega evento de XP do servidor, preserva-o em reload e exibe apenas quando `home`, fora de partida, fora de duelo, sem loading e sem janela aberta; exige nível confirmado na conta; ao fechar consome o aviso; troca/logout da conta não o exibe; botão e voltar fecham o diálogo |
+| `public/conta.js` | informa ao mecanismo de celebração o código/nível da conta autenticada e o limpa no logout |
+| `public/index.html` | novo diálogo acessível de nível, com medalha, fitas, partículas decorativas e CONTINUAR |
+| `public/style.css` | arte CSS da comemoração e opção de movimento reduzido; não modifica os estilos nem a geometria das peças |
+| `tests/nivel-celebracao.test.js` | três novos testes automáticos estáticos para fluxo, segurança da conta, acessibilidade e preservação dos contratos |
+| `CONTINUIDADE.md` | este documento, novo na raiz do repositório; mantém histórico técnico anterior abaixo |
+
+**Fluxo Solo/Coop:** o X após conclusão recarrega a página por `reloadClean()`. Como o aviso fica no armazenamento local por conta, reaparece na `home` após a conta ser consultada. **Desafio:** a saída encerra o duelo e volta à `home`, onde a celebração é liberada. Caso mais de um nível seja alcançado antes de mostrar o aviso, exibe o maior e informa a origem. Somente o servidor paga XP (`accounts.js`, `payMatch`); o cliente apenas mostra o evento `acc:ev` existente, sem criar eventos de socket nem rotas.
+
+**Limitação conhecida:** o aviso pode ser recuperado após fechar/reabrir **se o evento de XP tiver chegado ao aparelho e sido salvo antes da interrupção**. Se o aparelho estava desligado/offline quando o evento foi emitido, o banco mantém o nível correto, mas **não existe no servidor um histórico de avisos pendentes** que permita recuperar essa animação posteriormente. Resolver esse caso de forma garantida requer trabalho posterior de persistência/consulta, não incluído nesta rodada. O nível e o XP não são afetados pela ausência do aviso.
+
+**Testes realmente executados neste ambiente:**
+
+- A cópia de base (`/home/claude/repo` → `/mnt/data/qc-main-test`) tinha árvore Git `d829470bc6a645de7f833daec988c33ffb1bfb93`, idêntica à árvore do commit da `main` verificada no GitHub. A implementação foi feita em cópia separada, sem tocar a base.
+- `node --check public/game.js` e `node --check public/conta.js`: aprovados.
+- `node --test tests/xp.test.js tests/desempenho.test.js tests/rotacao-visual.test.js tests/historico-som.test.js tests/nivel-celebracao.test.js`: **28 de 28 aprovados**.
+- Navegador Chromium local com HTML/CSS/JS reais e APIs de conta e Socket.IO **simuladas**, sem servidor real: **19 verificações aprovadas**, incluindo evento de XP durante a partida, reabertura após reload (armazenamento simulado por origem), janela de resultado aberta, Desafio, troca de conta, botão, movimento reduzido, viewport 360×740 e 320×550, sem exceções JavaScript. Duas capturas de tela locais foram analisadas.
+- **Não executados:** partida real com servidor Socket.IO, PostgreSQL, Neon, Render, bateria completa de `npm test` (faltam `socket.io-client` e outros pacotes de npm neste ambiente), desempenho em Android real, som/vibração no celular e atualização PWA instalada. A rodada só será considerada aprovada quando o proprietário testar no Android após Merge e deploy manual.
+
+**Cuidados:** não alterar os hashes das funções de geometria SVG (`tests/desempenho.test.js`), `SNAP`/`tryLock` duplicados, migrações imutáveis 001–004, nomes de eventos de socket, `payMatch` e políticas infantis (frases prontas; não mostrar e-mail ou XP bruto de terceiros). Nenhuma alteração de servidor ou banco nesta rodada.
+
+## B. Próxima rodada — GEMAS (APROVADA COMO PROPOSTA, NÃO IMPLEMENTADA)
+
+**Só iniciar após o proprietário testar e aprovar a Rodada 1 no celular.** Não confundir proposta com código existente.
+
+- Recompensas de gemas por partida concluída: **6 peças = 1; 12 = 2; 20 = 3; 30 = 5; 48 = 8**.
+- Bônus por subir de nível: **níveis 2–9 = 10; 10–19 = 15; 20–29 = 20; 30–49 = 30; 50–100 = 50 gemas**.
+- Na tela de resultado, mostrar gemas da partida; após voltar ao início, na celebração de nível, mostrar o bônus da subida **sem crédito duplicado**.
+- Criar saldo persistente com histórico de crédito no PostgreSQL, vinculado à conta. O servidor autoriza e contabiliza, com idempotência por partida e por nível, inclusive para Solo, Cooperativo e Desafio (validar cada fluxo). O cliente **nunca** determina o saldo nem credita gemas diretamente.
+- A versão inicial **NÃO TERÁ loja, compras de gemas, gastos, descontos ou vantagens desbloqueáveis**. Apenas obter e consultar gemas. Não há dinheiro real.
+- O XP atual permanece integralmente regido por `payMatch`. A camada de gemas precisa acompanhar a confirmação da recompensa do servidor e testar simultaneidade e pagamentos repetidos.
+- Migrações anteriores `001`–`004` são imutáveis; criar `005_...sql` (ou numeração posterior que estiver livre na `main` então) e atualizar `tests/migrations.sha256.json`.
+- **Testes SQL em PostgreSQL isolado são necessários antes de publicar gemas**: não usar Neon de produção para testar cenários destrutivos, mesmo que o usuário não queira instalar nada. Procurar alternativa neste ambiente ou instância de testes isolada; se impossível, documentar impedimento e não publicar a economia sem testes de persistência.
+
+## C. Publicação e rotina obrigatória
+
+1. Conferir `CONTINUIDADE.md` e ler o commit **atual** da `main` pelo GitHub antes de cada rodada.
+2. Comparar o conteúdo atual de todos os arquivos a editar para não sobrepor mudanças de terceiros.
+3. Trabalhar apenas na ramificação nova criada pelo proprietário; jamais alterar a `main` diretamente. O assistente não tem permissão de publicar/deploy.
+4. Entregar um `.zip` com somente os arquivos modificados e respectivos caminhos. O proprietário faz upload à **ramificação nova**, abre PR, revisa, faz Merge, faz deploy manual no Render e testa no Android.
+5. Após ele confirmar a aprovação, iniciar a rodada seguinte.
+6. Identificar sempre testes executados e não executados. A experiência no Android real só é confirmada pelo proprietário.
+
+---
+
+# DOCUMENTO HISTÓRICO PRESERVADO (28/10/2026)
+
+O conteúdo a seguir foi fornecido pelo proprietário antes desta rodada. Ele descreve estados anteriores do projeto; **as informações do adendo A–C e a `main` atual prevalecem** quando houver diferença.
+
+---
+
+# Documento técnico de continuidade: Quebra-cabeça a dois
+
+28/10/2026 · @Herbert · revisão que substitui as versões anteriores (a de 27/10/2026, commit `43e0bd5`, e a primeira de 28/10/2026). Base: commit `9c0471b`; inclui as confirmações de produção feitas em 28/10/2026 (seção 6)
+
+Estado verificado do projeto na `main` (commit `9c0471b`, 28/10/2026, Pull Request #8): o que existe, o que não pode mudar, o que foi testado e o que falta. Tudo foi lido nos arquivos atuais do GitHub (`herbertttomes2028/QUEBRA-APK`, ramificação `main`). Onde não consegui verificar, está escrito **"a confirmar"**.
+
+## 1. Arquitetura e arquivos principais
+
+É um único serviço Node.js (Express + Socket.IO) que serve um front-end em JavaScript puro, sem framework nem etapa de build. As salas de partida vivem **na memória do servidor**; contas, amigos, XP e histórico ficam em **PostgreSQL**, opcional. Base desta leitura: commit `9c0471b` da `main` (28/10/2026). **Os arquivos do jogo são idênticos aos do commit `43e0bd5`** (27/10/2026, níveis e tela inicial limpa); desde então entraram só testes, `.gitignore`, o `render.yaml` corrigido e o `package.json`.
+
+**Commits recentes da `main`**
+
+| Commit | Data (horário de Brasília) | O que é |
+| --- | --- | --- |
+| `43e0bd5` | 27/10/2026 21:54 | Merge do PR #6 (tela inicial). Último merge que mudou arquivos do jogo |
+| `479e2e6` | 28/10/2026 11:40 | Merge do PR #7 (`testes-e-higiene`): pasta `tests/`, script `test` e devDependency no `package.json`, e `render.yaml` sem a chave `envVars` duplicada. **Não trouxe o `.gitignore`** |
+| `9c0471b` | 28/10/2026 11:51 | Merge do PR #8 (`gitignore`): só o `.gitignore` |
+
+Desde `43e0bd5` foram **dois** Pull Requests novos (#7 e #8); o #6 já estava incluído em `43e0bd5`. Conferido: nenhum arquivo do jogo (`server.js`, `accounts.js`, `challenge.js`, `xp.js`, `security.js`, `phrases.js`, `mailer.js`, `db.js`, `public/*`, `migrations/*`, `scripts/*`) nem nenhum `.md` existente mudou nesse intervalo.
+
+| Arquivo | Linhas | Papel |
+| --- | --: | --- |
+| `server.js` | 1.173 | Express, cabeçalhos de segurança, `/api/config`, upload de imagens, salas cooperativas em memória, eventos de socket do modo cooperativo, push, e a ligação com `challenge.js` e `accounts.js` |
+| `challenge.js` | 637 | Sala Desafio (duelo), exportada como fábrica `createChallenge(d)`; recebe as dependências do servidor |
+| `accounts.js` | 946 | Contas, login, amigos, convites, bloqueios, histórico, progresso salvo, perfil do amigo e pagamento de XP; rotas em `/api/acc/*` |
+| `xp.js` | 70 | Fórmulas puras de nível e XP, sem acesso a banco |
+| `security.js` | 115 | Cabeçalhos, CSP (relatar ou obrigar) e limite de tentativas de código de sala |
+| `phrases.js` | 55 | Frases prontas do bate-papo e as regras de desbloqueio |
+| `mailer.js` | 84 | Código por e-mail via API do Brevo (HTTPS, sem SMTP) |
+| `db.js` e `scripts/migrate.js` | 73 e 9 | Conexão, TLS verificado e migrações automáticas na partida |
+| `migrations/` | 3 arquivos | `001_contas`, `002_seguranca`, `003_xp`; só acrescentam |
+| `public/game.js` | 3.290 | Todo o jogo no celular: tabuleiro, arrastar e encaixar, salas, bate-papo, resultado, níveis |
+| `public/conta.js` | 851 | Perfil, amigos, convites, perfil do amigo, confirmação por e-mail |
+| `public/index.html` e `style.css` | 689 e 2.011 | Todas as telas e janelas, e o tema claro, escuro e de texto grande |
+| `public/sw.js` | 166 | Service worker: abre o app a partir do celular e atualiza por trás |
+| `public/manifest.webmanifest`, `assetlinks.json`, `privacidade.html`, `boot.js` | pequenos | Instalação, verificação do APK, política de privacidade e tema no primeiro quadro |
+| `tests/` | 8 arquivos | Suíte do repositório (`npm test`, 36 testes; seção 7.1): `helpers.js` (51 linhas), `run.js` (8), `xp.test.js` (91), `contratos.test.js` (178), `coop.test.js` (153), `desafio.test.js` (120), `migrations.sha256.json` (5) e `LEIA-ME.md` (34) |
+| `package.json` e `package-lock.json` | 24 e 1.470 | Scripts `start`, `migrate` e `test`; 4 dependências do jogo (inalteradas) e 1 devDependency |
+| `.gitignore` | 25 | Ignora `node_modules/`, `.env` e `.env.*` (menos `.env.example`), `*.pem`, `*.key`, `*.jks`, `*.keystore`, `signing-key-info.txt` (chave do APK), `*.log`, `npm-debug.log*`, `.DS_Store`, `Thumbs.db`, `.vscode/`, `.idea/` e `coverage/` |
+| `render.yaml` | 22 | Blueprint opcional: um único `envVars` com 5 variáveis, todas `sync: false` (valores só no painel do Render) |
+
+Total: **80 arquivos rastreados** (eram 71 em `43e0bd5`).
+
+Para o restante do ambiente:
+
+- **Execução:** Render no plano gratuito (o servidor dorme após inatividade) e Neon para o PostgreSQL. O `render.yaml` é opcional.
+- **Deploy:** feito **manualmente**, por decisão sua (Manual Deploy no painel do Render depois de cada Merge). O deploy da `9c0471b` aparece como **Live**, com o gatilho "Manually deployed by you via Dashboard" (captura de tela que você enviou). Não consigo ver o painel do Render; se o deploy automático também está ligado não foi verificado, e você indicou que isso não importa.
+- **Android:** o APK é um TWA gerado no PWABuilder e **não está no repositório**; só o `assetlinks.json` está.
+- **Imagens:** 16 em `public/imagens` (mais o `nomes.json`, com os nomes de exibição) e 17 miniaturas em `public/imagens/mini`; uma delas é órfã ("Fundo para Combinar com Imagem.png", sem original; seção 6).
+- **Documentação já no repositório:** `README.md`, `CONTAS.md`, `SEGURANCA.md`, `XP.md`, `PERFIL-AMIGO.md`, `ANDROID.md` e `tests/LEIA-ME.md`. O `README.md` e o `CONTAS.md` estão **parcialmente desatualizados** (seção 6); o que vale é este documento e o código.
+
+## 2. Funcionalidades confirmadas no código
+
+Tudo abaixo foi conferido nos arquivos da `main`, não em versões antigas da conversa. Os arquivos do jogo da `9c0471b` são idênticos aos de `43e0bd5`. Em 28/10/2026 reconferi no código atual, por amostragem, as constantes citadas nas seções 2 a 5 (giros máximos, `BOX_MAX`, tolerância de 45 s, `SNAP`, tamanho do código da sala, limite de envios, dicas, tabelas de XP, fuso de Fortaleza, modo padrão da CSP e as rotas de recuperação de senha); o restante vem da versão anterior deste documento, cujos arquivos de origem não mudaram. O que não está aqui não existe no código atual.
+
+**Jogo**
+
+- **Cooperativo:** uma pessoa cria a sala (código de 6 caracteres) e a outra entra pelo código ou por link `?sala=`. Cada jogador tem 10 dicas da imagem esmaecida (💡) e 5 pedidos de "onde esta peça encaixa" (📍). Cada peça aceita até 3 giros antes de "passar a vez".
+- **Sala Desafio (duelo):** corrida entre dois jogadores, com sala de espera, contagem de 3 s, revanche, e volta de quem cai (tolerância de 45 s). Tem dois modos: **Comum** e **Quebrando Cabeças**, em que uma caixa libera 3 peças por rodada.
+- **Tamanhos, imagens e bate-papo:** 5 tamanhos (6, 12, 20, 30 e 48 peças). A galeria tem 16 imagens, e há o envio de "Minha imagem" com recorte (JPEG validado no servidor, limite de 1,5 MB por imagem e 15 envios a cada 10 minutos). O bate-papo é **só de frases prontas**, sem texto livre: 10 básicas sempre liberadas, 14 liberadas conforme a pessoa joga e 7 reações com emoji (31 no total).
+
+**Contas (exigem `DATABASE_URL`; sem ele o jogo funciona só como visitante)**
+
+- Cadastro, login, Google opcional, código de confirmação por e-mail, recuperação e troca de senha, sair de todos os aparelhos, excluir conta.
+- Amigos por código, convites para jogar, bloqueios, **perfil do amigo** (nível, 4 quadros e as conquistas), histórico de partidas, 10 conquistas, e **progresso salvo** com "Continuar jogando".
+- **Níveis e XP** (seção 4). O nome e o avatar de quem tem conta ficam no perfil; a tela inicial **não tem mais** campo de nome nem avatares.
+
+**Aplicativo**
+
+- PWA com service worker que **abre a tela a partir do celular** mesmo com o servidor dormindo, e avisos push (VAPID) opcionais. O botão voltar do Android é tratado em um gerenciador central (um nível por toque; dois toques para sair na tela inicial).
+- Ajustes de tamanho do texto, tema, movimento reduzido, sons e vibração; tutorial na primeira vez; confirmações dentro do app, sem janelas nativas.
+
+**Segurança** (ver `SEGURANCA.md`): cabeçalhos em todas as respostas, CSP em modo relatar ou obrigar, bloqueio por tentativas de código de sala, certificado do banco verificado, e política de privacidade dentro do app.
+
+**Não existe no código atual:** o filtro de bordas das peças. Ele foi adicionado em 27/10 (commits `8bd0668`, `e96f725` e `fd20cf7`) e removido por um envio às 10:57 do mesmo dia (`a921707`). Continua recuperável no histórico do Git (os quatro commits ainda existem: verificado em 28/10/2026).
+
+## 3. Multiplayer e snap (encaixe das peças)
+
+**O servidor é a autoridade**: ele decide quem segura cada peça, se ela encaixou e quando a partida termina. O celular só mostra e envia gestos. O encaixe tem **uma regra, escrita em dois lugares** (`tryLock` em `server.js` e `tryLock` em `challenge.js`), e as duas precisam continuar iguais.
+
+**Regra de encaixe (idêntica nos dois modos)**
+
+- A peça só trava se estiver **sem giro** (`rot === 0`) e a distância entre os centros da peça e do seu lugar for no máximo `SNAP = round(TILE × 0,33)`.
+- Ao travar, o servidor põe a peça exatamente no lugar (`x`, `y`), marca `locked`, `lockedBy`, solta `heldBy`, e avisa com `locked` (ou o equivalente do desafio) mais os contadores.
+- O celular **não decide** o encaixe: ao soltar, envia `drop` com `{ id, x, y }` e espera o `locked`. Girar a peça em cima do lugar certo também tenta encaixar (`rotate` chama `tryLock`).
+- A vitória cooperativa é o servidor ver `lockedTotal === pieces.length`: então ele muda a sala para `won`, emite `won` e chama `accounts.finishCoop`.
+
+**Cooperativo (`server.js`)**
+
+- **Uma peça por jogador de cada vez:** `grab` recusa com `deny` (`locked` ou `held`) e solta a peça anterior de quem pega outra (`releaseHeldBy`).
+- **Fluxo:** `grab` → `move` (volátil, no máximo \~40 por segundo, só quem segura a peça) → `drop` ou `rotate`. O outro jogador recebe `grabbed`, `moved`, `released`, `rotated` e `locked`.
+- **Giros:** até `MAX_ROT = 3` por peça; ao estourar e soltar, os giros são renovados ("passar a vez").
+- **Reentrada:** `join` com `pid` (identificador do aparelho) e `code`; o servidor responde com `snapshot` completo. A sala some após 15 min sem ninguém conectado ou 8 h de vida (varredura a cada 60 s).
+- **Proteção do código de sala:** `joinLocked` e `joinMiss` limitam tentativas erradas; bloqueios entre jogadores respondem como "sala não encontrada".
+
+**Sala Desafio (`challenge.js`, eventos com prefixo `ch:`)**
+
+- Cada jogador monta a **mesma imagem no seu próprio tabuleiro** (`room.boards[idx]`); vence quem encaixar a última peça primeiro, e o servidor decide largada, tempo, progresso e vencedor.
+- **Fases:** `lobby` → `countdown` (3 s) → `playing` → `finished`, com retorno ao `lobby` na revanche. `ch:drop`, `ch:rotate` e `ch:grab` só valem em `playing`.
+- **Modo comum:** os dois recebem as peças nas mesmas posições e giros. **Quebrando Cabeças:** sem bandeja; `ch:gift` libera uma peça por toque, no máximo `BOX_MAX = 3` por rodada.
+- **Queda de conexão:** 45 s (`GRACE_MS`) para voltar antes de perder por desistência.
+
+**Conexão e persistência**
+
+- As salas ficam **só na memória**: reiniciar ou dormir o servidor apaga as salas ativas. O que sobrevive é o progresso salvo de quem tem conta (cooperativo, via `accounts.noteCoop`, com pequeno atraso) e o histórico.
+- No plano gratuito do Render o servidor dorme com inatividade. O `sw.js` abre a tela do app imediatamente e o `/api/config` volta a ser pedido quando o servidor acorda.
+
+## 4. Sistema de níveis e XP
+
+O XP é **calculado só no servidor**, guardado em `users.xp` e convertido em nível na hora de mostrar. Nenhuma rota recebe XP do celular, e o XP bruto só volta para o próprio dono (`/api/acc/me`); os outros jogadores veem apenas o nível. Todos os números ficam em `xp.js`; mudar um valor vale só para partidas futuras.
+
+**Curva.** XP para ir do nível L ao L+1: `5 × round(10 × L^1,3)`, com nível máximo 100. O nível 2 pede 50 XP; o 10, 3.850; o 20, 20.155 (acumulados).
+
+| Parte | Regra | Valor e limite |
+| --- | --- | --- |
+| Conclusão (1ª vez) | por faixa de peças (`BANDS`) | até 8: 20 · até 15: 45 · até 24: 80 · até 36: 130 · até 54: 220 · acima: 300 |
+| Tempo mínimo | abaixo dele, nada é pago (`MIN_MS`) | 8 / 15 / 25 / 40 / 60 / 90 s, nas mesmas faixas |
+| Repetição | por jogador e quebra-cabeça (`REP`) | 100%, 80%, 65%, 50%, 40%, 30% e, da 7ª em diante, 25%; **nunca zera** |
+| Imagem própria | `CUSTOM_MULT` | 60%; todas as imagens próprias do mesmo tamanho contam como um só quebra-cabeça |
+| Participação | jogar com outra pessoa por pelo menos o tempo mínimo | +10, até 10 por dia |
+| Amigo | concluir com alguém da lista | +25% da conclusão, nas 4 primeiras do dia com a mesma pessoa |
+| Vitória | vencer a Sala Desafio **e** concluir | +30% do XP base, nas 3 primeiras do dia contra a mesma pessoa |
+| Conquistas | pagas uma única vez (`ACH_XP`) | `primeira` 25 · `dez` 40 · `vitoria` 40 · `campeao` 100 · `montador` 50 · `mestre` 100 · `veloz` 80 · `imagem` 25 · `amigo` 25 · `turma` 60 |
+
+**Fluxo de pagamento (em `accounts.js`)**
+
+1. `finishCoop(room)` e `finishDuel(...)` gravam o histórico e chamam `payMatch(uid, o)` para cada jogador com conta.
+2. `payMatch` faz `ensureSeeded` (importa o histórico antigo uma única vez, em silêncio), depois `awardMatch`, depois `awardAchievements`.
+3. `awardMatch` roda dentro de `tx()`, trava a linha do usuário (`SELECT … FOR UPDATE`) e se recusa a pagar de novo quando já existe uma linha em `xp_events` com a mesma `ref` (`c:<sala>:<início>` ou `d:<sala>:<rodada>:<início>`).
+4. Os limites diários contam desde a meia-noite de **America/Fortaleza** (`DAY_START`). A mesma conta nos dois lados da sala não conta como outra pessoa.
+5. O resultado atualiza o mapa em memória `levelMap` e vai ao celular pelo evento `acc:ev` com `t: 'xp'` (`gained`, `parts`, `ach`, `leveledUp`, `into`, `need`, `pct`...).
+
+**Dados.** `users.xp` e `users.xp_seeded`; tabelas `xp_events` (cada pagamento, com `ref` única por usuário) e `puzzle_clears` (conclusões por quebra-cabeça). O XP guardado deve ser sempre igual à soma de `xp_events`.
+
+**Na tela.** Selo `Nv N` colado ao nome (faixas de cor 1–9, 10–19, 20–29, 30–49 e 50+), barra no perfil, linha de ganho abaixo do tempo ao concluir, e animação de subir de nível de 2,4 s que não bloqueia toques. O nível dos outros aparece **no momento em que entram** na sala.
+
+**Limite conhecido:** o aviso de XP que chega com o celular desligado ou offline não é reexibido; o total no servidor fica correto.
+
+## 5. Funções e contratos que NÃO devem ser alterados
+
+O app instalado e o service worker ficam em cache nos celulares e conversam com o servidor atual. Renomear qualquer item abaixo quebra versões antigas que ainda estão em uso. Se for preciso mudar, aceite os dois formatos por um período.
+
+Parte destes contratos agora é vigiada por `npm test` (seção 7.1): migrações imutáveis (por hash), as duas cópias de `tryLock` e de `SNAP`, os nomes dos eventos de socket, `payMatch` como única entrada de XP, o retorno de `createAccounts`, sessão só por hash, frases só por código, a CSP e a tela inicial sem nome e avatares. Esses testes comparam o **texto** dos arquivos: se uma mudança legítima alterar esses trechos (por exemplo, unificar a regra de encaixe), os testes precisam ser atualizados na mesma rodada.
+
+| Contrato | Onde | Por que não mudar |
+| --- | --- | --- |
+| Regra de encaixe: `rot === 0` e distância ≤ `SNAP = round(TILE × 0,33)` | `tryLock` em `server.js` e em `challenge.js` | Há duas cópias, e o próprio `SNAP` também é definido em dois lugares (`layoutFor` em `server.js` e `layoutQuebra` em `challenge.js`). Mudar só uma faz o desafio encaixar diferente do cooperativo |
+| Eventos do cooperativo, cliente para servidor: `create`, `join`, `grab`, `move`, `drop`, `rotate`, `hint`, `spot`, `chat`, `restart`, `rematch:answer`, `rematch:cancel`, `acc:continue`, `imgready`, `push:subscribe`, `push:unsubscribe` | `server.js` | O cliente emite esses nomes e formatos; `join` leva `pid` e `code`, `drop` leva `{ id, x, y }` |
+| Eventos do cooperativo, servidor para cliente: `state`, `meta`, `grabbed`, `moved`, `released`, `rotated`, `locked`, `deny`, `won`, `chat`, `rematch` | `server.js` | O cliente reage a cada nome; `locked` leva `counts` e `locked`, `won` leva `elapsedMs` |
+| Eventos da Sala Desafio, todos com prefixo `ch:`. Do cliente: `ch:create`, `ch:join`, `ch:ready`, `ch:grab`, `ch:move`, `ch:drop`, `ch:rotate`, `ch:gift`, `ch:rematch`, `ch:leave`, `ch:chat`, `ch:hint`, `ch:spot`, `ch:imgready`, `ch:push:*`. Do servidor: `ch:progress`, `ch:end`, `ch:lobby`, `ch:countdown`, `ch:box`, `ch:cancel` | `challenge.js` | Módulo independente do cooperativo; o prefixo evita colisão |
+| Eventos de contas: `acc:auth`, `acc:logout`, `acc:blockPeer`, `inv:send`, `inv:respond`, e o aviso `acc:ev` (inclui `t: 'xp'`) | `accounts.js` | O cliente de contas e o perfil dependem deles |
+| Resposta de `/api/config`: `images`, `presets`, `defaultPieces`, `hints`, `spots`, `maxName`, `chat`, `codeLen`, `phrases`, `avatars`, `push`, `accounts`, `upload` | `server.js` | `fetchConfig` no cliente lê esses campos; sem `accounts.enabled` as contas somem da tela |
+| Retorno de `createAccounts`: `enabled`, `config`, `noteCoop`, `flush`, `loadSave`, `deleteSave`, `finishCoop`, `finishDuel`, `levelOf`, `isOnline`, `expireInvites`, `allowedPhrases`, `blockedBetween`, `blockUser`, `verifyGoogleIdToken`, `close` | `accounts.js` | `server.js` chama cada um; os ganchos `accHooks.duelFinish` e `accHooks.levelOf` ligam o desafio às contas |
+| `payMatch` como **única** entrada de XP, com `ref` única por pagamento; `matchReward`, `needFor` e `CUM` | `accounts.js`, `xp.js` | Mudar a curva muda o nível de todo mundo; pagar fora de `payMatch` fura a proteção contra XP duplicado |
+| Migrações `001`, `002`, `003` imutáveis; novas mudanças entram como `004` em diante | `migrations/` | Já foram aplicadas no banco real; editar uma delas não roda de novo e deixa o banco diferente do código |
+| Sessão: o token cru nunca é guardado, só `sha256(token)` em `sessions.token_hash` | `accounts.js` | Vazamento do banco não entrega sessões |
+| Frases só por código (`phrases.byId`), sem texto livre; e-mail e id nunca vão a outros jogadores; perfil do amigo só para amigos | `phrases.js`, `accounts.js` | Proteção de crianças; é um requisito do projeto |
+| CSP com `script-src 'self'` (+ Google), sem script embutido na página, e `frame-ancestors 'none'` sempre | `security.js`, `public/boot.js` | Por isso o tema inicial vive em `boot.js` externo; script embutido seria bloqueado no modo `enforce` |
+| Chaves do aparelho `qc.*` (`avatar`, `best`, `name`, `pieces`, `settings`, `token`, `tutorial`) | `public/game.js`, `conta.js` | Renomear desloga as pessoas e apaga preferências e melhores tempos |
+| Tela inicial **sem** `#input-name` nem `#avatar-grid`; `readName()` lê `state.name` e o servidor completa "Jogador 1/2" | `public/game.js`, `index.html` | Decisão do projeto: nome e avatar são do perfil |
+
+## 6. Dependências, problemas conhecidos e pendências
+
+**Dependências.** Node 18 ou superior; pacotes do jogo `express ^4.19.2`, `pg ^8.23.1`, `socket.io ^4.7.5` e `web-push ^3.6.7` (**inalterados** desde `43e0bd5`), mais a devDependency `socket.io-client ^4.8.4`, usada só pelos testes (há `package-lock.json`). Serviços externos e variáveis de ambiente (preenchidas no painel do Render, nunca no GitHub):
+
+| Serviço ou variável | Para quê | Situação |
+| --- | --- | --- |
+| Render (plano gratuito) | Hospedagem; o servidor dorme com inatividade e acorda em até \~1 minuto (a consulta ao `/diagnostico` em 28/10/2026 levou 12,9 s com o servidor dormindo) | Em uso. **Deploy manual, por decisão sua**; o deploy da `9c0471b` está Live |
+| Neon (PostgreSQL) via `DATABASE_URL` | Contas, amigos, XP, histórico, progresso salvo. Sem ela, só modo visitante | Em uso. Migrações 001, 002 e 003 **confirmadas em produção por você** (ver abaixo) |
+| Brevo via `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` e `BREVO_SENDER_NAME` | Código de confirmação e recuperação por e-mail | Em uso: `/diagnostico` mostra "configurado (brevo)", 0 enviados e 0 falhas (contador desde a última partida do servidor). **Entrega real do e-mail: não testada** (a confirmar por você) |
+| `GOOGLE_CLIENT_ID` | Botão "Continuar com o Google" | Opcional. **Desligado em produção** (`login_google: false` em `/diagnostico`) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Avisos push | Opcional |
+| `CSP_MODE` (`report` padrão, `enforce`, `off`) | Política de conteúdo | **`report`** em produção (observado em `/diagnostico` em 28/10/2026, com 0 violações). O contador fica na memória do servidor e zera quando ele reinicia ou dorme, então esse zero ainda não é um dado confiável |
+| `ASSETLINKS_JSON` | Verificação do APK sem mexer no GitHub | Opcional |
+| `MAX_IMAGES`, `UPLOAD_RATE`, `CODE_LEN`, `CH_*`, `REMATCH_MS`, `INVITE_MS` e outras | Ajustes finos, todos com valor padrão | Opcional |
+
+O `render.yaml` declara as 5 variáveis `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` e `BREVO_SENDER_NAME`, todas com `sync: false`. Se o Render instala a devDependency de teste no deploy é **a confirmar** (não afeta o jogo; no máximo alguns segundos a mais).
+
+**Problemas conhecidos (verificados no código atual, `9c0471b`)**
+
+- **A regra de encaixe está duplicada** em `server.js` e `challenge.js`, e a constante `SNAP = round(TILE × 0,33)` também é definida em dois lugares (`server.js` linha 133 e `challenge.js` linha 53). `npm test` vigia as duas cópias, mas de forma textual.
+- **`style-src` da CSP inclui `'unsafe-inline'`**, porque o app usa estilos em linha; o `script-src` é estrito.
+- **Salas vivem na memória:** reiniciar ou dormir o servidor encerra as partidas em andamento (só o progresso salvo de quem tem conta volta).
+- **Miniatura órfã:** `public/imagens/mini/Fundo para Combinar com Imagem.png` (194 KB) não tem original em `public/imagens`; o original foi apagado em 27/10/2026 (commit `2536265`). **Nenhum código a usa**: o servidor só entrega a miniatura quando existe o original de mesmo nome, e a lista que a galeria recebe é idêntica com e sem o arquivo (verificado). Existe **uma menção textual** em `ANDROID.md` (linha 44, sobre o peso do original). **Decisão (28/10/2026): manter por enquanto**; resolver junto com a atualização do `ANDROID.md`, que ainda cita esse arquivo.
+- **`public/game.js` tem 3.290 linhas** em um só arquivo.
+- **Visitantes sem conta não escolhem nome nem avatar** (viram "Jogador 1" ou "Jogador 2"); é consequência da decisão de tirar esses campos da tela inicial.
+- **XP:** o aviso perdido com o celular offline não é reexibido, e o nível dos outros só atualiza quando entram numa sala.
+- **Documentação desatualizada:** o `README.md` ainda descreve código de sala de 4 caracteres, conversa com texto livre e nome e avatar na tela inicial; o `CONTAS.md` diz que recuperar senha por e-mail "não existe", mas as rotas existem em `accounts.js`.
+- **`public/imagens/nomes.json`** cita 3 arquivos que não existem (`super-heroina.jpg`, `super-heroi.jpg`, `time-de-herois.jpg`). É inofensivo: a galeria mostra as 16 imagens existentes, todas com miniatura.
+- **Imagem pesada:** `public/imagens/APARECIDA.png` tem 1,20 MB (o `ANDROID.md` recomendava reduzir para menos de 300 KB). Nenhuma outra original passa de 500 KB.
+- **Contato de privacidade:** `public/privacidade.html` não tem mais o texto "[PREENCHER...]". O endereço de contato é `herbert.uva.unversidade@gmail.com`; a palavra "unversidade" pode ser erro de digitação (talvez "universidade"), mas pode ser o endereço real. **A confirmar por você**: os pedidos de exclusão de conta vão para esse endereço.
+- **O pacote de testes de integração está fora do repositório** (seção 7.2): hoje existe como um `.zip` guardado por você. **Decisão (28/10/2026): fica fora do repositório, guardado por você** (opção A). Colocá-lo em `tests-integracao/` exigiria antes parametrizar os caminhos fixos.
+
+**Pendências e decisões do projeto**
+
+- **Rodada 2 (adiada por você):** novas conquistas, medalhas e títulos.
+- **Rodadas planejadas e ainda não iniciadas:** 3, social (online agora, ranking entre amigos, reações); 4, regras (revanche melhor de 3, desafio diário); 5, conteúdo (categorias, temas, imagem da semana, com imagens enviadas por você).
+- **Adiados:** plano pago do Render, domínio próprio, imagens mais leves e uma revisão de acessibilidade.
+- **Fora do escopo por decisão sua:** níveis de dificuldade, mais de dois jogadores e modo turma.
+- **Recuperável, se quiser:** o filtro de bordas (commits `8bd0668`, `e96f725`, `fd20cf7`).
+- **Decisões suas pendentes:** (a) política de conteúdo: manter `CSP_MODE=report` até haver dados reais de uso e só então decidir por `enforce`; (b) o endereço de contato em `privacidade.html`; (c) o nome do visitante sem conta ("Jogador 1/2" ou nome local). **Decididas em 28/10/2026:** deploy manual; pacote de testes de integração fora do repositório; miniatura órfã mantida por enquanto.
+- **Para confirmar por você:** (1) o teste real do envio de e-mail pelo Brevo (criar uma conta com um e-mail seu e ver se o código chega; se não chegar, o campo `ultimo_erro` de `/diagnostico` mostra o motivo); (2) o endereço de e-mail de contato de `privacidade.html`.
+- **Confirmado em produção (informado por você; não tenho acesso ao Neon):** em 28/10/2026, 12:29, no Neon (SQL Editor, ramificação `production`, banco `neondb`), a tabela `schema_migrations` contém `001_contas.sql` (25/10, 19:46 UTC), `002_seguranca.sql` (26/10, 13:01 UTC) e `003_xp.sql` (27/10, 21:49 UTC). Portanto a migração `003_xp.sql` está aplicada e as tabelas e colunas de XP existem em produção.
+- **Confirmado por consulta direta (28/10/2026):** o `/diagnostico` do app publicado respondeu 200 e mostrou: servidor ok; contas ativas e banco configurado; confirmação por e-mail ligada; e-mail "configurado (brevo)" com 0 enviados e 0 falhas; CSP em modo `report` com 0 violações; código de sala com 6 caracteres; 16 imagens; login com Google desligado; e o `assetlinks.json` publicado para o pacote `com.onrender.quebra_apk.twa`, com 1 impressão digital. Os contadores de e-mail e de CSP são da memória do servidor e zeram quando ele reinicia ou dorme.
+- **Mudança planejada, ainda não iniciada: modo Solo ("Jogar") e um X na tela de conclusão.** Pedido do dono: (a) hoje o jogo só tem modo em dupla, sempre com código para parear; criar um modo Solo no lugar do botão "Criar partida", que passa a se chamar "Jogar"; (b) a Sala Desafio **não muda** (continua em dupla, com os modos Comum e Quebrando Cabeças); (c) no Solo a pessoa monta o próprio quebra-cabeça, sem código, sem progresso entre amigos, com progresso de conclusão da partida, sem bate-papo e sem o símbolo dos amigos; (d) o modo entre amigos (cooperativo) **permanece**: o Solo é um acréscimo, e não uma troca; (e) a janela da imagem completa que aparece depois de concluir, com o botão amarelo "Ver resultado", não tem X para fechar (hoje só o botão voltar do celular a fecha): acrescentar um X. **Decisões abertas, com sugestões ainda não aprovadas:** onde o cooperativo fica na tela inicial; se o Solo roda no servidor (reaproveitando a regra de encaixe) ou só no celular (o que criaria uma terceira cópia da regra); se o Solo conta para XP, histórico e conquistas; quais controles ficam (dicas, 📍, giro, cronômetro, sons e tutorial); e o comportamento exato do X. Entrega em dois pacotes: primeiro só o X, testado no celular; depois o Solo. "Continuar jogando" para o Solo fica fora da primeira versão.
+
+## 7. Testes realmente executados e NÃO executados
+
+Há **duas suítes**: a do repositório (`tests/`, rápida, sem banco) e o pacote de integração (fora do repositório, com PostgreSQL e Chromium). **Nenhum teste de nenhuma das duas rodou em celular Android real.**
+
+### 7.1 Suíte do repositório: `npm test` (36 testes)
+
+| Arquivo | Testes | O que cobre |
+| --- | --: | --- |
+| `xp.test.js` | 9 | Curva de níveis, XP por faixa de peças, repetição, imagem própria, tempo mínimo, bônus de amigo e de vitória, conquistas |
+| `contratos.test.js` | 15 | Migrações 001–003 imutáveis (hash em `migrations.sha256.json`), as duas cópias de `tryLock` e de `SNAP`, nomes dos eventos de socket, `payMatch` como única entrada de XP, retorno de `createAccounts`, sessão só por hash, frases só por código, CSP sem script embutido, tela inicial sem nome e avatares, chaves `qc.*`, `package.json`, `render.yaml` (sem chave duplicada, 5 variáveis `sync: false`, sem valores) e `.gitignore` |
+| `coop.test.js` | 7 | Servidor real (sem banco) com dois clientes: `/api/config`, sala de 2, encaixe (`rot === 0` e distância ≤ `SNAP`), girar em cima do lugar, exclusividade da peça, vitória cooperativa, bate-papo só com frases |
+| `desafio.test.js` | 5 | Sala Desafio real: lobby e contagem, tabuleiros separados, vencedor, mesma regra de encaixe, caixa do Quebrando Cabeças (3 por rodada, 4ª bloqueada, 3 automáticas), sair dá a vitória ao outro |
+
+**Executado:**
+
+- Em 28/10/2026, num checkout limpo da `main` `9c0471b`: `npm install` e `npm test` deram **36 de 36** (cerca de 4 s, Node 22), e o `git status` ficou limpo (o `.gitignore` esconde `node_modules`).
+- Antes do merge, numa cópia **idêntica byte a byte** à árvore da `9c0471b`: 20 execuções seguidas sem falha e **36 de 36 também no Node 18.20.8**. Além disso, 14 mutações deliberadas (quebrar o código ou o arquivo de propósito) foram todas detectadas, com o controle passando: 8 no código e nos contratos, feitas na versão de 33 testes que antecedeu o PR #7, e 6 no `render.yaml` e no `.gitignore`, feitas na cópia idêntica à `9c0471b`.
+
+**Limitações:**
+
+- Não usa banco, Chromium nem celular; não cobre contas, amigos, XP gravado, histórico, telas, botão voltar, PWA, service worker, áudio nem vibração.
+- Os testes de contrato leem o **texto** dos arquivos; uma refatoração legítima (como unificar `tryLock`) exige atualizar os testes na mesma rodada (veja `tests/LEIA-ME.md`).
+- O teste dinâmico do Desafio não prova sozinho o caso `rot ≠ 0`; essa regra do Desafio é protegida pelo teste textual das duas cópias de `tryLock`.
+- Não foi executado no Windows.
+
+### 7.2 Pacote de testes de integração (fora do repositório)
+
+Cerca de 55 scripts e um executor (`rodar-regressao.sh`) organizados em grupos. Exige PostgreSQL 16 local (banco `qc_test`, usuário e senha `qc`, endereço fixo no código), Chromium (via `@sparticuz/chromium`) e Node. Na última versão entregue (28/10/2026), tem 176 arquivos e 9,2 MB em `.zip` (as contagens podem variar entre versões do pacote), e **vários scripts têm caminhos fixos `/home/claude/...`**: ele só roda onde o `preparar.sh` cria os atalhos nesses caminhos. **Os testes apagam a tabela `users`** do banco local de testes (`TRUNCATE users CASCADE`); nunca devem apontar para o Neon.
+
+| Grupo | O que roda | Ambiente do autor (outro chat) | Segundo ambiente (28/10/2026) |
+| --- | --- | --- | --- |
+| `rapido` | `xp_unit` (29), `sw_unit` (9), `assetlinks_test` (11) | passou | **passou** (49 verificações) |
+| `xp` | `xp_unit`, `xp_sim`, `shot15a`, `shot15b` | passou | **passou** (sobre a `43e0bd5`; mesmos arquivos do jogo da `9c0471b`) |
+| `servidor` | `xp_sim`, `sec_sim`, `acc_sim`, `prof_sim`, `sim2`, `feat_sim` (40), `chat_sim`, `ch_sim`, `up_sim` | passou | **passou** (9 de 9, em cópia idêntica à `9c0471b`) |
+| `antigo` | `upgrade_test`, `shot6`, `shot13a`, `wake` | passou | **passou** (4 de 4, em cópia idêntica à `9c0471b`, com 3 versões do histórico do Git e a `fixtures/final15`) |
+| `contas` | contas e amigos no navegador | passou | **não executado** |
+| `telas` | telas e fluxos no Chromium | passou | **não executado** |
+| `visual` | comparação visual com a versão anterior | passou | **não executado** |
+
+Observações:
+
+- Os grupos `contas`, `telas` e `visual` só foram executados no ambiente do autor, contra a `43e0bd5`; **não foram reexecutados na `9c0471b`**. Como os arquivos do jogo são idênticos, o resultado esperado é o mesmo, mas isso é **a confirmar**.
+- O grupo `antigo` precisa das versões antigas (`versoes-antigas.sh`, que exige um **clone do Git com histórico**; um ZIP baixado do GitHub não serve). Sem elas, os 4 testes saem **PULADO, e PULADO não conta como aprovado**.
+- A abertura com servidor dormindo (`wake`) foi medida pelo autor em 18,3 s antes e 0,22 s depois; no segundo ambiente passou, mas o tempo não foi registrado.
+- Os totais de verificações de `sec_sim` (104) e `xp_sim` (33) vêm da versão anterior deste documento; no segundo ambiente os scripts só imprimiram "passaram", sem recontagem.
+- O pacote em si teve defeitos corrigidos pelo autor depois de uma rodada: um arquivo (`webpush_stub.js`) fora do lugar esperado e o `upgrade_test` sem a versão antiga de que depende.
+
+### 7.3 O que NÃO foi executado (nenhuma das suítes)
+
+- **Celular Android real**: APK instalado (TWA), botão voltar, vibração e áudio reais.
+- **Produção**: o Render e o Neon reais, e o envio de e-mail pelo Brevo (só com um provedor simulado).
+- **Avisos push** de ponta a ponta, o **login com Google**, e qualquer teste em **iOS ou Safari**.
+- **Carga**: muitas salas ao mesmo tempo, redes lentas reais, ou dois celulares em redes diferentes.
+- **Validação do `render.yaml` pela CLI do Render** (`render blueprints validate`): a CLI exige um workspace autenticado e não pôde ser usada; o arquivo foi validado só com um leitor de YAML estrito e com os testes do repositório.
+- `shot9b` (a galeria com "Minha imagem"): oscilava antes das mudanças e não foi repetido. O `shot9c` (galeria sem internet) passou.
+- Os grupos `contas`, `telas` e `visual` na `9c0471b` (veja 7.2).
+
+**Risco de continuidade:** a suíte rápida agora vive no GitHub (`tests/`), mas o pacote de integração (cerca de 55 scripts) existe só como um `.zip` guardado por você e como cópias nos chats; os ambientes dos assistentes não persistem (o ambiente do autor já reiniciou uma vez durante o trabalho). Decisão de 28/10/2026: fica fora do repositório, guardado por você; mantenha uma cópia fora do Claude (por exemplo, no Drive ou no computador).
+
+## 8. Próximas etapas recomendadas
+
+A ordem abaixo prioriza o que protege o projeto antes do que o amplia. Já concluídos desde a versão anterior: versionar os testes rápidos (`tests/`, PR #7), criar o `.gitignore` (PR #8) e corrigir a chave `envVars` duplicada do `render.yaml` (PR #7). Confirmados em produção em 28/10/2026: a migração `003_xp.sql` no Neon e o `/diagnostico`.
+
+1. **Confirmar o que depende de você:** o teste real do envio de e-mail pelo Brevo e o endereço de contato em `privacidade.html`. Já confirmados em 28/10/2026: a migração `003_xp.sql` no Neon, o `/diagnostico` e o deploy manual como decisão sua.
+2. **Testar em celular Android real** o APK instalado: botão voltar, abertura com o servidor dormindo, partida entre dois aparelhos, nível e XP. É o maior buraco da seção 7.3.
+3. **Pacote de testes de integração: decidido** (fora do repositório, guardado por você). Se um dia entrar no repositório, parametrizar antes os caminhos `/home/claude/...`.
+4. **Miniatura órfã: mantida por enquanto** (decisão de 28/10/2026); resolver junto com a atualização do `ANDROID.md`, que ainda a cita.
+5. **Próxima tarefa: pacote só de documentação, sem mexer no jogo.** Atualizar o `README.md`, o `CONTAS.md` e o `ANDROID.md`; corrigir o `nomes.json` (3 nomes de arquivos inexistentes); opcionalmente reduzir `APARECIDA.png`.
+6. **Decidir a política de conteúdo:** se `/diagnostico` mostrar poucas violações registradas depois de alguns dias de uso real (o contador zera quando o servidor dorme; hoje está em `report` com 0 violações, o que ainda não tem valor estatístico), passar `CSP_MODE` de `report` para `enforce` no Render. O `style-src 'unsafe-inline'` só cai se os estilos em linha forem removidos do front.
+7. **Unificar a regra de encaixe** (`tryLock` e `SNAP`) em um único módulo usado por `server.js` e `challenge.js`. A rede de testes existe agora (`npm test` e, com PostgreSQL, os testes `sim2` e `ch_sim` do pacote de integração). Na **mesma rodada**, atualizar `tests/contratos.test.js` (que compara o texto das duas cópias).
+8. **Decidir o nome do visitante:** manter "Jogador 1/2" ou permitir um nome local no cadastro ou no perfil do visitante.
+9. **Modo Solo ("Jogar") e X na tela de conclusão** (descrição e decisões abertas na seção 6): primeiro o pacote do X, testado no celular; depois o Solo. **Depois, retomar o plano de rodadas**, uma por vez e com aprovação entre elas: Rodada 2 (conquistas, medalhas e títulos, já com XP próprio em `ACH_XP`), depois 3 (social), 4 (regras) e 5 (conteúdo).
+10. **Opcional, de baixo risco:** reexibir ao abrir o app o XP ganho com o celular offline (lendo `xp_events`) e, aos poucos, dividir o `game.js` em módulos, sempre com os testes versionados.
+
+**Protocolo de trabalho para a próxima conversa**
+
+- Comece lendo este documento e confirmando o commit atual da `main`; nunca parta de versões antigas da conversa. Um ZIP baixado do GitHub não traz `.git`: confirme pelo hash na página do repositório ou com `git clone` (o repositório é público).
+- Cada rodada vira uma **ramificação nova**, com um pacote contendo **só** os arquivos que mudam e uma lista exata deles, com a pasta de cada um; nada vai direto para a `main`.
+- Antes de montar o pacote, compare a `main` do GitHub com a base usada, para não sobrescrever alterações feitas por você.
+- Rode `npm test` antes e depois da mudança, num checkout limpo. Mudou `server.js` ou `challenge.js`: rode também `sim2` e `ch_sim` do pacote de integração. Mudou `accounts.js` ou `xp.js`: rode também `xp_sim`, `acc_sim` e `sec_sim` (precisam de PostgreSQL local). Mudou o front: rode também os grupos `telas` e `visual`. Só o que de fato for executado entra no relatório.
+- Ao subir arquivos pelo navegador do GitHub, confira a lista em **Files changed** do Pull Request. Arquivos que começam com ponto (como o `.gitignore`) ficaram de fora do envio do PR #7 e só entraram no #8.
+- **Depois de cada Merge, faça o Manual Deploy no Render.** O deploy é manual por decisão do dono; sem esse clique, o app no ar continua na versão anterior. Para mudanças que trazem migração de banco (004 em diante), confira `schema_migrations` no Neon depois do deploy.
+- Só se afirma o que foi executado, e **teste em Android real** só conta quando de fato for feito em um aparelho.

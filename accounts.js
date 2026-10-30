@@ -13,6 +13,7 @@
 const crypto = require('crypto');
 const phrases = require('./phrases');
 const xpm = require('./xp');
+const gemm = require('./gems');
 const { codeEmail } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
@@ -199,7 +200,7 @@ function createAccounts(d) {
     return {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
       createdAt: u.created_at, stats, achievements: achievementsOf(stats), save,
-      xp: xpm.progress(xpTot), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
+      xp: xpm.progress(xpTot), gems: Number((await one('SELECT gems FROM users WHERE id = $1', [u.id]) || {}).gems || 0), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
       pending: { requests: pend.n, invites: inv.n }
     };
   }
@@ -723,11 +724,12 @@ function createAccounts(d) {
                 count(*) FILTER (WHERE meta->>'partner' = $2 AND (meta->'parts'->>'win')::int > 0)::int AS pw
            FROM xp_events WHERE user_id = $1 AND kind = 'match' AND created_at >= ${DAY_START}`, [uid, pk])).rows[0];
       const rw = xpm.matchReward({ pieces: o.pieces, completed: o.completed, won: o.won, custom: o.custom, elapsedMs: o.elapsedMs, gameMs: o.gameMs, clears, humans: o.humans, friend: o.friend, partCount: t.part, pairFriend: t.pf, pairWin: t.pw });
-      if (rw.total <= 0) return { gained: 0, parts: rw.parts, before: u.xp, after: u.xp, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
+      if (rw.total <= 0) return { gained: 0, parts: rw.parts, before: u.xp, after: u.xp, gems: { match: 0, level: 0 }, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
       await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'match',$3,$4)", [uid, o.ref, rw.total, JSON.stringify({ parts: rw.parts, puzzle: key, pieces: o.pieces, partner: pk, clears, label: o.label })]);
       if (rw.earnedCompletion) await q('INSERT INTO puzzle_clears (user_id, puzzle_key, clears, last_at) VALUES ($1,$2,1,now()) ON CONFLICT (user_id, puzzle_key) DO UPDATE SET clears = puzzle_clears.clears + 1, last_at = now()', [uid, key]);
       const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [rw.total, uid]);
-      return { gained: rw.total, parts: rw.parts, before: u.xp, after: r.rows[0].xp, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
+      const gems = await gemm.creditTx(q, uid, o.ref, o.pieces, rw.earnedCompletion, u.xp, r.rows[0].xp);
+      return { gained: rw.total, parts: rw.parts, before: u.xp, after: r.rows[0].xp, gems, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
     });
   }
   // Paga as conquistas que acabaram de ser ganhas (uma única vez cada).
@@ -745,7 +747,8 @@ function createAccounts(d) {
       }
       if (!add) return null;
       const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [add, uid]);
-      return { got, add, before: u.xp, after: r.rows[0].xp };
+      const gems = await gemm.creditTx(q, uid, '', 0, false, u.xp, r.rows[0].xp);
+      return { got, add, before: u.xp, after: r.rows[0].xp, gems };
     });
   }
   // junta partida + conquistas em UM aviso para o celular (e atualiza o nível guardado)
@@ -754,9 +757,13 @@ function createAccounts(d) {
     const before = m ? m.before : ach.before, after = ach ? ach.after : m.after;
     const gained = (m ? m.gained : 0) + (ach ? ach.add : 0);
     if (!gained) return null;
+    const gemsMatch = (m && m.gems ? m.gems.match : 0) || 0;
+    const gemsLevel = ((m && m.gems ? m.gems.level : 0) || 0) + ((ach && ach.gems ? ach.gems.level : 0) || 0);
+    const gemsBalance = ach && ach.gems ? ach.gems.balance : (m && m.gems ? m.gems.balance : null);
     const pr = xpm.progress(after), lvBefore = xpm.levelFromXp(before);
     return { t: 'xp', gained, parts: m ? m.parts : {}, ach: ach ? ach.got : [], puzzle: m ? m.puzzle : '', pieces: m ? m.pieces : 0, rep: m ? m.rep : 1,
-             total: pr.total, level: pr.level, prevLevel: lvBefore, leveledUp: pr.level > lvBefore, into: pr.into, need: pr.need, pct: pr.pct, max: pr.max };
+             total: pr.total, level: pr.level, prevLevel: lvBefore, leveledUp: pr.level > lvBefore, into: pr.into, need: pr.need, pct: pr.pct, max: pr.max,
+             gemsMatch, gemsLevel, gemsBalance };
   }
   async function payAfterFriend(uid) {
     try {
