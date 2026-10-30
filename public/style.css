@@ -432,10 +432,12 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   position: absolute;
   left: 0;
   top: 0;
-  will-change: transform;
+  /* Não reserva uma camada GPU permanente para cada SVG (até 48 peças).
+     Promove somente as peças que estão sendo manipuladas. */
   touch-action: none;
   cursor: grab;
 }
+.piece.mine, .piece.theirs { will-change: transform; }
 .piece .tile {
   position: relative;
   width: 100%;
