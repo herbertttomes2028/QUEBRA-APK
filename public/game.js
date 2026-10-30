@@ -1207,6 +1207,7 @@
     var bits = [];
     ['completion', 'friend', 'win', 'participation'].forEach(function (k) { if (ev.parts && ev.parts[k] > 0) bits.push(XP_LABEL[k] + ' +' + ev.parts[k]); });
     (ev.ach || []).forEach(function (a) { bits.push(a.icon + ' ' + a.title + ' +' + a.xp); });
+    if (ev.gemsMatch > 0) { var gems = document.createElement('div'); gems.className = 'xp-gems'; gems.textContent = '💎 +' + ev.gemsMatch + ' gemas por concluir'; box.appendChild(gems); }
     if (bits.length) { var d = document.createElement('small'); d.className = 'xp-det'; d.textContent = bits.join(' · '); box.appendChild(d); }
     if (ev.rep != null && ev.rep < 1 && ev.parts && ev.parts.completion > 0) { var r = document.createElement('small'); r.className = 'xp-rep'; r.textContent = 'Quebra-cabeça repetido: ' + Math.round(ev.rep * 100) + '% do XP'; box.appendChild(r); }
     box.hidden = false;
@@ -1254,6 +1255,8 @@
     $('#lvup-from').textContent = 'DO NÍVEL ' + pending.from;
     $('#lvup-n').textContent = String(pending.to);
     $('#lvup-sr-level').textContent = 'Você chegou ao nível ' + pending.to + '.';
+    $('#lvup-gems').hidden = !(pending.gems > 0);
+    $('#lvup-gems-count').textContent = '+' + (pending.gems || 0);
     box.hidden = false;
     try { $('#lvup-continue').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
     playSound('win');
@@ -1279,12 +1282,15 @@
       var old = store.get(levelPendingKey(), null);
       var from = old && Number.isInteger(old.from) ? Math.min(old.from, ev.prevLevel) : ev.prevLevel;
       var to = old && Number.isInteger(old.to) ? Math.max(old.to, ev.level) : ev.level;
-      store.set(levelPendingKey(), { from: from, to: to });
+      store.set(levelPendingKey(), { from: from, to: to, gems: ((old && old.gems) || 0) + (Number(ev.gemsLevel) || 0) });
       levelAccountValue = Math.max(levelAccountValue, ev.level);
       if (!$('#lvup').hidden) {               // outra subida antes de fechar: mantém a maior conquista
         $('#lvup-n').textContent = String(to);
         $('#lvup-sr-level').textContent = 'Você chegou ao nível ' + to + '.';
         $('#lvup-from').textContent = 'DO NÍVEL ' + from;
+        var pendingGems = store.get(levelPendingKey(), null);
+        $('#lvup-gems').hidden = !(pendingGems && pendingGems.gems > 0);
+        $('#lvup-gems-count').textContent = '+' + ((pendingGems && pendingGems.gems) || 0);
       }
       scheduleLevelCelebration();              // só abre se a partida e todas as janelas terminaram
     }
