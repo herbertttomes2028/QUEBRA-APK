@@ -321,7 +321,7 @@ module.exports = function createChallenge(d) {
   }
   function releaseOthers(board, idx, exceptId) {
     for (const p of board.pieces) {
-      if (p.heldBy === idx && p.id !== exceptId) { p.heldBy = null; if (p.rotUsed >= MAX_ROT) p.rotUsed = 0; }
+      if (p.heldBy === idx && p.id !== exceptId) { p.heldBy = null; p.rotUsed = 0; }
     }
   }
 
@@ -480,9 +480,8 @@ module.exports = function createChallenge(d) {
       if (!c || !data || c.room.status !== 'playing') return;
       const p = pieceOf(c.board, data.id);
       if (!p || p.heldBy !== c.idx || p.locked) return;
-      if (p.rotUsed >= MAX_ROT) { socket.emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed }); return; }
       p.rot = (p.rot + 1) % 4;
-      p.rotUsed++;
+      p.rotUsed = 0; // rotação ilimitada
       socket.emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed });
       tryLock(c.room, c.idx, c.board, p, socket);
     });
@@ -497,7 +496,7 @@ module.exports = function createChallenge(d) {
       p.y = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
       if (tryLock(c.room, c.idx, c.board, p, socket)) return;
       p.heldBy = null;
-      if (p.rotUsed >= MAX_ROT) p.rotUsed = 0;
+      p.rotUsed = 0;
       socket.emit('released', { id: p.id, by: c.idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
     });
 

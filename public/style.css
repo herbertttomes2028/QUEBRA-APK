@@ -414,9 +414,6 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   position: absolute;
   border-radius: 10px;
   background-color: var(--field);
-  background-image:
-    linear-gradient(to right, var(--grid) 3px, transparent 3px),
-    linear-gradient(to bottom, var(--grid) 3px, transparent 3px);
   box-shadow: 0 0 0 6px var(--board-ring), 0 14px 0 6px rgba(27, 37, 89, .16);
   pointer-events: none;
 }
@@ -451,8 +448,29 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
     0 calc(var(--tile) * .04) calc(var(--tile) * .07) rgba(27, 37, 89, .3);
   transition: transform .18s ease, box-shadow .12s ease;
 }
+/* Formas das peças e marcações de encaixe: mesma paleta e intensidade da grade atual. */
+.piece .tile.puzzle-shaped-tile,
+.piece.mine .tile.puzzle-shaped-tile,
+.piece.theirs .tile.puzzle-shaped-tile,
+.piece.locked .tile.puzzle-shaped-tile {
+  position: absolute;
+  left: -12%; top: -12%;
+  width: 124%; height: 124%;
+  border-radius: 0; background: none;
+  box-shadow: none;
+}
+.puzzle-piece-svg { width: 100%; height: 100%; overflow: visible; display: block; filter: drop-shadow(0 calc(var(--tile) * .04) calc(var(--tile) * .07) rgba(27,37,89,.28)); }
+.puzzle-piece-outline { fill: none; stroke: rgba(27,37,89,.45); stroke-width: .85; stroke-linejoin: round; }
+.piece.mine .puzzle-piece-outline { stroke: var(--cobalt); stroke-width: 2; }
+.piece.theirs .puzzle-piece-outline { stroke: var(--p1); stroke-width: 2; }
+.piece.locked .puzzle-piece-outline { stroke: rgba(27,37,89,.28); stroke-width: .7; }
+.puzzle-orientation { fill: #fff; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+.piece.locked .puzzle-orientation { display: none; }
+.puzzle-board-guides { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.puzzle-board-guides path { fill: none; stroke: var(--grid); stroke-width: 1.4; opacity: .55; stroke-linejoin: round; }
+
 /* triângulo no topo: mostra qual lado da peça é o "de cima" (útil em peças brancas) */
-.piece .tile::after {
+.piece .tile:not(.puzzle-shaped-tile)::after {
   content: "";
   position: absolute;
   top: 4%;
@@ -477,7 +495,7 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   box-shadow: inset 0 0 0 1px rgba(27, 37, 89, .14);
   animation: pop .35s ease-out;
 }
-.piece.locked .tile::after { display: none; }
+.piece.locked .tile:not(.puzzle-shaped-tile)::after { display: none; }
 .piece.shake .tile { animation: shake .3s ease; }
 
 /* etiqueta com o nome de quem está segurando a peça */

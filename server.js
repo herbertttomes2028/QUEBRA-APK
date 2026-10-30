@@ -24,7 +24,7 @@ const IMG_DIR = path.join(PUBLIC_DIR, 'imagens');
 /* ---------- Configuração do tabuleiro (unidades lógicas) ---------- */
 const FIELD_W = 1000;   // largura da área de jogo
 const BOARD_Y = 30;     // margem de cima do tabuleiro
-const MAX_ROT = 3;      // giros permitidos por peça antes de "passar a vez"
+const MAX_ROT = 1000000000; // compatibilidade com clientes antigos; sem limite de giros
 const HINTS = 10;       // vezes que cada jogador pode ver a imagem esmaecida no tabuleiro
 const MAX_NAME = 12;
 const SPOTS = 5;            // vezes que cada jogador pode pedir "onde esta peça encaixa" (📍) por partida
@@ -600,7 +600,7 @@ function releaseHeldBy(room, idx, exceptId) {
   for (const p of room.pieces) {
     if (p.heldBy === idx && p.id !== exceptId) {
       p.heldBy = null;
-      if (p.rotUsed >= MAX_ROT) p.rotUsed = 0; // "passou a vez": giros renovados
+      p.rotUsed = 0; // sem limite de giros: contador legado sempre reinicia ao soltar
       io.to(room.code).emit('released', { id: p.id, by: idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
     }
   }
@@ -977,12 +977,8 @@ io.on('connection', (socket) => {
     const { room, idx } = c;
     const p = pieceFrom(room, data.id);
     if (!p || p.heldBy !== idx || p.locked) return;
-    if (p.rotUsed >= MAX_ROT) {
-      socket.emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed }); // só para sincronizar
-      return;
-    }
     p.rot = (p.rot + 1) % 4;
-    p.rotUsed++;
+    p.rotUsed = 0; // rotação ilimitada, sem acumular contador
     io.to(room.code).emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed });
     tryLock(room, p, idx); // se girou até ficar certa em cima do lugar, encaixa
   });
@@ -999,7 +995,7 @@ io.on('connection', (socket) => {
     p.y = clamp(data.y, hh, room.cfg.FIELD_H - hh);
     if (tryLock(room, p, idx)) return;
     p.heldBy = null;
-    if (p.rotUsed >= MAX_ROT) p.rotUsed = 0;
+    p.rotUsed = 0;
     io.to(room.code).emit('released', { id: p.id, by: idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
   });
 
