@@ -585,15 +585,94 @@
     return p.zoomAbs && !p.locked ? Math.max(p.zoomAbs, b) : b;
   }
 
-  // a etiqueta (nome do amigo, ou giros que restam na minha peça) mantém o mesmo tamanho na tela
+  // a etiqueta (nome do amigo ou símbolo de rotação) mantém o mesmo tamanho na tela
   function paintTag(p) {
     if (p.tag && (p.theirs || p.mine)) p.tag.style.transform = 'translateX(-50%) scale(' + (1 / p.vs).toFixed(3) + ')';
+  }
+
+  /* Formas das peças: a geometria é apenas visual. A lógica magnética/SNAP continua no servidor. */
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function shapeNode(name, attrs) {
+    var el = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs || {}).forEach(function (key) { el.setAttribute(key, attrs[key]); });
+    return el;
+  }
+  function edgeDir(col, row) { return (col + row) % 2 === 0 ? 1 : -1; }
+  function pieceEdges(col, row, cols, rows) {
+    return [row ? -edgeDir(col, row - 1) : 0,
+      col < cols - 1 ? edgeDir(col, row) : 0,
+      row < rows - 1 ? edgeDir(col, row) : 0,
+      col ? -edgeDir(col - 1, row) : 0];
+  }
+  // Cada aresta tem a mesma silhueta quando vista dos dois lados: saliência e cavidade se completam.
+  function puzzlePath(col, row, cols, rows) {
+    var e = pieceEdges(col, row, cols, rows);
+    var path = ['M 12 12'];
+    var sides = [
+      [[12,12],[112,12],[0,-1]],
+      [[112,12],[112,112],[1,0]],
+      [[112,112],[12,112],[0,1]],
+      [[12,112],[12,12],[-1,0]]
+    ];
+    sides.forEach(function (side, i) {
+      var a = side[0], b = side[1], n = side[2], d = e[i];
+      function pt(t, depth) {
+        return [+(a[0] + (b[0] - a[0]) * t + n[0] * depth * d).toFixed(3),
+          +(a[1] + (b[1] - a[1]) * t + n[1] * depth * d).toFixed(3)].join(' ');
+      }
+      if (!d) { path.push('L ' + pt(1, 0)); return; }
+      path.push('L ' + pt(.34, 0));
+      path.push('C ' + pt(.38, 0) + ' ' + pt(.4, 2) + ' ' + pt(.4, 5));
+      path.push('C ' + pt(.4, 17) + ' ' + pt(.6, 17) + ' ' + pt(.6, 5));
+      path.push('C ' + pt(.6, 2) + ' ' + pt(.62, 0) + ' ' + pt(.66, 0));
+      path.push('L ' + pt(1, 0));
+    });
+    path.push('Z');
+    return path.join(' ');
+  }
+  function pieceArt(col, row, cfg, id) {
+    var svg = shapeNode('svg', { viewBox: '0 0 124 124', preserveAspectRatio: 'none',
+      class: 'puzzle-piece-svg', 'aria-hidden': 'true' });
+    var path = puzzlePath(col, row, cfg.COLS, cfg.ROWS), clipId = 'qc-piece-' + id;
+    var defs = shapeNode('defs');
+    var clip = shapeNode('clipPath', { id: clipId });
+    clip.appendChild(shapeNode('path', { d: path }));
+    defs.appendChild(clip);
+    svg.appendChild(defs);
+    var im = shapeNode('image', { x: 12 - col * 100, y: 12 - row * 100,
+      width: cfg.COLS * 100, height: cfg.ROWS * 100,
+      preserveAspectRatio: 'none', 'clip-path': 'url(#' + clipId + ')' });
+    im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', state.imageUrl);
+    im.setAttribute('href', state.imageUrl);
+    svg.appendChild(im);
+    svg.appendChild(shapeNode('path', { d: path, class: 'puzzle-piece-outline' }));
+    // Seta dentro da área quadrada; desloca do encaixe central quando necessário.
+    var triangleX = pieceEdges(col, row, cfg.COLS, cfg.ROWS)[0] ? 35 : 62;
+    svg.appendChild(shapeNode('path', {
+      d: 'M ' + triangleX + ' 27 l -5.2 9 h 10.4 Z', class: 'puzzle-orientation'
+    }));
+    return svg;
+  }
+  function boardGuides(cfg) {
+    var svg = shapeNode('svg', { class: 'puzzle-board-guides',
+      viewBox: '0 0 ' + cfg.BOARD_W + ' ' + cfg.BOARD_H,
+      preserveAspectRatio: 'none', 'aria-hidden': 'true' });
+    for (var row = 0; row < cfg.ROWS; row++) {
+      for (var col = 0; col < cfg.COLS; col++) {
+        var g = shapeNode('g', { transform: 'translate(' + (col * cfg.TILE) + ' ' + (row * cfg.TILE) + ') scale(' + (cfg.TILE / 100) + ')' });
+        // O contorno acompanha o encaixe sem alterar as coordenadas das casas.
+        g.appendChild(shapeNode('path', { d: puzzlePath(col, row, cfg.COLS, cfg.ROWS),
+          transform: 'translate(-12 -12)' }));
+        svg.appendChild(g);
+      }
+    }
+    return svg;
   }
 
   function paintLabel(p) {
     if (!p.tag) return;
     if (p.theirs) p.tag.textContent = displayName(p.heldBy) || 'Amigo';
-    else if (p.mine) p.tag.textContent = '↻ ' + Math.max(0, state.cfg.MAX_ROT - p.rotUsed);
+    else if (p.mine) p.tag.textContent = '↻'; // rotações ilimitadas
     p.tag.classList.toggle('mine-tag', !!p.mine);
   }
 
@@ -619,6 +698,7 @@
     ghost.style.backgroundImage = 'url("' + state.imageUrl + '")';
     ghost.style.backgroundSize = cfg.BOARD_W + 'px ' + cfg.BOARD_H + 'px';
     board.appendChild(ghost);
+    board.appendChild(boardGuides(cfg));
     field.appendChild(board);
 
     state.pieces = snap.pieces.map(function (d) {
@@ -629,10 +709,8 @@
       el.style.width = T + 'px';
       el.style.height = T + 'px';
       var tile = document.createElement('div');
-      tile.className = 'tile';
-      tile.style.backgroundImage = 'url("' + state.imageUrl + '")';
-      tile.style.backgroundSize = cfg.BOARD_W + 'px ' + cfg.BOARD_H + 'px';
-      tile.style.backgroundPosition = '-' + d.col * T + 'px -' + d.row * T + 'px';
+      tile.className = 'tile puzzle-shaped-tile';
+      tile.appendChild(pieceArt(d.col, d.row, cfg, d.id));
       el.appendChild(tile);
       var tag = document.createElement('span');
       tag.className = 'tag';
@@ -736,7 +814,7 @@
       var px = p.x, py = p.y;
       var v = state.view;
       if (p.zoomAbs && !p.locked && v && v.maxX > v.minX && v.maxY > v.minY) {
-        var hs = half * p.vs, top = 34 / state.scale, m = 8 / state.scale;   // 34px livres em cima para a etiqueta "↻ n"; 8px de folga nos outros lados
+        var hs = half * p.vs, top = 34 / state.scale, m = 8 / state.scale;   // 34px livres em cima para a etiqueta "↻"; 8px de folga nos outros lados
         px = (v.maxX - v.minX) < 2 * hs + 2 * m ? (v.minX + v.maxX) / 2 : clamp(px, v.minX + hs + m, v.maxX - hs - m);
         py = (v.maxY - v.minY) < 2 * hs + top + m ? (v.minY + v.maxY + top - m) / 2 : clamp(py, v.minY + hs + top, v.maxY - hs - m);
         changed = true;
@@ -957,12 +1035,7 @@
     if (state.selectedId === null) return;
     var p = state.pieces[state.selectedId];
     if (!p || p.locked) return;
-    if (p.rotUsed >= state.cfg.MAX_ROT) {
-      toast('Sem giros. Toque num espaço vazio para soltar a peça e renovar.', 2800);
-      shake(p);
-      return;
-    }
-    p.rotUsed++;
+    p.rotUsed = 0; // rotação ilimitada; contador legado não é usado
     setAngle(p, (p.rot + 1) % 4);
     gameEmit('rotate', { id: p.id });
     vibrate(10);
@@ -1222,7 +1295,7 @@
    * --------------------------------------------------------- */
   function updateUi() {
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    if (sel) paintLabel(sel);                // "↻ n" = giros que ainda restam
+    if (sel) paintLabel(sel);                // "↻" = peça selecionada
     refreshLamp();
     updateHud();
   }
@@ -1536,7 +1609,7 @@
    * --------------------------------------------------------- */
   var TUT = [
     { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela cresce enquanto você a move.' },
-    { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar. O ▲ é o lado de cima e ↻ mostra quantos giros restam.' },
+    { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar quantas vezes quiser. O ▲ mostra qual lado é o de cima.' },
     { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
     { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos. Com uma peça escolhida, vira 📍 e mostra o lugar dela. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
   ];
