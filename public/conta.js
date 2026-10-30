@@ -96,6 +96,7 @@
   function logoutLocal(msg) {
     saveSession('');
     acc.me = null; acc.friends = null; acc.pending = null;
+    QC.setLevelAccount(null, 0);
     acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
     $('#auth-pass').value = ''; $('#auth-consent').checked = false; say('#auth-error', '');
     acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
@@ -107,6 +108,7 @@
   }
   function applyAccount(me) {          // a conta passa a ser a fonte do nome e do avatar neste aparelho
     acc.me = me;
+    QC.setLevelAccount(me.code, me.xp && me.xp.level);
     QC.canBlock = true;
     QC.setUnlocked(me.phrases);
     var key = 'seen.' + me.code, seen = store.get(key, null);        // frases que a pessoa já conhece: avisa quando liberar uma nova
