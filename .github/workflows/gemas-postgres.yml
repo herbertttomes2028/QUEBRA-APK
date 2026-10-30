@@ -1,0 +1,44 @@
+# Testa SQL real num PostgreSQL descartável do GitHub Actions.
+# Nunca usa DATABASE_URL do Render ou do Neon: o endereço local é fixo neste workflow.
+name: Gemas e regressao (PostgreSQL isolado)
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  regressao:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: qc
+          POSTGRES_PASSWORD: qc
+          POSTGRES_DB: qc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U qc -d qc_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql://qc:qc@127.0.0.1:5432/qc_test
+      GEMAS_TEST_DB: '1'
+      CI: 'true'
+    steps:
+      - name: Baixar branch do PR
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar dependencias do projeto
+        run: npm ci
+      - name: Migrar banco temporario (001 a 005)
+        run: npm run migrate
+      - name: Suite completa e SQL de gemas
+        run: npm test
