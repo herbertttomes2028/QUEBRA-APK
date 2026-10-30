@@ -66,6 +66,25 @@
 
   var imagesReady = null;
   var imgCache = {};
+  // Mantém poucas imagens de tabuleiro processadas; miniaturas estáticas não entram no limite.
+  // A imagem em uso nunca é revogada: as peças SVG continuam compartilhando sua URL.
+  var preparedKeys = [];
+  var ownedImageUrls = new Set();
+  var currentPreparedKey = null;
+  function trimPreparedImages() {
+    while (preparedKeys.length > 4) {
+      var pos = preparedKeys.findIndex(function (key) { return key !== currentPreparedKey; });
+      if (pos === -1) break;
+      var key = preparedKeys.splice(pos, 1)[0], saved = imgCache[key];
+      delete imgCache[key];
+      Promise.resolve(saved).then(function (url) {
+        if (ownedImageUrls.has(url) && url !== state.imageUrl) {
+          ownedImageUrls.delete(url);
+          URL.revokeObjectURL(url);
+        }
+      }, function () { /* cache não deve interferir no jogo */ });
+    }
+  }
   var wakeLock = null;
 
   /* ---------------------------------------------------------
@@ -167,7 +186,7 @@
     ['home', 'pick', 'game', 'lobby', 'me'].forEach(function (n) {
       $('#screen-' + n).classList.toggle('active', n === name);
     });
-    if (name === 'game') layout();
+    if (name === 'game') { layout(); wakeFrame(); }
     syncResultChip();
     if (name === 'home') maybeApplyUpdate();
     if (window.QC && window.QC.onScreen) window.QC.onScreen(name);
@@ -215,6 +234,7 @@
       var H = Math.round(W * rows / cols);
       return cropToBlob(img, W, H, item.url);
     }).catch(function () { return item.url; });
+    preparedKeys.push(key);
     return imgCache[key];
   }
 
@@ -241,7 +261,12 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
     return new Promise(function (res) {
-      cv.toBlob(function (blob) { res(blob ? URL.createObjectURL(blob) : fallbackUrl); }, 'image/jpeg', 0.9);
+      cv.toBlob(function (blob) {
+        if (!blob) { res(fallbackUrl); return; }
+        var url = URL.createObjectURL(blob);
+        ownedImageUrls.add(url);
+        res(url);
+      }, 'image/jpeg', 0.9);
     });
   }
 
@@ -527,6 +552,8 @@
       state.drag = null;
       clearTimeout(state.idleTimer);
       buildField(snap);
+      currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
+      trimPreparedImages();
       applyMeta(snap);
       setChatAvailability(snap.chatOn !== false);
       setChatHistory(snap.chat || []);
@@ -586,7 +613,11 @@
 
   // a etiqueta (nome do amigo ou símbolo de rotação) mantém o mesmo tamanho na tela
   function paintTag(p) {
-    if (p.tag && (p.theirs || p.mine)) p.tag.style.transform = 'translateX(-50%) scale(' + (1 / p.vs).toFixed(3) + ')';
+    if (!p.tag || !(p.theirs || p.mine)) return;
+    var scale = (1 / p.vs).toFixed(3);
+    if (p.lastTagScale === scale) return;
+    p.lastTagScale = scale;
+    p.tag.style.transform = 'translateX(-50%) scale(' + scale + ')';
   }
 
   /* Formas das peças: a geometria é apenas visual. A lógica magnética/SNAP continua no servidor. */
@@ -748,6 +779,7 @@
     paintTag(p);
     labelPiece(p);
     p.dirty = true;
+    wakeFrame();
   }
 
   function labelPiece(p) {
@@ -761,6 +793,7 @@
     p.ang += diff;
     p.rot = rot;
     p.tile.style.transform = 'rotate(' + p.ang + 'deg)';
+    wakeFrame();
   }
 
   function layout() {
@@ -779,11 +812,20 @@
     state.view = { minX: (sr.left - fr.left) / s, maxX: (sr.right - fr.left) / s, minY: (sr.top - fr.top) / s, maxY: (sr.bottom - fr.top) / s };
   }
 
-  /* Laço de animação: só mexe nas peças que mudaram */
+  /* Laço de animação: na interação roda no ritmo da tela; parado, só atualiza
+   * o relógio. Fora do tabuleiro e em segundo plano não ocupa a GPU do celular. */
   var lastTimerPaint = 0;
+  var frameRaf = 0, frameTimer = 0;
+  function wakeFrame() {
+    if (document.hidden || frameRaf) return;
+    if (frameTimer) { clearTimeout(frameTimer); frameTimer = 0; }
+    frameRaf = requestAnimationFrame(function (now) { frameRaf = 0; frame(now); });
+  }
   function frame(now) {
+    if (document.hidden) return;
     var ps = state.pieces;
     var half = state.cfg ? state.cfg.TILE / 2 : 0;
+    var animating = false;
     for (var i = 0; i < ps.length; i++) {
       var p = ps[i];
       var changed = p.dirty;
@@ -795,38 +837,47 @@
           var ee = 1 - Math.pow(1 - Math.max(0, u), 3);
           p.x = p.fly.fx + (p.fly.tx - p.fly.fx) * ee;
           p.y = p.fly.fy + (p.fly.ty - p.fly.fy) * ee - Math.sin(Math.PI * Math.max(0, u)) * 150;
+          animating = true;
         }
         changed = true;
       } else if (!p.locked && !dragging) {
         var dx = p.tx - p.x, dy = p.ty - p.y;
-        if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) { p.x += dx * 0.35; p.y += dy * 0.35; changed = true; }
-        else if (dx !== 0 || dy !== 0) { p.x = p.tx; p.y = p.ty; changed = true; }
+        if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
+          p.x += dx * 0.35; p.y += dy * 0.35;
+          changed = true; animating = true;
+        } else if (dx !== 0 || dy !== 0) { p.x = p.tx; p.y = p.ty; changed = true; }
       } else if (p.locked && (p.x !== p.tx || p.y !== p.ty)) {
         p.x = p.tx; p.y = p.ty; changed = true;
       }
       var ts = targetScale(p);
       if (p.vs !== ts) {
         var dv = ts - p.vs;
-        p.vs = Math.abs(dv) > 0.004 ? p.vs + dv * 0.3 : ts;
+        if (Math.abs(dv) > 0.004) { p.vs += dv * 0.3; animating = true; }
+        else p.vs = ts;
         changed = true;
       }
       var px = p.x, py = p.y;
       var v = state.view;
       if (p.zoomAbs && !p.locked && v && v.maxX > v.minX && v.maxY > v.minY) {
-        var hs = half * p.vs, top = 34 / state.scale, m = 8 / state.scale;   // 34px livres em cima para a etiqueta "↻"; 8px de folga nos outros lados
+        var hs = half * p.vs, top = 34 / state.scale, m = 8 / state.scale;
         px = (v.maxX - v.minX) < 2 * hs + 2 * m ? (v.minX + v.maxX) / 2 : clamp(px, v.minX + hs + m, v.maxX - hs - m);
         py = (v.maxY - v.minY) < 2 * hs + top + m ? (v.minY + v.maxY + top - m) / 2 : clamp(py, v.minY + hs + top, v.maxY - hs - m);
-        changed = true;
+        if (px !== p.dx || py !== p.dy) changed = true;
       }
-      p.dx = px; p.dy = py;                                  // onde a peça aparece de fato
+      p.dx = px; p.dy = py;
       if (changed) {
         p.el.style.transform = 'translate3d(' + (px - half) + 'px,' + (py - half) + 'px,0) scale(' + p.vs + ')';
         paintTag(p);
         p.dirty = false;
       }
+      if (dragging) animating = true;
     }
     if (now - lastTimerPaint > 250) { lastTimerPaint = now; paintTimer(); }
-    requestAnimationFrame(frame);
+    if (animating) wakeFrame();
+    else if (state.inGame && state.status === 'playing' && currentScreen() === 'game') {
+      // Mantém o relógio fluido sem redesenhar SVGs a 60 quadros/s sem necessidade.
+      frameTimer = setTimeout(function () { frameTimer = 0; wakeFrame(); }, 250);
+    }
   }
 
   function curElapsed() {
@@ -836,7 +887,8 @@
   }
   function paintTimer() {
     if (!state.inGame) return;
-    $('#hud-time').textContent = fmtTime(curElapsed());
+    var value = fmtTime(curElapsed());
+    if ($('#hud-time').textContent !== value) $('#hud-time').textContent = value;
   }
 
   /* ---------------------------------------------------------
@@ -956,6 +1008,7 @@
     v = clamp(v, base, Math.max(base, maxAbs));
     p.zoomAbs = v > base * 1.04 ? v : null;
     p.dirty = true;
+    wakeFrame();
   }
 
   function onPointerMove(e) {
@@ -984,6 +1037,7 @@
     p.y = clamp(ly - d.offY, half, state.cfg.FIELD_H - half);
     p.tx = p.x; p.ty = p.y;
     p.dirty = true;
+    wakeFrame();
     var now = performance.now();
     if (now - d.last >= 50) {
       d.last = now;
@@ -1338,7 +1392,7 @@
     }
     state.counts = m.counts || [0, 0];
     state.locked = m.locked || 0;
-    if (m.status === 'playing') state.timerBase = Date.now() - m.elapsedMs;
+    if (m.status === 'playing') { state.timerBase = Date.now() - m.elapsedMs; wakeFrame(); }
     else if (m.status === 'won') state.finalMs = m.elapsedMs;
     else state.timerBase = null;
     updateHud();
@@ -1349,7 +1403,7 @@
    * Vitória
    * --------------------------------------------------------- */
   function showWin(data) {
-    hideXpBoxes(); refreshXp();
+    hideXpBoxes();
     state.finalMs = data.elapsedMs;
     $('#win-time').textContent = fmtTime(data.elapsedMs);
     $('#win-title').textContent = state.solo ? 'Você conseguiu! 🎉' : 'Vocês conseguiram! 🎉';
@@ -1375,14 +1429,16 @@
     box.innerHTML = '';
     if (!reducedMotion()) {
       var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
+      var particles = document.createDocumentFragment();
       for (var i = 0; i < 44; i++) {
         var c = document.createElement('i');
         c.style.left = Math.random() * 100 + '%';
         c.style.background = colors[i % colors.length];
         c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
         c.style.animationDelay = Math.random() * 0.8 + 's';
-        box.appendChild(c);
+        particles.appendChild(c);
       }
+      box.appendChild(particles);
     }
     openModal('#modal-win', '#win-again');
     refreshXp();                                   // (o aviso de XP pode ter chegado enquanto a janela ainda não abria)
@@ -1937,6 +1993,7 @@
     if (!p || p.locked || p.heldBy === state.idx) return;
     p.tx = d.x; p.ty = d.y;
     p.lastMove = performance.now();
+    wakeFrame();
   });
 
   socket.on('rotated', function (d) {
@@ -2551,6 +2608,8 @@
       state.timerBase = Date.now() - snap.elapsedMs;
       clearTimeout(state.idleTimer);
       buildField(snap);
+      currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
+      trimPreparedImages();
       setSolo(false);
       setChatAvailability(snap.chatOn !== false);
       setChatHistory(snap.chat || []);
@@ -2797,7 +2856,7 @@
 
   /* ----- resultado e revanche ----- */
   function showDuelResult(r) {
-    hideXpBoxes(); refreshXp();
+    hideXpBoxes();
     var d = state.duel;
     if (!d) return;
     d.phase = 'end';
@@ -2833,14 +2892,16 @@
     box.innerHTML = '';
     if (won && !reducedMotion()) {
       var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
+      var particles = document.createDocumentFragment();
       for (var i = 0; i < 44; i++) {
         var c = document.createElement('i');
         c.style.left = Math.random() * 100 + '%';
         c.style.background = colors[i % colors.length];
         c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
         c.style.animationDelay = Math.random() * 0.8 + 's';
-        box.appendChild(c);
+        particles.appendChild(c);
       }
+      box.appendChild(particles);
     }
     updateDuelRematch();
     updateUi();
@@ -3148,7 +3209,7 @@
       state.ptrs = {}; state.pinch = null; state.drag = null;     // evita dedos "fantasmas" ao voltar para o jogo
       if (state.selectedId !== null) dropSelected();
     }
-    else if (state.inGame) keepAwake();
+    else if (state.inGame) { keepAwake(); wakeFrame(); }
   });
 
   if (window.ResizeObserver) new ResizeObserver(layout).observe($('#stage'));
@@ -3387,7 +3448,7 @@
     setUnlocked: function (ids) { state.unlocked = null; if (ids) { state.unlocked = {}; ids.forEach(function (id) { state.unlocked[id] = true; }); } if (state.chatOpen) renderPhrases(); }
   };
 
-  requestAnimationFrame(frame);
+  wakeFrame();
 
   // permite instalar o jogo como aplicativo (tela inicial / APK)
   if ('serviceWorker' in navigator) {
