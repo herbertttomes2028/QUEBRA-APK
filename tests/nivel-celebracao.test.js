@@ -18,7 +18,7 @@ test('sem timer antigo de 1,9 s: aviso permanece pendente enquanto houver partid
 
 test('pendência só da conta autenticada, recuperável após reload, sem alterar XP', () => {
   assert.match(game, /return 'levelPending\.' \+ levelAccountCode;/);
-  assert.match(game, /store\.set\(levelPendingKey\(\), \{ from: from, to: to \}\)/);
+  assert.match(game, /store\.set\(levelPendingKey\(\), \{ from: from, to: to, gems:/);
   assert.match(game, /if \(levelAccountValue < pending\.to\) return;/);
   assert.match(account, /QC\.setLevelAccount\(me\.code, me\.xp && me\.xp\.level\)/);
   assert.match(account, /QC\.setLevelAccount\(null, 0\)/);
