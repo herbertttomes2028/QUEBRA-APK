@@ -598,7 +598,7 @@ function createAccounts(d) {
   }));
 
   r.get('/matches', needUser, guard(async (req, res) => {
-    const rows = (await db.q('SELECT mode, image_label, pieces, result, completed, duration_ms, opponent, created_at FROM matches WHERE user_id = $1 ORDER BY created_at DESC LIMIT 30', [req.user.id])).rows;
+    const rows = (await db.q('SELECT mode, image_label, pieces, result, completed, duration_ms, opponent, created_at FROM matches WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 6', [req.user.id])).rows;
     res.json({ ok: true, matches: rows.map((m) => ({ mode: m.mode, imageLabel: m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, durationMs: m.duration_ms == null ? null : Number(m.duration_ms), opponent: m.opponent, at: m.created_at })) });
   }));
 
