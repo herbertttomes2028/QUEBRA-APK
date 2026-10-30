@@ -366,7 +366,6 @@
       setTimeout(function () { try { card.scrollIntoView({ block: 'nearest', behavior: reducedMotion() ? 'auto' : 'smooth' }); } catch (e) { /* ignora */ } }, 60);
     }
     vibrate(8);
-    playSound('blip');
     announce(item.label + ' escolhida. Agora escolha a quantidade de peças.');
   }
 
@@ -1432,13 +1431,19 @@
     if (key === 'push') { if (state.settings.push) disablePush(); else enablePush(); return; }
     state.settings[key] = !state.settings[key];
     saveSettings();
-    if (key === 'sound' && state.settings.sound) playSound('snap');
+    if (key === 'sound' && state.settings.sound) playSound('blip');
     if (key === 'vibrate' && state.settings.vibrate) vibrate(40);
   }
 
   /* Janelas: abrem com o foco no botão certo e devolvem o foco ao fechar (leitores de tela e teclado) */
   var lastBtn = null;   // último botão tocado: é para ele que o foco volta quando a janela fecha
-  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (b) lastBtn = b; }, true);
+  // Todos os botões usam o mesmo clique já usado em Amigos; respeita o ajuste de som.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button');
+    if (!b) return;
+    lastBtn = b;
+    if (!b.disabled && b.getAttribute('aria-disabled') !== 'true') playSound('blip');
+  }, true);
   function openModal(sel, focusSel) {
     var m = $(sel);
     if (!m) return;
@@ -1699,7 +1704,6 @@
     state.spotPiece = pieceId;
     $('#btn-hint').classList.add('lit');
     state.spotTimer = setTimeout(function () { clearSpot(); updateUi(); }, 3600);
-    playSound('blip');
     announce('Mostrando onde a peça encaixa: coluna ' + (col + 1) + ', linha ' + (row + 1) + '.');
   }
   function useSpot() {
@@ -2911,7 +2915,6 @@
     if (!b) return;
     state.duelMode = b.dataset.mode === 'quebra' ? 'quebra' : 'comum';
     syncDuelModes();
-    playSound('blip');
   });
   $('#lobby-ready').addEventListener('click', function () {
     var d = state.duel;
@@ -2971,7 +2974,6 @@
       b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
     });
     updateSizeNote();
-    playSound('blip');
   });
 
   $('#ps-close').addEventListener('click', closePickSheet);

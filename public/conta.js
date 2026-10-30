@@ -221,7 +221,6 @@
   function openMe(view) {
     acc.view = view === 'friends' ? 'friends' : 'profile';
     QC.showScreen('me');
-    QC.playSound('blip');
     renderMe();
     if (acc.token) { loadMe(); loadFriends(); }
   }
@@ -249,7 +248,7 @@
     if (t === 'friends') { renderFriends(); loadFriends(); }
     if (t === 'history') loadHistory();
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { QC.playSound('blip'); setTab(b.dataset.tab); }); });
+  Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
   $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
   $('#btn-me').addEventListener('click', function () { openMe('profile'); });
   $('#link-friends').addEventListener('click', openFriends);
@@ -483,7 +482,7 @@
     api('POST', '/profile', { name: name, avatar: avatar }).then(function (j) {
       if (!j || !j.ok) { QC.toast(errText(j && j.error), 2600); return; }
       applyAccount(j.me); renderProfile(); renderAvatarChoices();
-      QC.playSound('blip'); QC.toast('Perfil atualizado ✓', 1800);
+      QC.toast('Perfil atualizado ✓', 1800);
     });
   }
   $('#me-avatar').addEventListener('click', function () { var box = $('#me-avatars'); box.hidden = !box.hidden; if (!box.hidden) renderAvatarChoices(); });
