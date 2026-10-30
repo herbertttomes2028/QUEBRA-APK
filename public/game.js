@@ -459,7 +459,9 @@
     var item = imageItem(file);
     var el = $('#go-splash');
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
-    $('#go-img').style.backgroundImage = item ? 'url("' + item.url + '")' : 'none';
+    // A carta mede no máximo 250px: a miniatura pronta evita decodificar a imagem
+    // original grande durante a rotação 3D (a aparência e o recorte são mantidos).
+    $('#go-img').style.backgroundImage = item ? 'url("' + (item.thumb || item.url) + '")' : 'none';
     $('#go-sub').textContent = '';
     $('#go-cancel').hidden = true;
     el.classList.remove('out', 'run');
@@ -669,6 +671,10 @@
     clip.appendChild(shapeNode('path', { d: path }));
     defs.appendChild(clip);
     svg.appendChild(defs);
+    // A sombra incide só na silhueta opaca, não na imagem JPEG dentro do clipPath.
+    // Isso evita filtrar a imagem inteira a cada quadro, sobretudo após girar a peça.
+    // A geometria, os encaixes, o indicador e a sombra visual continuam iguais.
+    svg.appendChild(shapeNode('path', { d: path, class: 'puzzle-piece-shadow' }));
     var im = shapeNode('image', { x: 12 - col * 100, y: 12 - row * 100,
       width: cfg.COLS * 100, height: cfg.ROWS * 100,
       preserveAspectRatio: 'none', 'clip-path': 'url(#' + clipId + ')' });

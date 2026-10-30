@@ -17,15 +17,16 @@ function functionText(name) {
 }
 function sha(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 
-test('formas das peças e grade SVG byte a byte preservadas', () => {
+test('geometria de encaixes, setas e grade SVG preservadas; sombra otimizada', () => {
   const hashes = {
     pieceEdges: '54975e8c496e83fa8cbcb9966524a08fea40c4c8aa467f0c7b41533ad13ea630',
     puzzlePath: 'c7f9820d6b27c581bf504099e6616efa3c43ce60a413f10fd3620b41f9de7f39',
-    pieceArt: '2852d8624604d4bc3b97697662ae3d7b9802f74c9459f130cc53f1f84082514e',
+    pieceArt: '140dfa5d13fde80554e94344bd68b1bb573c513959b3efaaad17f57a5b7cb272',
     boardGuides: '4c8659d7a2b5db156a22ecec53a0fcf2bfe052d8a51568b16ea5acb5c2717c62'
   };
   for (const [name, digest] of Object.entries(hashes)) assert.equal(sha(functionText(name)), digest, name);
-  assert.match(css, /\.puzzle-piece-svg \{[^}]*filter: drop-shadow\(/);
+  assert.doesNotMatch(css.match(/\.puzzle-piece-svg \{[^}]*\}/)[0], /filter:/);
+  assert.match(css, /\.puzzle-piece-shadow \{[^}]*filter: drop-shadow\(/);
   assert.match(css, /\.puzzle-board-guides path \{[^}]*stroke: var\(--grid\)/);
   assert.match(css, /\.puzzle-orientation \{ fill: #fff; stroke: var\(--ink\)/);
 });
@@ -71,4 +72,25 @@ test('o servidor mantém magnetismo e canais de comunicação', () => {
     assert.match(s, /if \(p\.rot !== 0\) return false;/);
     assert.match(s, /if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/);
   }
+});
+
+test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
+  const art = functionText('pieceArt');
+  const shadow = art.indexOf("class: 'puzzle-piece-shadow'");
+  const photo = art.indexOf("var im = shapeNode('image'");
+  const contour = art.indexOf("class: 'puzzle-piece-outline'");
+  assert.ok(shadow > 0 && shadow < photo && photo < contour,
+    'sombra isolada atrás da imagem, sem modificar o recorte, contorno e seta');
+  assert.match(art, /var path = puzzlePath\(col, row, cfg\.COLS, cfg\.ROWS\)/);
+  assert.match(art, /'clip-path': 'url\(#' \+ clipId \+ '\)'/);
+  assert.match(css, /\.piece\.mine \.tile\.puzzle-shaped-tile, \.piece\.theirs \.tile\.puzzle-shaped-tile \{ will-change: transform; \}/);
+  assert.match(css, /\.puzzle-piece-shadow \{ fill: #fff; filter: drop-shadow\(0 calc\(var\(--tile\) \* \.04\)/);
+});
+
+test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
+  assert.match(game, /\(item\.thumb \|\| item\.url\)/);
+  assert.match(css, /rotateY\(-900deg\)/);
+  assert.match(css, /go-spin 1\.25s/);
+  assert.match(css, /html:not\(\[data-motion=\"reduce\"\]\) \.go-splash\.run:not\(\.out\) \.go-card \{ will-change: transform; \}/);
+  assert.match(game, /playSound\('tann'\)/);
 });
