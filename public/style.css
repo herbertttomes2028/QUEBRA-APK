@@ -691,9 +691,9 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   border-radius: 16px;
   background: #fff center / cover no-repeat;
   box-shadow: 0 0 0 5px #fff, 0 10px 26px rgba(27, 37, 89, .3);
-  animation: win-reveal .9s ease-out both;
+  /* a fotografia chega pela transição em camada única, sem filtro blur */
 }
-@keyframes win-reveal { 0% { filter: blur(10px) brightness(1.35); transform: scale(.88); opacity: 0; } 100% { filter: none; transform: none; opacity: 1; } }
+
 #modal-win h3 { margin: 4px 0 0; }
 .win-time { text-align: center; margin: 0; font-size: 1.1rem; }
 .win-time strong { font-size: 1.55rem; font-variant-numeric: tabular-nums; }
@@ -706,18 +706,16 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
 .win-share { display: flex; gap: 10px; }
 .win-share .btn { flex: 1; padding: 0 8px; font-size: .95rem; }
 /* ao vencer: sem linhas entre as peças */
-#field.won #board { background-image: none; }
+#field.won #board { background-image: none; box-shadow: none; }
+/* Só após a confirmação da vitória: mostra a fotografia inteira, sem guias e traços internos.
+   Não altera a geometria SVG nem a regra de encaixe durante a montagem. */
+#field.won .puzzle-board-guides, #field.won .piece.locked .puzzle-piece-outline { opacity: 0; }
 #field.won .piece.locked .tile { box-shadow: none; border-radius: 0; }
 #confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #confetti i {
-  position: absolute;
-  top: -20px;
-  width: 12px;
-  height: 18px;
-  border-radius: 3px;
-  animation: fall linear forwards;
+  display: none; /* confetes antigos desativados: a animação usa uma só imagem */
 }
-@keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
 
 .help-list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .help-list li { display: grid; grid-template-columns: 92px 1fr; gap: 10px; align-items: baseline; font-size: .95rem; line-height: 1.3; }
@@ -1233,7 +1231,7 @@ html[data-theme="dark"] #screen-lobby { --glow-1: rgba(110, 130, 255, .13); --gl
 .dr-crown { position: absolute; top: -13px; left: 6px; font-size: 1.5rem; transform: rotate(-14deg); }
 .duel-rematch-msg { margin: 0; min-height: 1.4em; text-align: center; font-weight: 600; color: var(--ink-soft); }
 #duel-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-#duel-confetti i { position: absolute; top: -20px; width: 12px; height: 18px; border-radius: 3px; animation: fall linear forwards; }
+#duel-confetti i { display: none; }
 
 /* modo Quebrando Cabeças: faixa das peças, vagas e a caixa de presentes */
 .hand-strip { position: absolute; border-radius: 28px; background: rgba(255, 255, 255, .38); box-shadow: inset 0 0 0 3px var(--field-ring); pointer-events: none; }
@@ -2095,3 +2093,65 @@ html[data-motion="reduce"] .lvup, html[data-motion="reduce"] .lvup-card, html[da
 .lvup-gems { display: inline-flex; align-items: center; justify-content: center; gap: 4px; margin: 8px auto 0; padding: 9px 15px; border: 1px solid rgba(255,236,164,.58); border-radius: 18px; background: rgba(255,255,255,.12); color: #fff1ae; font: 700 1rem "Fredoka", var(--font); }
 .lvup-gems[hidden] { display: none; }
 .lvup-gems b { font-size: 1.25rem; }
+
+/* Último encaixe: brilho curto e barato ao redor da imagem já montada. */
+#field.victory-last #board::after {
+  content: ''; position: absolute; inset: -5px; border: 4px solid #f4c64f;
+  border-radius: 16px; pointer-events: none;
+  animation: victory-last-glow .4s ease-out both;
+}
+@keyframes victory-last-glow {
+  0% { opacity: 0; transform: scale(.99); }
+  35% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.025); }
+}
+html[data-motion="reduce"] #field.victory-last #board::after { animation: none; display: none; }
+@media (prefers-reduced-motion: reduce) { #field.victory-last #board::after { animation: none; display: none; } }
+
+/* ============================================================
+ * Vitória 2.0: UM bitmap compartilhado com o quebra-cabeça,
+ * transform/opacity; sem confetes, blur, filtros ou animação contínua.
+ * ============================================================ */
+.victory-flight[hidden] { display: none !important; }
+.victory-flight { position: fixed; inset: 0; z-index: 65; overflow: hidden; touch-action: manipulation; }
+.victory-veil { position: absolute; inset: 0; background: rgba(12, 19, 48, .78); animation: victory-veil .32s ease-out both; }
+.victory-flight-photo {
+  position: absolute; transform-origin: 0 0; border-radius: 14px;
+  background-position: center; background-size: 100% 100%; background-repeat: no-repeat;
+  box-shadow: 0 0 0 4px #f4c64f, 0 0 0 7px rgba(255, 238, 177, .55), 0 12px 26px rgba(0, 0, 0, .3);
+  pointer-events: none;
+}
+.victory-flight-photo::before { content: ''; position: absolute; inset: -8px; border: 2px solid rgba(255, 223, 121, .75); border-radius: 20px; pointer-events: none; }
+.victory-flight-glint { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.victory-flight-glint::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: -45%; width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 185, .36), transparent);
+  transform: skewX(-18deg) translate3d(-100%,0,0);
+  animation: victory-glint 1.05s .18s ease-out 1 both;
+}
+.victory-flight-skip {
+  position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  left: 0; right: 0; text-align: center; color: #fff5ce;
+  font: 600 .92rem "Fredoka", var(--font); pointer-events: none;
+}
+@keyframes victory-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes victory-glint { from { transform: skewX(-18deg) translate3d(-100%,0,0); } to { transform: skewX(-18deg) translate3d(650%,0,0); } }
+#modal-win.victory-measuring, #modal-duel.victory-measuring { visibility: hidden; }
+#modal-win.victory-measuring .sheet, #modal-duel.victory-measuring .sheet { animation: none; }
+.victory-medal { align-self: center; display: grid; place-items: center; width: 40px; height: 40px; margin: -6px 0 -5px; border: 3px solid #fff1b9; border-radius: 50%; background: linear-gradient(145deg, #ffe9a2, #e8a72b); color: #805316; font: 900 1.5rem/1 system-ui, sans-serif; box-shadow: 0 3px 0 #aa6a1c; }
+#modal-win.victory-ready .victory-medal, #modal-win.victory-ready h3,
+#modal-win.victory-ready .win-time, #modal-win.victory-ready .win-best,
+#modal-win.victory-ready .xp-line:not([hidden]),
+#modal-duel.victory-ready .duel-trophy, #modal-duel.victory-ready h3,
+#modal-duel.victory-ready .xp-line:not([hidden]) {
+  animation: victory-item .4s ease-out both;
+}
+#modal-win.victory-ready .xp-line:not([hidden]), #modal-duel.victory-ready .xp-line:not([hidden]) { animation-delay: .15s; }
+@keyframes victory-item { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.duel-art { width: min(54%, calc(22vh * var(--ar))); }
+.duel-sheet.has-art .duel-trophy { font-size: 2.7rem; }
+html[data-motion="reduce"] .victory-flight, html[data-motion="reduce"] .victory-flight *,
+html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"] #modal-duel.victory-ready * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .victory-flight, .victory-flight *, #modal-win.victory-ready *, #modal-duel.victory-ready * { animation: none !important; }
+}

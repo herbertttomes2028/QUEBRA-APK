@@ -183,6 +183,7 @@
   }
 
   function showScreen(name) {
+    if (name !== 'game') cancelVictoryFlight();
     ['home', 'pick', 'game', 'lobby', 'me'].forEach(function (n) {
       $('#screen-' + n).classList.toggle('active', n === name);
     });
@@ -713,6 +714,9 @@
   }
 
   function buildField(snap) {
+    cancelVictoryFlight();
+    $('#modal-win').classList.remove('victory-ready');
+    $('#modal-duel').classList.remove('victory-ready');
     var cfg = state.cfg;
     var T = cfg.TILE;
     var field = $('#field');
@@ -1464,6 +1468,106 @@
     paintTimer();
   }
 
+  // Última peça: um único contorno dourado de 0,4 s na grade, sem animar SVGs.
+  function flashLastSnap() {
+    if (reducedMotion() || currentScreen() !== 'game') return;
+    var field = $('#field');
+    field.classList.add('victory-last');
+    setTimeout(function () { field.classList.remove('victory-last'); }, 420);
+  }
+
+  /* ---------------------------------------------------------
+   * Celebração de conclusão: um único quadro fotográfico animado.
+   * A imagem já foi processada para as peças. Nenhum SVG é animado,
+   * não há rasterização do tabuleiro, filtros ou confetes em cascata.
+   * O servidor continua sendo a única fonte das recompensas.
+   * --------------------------------------------------------- */
+  var victoryMotion = { finish: null, animation: null, timer: null };
+  function cancelVictoryFlight() {
+    var finish = victoryMotion.finish;
+    victoryMotion.finish = null;
+    clearTimeout(victoryMotion.timer);
+    victoryMotion.timer = null;
+    if (victoryMotion.animation) {
+      try { victoryMotion.animation.cancel(); } catch (e) { /* segue */ }
+      victoryMotion.animation = null;
+    }
+    $('#victory-flight').hidden = true;
+    $('#victory-flight-photo').style.transform = '';
+    // Não abre a janela ao abandonar a partida durante a animação.
+    return !!finish;
+  }
+  function showVictoryResult(modalSel, focusSel, canFly, onShown) {
+    cancelVictoryFlight();
+    var done = false;
+    function reveal() {
+      if (done) return;
+      done = true;
+      cancelVictoryFlight();
+      // Resultado de duelo também pode ser reaberto no lobby após reconexão.
+      if (!state.duel && (!state.inGame || currentScreen() !== 'game')) return;
+      if (state.duel && currentScreen() !== 'game' && currentScreen() !== 'lobby') return;
+      openModal(modalSel, focusSel);
+      $(modalSel).classList.add('victory-ready');
+      refreshXp();
+      if (onShown) onShown();
+    }
+    var board = $('#board'), modal = $(modalSel);
+    // Preferências de acessibilidade, partida retomada e navegadores antigos:
+    // resultado completo e acessível imediatamente, sem movimento.
+    if (!canFly || reducedMotion() || !board || !state.imageUrl ||
+        currentScreen() !== 'game' || !state.inGame ||
+        !$('#victory-flight-photo').animate) { reveal(); return; }
+    var source = board.getBoundingClientRect();
+    if (source.width < 30 || source.height < 30) { reveal(); return; }
+
+    // Medição única, sem animação e sem foco: evita adivinhar a posição final
+    // em telas de tamanhos diferentes, inclusive com rolagem no cartão.
+    modal.classList.add('victory-measuring');
+    modal.hidden = false;
+    var targetEl = modalSel === '#modal-win' ? $('#win-art') : $('#duel-art');
+    var target = targetEl.getBoundingClientRect();
+    modal.hidden = true;
+    modal.classList.remove('victory-measuring');
+    if (target.width < 30 || target.height < 30) { reveal(); return; }
+
+    var layer = $('#victory-flight'), photo = $('#victory-flight-photo');
+    photo.style.backgroundImage = 'url("' + state.imageUrl + '")';
+    photo.style.left = source.left + 'px';
+    photo.style.top = source.top + 'px';
+    photo.style.width = source.width + 'px';
+    photo.style.height = source.height + 'px';
+    layer.hidden = false;
+    var sx = target.width / source.width, sy = target.height / source.height;
+    var lift = Math.min(1.16, Math.max(1.045, Math.max(sx, sy) * 1.11));
+    var dx = (window.innerWidth - source.width * lift) / 2 - source.left;
+    var dy = (window.innerHeight - source.height * lift) / 2 - source.top;
+    var tx = target.left - source.left, ty = target.top - source.top;
+    var frames = [
+      { offset: 0, transform: 'translate3d(0,0,0) scale(1)' },
+      { offset: .57, transform: 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(' + lift + ')' },
+      { offset: 1, transform: 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + sx + ',' + sy + ')' }
+    ];
+    try {
+      victoryMotion.finish = reveal;
+      victoryMotion.animation = photo.animate(frames, {
+        duration: 1220, easing: 'cubic-bezier(.2,.72,.22,1)', fill: 'forwards'
+      });
+      victoryMotion.animation.finished.then(reveal, function () { if (victoryMotion.finish) reveal(); });
+      victoryMotion.timer = setTimeout(reveal, 1600);  // limite: nunca bloqueia o resultado
+    } catch (e) { reveal(); }
+  }
+  $('#victory-flight').addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    if (victoryMotion.finish) victoryMotion.finish(); // toque avança sem esperar
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && victoryMotion.finish) victoryMotion.finish();
+  });
+  window.addEventListener('resize', function () {
+    if (victoryMotion.finish) victoryMotion.finish();
+  });
+
   /* ---------------------------------------------------------
    * Vitória
    * --------------------------------------------------------- */
@@ -1490,25 +1594,11 @@
     b.hidden = !best.text;
     $('#field').classList.add('won');            // some as linhas entre as peças
     state.winBlob = null;
-    var box = $('#confetti');
-    box.innerHTML = '';
-    if (!reducedMotion()) {
-      var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
-      var particles = document.createDocumentFragment();
-      for (var i = 0; i < 44; i++) {
-        var c = document.createElement('i');
-        c.style.left = Math.random() * 100 + '%';
-        c.style.background = colors[i % colors.length];
-        c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
-        c.style.animationDelay = Math.random() * 0.8 + 's';
-        particles.appendChild(c);
-      }
-      box.appendChild(particles);
-    }
-    openModal('#modal-win', '#win-again');
-    refreshXp();                                   // (o aviso de XP pode ter chegado enquanto a janela ainda não abria)
-    vibrate([40, 60, 40]);
-    playSound('win');
+    $('#confetti').textContent = '';   // container legado, sem partículas
+    showVictoryResult('#modal-win', '#win-again', true, function () {
+      vibrate([40, 60, 40]);
+      playSound('win');
+    });
     announce((state.solo ? 'Você conseguiu!' : 'Vocês conseguiram!') + ' Tempo: ' + fmtTime(data.elapsedMs) + '. ' + best.text);
   }
 
@@ -2128,6 +2218,7 @@
   });
 
   socket.on('won', function (d) {
+    flashLastSnap();
     setTimeout(function () { showWin(d); }, 650);
   });
 
@@ -2954,31 +3045,24 @@
       bar.style.width = '0%';
       setTimeout(function () { bar.style.width = p.pct + '%'; }, 60);
     });
-    var box = $('#duel-confetti');
-    box.innerHTML = '';
-    if (won && !reducedMotion()) {
-      var colors = ['#ffcf33', '#2f6bff', '#ff4f8b', '#1fc8a0', '#ffffff'];
-      var particles = document.createDocumentFragment();
-      for (var i = 0; i < 44; i++) {
-        var c = document.createElement('i');
-        c.style.left = Math.random() * 100 + '%';
-        c.style.background = colors[i % colors.length];
-        c.style.animationDuration = 2.4 + Math.random() * 2.2 + 's';
-        c.style.animationDelay = Math.random() * 0.8 + 's';
-        particles.appendChild(c);
-      }
-      box.appendChild(particles);
-    }
+    $('#duel-confetti').textContent = '';
+    var ownComplete = won && r.reason === 'complete';
+    if (ownComplete) flashLastSnap();
+    var duelArt = $('#duel-art');
+    duelArt.hidden = !ownComplete;
+    duelArt.style.backgroundImage = ownComplete ? 'url("' + state.imageUrl + '")' : 'none';
+    if (state.cfg) duelArt.style.setProperty('--ar', state.cfg.COLS / state.cfg.ROWS);
+    $('#modal-duel .duel-sheet').classList.toggle('has-art', ownComplete);
     updateDuelRematch();
     updateUi();
     setTimeout(function () {
       if (!state.duel || state.duel.phase !== 'end') return;
-      openModal('#modal-duel', '#duel-rematch');
-      refreshXp();                                 // (idem)
-      playSound(won ? 'win' : 'chime');
-      vibrate(won ? [40, 60, 40] : 30);
-      announce(won ? 'Você venceu a disputa!' : opp + ' venceu a disputa.');
-    }, won ? 650 : 350);
+      showVictoryResult('#modal-duel', '#duel-rematch', ownComplete, function () {
+        playSound(won ? 'win' : 'chime');
+        vibrate(won ? [40, 60, 40] : 30);
+        announce(won ? 'Você venceu a disputa!' : opp + ' venceu a disputa.');
+      });
+    }, ownComplete ? 450 : 350);
   }
 
   function updateDuelRematch() {
@@ -3398,6 +3482,7 @@
   }
   // sair de verdade (sem perguntar): usado pela confirmação acima e pelo X da partida concluída
   function leaveNow() {
+    cancelVictoryFlight();
     if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
   }
 
