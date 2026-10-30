@@ -370,9 +370,23 @@
 
     </section>
 
-    <!-- ========== SUBIU DE NÍVEL (animação rápida, sem tocar em nada) ========== -->
-    <div id="lvup" class="lvup" hidden role="status" aria-live="polite">
-      <div class="lvup-card"><span class="lvup-burst" aria-hidden="true"></span><small>Subiu de nível!</small><b id="lvup-n">Nv 2</b></div>
+    <!-- ========== CELEBRAÇÃO DE NÍVEL (só na tela inicial, após a partida) ========== -->
+    <div id="lvup" class="lvup" hidden role="dialog" aria-modal="true" aria-labelledby="lvup-title" aria-describedby="lvup-desc">
+      <div class="lvup-stars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="lvup-card">
+        <span class="lvup-eyebrow">CONQUISTA DESBLOQUEADA</span>
+        <h2 id="lvup-title">NOVO NÍVEL!</h2>
+        <div class="lvup-award" aria-hidden="true">
+          <span class="lvup-ribbon left"></span><span class="lvup-ribbon right"></span>
+          <div class="lvup-medal">
+            <div class="lvup-medal-inner"><span class="lvup-medal-star">★</span><b id="lvup-n">2</b></div>
+          </div>
+        </div>
+        <p id="lvup-from" class="lvup-from">DO NÍVEL 1</p>
+        <p id="lvup-sr-level" class="sr-only">Você chegou ao nível 2.</p>
+        <p id="lvup-desc" class="lvup-message">Você evoluiu!<br>Novos desafios te esperam.</p>
+        <button id="lvup-continue" class="lvup-continue" type="button">CONTINUAR <span aria-hidden="true">✦</span></button>
+      </div>
     </div>
 
     <!-- ========== CONFIRMAÇÃO (substitui o confirm() do navegador) ========== -->

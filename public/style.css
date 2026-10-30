@@ -2011,17 +2011,46 @@ html[data-motion="reduce"] .xp-bar i { transition: none; }
 .xp-rep { color: var(--ink-soft); font-weight: 700; font-size: .72rem; opacity: .85; }
 
 /* animação de subir de nível: breve, por cima de tudo e sem capturar toques */
-.lvup { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; pointer-events: none; }
+/* Celebração leve: brilho e partículas em opacity/transform; sem filtros SVG ou blur animado. */
+.lvup { position: fixed; inset: 0; z-index: 95; display: flex; justify-content: center; align-items: center; padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)); background: rgba(16, 19, 55, .83); overflow-y: auto; isolation: isolate; animation: lvup-veil .35s ease-out both; }
 .lvup[hidden] { display: none; }
-.lvup-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px 30px 18px; border-radius: 26px; color: #fff; background: linear-gradient(180deg, #6f52ff, #4a32c9); box-shadow: 0 12px 0 #321f96, 0 24px 44px rgba(27, 37, 89, .45); animation: lvup-pop 2.3s cubic-bezier(.34, 1.56, .64, 1) both; }
-.lvup-card small { font-weight: 800; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; opacity: .92; }
-.lvup-card b { font: 700 2.6rem/1.05 "Fredoka", var(--font); text-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
-.lvup-burst { position: absolute; z-index: -1; left: 50%; top: 50%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(255, 220, 90, .0), rgba(255, 220, 90, .55), rgba(255, 220, 90, 0), rgba(255, 220, 90, .55), rgba(255, 220, 90, 0)); animation: lvup-spin 2.3s linear both; filter: blur(2px); }
-@keyframes lvup-pop { 0% { transform: scale(.4) translateY(30px); opacity: 0; } 14% { transform: scale(1.08); opacity: 1; } 24% { transform: scale(1); } 80% { transform: scale(1); opacity: 1; } 100% { transform: scale(.92) translateY(-14px); opacity: 0; } }
-@keyframes lvup-spin { 0% { transform: rotate(0); opacity: 0; } 15% { opacity: 1; } 80% { opacity: 1; } 100% { transform: rotate(160deg); opacity: 0; } }
-html[data-motion="reduce"] .lvup-card { animation: lvup-fade 2.3s ease both; }
-html[data-motion="reduce"] .lvup-burst { display: none; }
-@keyframes lvup-fade { 0% { opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+.lvup-card { position: relative; z-index: 1; width: min(100%, 370px); max-height: 100%; overflow-y: auto; text-align: center; padding: 29px 18px 24px; border: 2px solid rgba(255, 242, 192, .7); border-radius: 30px; background: linear-gradient(160deg, #313472 0%, #222653 52%, #1a1d45 100%); color: #fff; box-shadow: 0 12px 0 #10132c, 0 24px 48px rgba(0, 0, 0, .28), inset 0 0 0 5px rgba(255, 255, 255, .04); animation: lvup-rise .65s cubic-bezier(.22, 1.25, .4, 1) both; }
+.lvup-eyebrow { display: block; color: #fbdc92; font: 700 .64rem/1.5 "Fredoka", var(--font); letter-spacing: .19em; }
+.lvup-card h2 { margin: 4px 0 4px; color: #ffe08b; font: 800 clamp(1.65rem, 7.8vw, 2.3rem)/1.08 "Fredoka", var(--font); letter-spacing: .015em; text-shadow: 0 3px 0 #7e4d16; }
+.lvup-award { position: relative; width: 202px; height: 190px; margin: 4px auto 0; display: grid; place-items: center; }
+.lvup-award::before { content: ''; position: absolute; inset: 3px; border-radius: 50%; border: 2px dashed rgba(255, 223, 131, .38); animation: lvup-turn 12s linear infinite; }
+.lvup-medal { position: relative; z-index: 2; display: grid; place-items: center; width: 158px; height: 158px; border-radius: 50%; border: 8px solid #ffda66; background: linear-gradient(140deg, #fffaad 4%, #f9c249 28%, #df8a21 58%, #ffe57c 90%); box-shadow: 0 5px 0 #a75c18, 0 10px 28px rgba(0, 0, 0, .28), inset 0 0 0 3px #fff4b5; animation: lvup-medal-in .9s .16s cubic-bezier(.2, 1.4, .4, 1) both; }
+.lvup-medal-inner { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 118px; height: 118px; border-radius: 50%; border: 2px solid rgba(127, 72, 12, .45); background: radial-gradient(circle at 35% 20%, #fff9c7, #ffe28b 45%, #efb74c); color: #663e17; }
+.lvup-medal-star { font: 700 1.5rem/1 "Fredoka", var(--font); color: #a96a18; }
+.lvup-medal-inner b { font: 800 clamp(3rem, 11vw, 3.8rem)/1 "Fredoka", var(--font); text-shadow: 0 2px 0 rgba(255, 255, 255, .5); }
+.lvup-ribbon { position: absolute; z-index: 1; bottom: -6px; width: 49px; height: 74px; background: linear-gradient(90deg, #a63960, #ff6791 45%, #ca3d71); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 79%, 0 100%); }
+.lvup-ribbon.left { left: 49px; transform: rotate(17deg); }
+.lvup-ribbon.right { right: 49px; transform: rotate(-17deg); }
+.lvup-from { margin: 4px 0 0; color: #ffdc89; font: 700 .77rem/1.4 "Fredoka", var(--font); letter-spacing: .14em; }
+.lvup-message { margin: 8px auto 18px; font: 600 1rem/1.36 "Fredoka", var(--font); color: #fff9ef; }
+.lvup-continue { min-width: 195px; min-height: 50px; padding: 11px 24px; border: 0; border-radius: 16px; background: linear-gradient(#ffe98b, #ffbe36); color: #39254d; font: 800 1rem/1.2 "Fredoka", var(--font); letter-spacing: .035em; box-shadow: 0 5px 0 #aa7118; cursor: pointer; }
+.lvup-continue:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+.lvup-continue:active { transform: translateY(3px); box-shadow: 0 2px 0 #aa7118; }
+.lvup-continue span { margin-left: 8px; }
+.lvup-stars { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.lvup-stars i { position: absolute; left: var(--lx); top: var(--ty); width: 10px; height: 10px; background: #ffde77; clip-path: polygon(50% 0, 62% 37%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 37%); animation: lvup-twinkle 2.4s ease-in-out infinite alternate; animation-delay: var(--delay); }
+.lvup-stars i:nth-child(1) { --lx: 12%; --ty: 12%; --delay: .1s; }
+.lvup-stars i:nth-child(2) { --lx: 80%; --ty: 16%; --delay: .4s; width: 16px; height: 16px; }
+.lvup-stars i:nth-child(3) { --lx: 6%; --ty: 46%; --delay: 1.2s; }
+.lvup-stars i:nth-child(4) { --lx: 91%; --ty: 43%; --delay: .8s; width: 15px; height: 15px; }
+.lvup-stars i:nth-child(5) { --lx: 14%; --ty: 80%; --delay: 1.6s; }
+.lvup-stars i:nth-child(6) { --lx: 83%; --ty: 85%; --delay: .3s; }
+.lvup-stars i:nth-child(7) { --lx: 42%; --ty: 7%; --delay: 2s; width: 8px; height: 8px; }
+.lvup-stars i:nth-child(8) { --lx: 57%; --ty: 92%; --delay: 1s; }
+@keyframes lvup-veil { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lvup-rise { from { transform: translateY(34px) scale(.87); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes lvup-medal-in { from { transform: rotate(-22deg) scale(.4); opacity: 0; } to { transform: rotate(0) scale(1); opacity: 1; } }
+@keyframes lvup-turn { to { transform: rotate(360deg); } }
+@keyframes lvup-twinkle { from { opacity: .3; transform: scale(.5); } to { opacity: 1; transform: scale(1.5); } }
+@media (max-height: 630px) { .lvup-card { padding: 15px 14px 16px; } .lvup-award { height: 155px; } .lvup-medal { width: 128px; height: 128px; } .lvup-medal-inner { width: 94px; height: 94px; } .lvup-medal-inner b { font-size: 2.65rem; } .lvup-ribbon { bottom: -4px; height: 55px; } .lvup-message { margin: 6px auto 12px; } }
+html[data-motion="reduce"] .lvup, html[data-motion="reduce"] .lvup-card, html[data-motion="reduce"] .lvup-medal, html[data-motion="reduce"] .lvup-award::before, html[data-motion="reduce"] .lvup-stars i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lvup, .lvup-card, .lvup-medal, .lvup-award::before, .lvup-stars i { animation: none; } }
+
 
 /* =========================================================
  * Tela inicial sem o cartão de nome e avatares (agora no perfil da conta):

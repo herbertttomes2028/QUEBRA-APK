@@ -188,7 +188,7 @@
     });
     if (name === 'game') { layout(); wakeFrame(); }
     syncResultChip();
-    if (name === 'home') maybeApplyUpdate();
+    if (name === 'home') { maybeApplyUpdate(); scheduleLevelCelebration(); }
     if (window.QC && window.QC.onScreen) window.QC.onScreen(name);
   }
 
@@ -1218,23 +1218,76 @@
     xpBox($('#win-xp'), ev); xpBox($('#duel-xp'), ev);
     state.xpLast = null;
   }
-  function showLevelUp(level) {
-    var box = $('#lvup'); if (!box) return;
-    $('#lvup-n').textContent = 'Nv ' + level;
-    box.hidden = true; void box.offsetWidth; box.hidden = false;       // reinicia a animação
-    playSound('chime');
-    if (!navigator.userActivation || navigator.userActivation.hasBeenActive) vibrate(30);      // (o navegador recusa vibrar antes do primeiro toque)
-    clearTimeout(state.lvTimer);
-    state.lvTimer = setTimeout(function () { box.hidden = true; }, 2400);
-    announce('Você subiu para o nível ' + level + '!');
+  // A comemoração é só apresentação: o servidor continua sendo o único a pagar XP.
+  // O aviso pendente é local, separado por conta, para sobreviver ao recarregamento
+  // que ocorre ao sair do Solo/Cooperativo. Não cria nem altera recompensas.
+  var levelAccountCode = null, levelAccountValue = 0, levelWaitTimer = null;
+  function levelPendingKey() { return 'levelPending.' + levelAccountCode; }
+  function setLevelAccount(code, level) {
+    var next = typeof code === 'string' && /^[A-Z0-9-]{4,20}$/.test(code) ? code : null;
+    var changed = levelAccountCode !== next;
+    if (changed) {
+      $('#lvup').hidden = true;                 // nunca mostra o nível da conta anterior
+      clearTimeout(levelWaitTimer);
+    }
+    levelAccountCode = next;
+    levelAccountValue = Math.max(changed ? 0 : levelAccountValue, Number(level) || 0);
+    if (next) scheduleLevelCelebration();
   }
-  function onXp(ev) {                                                 // o servidor pagou XP (vem por conta, nunca do celular)
+  function scheduleLevelCelebration() {
+    clearTimeout(levelWaitTimer);
+    levelWaitTimer = setTimeout(tryLevelCelebration, 160);
+  }
+  function levelCelebrationAllowed() {
+    return levelAccountCode && currentScreen() === 'home' && !state.inGame && !state.duel &&
+      $('#loading').hidden && $('#go-splash').hidden &&
+      !document.querySelector('.modal:not([hidden])') && $('#lvup').hidden;
+  }
+  function tryLevelCelebration() {
+    if (!levelCelebrationAllowed()) return;
+    var pending = store.get(levelPendingKey(), null);
+    if (!pending || !Number.isInteger(pending.to) || pending.to < 2 ||
+        !Number.isInteger(pending.from) || pending.from < 1 || pending.from >= pending.to) return;
+    // Confirma o nível usando os dados recebidos da conta/servidor.
+    if (levelAccountValue < pending.to) return;
+    var box = $('#lvup');
+    $('#lvup-from').textContent = 'DO NÍVEL ' + pending.from;
+    $('#lvup-n').textContent = String(pending.to);
+    $('#lvup-sr-level').textContent = 'Você chegou ao nível ' + pending.to + '.';
+    box.hidden = false;
+    try { $('#lvup-continue').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+    playSound('win');
+    vibrate([30, 60, 45]);
+    announce('Parabéns! Você chegou ao nível ' + pending.to + '.');
+  }
+  function dismissLevelCelebration() {
+    var box = $('#lvup');
+    if (box.hidden) return;
+    box.hidden = true;
+    // Limpa só ao fechar: se o aplicativo for interrompido no meio, reaparece.
+    if (levelAccountCode) store.set(levelPendingKey(), null);
+    try { $('#btn-play').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
+  }
+  $('#lvup-continue').addEventListener('click', dismissLevelCelebration);
+  function onXp(ev) {                                                 // XP validado pelo servidor, não pelo celular
     ev.at = Date.now();
     var resultOpen = !$('#modal-win').hidden || !$('#modal-duel').hidden;
     state.xpLast = ev;
     if (resultOpen) refreshXp();
     else if (currentScreen() !== 'game') toast('⭐ +' + ev.gained + ' XP' + (ev.ach && ev.ach.length ? ' · ' + ev.ach.map(function (a) { return a.icon + ' ' + a.title; }).join(', ') : ''), 3000);
-    if (ev.leveledUp) setTimeout(function () { showLevelUp(ev.level); }, currentScreen() === 'game' ? 1900 : 250);
+    if (levelAccountCode && ev.leveledUp && Number.isInteger(ev.level) && Number.isInteger(ev.prevLevel) && ev.level > ev.prevLevel) {
+      var old = store.get(levelPendingKey(), null);
+      var from = old && Number.isInteger(old.from) ? Math.min(old.from, ev.prevLevel) : ev.prevLevel;
+      var to = old && Number.isInteger(old.to) ? Math.max(old.to, ev.level) : ev.level;
+      store.set(levelPendingKey(), { from: from, to: to });
+      levelAccountValue = Math.max(levelAccountValue, ev.level);
+      if (!$('#lvup').hidden) {               // outra subida antes de fechar: mantém a maior conquista
+        $('#lvup-n').textContent = String(to);
+        $('#lvup-sr-level').textContent = 'Você chegou ao nível ' + to + '.';
+        $('#lvup-from').textContent = 'DO NÍVEL ' + from;
+      }
+      scheduleLevelCelebration();              // só abre se a partida e todas as janelas terminaram
+    }
   }
 
   /* ---------- nível ao lado do nome: "[Nv 12] Nome" ---------- */
@@ -1526,6 +1579,7 @@
     m._ret = null;
     try { if (r && r.focus && document.contains(r)) r.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
     syncResultChip();
+    if (currentScreen() === 'home') scheduleLevelCelebration();
   }
 
   // anúncio para leitores de tela
@@ -3201,6 +3255,7 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
+      if (!$('#lvup').hidden) { dismissLevelCelebration(); return; }
       if (!$('#modal-settings').hidden) { closeModal('#modal-settings'); return; }
       if (!$('#modal-help').hidden) { closeTutorial(); return; }
       if (!$('#modal-menu').hidden) { closeModal('#modal-menu'); return; }
@@ -3374,6 +3429,7 @@
   }
   // devolve true se "consumiu" o toque (fechou algo, voltou um nível ou perguntou); false se já está na raiz
   function navBack() {
+    if (!$('#lvup').hidden) { dismissLevelCelebration(); return true; }
     if (cfm.resolve) { endConfirm(false); return true; }
     for (var i = 0; i < nav.extra.length; i++) { if (nav.extra[i]()) return true; }
     var m = topModal();
@@ -3441,7 +3497,7 @@
       if (duelMode) $('#duel-modes').hidden = true;                // o modo já foi escolhido no convite
     },
     join: doJoin, enterRoom: enterRoom,
-    confirm: askConfirm, openPrivacy: openPrivacy, onXp: onXp, lvTag: lvTag, nameLv: nameLv,
+    confirm: askConfirm, openPrivacy: openPrivacy, onXp: onXp, setLevelAccount: setLevelAccount, lvTag: lvTag, nameLv: nameLv,
     nav: { add: function (fn) { nav.extra.push(fn); } },
     goLabel: null,
     applyProfile: function (name, avatar) {
