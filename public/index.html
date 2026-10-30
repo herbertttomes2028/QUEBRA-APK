@@ -533,12 +533,22 @@
       </div>
     </div>
 
+    <!-- Imagem única da conquista: viaja do tabuleiro à janela de resultado. -->
+    <div id="victory-flight" class="victory-flight" hidden aria-hidden="true">
+      <div class="victory-veil"></div>
+      <div id="victory-flight-photo" class="victory-flight-photo">
+        <span class="victory-flight-glint"></span>
+      </div>
+      <span class="victory-flight-skip">Toque para continuar</span>
+    </div>
+
     <!-- ========== VITÓRIA ========== -->
     <div id="modal-win" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="win-title">
       <div id="confetti" aria-hidden="true"></div>
       <div class="sheet win">
         <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
         <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
+        <div class="victory-medal" aria-hidden="true">★</div>
         <h3 id="win-title">Vocês conseguiram! 🎉</h3>
         <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
         <p id="win-best" class="win-best" hidden></p>
@@ -561,6 +571,7 @@
       <div id="duel-confetti" aria-hidden="true"></div>
       <div class="sheet win duel-sheet">
         <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
+        <div id="duel-art" class="win-art duel-art" role="img" aria-label="Sua imagem concluída" hidden></div>
         <div id="duel-trophy" class="duel-trophy" aria-hidden="true">🏆</div>
         <h3 id="duel-title">Você venceu!</h3>
         <p id="duel-sub" class="duel-sub"></p>

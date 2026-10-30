@@ -56,11 +56,11 @@ test('imagem recortada ativa é protegida de exclusão do cache, limitado a 4', 
   assert.match(game, /'image\/jpeg', 0\.9/);
 });
 
-test('resultado Solo/Cooperativo e Desafio mantém confetes e animações', () => {
-  assert.equal((game.match(/for \(var i = 0; i < 44; i\+\+\)/g) || []).length, 2);
-  assert.equal((game.match(/document\.createDocumentFragment\(\)/g) || []).length, 2);
-  assert.match(css, /animation: win-reveal \.9s ease-out both/);
-  assert.match(css, /@keyframes fall/);
+test('conclusão Solo, Cooperativo e Desafio remove confetes e desfoque pesados, mantém o som', () => {
+  assert.doesNotMatch(game, /for \(var i = 0; i < 44; i\+\+\)/);
+  assert.doesNotMatch(css, /animation: win-reveal|@keyframes fall|filter: blur\(/);
+  assert.match(game, /showVictoryResult\('#modal-win', '#win-again', true/);
+  assert.match(game, /showVictoryResult\('#modal-duel', '#duel-rematch', ownComplete/);
   assert.match(game, /playSound\('win'\)/);
   assert.match(game, /playSound\(won \? 'win' : 'chime'\)/);
 });
