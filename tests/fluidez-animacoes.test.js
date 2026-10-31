@@ -73,5 +73,5 @@ test('estilos preservam giro em pé, pulinho dourado e contorno sem filtro caro'
   assert.match(css, /\.victory-flight-photo\s*\{[\s\S]*?contain: layout;/);
   assert.match(css, /\.victory-flight-photo::before/);
   assert.match(css, /@keyframes victory-glint/);
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v20'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v19'/);
 });

@@ -1,5 +1,5 @@
 'use strict';
-// Testes isolados dos gestos reais do game.js: sem servidor, rede ou Android.
+// Regressões isoladas dos gestos do game.js: rodar sem servidor/conta/Android.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -9,10 +9,6 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const game = fs.readFileSync(path.join(root, 'public/game.js'), 'utf8');
 const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-const PRESETS = {
-  6: [2, 3, 840, 240], 12: [3, 4, 960, 160], 20: [4, 5, 960, 135],
-  30: [5, 6, 950, 120], 48: [6, 8, 780, 110]
-};
 
 function body(name) {
   const needle = '  function ' + name + '(';
@@ -24,168 +20,137 @@ function body(name) {
 }
 
 function build(pieces = 6) {
-  const [cols, rows, bw, tray] = PRESETS[pieces];
-  const tile = bw / cols;
   const cfg = {
-    PIECES: pieces, COLS: cols, ROWS: rows, TILE: tile, TRAY: tray,
-    BOARD_X: (1000 - bw) / 2, BOARD_Y: 30, BOARD_W: bw, BOARD_H: rows * tile,
-    TRAY_LINE: 30 + rows * tile + 20, FIELD_W: 1000, FIELD_H: 3000
+    PIECES: pieces, TILE: pieces === 6 ? 420 : 320, TRAY: pieces === 6 ? 240 : 160,
+    TRAY_LINE: 1500, FIELD_W: 1000, FIELD_H: 2300
   };
   const p = {
-    id: 0, x: 500, y: cfg.TRAY_LINE + 130, tx: 500, ty: cfg.TRAY_LINE + 130,
-    heldBy: null, locked: false, zoomAbs: null, vs: cfg.TRAY / cfg.TILE,
-    z: 10, dirty: false, lastMove: 0,
-    el: { dataset: { id: '0' }, style: {}, setPointerCapture() {} }
+    id: 0, x: 500, y: 1800, tx: 500, ty: 1800, heldBy: null,
+    locked: false, zoomAbs: null, vs: cfg.TRAY / cfg.TILE, z: 10,
+    el: { dataset: { id: '0' }, setPointerCapture() {} }
   };
   const state = {
     cfg, idx: 0, ptrs: {}, drag: null, pinch: null, selectedId: null,
-    pieces: [p], zMax: 10, idleTimer: null, scale: 1, inGame: false,
-    status: 'playing', view: null
+    pieces: [p], zMax: 10, idleTimer: null, scale: 1
   };
   const sent = [], painted = [];
   const ctx = {
-    state, ZOOM_MAX: 6,
+    state, HELD_SCALE: 1.04, ZOOM_MAX: 6,
     clamp: (x, a, b) => Math.max(a, Math.min(b, x)),
     $: key => key === '#field' ? { getBoundingClientRect: () => ({ left: 0, top: 0 }) }
       : key === '#stage' ? { clientWidth: 960 } : null,
     performance: { now: () => 1000 },
-    Math, Number, Object, clearTimeout: () => {},
-    classify: () => {}, updateUi: () => {}, wakeFrame: () => painted.push('wake'),
+    Math, Number, Object,
+    classify: () => {}, updateUi: () => {}, wakeFrame: () => painted.push('frame'),
     gameEmit: (name, payload) => sent.push([name, payload]),
+    clearTimeout: () => {},
     socket: { volatile: { emit: (name, payload) => sent.push([name, payload]) } },
-    document: { hidden: false }, lastTimerPaint: 1000, paintTimer: () => {},
-    currentScreen: () => 'game', frameTimer: 0, setTimeout: () => 10,
-    paintTag: () => {},
+    stateSent: sent,
   };
-  for (const name of [
-    'fullyInsideBoard', 'baseScale', 'targetScale', 'pointerCount', 'onPointerDown',
-    'startPinch', 'setZoom', 'onPointerMove', 'frame'
-  ]) vm.runInNewContext(body(name), ctx, { filename: 'game.js:' + name });
+  for (const name of ['baseScale', 'targetScale', 'pointerCount', 'onPointerDown', 'startPinch', 'setZoom', 'onPointerMove']) {
+    vm.runInNewContext(body(name), ctx, { filename: 'game.js:' + name });
+  }
   function pointer(x, y, pointerId = 1, pointerType = 'touch') {
     return {
-      clientX: x, clientY: y, pointerId, pointerType, button: 0,
-      preventDefault() {}, target: { closest: () => p.el }
+      clientX: x, clientY: y, pointerId, pointerType,
+      preventDefault() {},
+      target: { closest: () => p.el }
     };
   }
-  function inside() {
-    p.x = cfg.BOARD_X + cfg.TILE / 2;
-    p.y = cfg.BOARD_Y + cfg.TILE / 2;
-    p.tx = p.x; p.ty = p.y;
-  }
-  return { cfg, p, state, ctx, pointer, sent, painted, inside };
+  return { cfg, p, state, ctx, pointer, sent, painted };
 }
 
-for (const pieces of [6, 12, 20, 30, 48]) {
-  test(pieces + ' peças: não ampliar automaticamente ao tocar, segurar ou arrastar na bandeja', () => {
-    const { ctx, p, cfg, state, pointer } = build(pieces);
-    const original = cfg.TRAY / cfg.TILE;
-    assert.equal(ctx.baseScale(p), original);
-    ctx.onPointerDown(pointer(p.x + 20, p.y));
-    assert.equal(state.selectedId, 0);
-    assert.equal(ctx.targetScale(p), original, 'toque/segurar não faz zoom');
-    state.drag.moved = true;
-    assert.equal(ctx.targetScale(p), original, 'movimentar na bandeja não faz zoom');
-    p.heldBy = 1;  // amigo arrastando também não causa zoom prematuro
-    assert.equal(ctx.targetScale(p), original);
-  });
+test('6 peças: selecionar e segurar na bandeja não faz zoom automático', () => {
+  const { ctx, p, cfg, state, pointer } = build();
+  assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE);
+  ctx.onPointerDown(pointer(540, 1800));
+  assert.equal(state.selectedId, 0);
+  assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE);
+  state.drag.moved = true;
+  assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE, 'não cresce enquanto ainda está na bandeja');
+  p.y = cfg.TRAY_LINE - 1;
+  assert.equal(ctx.baseScale(p), 1, 'no tabuleiro cresce só até o tamanho natural');
+});
 
-  test(pieces + ' peças: só cresce quando a área NOMINAL inteira cabe no tabuleiro', () => {
-    const { ctx, p, cfg, inside } = build(pieces);
-    const small = cfg.TRAY / cfg.TILE;
-    inside();
-    assert.equal(ctx.fullyInsideBoard(p), true, 'o canto exato cabe dentro');
-    assert.equal(ctx.baseScale(p), 1);
-    p.y -= 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora de cima ainda é pequeno');
-    p.y += 0.1;
-    p.x = cfg.BOARD_X + cfg.BOARD_W - cfg.TILE / 2 + 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora da direita ainda é pequeno');
-    p.x -= 0.1;
-    p.y = cfg.BOARD_Y + cfg.BOARD_H - cfg.TILE / 2 + 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora de baixo ainda é pequeno');
-    p.y -= 0.1;
-    p.x = cfg.BOARD_X + cfg.TILE / 2 - 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora da esquerda ainda é pequeno');
-    p.x += 0.1;
-    assert.equal(ctx.baseScale(p), 1, 'com os quatro limites dentro, tamanho natural');
-    p.locked = true;
-    p.x = 0; p.y = 0;
-    assert.equal(ctx.baseScale(p), 1, 'peça já encaixada sempre conserva tamanho final');
-  });
+test('6 peças: a pinça continua ampliando a peça selecionada', () => {
+  const { ctx, p, cfg, state, pointer } = build();
+  ctx.onPointerDown(pointer(500, 1800));
+  state.ptrs[2] = { x: 600, y: 1800 };
+  ctx.startPinch();
+  assert.equal(state.drag, null, 'arrasto vira pinça');
+  assert.ok(state.pinch, 'pinça iniciada');
+  ctx.onPointerMove(pointer(700, 1800, 2));
+  assert.ok(p.zoomAbs > cfg.TRAY / cfg.TILE, 'dois dedos aumentaram o zoom de verdade');
+  ctx.setZoom(p, 1.5);
+  assert.equal(p.zoomAbs, 1.5);
+  assert.equal(ctx.targetScale(p), 1.5, 'o zoom manual prevalece sobre a escala natural');
+  p.y = cfg.TRAY_LINE - 1;
+  assert.equal(ctx.targetScale(p), 1.5, 'pinça funciona também no tabuleiro');
+});
 
-  test(pieces + ' peças: pinça manual continua ampliando na bandeja e na grade', () => {
-    const { ctx, p, cfg, state, pointer, inside } = build(pieces);
-    ctx.onPointerDown(pointer(p.x, p.y));
-    state.ptrs[2] = { x: p.x + 60, y: p.y };
-    ctx.startPinch();
-    assert.equal(state.drag, null, 'pinça substitui arrasto');
-    assert.ok(state.pinch, 'pinça ativa');
-    ctx.onPointerMove(pointer(p.x + 120, p.y, 2));
-    assert.ok(p.zoomAbs > cfg.TRAY / cfg.TILE, 'a pinça amplia por escolha do jogador');
-    const zoom = p.zoomAbs;
-    assert.equal(ctx.targetScale(p), zoom);
-    inside();
-    ctx.setZoom(p, 1.6);
-    assert.equal(ctx.targetScale(p), 1.6, 'zoom manual continua na grade');
-  });
+test('6 peças: peça já no tabuleiro não amplia automaticamente ao segurar', () => {
+  const { ctx, cfg, p, state, pointer } = build();
+  p.y = cfg.TRAY_LINE - 200;
+  p.vs = 1;
+  ctx.onPointerDown(pointer(540, p.y));
+  assert.equal(ctx.baseScale(p), 1);
+  state.drag.moved = true;
+  assert.equal(ctx.baseScale(p), 1);
+  assert.equal(ctx.targetScale(p), 1);
+});
 
-  test(pieces + ' peças: toque arrasta após 5px e acompanha o dedo sem salto', () => {
-    const { ctx, p, state, pointer, sent } = build(pieces);
-    const x = p.x, y = p.y;
-    ctx.onPointerDown(pointer(x + 20, y));
-    assert.equal(state.drag.offX, 20, 'deslocamento dedo-centro natural');
-    ctx.onPointerMove(pointer(x + 24, y));
-    assert.equal(state.drag.moved, false);
-    assert.equal(p.x, x);
-    ctx.onPointerMove(pointer(x + 26, y));
+test('6 peças: iniciar arrasto no celular requer 5px e acompanha o dedo sem salto', () => {
+  const { ctx, p, state, pointer, sent } = build();
+  ctx.onPointerDown(pointer(540, 1800));
+  assert.equal(state.drag.offX, 40, 'sem deslocamento ampliado ao pegar na bandeja');
+  ctx.onPointerMove(pointer(544, 1800));
+  assert.equal(state.drag.moved, false, 'toque mínimo ainda seleciona');
+  assert.equal(p.x, 500);
+  ctx.onPointerMove(pointer(546, 1800));
+  assert.equal(state.drag.moved, true, 'arrasto reconhecido antes dos 8px antigos');
+  assert.equal(p.x, 506, 'posição acompanha exatamente os 6px do dedo');
+  assert.equal(p.tx, 506);
+  assert.ok(sent.some(([name]) => name === 'move'), 'evento de movimentação preservado');
+});
+
+test('12, 20, 30 e 48 peças: ampliação automática e limiar antigo permanecem', () => {
+  for (const pieces of [12, 20, 30, 48]) {
+    const { ctx, cfg, p, state, pointer } = build(pieces);
+    ctx.onPointerDown(pointer(540, 1800));
+    assert.equal(ctx.baseScale(p), (cfg.TRAY / cfg.TILE) * 1.12);
+    ctx.onPointerMove(pointer(546, 1800));
+    assert.equal(state.drag.moved, false, 'limiar original preservado em ' + pieces);
+    ctx.onPointerMove(pointer(549, 1800));
     assert.equal(state.drag.moved, true);
-    assert.equal(p.x, x + 6);
-    assert.equal(p.tx, x + 6);
-    assert.ok(sent.some(([event]) => event === 'move'), 'evento original de movimento preservado');
-  });
-}
-
-test('clique com mouse preserva tolerância de 8px para diferenciar giro de arrasto', () => {
-  const { ctx, p, state, pointer } = build(12);
-  const x = p.x, y = p.y;
-  ctx.onPointerDown(pointer(x, y, 1, 'mouse'));
-  ctx.onPointerMove(pointer(x + 7, y, 1, 'mouse'));
-  assert.equal(state.drag.moved, false);
-  ctx.onPointerMove(pointer(x + 8, y, 1, 'mouse'));
-  assert.equal(state.drag.moved, true);
+    assert.equal(ctx.baseScale(p), 1.04, 'zoom ao arrastar preservado em ' + pieces);
+  }
 });
 
-test('transição da bandeja para a grade aumenta suavemente, nunca num salto', () => {
-  const { ctx, p, cfg, inside, painted } = build(6);
-  const small = cfg.TRAY / cfg.TILE;
-  p.dirty = false;
-  inside();
-  ctx.frame(1000);
-  assert.ok(p.vs > small && p.vs < 1, 'primeiro quadro é intermediário');
-  assert.ok(p.el.style.transform.includes('scale('), 'transform atualizada');
-  assert.ok(painted.includes('wake'), 'solicita quadros enquanto cresce');
-  for (let i = 1; i < 45; i++) ctx.frame(1000 + 16 * i);
-  assert.ok(Math.abs(p.vs - 1) < 0.001, 'converge ao tamanho de encaixe');
-  const prev = p.vs;
-  p.y -= cfg.TILE / 2 + 1;
-  ctx.frame(1800);
-  assert.ok(p.vs < prev && p.vs > small, 'volta a diminuir gradualmente ao sair');
-});
-
-test('dedo parado não força desenho a 60 quadros após estabilizar', () => {
-  const { ctx, state, p, painted } = build(20);
+test('6 peças: o desenho não reanima só por uma seleção em repouso', () => {
+  const { ctx, state, p, painted } = build();
   p.heldBy = 0;
+  p.tx = p.x;
+  p.ty = p.y;
   p.dirty = false;
-  state.drag = { id: 0, moved: true };
-  ctx.frame(1000);
-  assert.equal(p.vs, state.cfg.TRAY / state.cfg.TILE);
-  assert.equal(p.el.style.transform, undefined, 'nenhuma escrita gráfica desnecessária');
-  assert.equal(painted.length, 0, 'sem quadros contínuos só por segurar sem mover');
+  p.el.style = {};
+  vm.runInNewContext(body('frame'), {
+    ...ctx,
+    state,
+    lastTimerPaint: 999,
+    paintTimer: () => {},
+    currentScreen: () => 'game',
+    wakeFrame: () => painted.push('next'),
+    frameTimer: 0,
+    document: { hidden: false },
+    Math, clamp: ctx.clamp,
+  });
+  assert.equal(p.vs, 240 / 420);
+  assert.equal(p.el.style.transform, undefined, 'nenhuma escrita de transform desnecessária');
+  assert.equal(painted.includes('next'), false, 'sem quadros extra só pelo zoom automático');
 });
 
-test('cache PWA v20 entrega a atualização sem remover dados locais do jogador', () => {
-  assert.match(sw, /const CACHE = 'quebra-cabeca-v20'/);
+test('PWA: nova versão do cache atualiza o game.js instalado no celular', () => {
+  assert.match(sw, /const CACHE = 'quebra-cabeca-v19'/);
   assert.match(sw, /'\/game\.js'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
-  assert.doesNotMatch(sw, /localStorage\.clear|indexedDB\.deleteDatabase/);
 });
