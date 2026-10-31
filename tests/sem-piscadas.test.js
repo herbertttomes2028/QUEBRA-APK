@@ -39,7 +39,7 @@ test('amigos não refazem DOM quando resposta é idêntica e seguem reagindo a m
 });
 
 test('novo cache da interface sem alterar rotas do jogo nem dados', () => {
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v16'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v17'/);
   const source = read('public/conta.js');
   assert.match(source, /api\('GET', '\/friends'\)/);
   assert.match(source, /api\('GET', '\/me'\)/);

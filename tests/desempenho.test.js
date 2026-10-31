@@ -89,6 +89,9 @@ test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
 
 test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
   assert.match(game, /\(item\.thumb \|\| item\.url\)/);
+  assert.match(game, /preview = item && \(item\.thumb \|\| item\.url\)/);
+  assert.match(game, /go\.frame = requestAnimationFrame/);
+  assert.doesNotMatch(game.slice(game.indexOf('  function showGoSplash('), game.indexOf('  function hideGoSplash(')), /void\s+el\.offsetWidth/, 'a abertura nao pode medir layout sincronamente');
   assert.match(css, /rotateY\(-360deg\) scale\(\.97\)/);
   assert.match(css, /rotateY\(0deg\) scale\(1\)/);
   assert.doesNotMatch(css, /rotate\(-360deg\)/, 'a imagem não pode girar no plano da tela');

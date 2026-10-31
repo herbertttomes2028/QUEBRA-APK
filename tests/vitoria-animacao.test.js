@@ -20,13 +20,15 @@ function fixture({reduce = false, screen = 'game', duel = false, sourceSize = 20
   const target = {left: 110, top: 145, width: 130, height: 174};
   const nodes = {};
   function el(rect) {
+    const classes = new Set();
     return {
-      hidden: true, classList: {add: () => {}, remove: () => {}},
+      hidden: true, classList: {add: x => classes.add(x), remove: x => classes.delete(x), contains: x => classes.has(x)},
       style: {setProperty: () => {}}, getBoundingClientRect: () => rect || target,
       addEventListener(name, f) { events[name] = f; }
     };
   }
   nodes['#board'] = el(source);
+  nodes['#field'] = el();
   nodes['#modal-win'] = el();
   nodes['#modal-duel'] = el();
   nodes['#win-art'] = el(target);
@@ -73,11 +75,13 @@ test('imagem única dá pulinho de 6%, flutua sem deslocar na horizontal; toque 
   assert.ok(scales.at(-1) > 1 && scales.at(-1) < 1.04, 'imagem ainda flutua antes do resultado');
   assert.equal(f.nodes['#victory-flight'].hidden, false);
   assert.equal(f.nodes['#modal-win'].hidden, true);
+  assert.equal(f.nodes['#field'].classList.contains('won'), false, 'não repinta SVGs antes de mostrar o resultado');
   assert.equal(f.nodes['#victory-flight-photo'].style.backgroundImage, 'url("blob:fixture")');
   f.events.pointerdown({preventDefault() {}});
   assert.equal(f.nodes['#victory-flight'].hidden, true);
   assert.equal(f.animations[0].cancelled, true);
   assert.deepEqual(f.calls.map(x => x[0]), ['modal', 'xp', 'som']);
+  assert.equal(f.nodes['#field'].classList.contains('won'), true, 'remove contornos após abrir o resultado');
   f.events.pointerdown({preventDefault() {}});
   assert.equal(f.calls.length, 3, 'sem segundo pagamento ou resultado duplicado');
 });
