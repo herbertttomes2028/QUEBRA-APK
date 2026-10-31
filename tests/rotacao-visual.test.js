@@ -7,7 +7,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(ROOT, name), 'utf8');
 
-test('rotação ilimitada em Solo, Cooperativo e Sala Desafio', () => {
+test('rotação preservada só na Sala Desafio; Solo e Cooperativo sem giro', () => {
   const server = read('server.js');
   const challenge = read('challenge.js');
   const game = read('public/game.js');
@@ -16,9 +16,14 @@ test('rotação ilimitada em Solo, Cooperativo e Sala Desafio', () => {
   assert.ok(!/if\s*\(p\.rotUsed\s*>=\s*state\.cfg\.MAX_ROT\)/.test(game));
   assert.ok(/socket\.on\('rotate'/.test(server));
   assert.ok(/socket\.on\('ch:rotate'/.test(challenge));
-  assert.ok(/p\.rot = \(p\.rot \+ 1\) % 4/.test(server));
+  assert.ok(!/p\.rot = \(p\.rot \+ 1\) % 4/.test(server), 'cooperativo não gira');
+  assert.match(server, /rot: readyToFit \? 0 : rnd\(0, 3\)/);
+  assert.match(server, /pieces: buildPieces\(cfg, true\)/);
+  assert.match(server, /room\.pieces = buildPieces\(room\.cfg, true\)/);
   assert.ok(/p\.rot = \(p\.rot \+ 1\) % 4/.test(challenge));
   assert.ok(/setAngle\(p, \(p\.rot \+ 1\) % 4\)/.test(game));
+  assert.match(game, /if \(!state\.duel \|\| state\.selectedId === null\) return;/);
+  assert.match(game, /if \(state\.duel\) rotateSelected\(\)/);
 });
 
 test('distância magnética e condição de orientação preservadas nos dois modos', () => {

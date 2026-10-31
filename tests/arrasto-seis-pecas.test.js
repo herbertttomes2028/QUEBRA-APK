@@ -150,7 +150,7 @@ test('6 peças: o desenho não reanima só por uma seleção em repouso', () => 
 });
 
 test('PWA: nova versão do cache atualiza o game.js instalado no celular', () => {
-  assert.match(sw, /const CACHE = 'quebra-cabeca-v19'/);
+  assert.match(sw, /const CACHE = 'quebra-cabeca-v21'/);
   assert.match(sw, /'\/game\.js'/);
   assert.match(sw, /self\.addEventListener\('activate'/);
 });

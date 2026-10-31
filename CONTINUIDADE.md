@@ -1,3 +1,51 @@
+# CONTINUIDADE — GIRO SOMENTE NA SALA DESAFIO E DUAS AJUDAS FIXAS
+
+**Data:** 31/10/2026 (America/Fortaleza). **`main` oficial verificada antes da edição:** `88a9011578dcdccd4b5838c6f8a544505762822d` (Merge PR #33 — reversão da ampliação/arrasto do PR #32); árvore `4b30e9423eb3fb7d37b9c6539d2555ca7c744774`. **Implementação preparada localmente para nova branch e PR.** O assistente não escreve no GitHub nem faz deploy. Nenhuma alteração do arrasto/escala que tinha causado travamento foi retomada.
+
+## Pedido aprovado
+
+1. **Solo e Cooperativo (6, 12, 20, 30 e 48 peças):** peças devem nascer sempre orientadas para o encaixe (rot=0), sem necessidade nem possibilidade de giro ao tocar novamente. A seleção, soltar, arrastar, encaixar e o zoom por pinça continuam. A Sala Desafio mantém os giros nos seus dois modos: **Comum** e **Quebrando Cabeças**. A indicação `↻`, a seta de orientação e a etapa de tutorial de girar ficam ocultas apenas nas partidas normais.
+2. **Ajudas sempre lado a lado:** 💡 continua mostrando a imagem esmaecida no tabuleiro por 4 segundos, e 📍 continua mostrando a casa correta de uma peça selecionada. Em vez de transformar um mesmo botão ao selecionar, manter **dois botões independentes e fixos** com saldos próprios (10 e 5 por partida, conforme servidor). O botão 📍 fica visível, mas desabilitado enquanto nenhuma peça válida estiver selecionada. Os destaques acesos, os contadores e os bloqueios temporários são separados. Preservar ambas também na Sala Desafio.
+
+## Alterações mínimas
+
+- **`server.js`:** `buildPieces(cfg, readyToFit=false)` preserva rotações aleatórias para chamadas da Sala Desafio (`buildPieces(cfg)`), enquanto o criador e o recomeço de salas normais chamam `buildPieces(cfg,true)`, gerando todas as peças com `rot=0`. `acc:continue` também se beneficia do criador normal. O evento antigo `rotate` continua registrado para compatibilidade com clientes em cache, mas não altera a orientação no Solo/Coop e apenas confirma `rot=0`; sem tentar encaixe por giro. Nenhuma mudança nas duas funções `tryLock`, no SNAP nem no `challenge.js`.
+- **`public/game.js`:** toque repetido solta a peça no Solo/Coop, mas gira na Sala Desafio; teclado `R` e símbolo `↻` só no desafio. Tutorial normal pula a cena de giro; tutorial do desafio preserva essa cena. A marca de direção da peça fica oculta fora da Sala Desafio. O gesto de pinça, arrasto e escala permanecem exatamente como no PR #31.
+- **`public/index.html`, `public/style.css`, `public/game.js`:** botões 💡 e 📍 distintos em grupo horizontal fixo, com contadores, ações, bloqueios e destaques separados; cabeçalho ajustado responsivamente a partir de 320 px sem ocupar uma segunda linha. Ajudas se ocultam juntas na tela da partida concluída para deixar espaço ao X. Tutorial de ajudas atualizado.
+- **`public/sw.js`:** atualização do cache PWA `v19` para **`v21`** (pulando `v20`, que já havia sido usado pelo PR #32 revertido), evitando reutilizar cache antigo problemático na PWA. Os cinco testes de cache acompanham `v21`.
+- **Testes existentes:** `tests/coop.test.js`, `tests/solo.test.js`, `tests/rotacao-visual.test.js`, `tests/contratos.test.js` atualizados para a orientação correta e ações sem rotação no normal, mantendo exigências antigas do SNAP e eventos. **Novo:** `tests/giro-infantil-ajudas.test.js`, com testes isolados da construção, modo Desafio, proteção contra giro legado, seleção, dicas independentes e tutorial. Outros testes antigos de cache seguem inalterados fora da constante.
+
+## Arquivos exatos do pacote (16)
+
+| Caminho no repositório | Operação |
+|---|---|
+| `server.js` | substituir |
+| `CONTINUIDADE.md` | substituir (este registro no topo; histórico preservado) |
+| `public/game.js` | substituir |
+| `public/index.html` | substituir |
+| `public/style.css` | substituir |
+| `public/sw.js` | substituir |
+| `tests/arrasto-seis-pecas.test.js` | substituir (cache) |
+| `tests/colecoes-galeria.test.js` | substituir (cache) |
+| `tests/fluidez-animacoes.test.js` | substituir (cache) |
+| `tests/library-visual.test.js` | substituir (cache) |
+| `tests/sem-piscadas.test.js` | substituir (cache) |
+| `tests/coop.test.js` | substituir (expectativas de giro e encaixe) |
+| `tests/solo.test.js` | substituir (expectativas de giro e encaixe) |
+| `tests/rotacao-visual.test.js` | substituir (giro só no desafio) |
+| `tests/contratos.test.js` | substituir (ajudas juntas desaparecem após vitória) |
+| `tests/giro-infantil-ajudas.test.js` | adicionar |
+
+**Não alterar:** `challenge.js`, contas, autenticação, banco, migrações, `xp.js`, `gems.js`, `security.js`, `resource-guard.js`, imagens, sons, versões antigas no Render ou outros recursos. Preservados eventos do Socket.IO (inclusive `rotate` e `ch:rotate`), duas cópias de `tryLock`/SNAP, XP só via `payMatch`, chat só com frases prontas e privacidade dos outros jogadores.
+
+## Testes e limites
+
+- `node --check` dos arquivos JS alterados; suíte de regressão selecionada com testes estáticos e unidades sem PostgreSQL; teste separado das lógicas reais (VM) para criação de peças/rotação/ajudas; verificação estática e visual do HTML/CSS em Chromium headless (larguras 320, 360, 375 e 412 px).
+- **Não testados neste ambiente:** integração HTTP/Socket.IO real (dependências npm não instaladas), banco de dados PostgreSQL real, workflows do GitHub deste novo PR, Render, Android físico, desempenho FPS real no celular, fluxo competitivo completo em dois aparelhos. Os resultados locais não substituem validação do proprietário.
+- **Aprovação:** nova branch da `main` atual, envio exato dos 16 arquivos, PR com ambos workflows (regressão PostgreSQL isolado e auditoria de dependências) verdes; Merge/deploy Render só pelo proprietário. Fechar e reabrir PWA sem desinstalar/limpar dados. Testar 6/12/20/30/48 Solo e Cooperativo: peças rot=0, toque repetido solta, encaixe e ambas dicas. Testar Sala Desafio Comum e Quebrando Cabeças: giros intactos, todos os demais eventos e conclusão sem desconectar contas. Informar aprovação antes da próxima rodada.
+
+---
+
 # CONTINUIDADE — ARRASTO MAIS LEVE E SEM ZOOM AUTOMÁTICO NAS 6 PEÇAS
 
 **Data:** 31/10/2026 (America/Fortaleza). **`main` oficial confirmada antes da alteração:** `d9614ad5418ee6a99dfad68725d5eb78616ed430` (Merge PR #30 — correção de sessão cooperativa), árvore `3f62baeba31dd2ad1fcbdbb3d38ec9ca3ec037cb`. **Publicação:** somente o proprietário, por nova ramificação, PR, Merge, deploy Render e teste no Android. O assistente não realizou escrita ou deploy.

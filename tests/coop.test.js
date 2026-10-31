@@ -31,6 +31,7 @@ test('entrar: sala só comporta 2 e código errado dá "notfound"', async () => 
   const { a, b, snap, code } = await novaSala(6);
   assert.equal(code.length, 6);
   assert.equal(snap.pieces.length, 6);
+  assert.ok(snap.pieces.every((p) => p.rot === 0), 'peças prontas para encaixar');
   assert.equal(snap.cfg.SNAP, Math.round(snap.cfg.TILE * 0.33));
   const c = await client(srv.url);
   const r = await c.emitAck('join', { pid: 'pid-carla-0001', code, name: 'Carla' });
@@ -43,29 +44,18 @@ test('entrar: sala só comporta 2 e código errado dá "notfound"', async () => 
 test('encaixe: só trava com rot===0 e a distância ≤ SNAP; o servidor crava a posição exata', async () => {
   const { a, b, snap } = await novaSala(12);
   const cfg = snap.cfg;
-  const p = snap.pieces.find((q) => q.rot !== 0) || snap.pieces[0];
+  assert.ok(snap.pieces.every((q) => q.rot === 0), 'cooperativo: peças já orientadas');
+  const p = snap.pieces[0];
   const t = alvo(cfg, p);
 
-  // 1) com giro diferente de 0, soltar exatamente no lugar NÃO trava
-  if (p.rot !== 0) {
-    a.emit('grab', { id: p.id });
-    await b.once_('grabbed', (d) => d.id === p.id);
-    const soltou = b.once_('released', (d) => d.id === p.id);
-    a.emit('drop', { id: p.id, x: t.x, y: t.y });
-    await soltou;
-  }
-  // 2) gira até rot 0 LONGE do lugar: não trava
+  // 1) peça nasce rot===0; a distância de SNAP continua sendo exigida.
   a.emit('grab', { id: p.id });
   await b.once_('grabbed', (d) => d.id === p.id);
-  const falta = (4 - p.rot) % 4;
-  // afasta a peça do lugar antes de girar (a peça foi solta em cima do alvo no passo 1)
+  // Afasta do encaixe antes de soltar; o giro não é necessário.
   a.emit('move', { id: p.id, x: cfg.FIELD_W / 2, y: cfg.FIELD_H - cfg.TRAY });
   await new Promise((r) => setTimeout(r, 80));
   const lockedCedo = [];
   a.on('locked', (d) => lockedCedo.push(d));
-  const rot0 = a.once_('rotated', (d) => d.id === p.id && d.rot === 0);
-  for (let i = 0; i < falta; i++) a.emit('rotate', { id: p.id });
-  if (falta) await rot0;
   // 3) solta a SNAP+3 do centro: não trava
   const fora = cfg.SNAP + 3;
   const solta1 = a.once_('released', (d) => d.id === p.id);
@@ -84,20 +74,24 @@ test('encaixe: só trava com rot===0 e a distância ≤ SNAP; o servidor crava a
   fecha(a, b);
 });
 
-test('girar em cima do lugar certo também encaixa (rotate chama tryLock)', async () => {
+test('pacotes rotate antigos não giram peças cooperativas nem fazem encaixe', async () => {
   const { a, b, snap } = await novaSala(6);
-  const p = snap.pieces.find((q) => q.rot !== 0);
-  if (!p) return;                                          // improvável: todas as peças sortearam rot 0
-  const t = alvo(snap.cfg, p);
+  const p = snap.pieces[0], t = alvo(snap.cfg, p);
   a.emit('grab', { id: p.id });
   await b.once_('grabbed', (d) => d.id === p.id);
-  // 'move' tem limite de 25 ms entre mensagens; uma só basta para pôr a peça no lugar
   a.emit('move', { id: p.id, x: t.x, y: t.y });
-  await new Promise((r) => setTimeout(r, 60));
-  const trava = b.once_('locked', (d) => d.id === p.id);
-  for (let i = 0; i < (4 - p.rot) % 4; i++) a.emit('rotate', { id: p.id });
-  const L = await trava;
-  assert.equal(L.x, t.x);
+  await new Promise((r) => setTimeout(r, 80));
+  let lockedByRotation = false;
+  a.on('locked', () => { lockedByRotation = true; });
+  const unchanged = b.once_('rotated', (d) => d.id === p.id);
+  a.emit('rotate', { id: p.id });
+  const r = await unchanged;
+  assert.equal(r.rot, 0, 'servidor deve manter a peça correta');
+  await new Promise((resolve) => setTimeout(resolve, 70));
+  assert.equal(lockedByRotation, false, 'rotação antiga não encaixa sozinha');
+  const trava = a.once_('locked', (d) => d.id === p.id);
+  a.emit('drop', { id: p.id, x: t.x, y: t.y });
+  await trava;
   fecha(a, b);
 });
 
@@ -120,7 +114,6 @@ test('vitória: encaixar todas as peças dispara "won" nos dois e o jogo trava',
     const t = alvo(cfg, p);
     a.emit('grab', { id: p.id });
     await b.once_('grabbed', (d) => d.id === p.id);
-    for (let i = 0; i < (4 - p.rot) % 4; i++) a.emit('rotate', { id: p.id });
     const trava = a.once_('locked', (d) => d.id === p.id);
     a.emit('drop', { id: p.id, x: t.x, y: t.y });
     await trava;

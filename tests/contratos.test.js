@@ -190,7 +190,7 @@ test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, 
   assert.ok(/leaveNow\(\)/.test(ask), 'askLeave deve usar o mesmo caminho (leaveNow)');
   assert.ok(/if \(scr === 'lobby' \|\| scr === 'game'\) \{ askLeave\(\); return true; \}/.test(game), 'o botão voltar na tela da partida deve continuar perguntando (askLeave)');
   assert.ok(/\.hud \.hud-x\s*\{[^}]*width: 44px; height: 44px;/.test(css), 'o X deve ter 44×44');
-  assert.ok(/#screen-game\.done #btn-hint\s*\{\s*display: none;/.test(css));
+  assert.ok(/#screen-game\.done \.hud-hints\s*\{\s*display: none;/.test(css));
 });
 
 
