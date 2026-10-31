@@ -182,7 +182,10 @@ test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, 
   const html = read('public/index.html'), game = read('public/game.js'), css = read('public/style.css');
   assert.ok(/<button id="res-close"[^>]*\bhidden\b/.test(html), '#res-close deve existir e nascer escondido');
   assert.ok(/addEventListener\('click', leaveNow\)/.test(game), 'o X deve chamar leaveNow');
-  assert.ok(/function leaveNow\(\)\s*\{\s*if \(state\.duel\) leaveDuel\(\); else \{ socket\.disconnect\(\); reloadClean\(\); \}/.test(game), 'leaveNow mudou');
+  const leave = body(game, /function leaveNow\(\)/);
+  assert.ok(/cancelVictoryFlight\(\);/.test(leave), 'leaveNow deve cancelar a animação ao sair');
+  assert.ok(/if \(state\.duel\) leaveDuel\(\); else \{ socket\.disconnect\(\); reloadClean\(\); \}/.test(leave), 'leaveNow mudou');
+  assert.ok(leave.indexOf('cancelVictoryFlight();') < leave.indexOf('if (state.duel)'), 'cancelar a animação antes de sair');
   const ask = body(game, /function askLeave\(\)/);
   assert.ok(/leaveNow\(\)/.test(ask), 'askLeave deve usar o mesmo caminho (leaveNow)');
   assert.ok(/if \(scr === 'lobby' \|\| scr === 'game'\) \{ askLeave\(\); return true; \}/.test(game), 'o botão voltar na tela da partida deve continuar perguntando (askLeave)');

@@ -1,23 +1,23 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
-**Atualizado em:** 30/10/2026  
-**Rodada 3:** Celebração de Vitória 2.0 — imagem montada sai da grade e entra no resultado  
+**Atualizado em:** 31/10/2026  
+**Rodada 3B:** Ajuste da Celebração de Vitória 2.0 — imagem avança em direção à tela, dura mais e só depois entra no resultado  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  
-**`main` consultada antes da implementação:** `ed85c24e88742ed81cba2ef71240d60d151f4d40`  
-**Árvore Git original:** `73242cdcd504ba7ca061a049554b71ab920e36e3`.
+**`main` consultada antes da implementação:** `be74ebbf73d1585f3475e9b1b5fd4fdc3fb4daf7`  
+**Árvore Git original:** `be74ebbf73d1585f3475e9b1b5fd4fdc3fb4daf7`.
 
 > **LEIA PRIMEIRO:** esta seção descreve o pacote novo (ainda não publicado). O texto das rodadas antigas foi preservado integralmente abaixo apenas como histórico. Antes de qualquer nova tarefa, verificar novamente a `main` e seus arquivos. O assistente não tem permissão para publicar, mesclar PR ou realizar deploy.
 
 ## 1. Aprovação do proprietário e objetivo
 
 - **Rodadas 1 e 2 aprovadas no Android pelo proprietário:** animação de subida de nível após voltar à tela inicial, XP e gemas no resultado e no perfil. GitHub Actions com PostgreSQL real foi confirmado verde no PR; o proprietário verificou no Neon `gem_events` e `users.gems` e informou que XP, gemas e jogo funcionam no Android.
-- **Rodada 3 aprovada para implementar, ainda aguarda teste do proprietário no Android:** substituir a apresentação pesada da conclusão por imagem única que se destaca da grade, avança em direção à tela, recebe contorno/reflexo dourado e se acomoda no cartão de resultado. Na última peça: brilho curto; depois medalha, tempo, XP, gemas, recorde, botões e, na cooperativa, contribuição dos dois jogadores.
-- Evitar travamentos da versão anterior, que criava 44 partículas de confete (na conclusão comum e no Desafio) e aplicava `filter: blur` à imagem do resultado. **A fluidez no Android ainda não foi medida nesta rodada.**
-- A animação de **nível** continua aparecendo apenas na home, depois do processo de conclusão/saída; as novas animações **não** concedem XP/gemas e não modificam cálculos nem dados do banco.
+- **Rodada 3 original foi mesclada na `main`, mas o proprietário relatou comportamento visual invertido:** a imagem saía rápido da tela, em vez de avançar em direção ao jogador. Também pediu cerca de **+1 segundo** na celebração antes de exibir o resultado.
+- **Rodada 3B aprovada para correção:** manter o brilho da última peça; fazer a imagem concluída crescer e vir ao centro da tela, segurar por mais tempo com contorno dourado suave e só então se acomodar no cartão de resultado.
+- Evitar travamentos: continuar sem confetes pesados, sem blur e sem animar peças SVG individuais. A animação de **nível** segue apenas na home; XP/gemas continuam vindo do servidor.
 
-## 2. Escopo técnico da Rodada 3
+## 2. Escopo técnico da Rodada 3B
 
-- `public/game.js`: `flashLastSnap` ilumina só a borda da grade por 0,4 s (sem animar peças); `showVictoryResult` mede uma única vez a posição atual do tabuleiro e a posição futura da imagem no cartão; usa **uma** imagem já processada em `state.imageUrl` com Web Animations API (`transform` de 1,22 s). Permite tocar para pular; a animação termina por conta própria ou após limite de 1,6 s; se o jogador sai, cancela; se perde foco/redimensiona, conclui a abertura do resultado. Sem suporte a animação/movimento reduzido, exibe imediatamente a janela. XP/gemas surgem com `refreshXp` a partir de eventos do servidor, nunca por novo pagamento.
+- `public/game.js`: `flashLastSnap` continua iluminando só a borda da grade por 0,4 s (sem animar peças); `showVictoryResult` mantém a medição do tabuleiro/resultado, porém o voo agora usa **cinco quadros**: origem na grade, aproximação ao centro, sustentação breve em destaque e acomodação final no cartão. A duração passou para **2,26 s** (antes 1,22 s), com limite de **2,8 s** antes de abrir o resultado. Isso corrige o movimento invertido percebido no Android e deixa a celebração mais legível. Permite tocar para pular; se o jogador sai, cancela; se perde foco/redimensiona, conclui a abertura do resultado. Sem suporte a animação/movimento reduzido, exibe imediatamente a janela. XP/gemas surgem com `refreshXp` a partir de eventos do servidor, nunca por novo pagamento.
 - **Solo e Cooperativo:** a imagem completa vai do tabuleiro à janela `#modal-win`; medalha dourada compacta, sem confetes nem desfoque; ações originais de salvar, compartilhar, jogar de novo e trocar imagem mantidas.
 - **Desafio:** somente vitória por conclusão própria (`winner === idx` e `reason === 'complete'`) mostra a imagem voando e adiciona imagem pequena ao resultado; derrota ou vitória por abandono preserva o resultado sem celebrar uma imagem não concluída. Revisitar o resultado no lobby continua possível.
 - `public/index.html`: overlay `#victory-flight`, medalha e imagem opcional do Desafio; sem scripts inline nem arquivos de arte adicionais.
@@ -32,23 +32,24 @@
 | `public/index.html` | substituir | Elementos visuais leves da vitória |
 | `public/style.css` | substituir | Efeitos dourados e estilos do resultado |
 | `tests/desempenho.test.js` | substituir | Teste antigo exigia os 44 confetes e o blur; atualizado para verificar que foram retirados, preservando geometria/SNAP |
-| `tests/vitoria-animacao.test.js` | adicionar | Testes de fluxo do código real, toque, reconexão no Desafio, redução de movimento, cancelamento |
+| `tests/vitoria-animacao.test.js` | substituir | Ajusta os testes para a nova duração e o novo número de quadros da animação |
+| `tests/contratos.test.js` | substituir | Corrige o contrato do botão X para aceitar o cancelamento explícito da animação antes de sair |
 | `CONTINUIDADE.md` | substituir | Este registro e o histórico preservado |
 
-**Nenhum arquivo de banco de dados** nesta rodada; não há migração SQL nova. A versão de referência é a `main` **após** o merge das gemas, não os ZIPs antigos.
+**Nenhum arquivo de banco de dados** nesta rodada; não há migração SQL nova. A versão de referência é a `main` já com a celebração anterior mesclada, não os ZIPs antigos.
 
 ## 4. Testes executados e limitações
 
 - `node --check public/game.js`: **aprovado**.
-- `node --test` nos 8 arquivos independentes de dependências ausentes: **42 aprovados, 0 falhas, 1 pulado** (o teste real de PostgreSQL exige a variável e banco de testes). Incluem regressão SVG/SNAP, XP/gemas, níveis, sons, histórico e seis novos testes funcionais simulando a animação.
-- Chromium real local com **funções de animação extraídas do `game.js` e HTML/CSS reais**, imagem de exemplo e ambiente de jogo simulado, nas dimensões **320×550, 360×740 e 412×915**: confirmou voo, resultado e XP visíveis; movimento reduzido exibiu direto. **Não** constitui teste de partida real com servidor, Android ou medição de FPS.
-- `npm test` completo **não passou/não foi concluído localmente**, devido à ausência de `socket.io-client` em quatro arquivos de teste; as dependências npm não puderam ser instaladas neste ambiente. Não contar testes bloqueados como aprovados.
+- `node --test tests/vitoria-animacao.test.js tests/contratos.test.js`: **8 aprovados, 0 falhas**. Incluem toque para pular, movimento reduzido, derrota no Desafio, cancelamento ao sair, fallback sem tabuleiro e o contrato atualizado do botão X.
+- Revisão lógica do novo cálculo de escalas/deslocamentos: a imagem primeiro cresce rumo ao centro da tela, permanece brevemente em destaque e só depois reduz para o cartão de resultado. **Não** constitui teste de partida real com servidor, Android ou medição de FPS.
+- `npm test` completo **não foi executado** neste ambiente por limitações de dependências externas. O próximo PR deve ser validado pelo GitHub Actions antes do Merge.
 - O workflow existente `.github/workflows/gemas-postgres.yml` roda `npm ci`, migrações e `npm test` ao abrir o Pull Request: **verificar resultado verde do novo PR antes de Merge**. Nenhum teste desta rodada foi executado no Render/Neon ou em Android real pelo assistente.
 
 ## 5. Publicação / confirmação no celular
 
-1. Criar **nova ramificação** da `main`, por exemplo `celebracao-vitoria-2`; enviar só os seis arquivos acima nos caminhos exatos e abrir PR para `main`.
-2. Revisar Files changed (somente seis arquivos) e **aguardar GitHub Actions verde**; se falhar, não mesclar. Verificar se a `main` não mudou desde `ed85c24` antes de aplicar o pacote.
+1. Criar **nova ramificação** da `main`, por exemplo `ajuste-celebracao-vitoria`; enviar só os cinco arquivos acima nos caminhos exatos e abrir PR para `main`.
+2. Revisar Files changed (somente cinco arquivos) e **aguardar GitHub Actions verde**; se falhar, não mesclar. Verificar se a `main` não mudou desde `be74ebb` antes de aplicar o pacote.
 3. Proprietário faz Merge e **Manual Deploy no Render** (não executados pelo assistente).
 4. Android real: concluir partidas de 6, 12, 20, 30 e 48 peças, especialmente as que travavam; repetir em Solo, Cooperativo, Desafio (vitória/derrota/desistência), movimento reduzido e botão de pular. Confirmar que XP e gemas continuam corretos, que resultado pode ser fechado/reaberto e que a celebração de nível só surge na home.
 5. Só após aprovação no Android iniciar outra rodada. Se houver engasgos, ajustar ou simplificar o visual sem tocar no SNAP/rotacionamento das peças.

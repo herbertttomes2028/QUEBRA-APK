@@ -2127,7 +2127,7 @@ html[data-motion="reduce"] #field.victory-last #board::after { animation: none; 
   content: ''; position: absolute; top: 0; bottom: 0; left: -45%; width: 30%;
   background: linear-gradient(90deg, transparent, rgba(255, 244, 185, .36), transparent);
   transform: skewX(-18deg) translate3d(-100%,0,0);
-  animation: victory-glint 1.05s .18s ease-out 1 both;
+  animation: victory-glint 1.35s .55s ease-out 1 both;
 }
 .victory-flight-skip {
   position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
