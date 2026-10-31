@@ -89,8 +89,11 @@ test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
 
 test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
   assert.match(game, /\(item\.thumb \|\| item\.url\)/);
-  assert.match(css, /rotateY\(-900deg\)/);
-  assert.match(css, /go-spin 1\.25s/);
+  assert.match(css, /rotateY\(-65deg\) scale\(\.9\)/);
+  assert.match(css, /go-spin 1\.7s/);
+  assert.doesNotMatch(css, /rotateY\(-900deg\)|go-pulse.*infinite/);
+  assert.match(css, /backface-visibility: hidden;/);
+  assert.match(game, /go\.min = reducedMotion\(\) \? 1100 : 1900/);
   assert.match(css, /html:not\(\[data-motion=\"reduce\"\]\) \.go-splash\.run:not\(\.out\) \.go-card \{ will-change: transform; \}/);
   assert.match(game, /playSound\('tann'\)/);
 });
