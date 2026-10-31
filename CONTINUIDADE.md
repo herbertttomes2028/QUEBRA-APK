@@ -1,6 +1,63 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
 **Atualizado em:** 30/10/2026 (horário de Brasília)  
+**Rodada atual:** Ajuste da animação de entrada da partida — giro menor e mais lento  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**`main` verificada antes da implementação:** `3dea4b7d51036949e4cfe4276c9a05b10b04efe8`  
+**Árvore da `main` de referência:** `219533050573d3eb381713d913fca111fac92c41`
+
+> **ESTA É A SEÇÃO MAIS RECENTE.** O histórico abaixo conserva os documentos das rodadas anteriores. Antes de qualquer nova tarefa, ler o documento e conferir novamente a `main` do GitHub; não partir de ZIPs antigos. O assistente não publica nem faz deploy.
+
+## 1. Situação aprovada e novo pedido
+
+- O proprietário **aprovou no Android** a celebração de conclusão com zoom mínimo (até 6%) e flutuação; essa funcionalidade está preservada.
+- Novo pedido: ao iniciar uma partida, a imagem da abertura girava demais e engasgava no Android. Foi solicitada uma rotação **menor e mais lenta**, sem interferir no jogo.
+- A origem provável do custo excessivo era a animação `go-spin`: giro de **−900° em 1,25 s**, começando em **15%** de escala, com uma segunda animação de pulsação **infinita**. Isso não prova a causa específica do travamento no aparelho; é uma redução preventiva de trabalho gráfico.
+
+## 2. Alteração feita nesta rodada
+
+- **`public/style.css`**: `go-spin` começa em `rotateY(-65deg) scale(.9)` e termina em `rotateY(0) scale(1)`, em **1,7 segundo**; opacidade inicial de 0,55, atingindo 1 no início. A carta recebe `backface-visibility: hidden` para evitar desenhar o verso durante o giro 3D.
+- Removida a **pulsação infinita** da carta de abertura. A carta termina imóvel até a partida começar. Permanecem o título **VAMOS LÁ!**, som `tann`, luzes e aparência estática, miniatura já preparada e botão de cancelar.
+- **`tests/desempenho.test.js`**: atualizadas as verificações do novo ângulo, duração, escala inicial e fim da pulsação; confirma que o período mínimo existente da abertura é **1,9 segundo** no modo normal e que o uso de `will-change` continua restrito à animação.
+- **Nenhuma alteração no `public/game.js`**, em modos de jogo, Socket.IO, geometria das peças, magnetismo, níveis, XP, gemas, PostgreSQL ou migrações. Nenhuma alteração em HTML, sons ou layout fora da abertura.
+
+## 3. Arquivos exatos do pacote
+
+| Caminho no GitHub | Ação |
+| --- | --- |
+| `public/style.css` | substituir |
+| `tests/desempenho.test.js` | substituir |
+| `CONTINUIDADE.md` (raiz) | substituir |
+
+**Total de 3 arquivos.** Não enviar outros arquivos de pacotes antigos. O arquivo `CONTINUIDADE.md` contém todo o histórico anterior abaixo.
+
+## 4. Testes efetivamente realizados
+
+- Hashes Git comparados contra `main` de `3dea4b7`: `public/style.css` (`ddeaba8581708a9e8e56813ec12fdd0a46ee67f9`), `tests/desempenho.test.js` (`d6a5716b5b3a4b677b9422efac92582e4f984a87`) e `public/game.js` (`d2fee8cea60454f9ebd7a274ec6345f83ecef91e`). O jogo permanece sem alterações de JS nesta rodada.
+- `node --check public/game.js`: aprovado no código da base atual; `node --test` em oito arquivos independentes de testes: **64 aprovados, nenhuma falha**. Para carregar testes puramente estáticos foi utilizado um stub local de `socket.io-client`, que não simula conexões reais.
+- Chromium real (navegador desktop) com o **CSS real do jogo** e a tela de abertura simulada: **320 × 650, 360 × 740, 412 × 915 px**, cada um confirmou **uma animação de 1,7 s sem repetição**; em `prefers-reduced-motion: reduce`, a animação não foi iniciada.
+- **Não testados:** Android real nesta rodada, fluidez/FPS no aparelho do proprietário, partida completa com servidor/Render, suíte completa com Socket.IO real e PostgreSQL. O teste SQL isolado do GitHub Actions deve ser aprovado no Pull Request antes do Merge.
+
+## 5. Próximos passos do proprietário
+
+1. Criar nova ramificação da `main` no GitHub, sugerida `entrada-giro-suave`, e enviar apenas os três arquivos, respeitando as pastas.
+2. Abrir Pull Request para `main`, conferir em **Files changed** somente esses três arquivos e aguardar **Gemas e regressao (PostgreSQL isolado)** ficar verde.
+3. Só então fazer o Merge e o deploy manual no Render. Não é necessária nova migração no Neon.
+4. Testar no **Android real** a abertura de partidas Solo, Cooperativa e Desafio (quando a abertura surgir), especialmente em 6 e 12 peças. Verificar que o giro é curto, mais lento e sem engasgos; confirmar som, resultado de vitória, XP/gemas e controles. A rodada só será aprovada após o relato do proprietário.
+
+## 6. Restrições permanentes e ideias futuras
+
+- Manter as duas cópias de `tryLock()`, a regra de encaixe `SNAP = Math.round(tile * .33)`, eventos Socket.IO, migrações imutáveis e XP exclusivamente por `payMatch`.
+- Gemas somente pelo servidor; bate-papo infantil exclusivamente por frases prontas; nunca expor e-mail ou XP bruto de outros jogadores.
+- Ideias futuras reservadas, **não implementadas**: coleções de imagens desbloqueáveis, medalhas e conquistas mais bonitas, personalizações com gemas, jornada de aventuras, desafios cooperativos, curiosidades educativas e campeonatos amistosos. O perfil já tem XP, gemas e progresso; não duplicar essas telas.
+
+---
+
+# HISTÓRICO PRESERVADO — RODADAS ANTERIORES
+
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
+**Atualizado em:** 31/10/2026  
 **Rodada atual:** 3C — animação de vitória com pulo mínimo e flutuação  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  
 **`main` verificada antes da implementação:** `b2a30cc2b2fc871da28e0ba5a2f280954a7c03c5`  
