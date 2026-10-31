@@ -837,6 +837,10 @@
     var small = cfg.TRAY / cfg.TILE;
     if (p.locked) return 1;
     var inTray = p.y > cfg.TRAY_LINE;
+    // Seis peças: não ampliar automaticamente ao selecionar/segurar.
+    // A peça continua pequena na bandeja e assume o tamanho natural no tabuleiro.
+    // targetScale() ainda aplica o zoom por pinça quando p.zoomAbs estiver definido.
+    if (cfg.PIECES === 6) return inTray ? small : 1;
     if (p.heldBy !== null && p.heldBy !== undefined) {
       // peça só tocada (escolhida para girar) na bandeja continua pequena, para não cobrir as vizinhas;
       // ao ser arrastada, ou fora da bandeja, ela cresce
@@ -1229,8 +1233,12 @@
     // a peça cresce ao ser pega: mantém o dedo no mesmo ponto da imagem
     var zoomed = !!p.zoomAbs && wasSelected;
     var cx0 = zoomed && p.dx != null ? p.dx : p.x, cy0 = zoomed && p.dy != null ? p.dy : p.y;
-    var k = zoomed ? 1 : HELD_SCALE / Math.max(0.2, p.vs);
-    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : HELD_SCALE);
+    // Com seis peças, preservar o ponto onde o dedo tocou: a ampliação
+    // automática não participa do cálculo de deslocamento inicial.
+    // Nos demais tamanhos, mantém-se a compensação de escala existente.
+    var six = state.cfg.PIECES === 6;
+    var k = zoomed || six ? 1 : HELD_SCALE / Math.max(0.2, p.vs);
+    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : (six ? 1 : HELD_SCALE));
     state.drag = {
       id: p.id, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY,
       offX: clamp((lx - cx0) * k, -lim, lim), offY: clamp((ly - cy0) * k, -lim, lim),
@@ -1276,7 +1284,10 @@
     var d = state.drag;
     if (!d || e.pointerId !== d.pointerId) return;
     if (!d.moved) {
-      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 8) return;
+      // Reduz a resistência inicial do gesto no celular com 6 peças, sem
+      // alterar o reconhecimento dos toques/giros nos demais modos.
+      var dragThreshold = state.cfg.PIECES === 6 && e.pointerType === 'touch' ? 5 : 8;
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < dragThreshold) return;
       d.moved = true;
     }
     var p = state.pieces[d.id];
