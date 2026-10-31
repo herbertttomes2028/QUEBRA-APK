@@ -20,7 +20,6 @@ async function encaixa(a, snap, p) {
   const t = alvo(snap.cfg, p);
   a.emit('grab', { id: p.id });
   await a.once_('grabbed', (d) => d.id === p.id);
-  for (let i = 0; i < (4 - p.rot) % 4; i++) a.emit('rotate', { id: p.id });
   const trava = a.once_('locked', (d) => d.id === p.id);
   a.emit('drop', { id: p.id, x: t.x, y: t.y });
   return trava;
@@ -99,12 +98,12 @@ test('Solo: encaixe, progresso de conclusão e vitória (sem 2º jogador)', asyn
 
 test('Solo: a regra de encaixe é a mesma do cooperativo (só trava com rot 0 e a distância ≤ SNAP)', async () => {
   const { a, snap } = await criaSolo(12);
-  const cfg = snap.cfg, p = snap.pieces.find((q) => q.rot !== 0) || snap.pieces[0], t = alvo(cfg, p);
+  const cfg = snap.cfg, p = snap.pieces[0], t = alvo(cfg, p);
+  assert.ok(snap.pieces.every((q) => q.rot === 0), 'Solo: todas corretas');
   a.emit('grab', { id: p.id });
   await a.once_('grabbed', (d) => d.id === p.id);
   a.emit('move', { id: p.id, x: cfg.FIELD_W / 2, y: cfg.FIELD_H - cfg.TRAY });
   await new Promise((r) => setTimeout(r, 80));
-  for (let i = 0; i < (4 - p.rot) % 4; i++) a.emit('rotate', { id: p.id });
   await new Promise((r) => setTimeout(r, 120));
   let travouCedo = false; a.on('locked', () => { travouCedo = true; });
   const dir = t.x > cfg.FIELD_W / 2 ? -1 : 1;
