@@ -967,12 +967,18 @@ function createAccounts(d) {
       const sequence = ++authGeneration;
       const token = data && typeof data.token === 'string' ? data.token : '';
       const u = await userByToken(token);
-      if (!u || sequence !== authGeneration || socket.connected === false) return { ok: false, error: 'auth' };
+      // Uma autenticação mais nova substitui a anterior sem invalidar a sessão legítima.
+      // Antes, "auth" nessa corrida fazia o celular apagar o token ao terminar uma partida.
+      if (sequence !== authGeneration || socket.connected === false) return { ok: false, error: 'superseded' };
+      if (!u) return { ok: false, error: 'auth' };
       await ensureSeeded(u.id).catch(() => {});
-      if (sequence !== authGeneration || socket.connected === false || !await userByToken(token)) return { ok: false, error: 'auth' };
+      if (sequence !== authGeneration || socket.connected === false) return { ok: false, error: 'superseded' };
+      if (!await userByToken(token)) return { ok: false, error: 'auth' }; // revogação verdadeira continua bloqueada
+      const tokenHash = sha256(token);
+      if (socket.data.uid === u.id && socket.data.sessionHash === tokenHash) return { ok: true }; // reautenticação idempotente
       if (socket.data.uid) unbind();
       socket.data.uid = u.id;
-      socket.data.sessionHash = sha256(token);
+      socket.data.sessionHash = tokenHash;
       socket.join('u:' + u.id);
       let set = online.get(u.id);
       if (!set) { set = new Set(); online.set(u.id, set); }
