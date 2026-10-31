@@ -461,7 +461,7 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
-function buildPieces(cfg) {
+function buildPieces(cfg, readyToFit = false) {
   const total = cfg.COLS * cfg.ROWS;
   // posições da bandeja (embaixo do tabuleiro), espalhadas na largura toda
   const slots = [];
@@ -486,7 +486,7 @@ function buildPieces(cfg) {
       row: Math.floor(id / cfg.COLS),
       x: clamp(sl.x + rnd(-jit, jit), half, cfg.FIELD_W - half),
       y: clamp(sl.y + rnd(-jit, jit), half, cfg.FIELD_H - half),
-      rot: rnd(0, 3),   // 0 = certa; cada giro é 90° no sentido horário
+      rot: readyToFit ? 0 : rnd(0, 3), // Solo/Coop: prontas; Desafio: giros aleatórios
       rotUsed: 0,
       heldBy: null,     // índice do jogador que está segurando
       locked: false,
@@ -518,7 +518,7 @@ function createRoom(code, imageId, pieces, solo) {
     startedAt: null,
     finishedAt: null,
     z: 100,
-    pieces: buildPieces(cfg),
+    pieces: buildPieces(cfg, true),
     players: [null, null] // { pid, socketId, connected, name }
   };
 }
@@ -739,7 +739,7 @@ function performRestart(room, params) {
   clearRematch(room);
   room.imageId = params.imageId;
   room.cfg = layoutFor(params.pieces);
-  room.pieces = buildPieces(room.cfg);
+  room.pieces = buildPieces(room.cfg, true);
   room.hints = [HINTS, HINTS];
   room.spots = [SPOTS, SPOTS];
   room.z = 100;
@@ -997,10 +997,11 @@ io.on('connection', (socket) => {
     const { room, idx } = c;
     const p = pieceFrom(room, data.id);
     if (!p || p.heldBy !== idx || p.locked) return;
-    p.rot = (p.rot + 1) % 4;
-    p.rotUsed = 0; // rotação ilimitada, sem acumular contador
-    io.to(room.code).emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed });
-    tryLock(room, p, idx); // se girou até ficar certa em cima do lugar, encaixa
+    // Compatibilidade com cliente antigo: no Solo/Cooperativo não existe giro.
+    // Confirma a orientação correta sem alterar as regras de SNAP ou desafiar a sala.
+    p.rot = 0;
+    p.rotUsed = 0;
+    io.to(room.code).emit('rotated', { id: p.id, rot: 0, rotUsed: 0 });
   });
 
   // soltar a peça (arrastou e largou, ou tocou de novo para dispensar)
