@@ -88,7 +88,7 @@ test('cliente só gira em Desafio e toque repetido solta peça no Solo/Cooperati
   const ctx = {
     state, setAngle: (piece, rot) => { piece.rot = rot; },
     gameEmit: (name, payload) => events.push({ name, payload }),
-    vibrate: () => {}, resetIdle: () => {}, updateUi: () => {},
+    vibrate: () => {}, resetIdle: () => {}, updateUi: () => {}, refreshLamp: () => {},
     dropSelected: () => events.push({ name: 'drop' }),
   };
   evaluateMethods(['rotateSelected', 'endPointer'], ctx);

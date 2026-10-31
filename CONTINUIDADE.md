@@ -1,3 +1,48 @@
+# CONTINUIDADE — SELEÇÃO E ARRASTO MAIS RESPONSIVOS (RODADA DE CORREÇÃO)
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base real da `main` verificada antes das alterações:** `276c2882675ab3e111ad28c2f39b7e236012f2cd` (Merge PR #34 — giro somente no Desafio e ajudas fixas). O ZIP recebido foi comparado pelos hashes de blob Git de `public/game.js`, `public/sw.js`, `CONTINUIDADE.md` e testes relevantes: arquivos idênticos aos da `main`. Não houve escrita no GitHub ou deploy pelo assistente.
+
+## Objetivo e alterações mínimas
+
+Reação mais rápida ao selecionar e arrastar peças no Android, sem alterar encaixes, aparência, escala, imagens, sombras, sons, gestos de pinça ou giro exclusivo da Sala Desafio.
+
+1. **`public/game.js`:** `onPointerDown()` mede `#field` com `getBoundingClientRect()` **antes** de modificar classes de seleção; evita forçar uma leitura de layout após essas escritas. A medida e o cálculo de deslocamento do dedo mantêm as fórmulas anteriores.
+2. **`public/game.js`:** selecionar, soltar ou concluir um gesto chama apenas `refreshLamp()` para atualizar disponibilidade/contadores das ajudas, sem redesenhar o placar e os avatares por `updateHud()` a cada toque. Atualizações reais de placar, finalização, metadados e giro no Desafio ainda usam os caminhos antigos.
+3. **`public/game.js`:** no **Solo e Cooperativo**, o arrasto por toque começa após **5 px** de deslocamento também com 12/20/30/48 peças; o tamanho 6 já usava 5 px. A **Sala Desafio** preserva o limiar de **8 px** para 12/20/30/48 e o anterior de 5 px para 6, permitindo distinguir toques de girar. O zoom por pinça e a escala automática nos demais tamanhos permanecem iguais.
+4. **`public/game.js`:** enquanto o dedo permanece parado durante o arrasto, `frame()` deixa de pedir quadros RAF extras *somente* por `dragging`; cada evento `pointermove` continua chamando `wakeFrame()` para exibir a posição atual imediatamente. Transições de escala, movimento remoto e animações existentes ainda acordam quadros quando necessário. Envio de `move/ch:move` permanece a cada 50 ms no máximo.
+5. **`tests/arrasto-seis-pecas.test.js`, `tests/giro-infantil-ajudas.test.js`:** atualizados apenas para as expectativas do novo limiar e a atualização restrita às ajudas. **`tests/arrasto-fluidez.test.js`:** novo, com sete regressões executando métodos reais do cliente por `vm` e simulações de gestos, RAF, rede e DOM.
+
+## Arquivos exatos do ZIP (5)
+
+| Caminho dentro do repositório | Ação |
+|---|---|
+| `public/game.js` | substituir |
+| `tests/arrasto-seis-pecas.test.js` | substituir |
+| `tests/giro-infantil-ajudas.test.js` | substituir |
+| `tests/arrasto-fluidez.test.js` | adicionar |
+| `CONTINUIDADE.md` | substituir (registro atual acrescentado, histórico anterior intacto) |
+
+**Não alterar:** `server.js`, `challenge.js`, `accounts.js`, contas, XP/gemas, migrações, imagens, estilos, sons, HTML, outros testes e banco. **`public/sw.js` permanece em `v21`:** seu `refreshShell()` já busca a versão mais recente de `/game.js` ao abrir a PWA, comunica `shell-updated` e o cliente recarrega **somente na tela inicial**. Não mudar o cache nesta rodada evita mexer em cinco testes e no service worker sem necessidade. Fechar e reabrir o aplicativo após o deploy; se necessário, voltar à tela inicial para aceitar atualização, sem limpar dados.
+
+## Testes efetivamente executados
+
+- `node --check` dos quatro arquivos JS incluídos: **aprovado**.
+- `node --test` para os testes de arrasto, giros/ajudas e fluidez: **24 executados, 24 aprovados, 0 falhas**.
+- `node --test` dos **19 arquivos independentes de integração externa**: **110 executados, 108 aprovados, 0 falhas, 2 ignorados** (dependem de PostgreSQL real).
+- `npm test` completo foi **tentado, mas NÃO passou integralmente neste ambiente**: **114 testes, 108 aprovados, 4 falhas por falta do pacote `socket.io-client` e 2 ignorados**. A tentativa de instalar dependências com `npm ci` não terminou por indisponibilidade do acesso ao registro npm. Os 4 testes não foram validados aqui; devem rodar no GitHub Actions.
+- **Não executados:** servidor Express/Socket.IO integrado, PostgreSQL real, `npm test` completo aprovado, GitHub Actions do novo PR, Render, APK/PWA instalada, medições de FPS e teste Android físico. O comportamento visual e a melhora de FPS precisam ser confirmados pelo proprietário no celular.
+
+## Publicação e verificação no Android
+
+1. Antes de enviar o pacote, confirmar que a `main` ainda está em `276c288`; caso haja novo merge, reavaliar conflitos antes de substituir arquivos.
+2. Criar **uma ramificação nova da `main`**, por exemplo `corrigir-fluidez-arrasto`; enviar exatamente os 5 arquivos nas pastas indicadas. Abrir PR para `main` e verificar que `Files changed` tem os cinco itens. Esperar os dois workflows (incluindo PostgreSQL isolado) terminarem com sucesso; somente o proprietário faz Merge, Manual Deploy no Render e validação no Android.
+3. Após o deploy, fechar e reabrir o aplicativo; se aparecer atualização, aplicá-la na tela inicial. No Solo e Cooperativo, testar 6, 12, 20, 30 e 48 peças, iniciando arrasto, soltando, encaixando, selecionando novamente e usando o zoom por pinça. Conferir ambas ajudas fixas e contadores.
+4. Na Sala Desafio Comum e Quebrando Cabeças, confirmar giro pelo segundo toque, arrasto e encaixe, sem regressões. No Cooperativo, validar em dois aparelhos a movimentação remota e a conclusão sem perda de conta. Aprovação somente após o relato do teste real feito pelo proprietário.
+
+**Não iniciar outra rodada até essa aprovação.**
+
+---
+
 # CONTINUIDADE — GIRO SOMENTE NA SALA DESAFIO E DUAS AJUDAS FIXAS
 
 **Data:** 31/10/2026 (America/Fortaleza). **`main` oficial verificada antes da edição:** `88a9011578dcdccd4b5838c6f8a544505762822d` (Merge PR #33 — reversão da ampliação/arrasto do PR #32); árvore `4b30e9423eb3fb7d37b9c6539d2555ca7c744774`. **Implementação preparada localmente para nova branch e PR.** O assistente não escreve no GitHub nem faz deploy. Nenhuma alteração do arrasto/escala que tinha causado travamento foi retomada.
