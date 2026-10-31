@@ -41,7 +41,7 @@ function build(pieces = 6) {
       : key === '#stage' ? { clientWidth: 960 } : null,
     performance: { now: () => 1000 },
     Math, Number, Object,
-    classify: () => {}, updateUi: () => {}, wakeFrame: () => painted.push('frame'),
+    classify: () => {}, updateUi: () => {}, refreshLamp: () => {}, wakeFrame: () => painted.push('frame'),
     gameEmit: (name, payload) => sent.push([name, payload]),
     clearTimeout: () => {},
     socket: { volatile: { emit: (name, payload) => sent.push([name, payload]) } },
@@ -113,16 +113,28 @@ test('6 peças: iniciar arrasto no celular requer 5px e acompanha o dedo sem sal
   assert.ok(sent.some(([name]) => name === 'move'), 'evento de movimentação preservado');
 });
 
-test('12, 20, 30 e 48 peças: ampliação automática e limiar antigo permanecem', () => {
+test('12, 20, 30 e 48 peças: ampliação preservada e limiar de 5px no Solo/Coop', () => {
   for (const pieces of [12, 20, 30, 48]) {
     const { ctx, cfg, p, state, pointer } = build(pieces);
     ctx.onPointerDown(pointer(540, 1800));
     assert.equal(ctx.baseScale(p), (cfg.TRAY / cfg.TILE) * 1.12);
+    ctx.onPointerMove(pointer(544, 1800));
+    assert.equal(state.drag.moved, false, 'movimento abaixo de 5px ainda é seleção em ' + pieces);
     ctx.onPointerMove(pointer(546, 1800));
-    assert.equal(state.drag.moved, false, 'limiar original preservado em ' + pieces);
-    ctx.onPointerMove(pointer(549, 1800));
     assert.equal(state.drag.moved, true);
     assert.equal(ctx.baseScale(p), 1.04, 'zoom ao arrastar preservado em ' + pieces);
+  }
+});
+
+test('Sala Desafio continua com limiar de 8px em 12/20/30/48 peças', () => {
+  for (const pieces of [12, 20, 30, 48]) {
+    const { ctx, state, pointer } = build(pieces);
+    state.duel = { mode: 'comum' }; state.status = 'playing';
+    ctx.onPointerDown(pointer(540, 1800));
+    ctx.onPointerMove(pointer(546, 1800));
+    assert.equal(state.drag.moved, false, 'giro continua distinguível do arrasto em ' + pieces);
+    ctx.onPointerMove(pointer(549, 1800));
+    assert.equal(state.drag.moved, true);
   }
 });
 
