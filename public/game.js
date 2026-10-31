@@ -829,10 +829,10 @@
   /* ---------------------------------------------------------
    * Campo de jogo
    * --------------------------------------------------------- */
-  // Escala natural em qualquer quantidade de peças: tocar, segurar ou arrastar
-  // NÃO aumenta automaticamente. Só crescer quando toda a área final TILE x TILE
-  // já couber na grade; nenhuma leitura de layout/DOM durante o movimento.
-  // Este teste geométrico é exclusivamente visual; SNAP continua no servidor.
+  // Entrada na grade: só libera o crescimento quando a área nominal TILE x TILE
+  // cabe inteira. Depois disso, manter o tamanho mesmo ao tocar suas bordas;
+  // voltar ao tamanho pequeno apenas se a peça for SOLTA na área da bandeja.
+  // Não consultar DOM; a regra de SNAP/encaixe continua exclusivamente no servidor.
   function fullyInsideBoard(p) {
     var cfg = state.cfg, half = cfg.TILE / 2;
     return p.x - half >= cfg.BOARD_X && p.x + half <= cfg.BOARD_X + cfg.BOARD_W &&
@@ -841,7 +841,15 @@
   function baseScale(p) {
     var cfg = state.cfg;
     if (p.locked) return 1;
-    return fullyInsideBoard(p) ? 1 : cfg.TRAY / cfg.TILE;
+    // Trava visual: evita alternância de escala por poucos pixels nas bordas.
+    if (p.boardExpanded) {
+      var released = p.heldBy === null || p.heldBy === undefined;
+      var backInTray = p.y >= cfg.TRAY_LINE + cfg.TRAY / 2;
+      if (!released || !backInTray) return 1;
+      p.boardExpanded = false; // voltou realmente à bandeja e foi solta
+    }
+    if (fullyInsideBoard(p)) { p.boardExpanded = true; return 1; }
+    return cfg.TRAY / cfg.TILE;
   }
 
   // zoom por pinça: só vale para a peça escolhida por mim e só na minha tela
@@ -997,7 +1005,8 @@
         x: d.x, y: d.y, tx: d.x, ty: d.y,          // x e y = CENTRO da peça
         rot: d.rot, ang: d.rot * 90, rotUsed: d.rotUsed,
         heldBy: d.heldBy, locked: d.locked, lockedBy: d.lockedBy, z: d.z,
-        held: false, mine: false, theirs: false, zoomAbs: null, lastMove: 0, vs: 1, dirty: true, out: d.out !== false, fly: null
+        held: false, mine: false, theirs: false, zoomAbs: null, lastMove: 0, vs: 1, scaleAnimTime: null,
+        boardExpanded: false, dirty: true, out: d.out !== false, fly: null
       };
       if (!p.out) el.style.display = 'none';          // ainda está dentro da caixa de presentes
       p.vs = targetScale(p);
@@ -1098,10 +1107,17 @@
       var ts = targetScale(p);
       if (p.vs !== ts) {
         var dv = ts - p.vs;
-        if (Math.abs(dv) > 0.004) { p.vs += dv * 0.3; animating = true; }
-        else p.vs = ts;
+        if (Math.abs(dv) > 0.003) {
+          // Suaviza a expansão sem atrasar x/y (sempre acompanhando o dedo).
+          // Easing dependente do tempo: mantém a sensação em telas de 30/60/120 Hz.
+          var ms = p.scaleAnimTime === null || p.scaleAnimTime === undefined
+            ? 16 : Math.max(8, Math.min(48, now - p.scaleAnimTime));
+          p.vs += dv * (1 - Math.exp(-ms / (p.zoomAbs ? 48 : 82)));
+          p.scaleAnimTime = now;
+          animating = true;
+        } else { p.vs = ts; p.scaleAnimTime = null; }
         changed = true;
-      }
+      } else p.scaleAnimTime = null;
       var px = p.x, py = p.y;
       var v = state.view;
       if (p.zoomAbs && !p.locked && v && v.maxX > v.minX && v.maxY > v.minY) {
