@@ -1,3 +1,72 @@
+# CONTINUIDADE — REDESIGN DA BIBLIOTECA: GALERIA DE COLEÇÕES (OPÇÃO B)
+
+**Data:** 31/10/2026 (America/Fortaleza)  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**`main` confirmada antes de implementar e reconferida antes do pacote:** `c0ca24a2ad3668eca948eff33b35cafde9d74faa` (Merge PR #27, fluidez na abertura e resultados).  
+**Tree da `main`:** `ec0c2a24242b173f58cb7e651f5b0710aad7b263`.
+
+Esta é a seção atual do registro de continuidade; o histórico anterior segue abaixo sem supressões. Em nova rodada, ler este documento e confirmar novamente SHA e blobs da `main`. O assistente **não fez escrita no GitHub nem deploy**. A publicação, aprovação e teste Android ficam com o proprietário.
+
+## 1. Pedido aprovado
+
+Após aprovar o aumento de fluidez, o proprietário aprovou a **opção B de UI/UX para as categorias**: galeria vertical de coleções com capa principal grande, moldura discreta, títulos em maiúsculas e fonte Fredoka, poucas informações, cinco círculos indicando imagens concluídas, três estados visuais (disponível, bloqueada por progresso, especial por gemas), botões amarelos e tela interna de cinco imagens organizada em **duas colunas**. Preservar as fotos reais que o proprietário enviou, a categoria Espaço e ciência existente e as mecânicas/custos já implantados. Sem efeitos permanentes que afetem o Android.
+
+## 2. Solução implementada
+
+- **`public/game.js`**: `renderLibraryHome` mantém os mesmos cinco `CATEGORIES` vindos do servidor e cria cartões verticais com **uma imagem principal real** (o mesmo `imageItem(...).url` da montagem), pílula curta de estado, título centralizado, subtítulo, cinco pontos preenchidos de acordo com `libraryProgress.clears`, contagem `n de 5`, orientação de desbloqueio quando necessária e único botão de ação **ABRIR / BLOQUEADA / DESBLOQUEAR · N GEMAS**. Não duplica ou recalcula o direito de compra: continua usando `libraryAvailable`, `buyLibraryCategory` e a API existente. Sem inserção de HTML vindo de usuário, tudo criado por `textContent`. `aria-label` e estado `disabled` acessíveis.
+- **`public/game.js`**: ao entrar em categoria, título centralizado em letras maiúsculas, instrução curta e progresso; cabeçalho genérico oculto para não repetir informações. `renderPickGrid` aplica `.library-gallery` apenas a categorias, mantém cinco imagens e marcador discreto de conclusão **★ Concluída**. A área **Imagens clássicas e Minha imagem** preserva a grade/seleção antiga, mostra seu próprio cabeçalho e continua acessível. Único **Voltar amarelo** retorna às categorias; após seleção, número de peças e botão JOGAR seguem sem alterações.
+- **`public/index.html`**: adiciona somente `#library-detail` para a instrução/contagem abaixo do título da categoria. Nenhuma nova tela, script embutido ou modal.
+- **`public/style.css`**: fundo creme **somente em `#screen-pick` (tema claro)**, cartões brancos com bordas leves, fotografia principal centralizada com `object-fit: contain` **sem recortar**, moldura dourada discreta, fonte Fredoka do próprio projeto, cinco círculos de progresso, botões amarelos acessíveis e grade de duas colunas com miniaturas grandes. Conserva a paleta escura ao usar `html[data-theme="dark"]`. Não introduz novas animações contínuas e respeita as preferências de movimento já existentes. Celebrar 5/5 continua com a animação dourada anterior.
+- **`public/sw.js`**: revisão de cache v17 → **v18**; não altera endpoints, armazenamento, push nem estratégia de atualização.
+- **`tests/library-visual.test.js`**, **`tests/sem-piscadas.test.js`**, **`tests/fluidez-animacoes.test.js`**: sincronizam testes existentes à versão v18 e ao título simplificado; mantêm as verificações das correções anteriores.
+- **`tests/colecoes-galeria.test.js`**: novos testes de layout, títulos, progresso, estados de compra, imagens, navegação, Fredoka e proteção de contratos.
+- **`CONTINUIDADE.md`**: este registro e todo o conteúdo anterior.
+
+**Nenhum arquivo WebP foi enviado no ZIP**, porque as 25 imagens e suas miniaturas já estão na `main`, inclusive as 20 imagens pessoais incorporadas no PR #24. O WebP original que aparece na capa continua exatamente o arquivo usado no quebra-cabeça. O catálogo `library.js`, os IDs, preços e textos de imagem não foram modificados.
+
+## 3. Arquivos exatos do pacote — 9
+
+| Pasta no repositório | Arquivo | Operação |
+| --- | --- | --- |
+| `public/` | `game.js` | substituir |
+| `public/` | `index.html` | substituir |
+| `public/` | `style.css` | substituir |
+| `public/` | `sw.js` | substituir |
+| `tests/` | `library-visual.test.js` | substituir |
+| `tests/` | `sem-piscadas.test.js` | substituir |
+| `tests/` | `fluidez-animacoes.test.js` | substituir |
+| `tests/` | `colecoes-galeria.test.js` | adicionar |
+| raiz | `CONTINUIDADE.md` | substituir |
+
+**Não substituir:** fotos, miniaturas, `library.js`, `server.js`, `accounts.js`, `challenge.js`, `conta.js`, migrations, SQL, `gems.js`, `xp.js`, config Render, `package.json`, outro CSS/JS.
+
+## 4. Contratos preservados
+
+Sem modificação de regra de encaixe/`SNAP` duplicados, rotação, magnetismo, sons, XP exclusivo via `payMatch`, compras/gemas no servidor, migrações, eventos Socket.IO de ambos os modos, contas, amizades, chat de frases prontas, e-mails/XP alheios, guarda do progresso, IDs das imagens, acessibilidade de botão, resultados, animação 360° e animação dourada de 5/5. Categorias 1 gratuita; 2 ao concluir as cinco da 1; 3 ao concluir as cinco da 2; 4 por 25 gemas; 5 por 40 gemas de forma independente. As regras continuam no código existente do servidor; mudanças são de apresentação.
+
+## 5. Base e comparação com a main
+
+Antes de alterar, foram comparados por `git hash-object` os originais de `public/game.js`, `public/style.css`, `public/sw.js`, `public/index.html` e `CONTINUIDADE.md` com os blobs oficiais da `main` c0ca24a: todos idênticos. Os três testes antigos têm originais preservados na última rodada e hashes conferidos com a árvore oficial. `tests/colecoes-galeria.test.js` não existia na `main`. Antes de gerar o ZIP, a `main` continuava em c0ca24a (tree ec0c2a2). Não foram sobrescritos avanços posteriores.
+
+## 6. Testes executados e limitações
+
+- `node --check` em scripts alterados: aprovado.
+- Suíte **selecionada** dos testes de contratos, desempenho, XP, gemas, histórico, animações, biblioteca e UI: **89 testes, 87 aprovados, 0 falhas, 2 ignorados** (PostgreSQL real). Para carregar testes estáticos neste ambiente sem dependências instaladas, foi usado stub de `socket.io-client` somente para carregamento; **não corresponde a teste de integração com Socket.IO real**. A suíte npm completa de coop/desafio com Socket.IO real não foi executada.
+- Chromium, com o HTML/CSS/JS da interface e os 25 WebPs reais carregados via dados locais, APIs e Socket.IO **simulados**: telas 320×650, 360×740, 412×915. Em cada largura: cinco cartões verticais, 25 pontos totais, 5 capas, botões e estados, galerias com duas colunas, título centralizado, sem rolagem horizontal, retorno com Voltar, escolha de uma imagem e JOGAR centrado (desvio 0 px). Conclusão local 5/5 libera categoria 2; compra simulada da 5 por 40 gemas não libera a 4; 25 imagens selecionadas e carregadas; celebração dourada somente após 5/5 e, para conta, somente após API confirmar; 0 erros de JavaScript observados.
+- **Não testados:** Android físico, fluidez/FPS real no celular, partida completa com Socket.IO real, Render, Neon/PostgreSQL real, compras reais, progresso em produção ou atualização do cache de APK já instalado. O proprietário deve validar.
+
+## 7. Publicação e aprovação
+
+1. Criar branch a partir da `main`, por exemplo `design-galeria-colecoes-opcao-b`.
+2. Extrair o ZIP; enviar os **9 arquivos exatos** nas pastas indicadas, sem enviar o ZIP fechado para o repositório; commits apenas na branch.
+3. Criar Pull Request com base `main`. Conferir **9 arquivos** em `Files changed`. Aguardar GitHub Actions (não fazer Merge se algum teste falhar).
+4. Com testes verdes, o proprietário faz o Merge, realiza deploy manual no Render e fecha/reabre o APK para atualizar o cache v18. **Não limpar dados do aplicativo**, especialmente de visitantes.
+5. No Android real: comparar capas com imagens do jogo, tocar em todas as cinco categorias, verificar progresso, bloqueios e preços, comprar somente com consentimento/conta suficiente, ver “Minha imagem”, tocar Voltar, selecionar 6/12/20/48 peças, verificar JOGAR, giro de 360°, encaixes, sons, vitória e animação dourada sem travamentos. Informar aprovação antes da próxima rodada.
+
+---
+
+# HISTÓRICO ANTERIOR PRESERVADO
+
 # CONTINUIDADE — FLUIDEZ NA ABERTURA E NA EXIBIÇÃO DE RESULTADOS
 
 **Data:** 31/10/2026 (Fortaleza)  
