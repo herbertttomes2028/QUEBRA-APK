@@ -61,8 +61,8 @@ test('imagem única inicia na grade, aproxima-se e chega ao resultado; toque dis
   const f = fixture();
   f.ctx.showVictoryResult('#modal-win', '#win-again', true, () => f.calls.push(['som']));
   assert.equal(f.animations.length, 1);
-  assert.equal(f.animations[0].frames.length, 3);
-  assert.equal(f.animations[0].config.duration, 1220);
+  assert.equal(f.animations[0].frames.length, 5);
+  assert.equal(f.animations[0].config.duration, 2260);
   assert.equal(f.nodes['#victory-flight'].hidden, false);
   assert.equal(f.nodes['#modal-win'].hidden, true);
   assert.equal(f.nodes['#victory-flight-photo'].style.backgroundImage, 'url("blob:fixture")');
