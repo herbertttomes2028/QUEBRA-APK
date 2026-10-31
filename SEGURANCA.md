@@ -89,8 +89,12 @@ Antes a conexão era criptografada mas **aceitava qualquer certificado**. Agora 
 O que testei: com um banco de certificado inválido (autoassinado), a conexão é **recusada**, e só conecta com a saída de emergência abaixo.
 
 Se após publicar o `/diagnostico` mostrar `contas.ativas: false` e os Logs tiverem `[contas] NÃO foi possível ativar as contas ... certificate`:
-1. (Emergência) crie no Render `DB_SSL_VERIFY` = `0` (volta ao comportamento antigo) e me avise para ajustarmos o certificado.
-2. O jogo, enquanto isso, **continua funcionando como visitante**.
+1. **Não desative a verificação TLS.** O servidor passou a ignorar `DB_SSL_VERIFY=0`; corrija o certificado ou use `DB_SSL_CA` com a CA confiável do provedor. Não coloque a chave privada no GitHub.
+2. O jogo, enquanto isso, **continua funcionando como visitante**. Não prossiga com a publicação pública até validar o banco e as contas.
+
+### Rodada de segurança — 31/10/2026
+
+Foram adicionados limites de recursos em `resource-guard.js`, expiração de requisições HTTP e consultas SQL, invalidação de sessões no Socket.IO, associação de origem dos sockets, consumo atômico de códigos de e-mail e sanitização de relatórios CSP. A rota HTTP `/api/test-outbox` foi completamente removida, evitando exposição de códigos de recuperação inclusive por erro de configuração. O Pull Request executará `npm audit --omit=dev --audit-level=high` na nova auditoria GitHub Actions. **Não considerar a publicação pública aprovada sem testar no PostgreSQL real e proteger o tráfego na borda (WAF/CDN).** Detalhes e limitações estão em `AUDITORIA-SEGURANCA-2026-10-31.md`.
 
 ## 8. Código da sala, tentativas, frases e bloqueios
 

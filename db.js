@@ -10,11 +10,11 @@ const path = require('path');
 /*
  * Conexão segura com o banco: além de criptografar, CONFERE se quem responde é mesmo o servidor do banco (certificado válido).
  *   DB_SSL_CA       (opcional) certificado da autoridade (texto PEM), se o seu provedor usar um certificado próprio.
- *   DB_SSL_VERIFY=0 (só em emergência) volta a aceitar qualquer certificado: criptografa, mas NÃO confere quem responde.
+ *   A validação do certificado remoto é obrigatória em todos os ambientes.
  */
 function sslOptions(local, env) {
   if (local) return false;
-  if (String(env.DB_SSL_VERIFY) === '0') return { rejectUnauthorized: false };
+  // DB_SSL_VERIFY=0 is intentionally ignored to avoid insecure connections.
   const o = { rejectUnauthorized: true };
   if (env.DB_SSL_CA) o.ca = String(env.DB_SSL_CA).replace(/\\n/g, '\n');
   return o;
@@ -31,9 +31,12 @@ function createDb(url) {
   const pool = new pg.Pool({
     connectionString: conn,
     ssl,
-    max: Number(process.env.DB_POOL_MAX) || 5,
+    max: Math.max(2, Math.min(12, Number(process.env.DB_POOL_MAX) || 5)),
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
+    connectionTimeoutMillis: 10000,
+    query_timeout: 20000,
+    statement_timeout: 15000,
+    idle_in_transaction_session_timeout: 20000
   });
   pool.on('error', (e) => console.error('[db] conexão perdida (será refeita):', e.message));
 

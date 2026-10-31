@@ -1,0 +1,32 @@
+# Porta adicional de segurança: PR não deve ser integrado com dependências de alta/critica gravidade.
+# O workflow PostgreSQL isolado do projeto permanece independente e também deve ficar verde.
+name: Auditoria de dependencias e protecoes
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar arquivos da branch
+        uses: actions/checkout@v4
+      - name: Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Instalar exatamente o package-lock
+        run: npm ci
+      - name: Dependencias de producao sem vulnerabilidades altas ou criticas conhecidas
+        run: npm audit --omit=dev --audit-level=high
+      - name: Protecoes contra abuso e indisponibilidade
+        run: node --test tests/security-resilience.test.js
+      - name: Regressao completa em ambiente descartavel
+        run: npm test

@@ -72,13 +72,14 @@ const FAKE_HASH = 'scrypt$' + Buffer.alloc(16, 7).toString('base64url') + '$' + 
 let jwksCache = { at: 0, keys: [] };
 async function googleKeys() {
   if (Date.now() - jwksCache.at < 6 * 3600 * 1000 && jwksCache.keys.length) return jwksCache.keys;
-  const r = await fetch(process.env.GOOGLE_CERTS_URL || 'https://www.googleapis.com/oauth2/v3/certs');
+  const r = await fetch(process.env.GOOGLE_CERTS_URL || 'https://www.googleapis.com/oauth2/v3/certs', { signal: AbortSignal.timeout(8000) });
   if (!r.ok) throw new Error('não consegui buscar as chaves do Google');
   jwksCache = { at: Date.now(), keys: (await r.json()).keys || [] };
   return jwksCache.keys;
 }
 async function verifyGoogleIdToken(token, clientId, getKeys) {
-  const parts = String(token || '').split('.');
+  if (typeof token !== 'string' || token.length > 8192) throw new Error('formato');
+  const parts = token.split('.');
   if (parts.length !== 3) throw new Error('formato');
   const header = JSON.parse(b64u(parts[0]));
   const payload = JSON.parse(b64u(parts[1]));
@@ -120,6 +121,7 @@ function createAccounts(d) {
     if (perIp) max *= RATE_MULT;                  // limites por endereço (IP) podem ser afrouxados nos testes
     const now = Date.now();
     const a = (hits.get(key) || []).filter((t) => now - t < ms);
+    if (!hits.has(key) && hits.size >= 6000) return false;
     if (a.length >= max) { hits.set(key, a); return false; }
     a.push(now); hits.set(key, a);
     return true;
@@ -154,6 +156,28 @@ function createAccounts(d) {
     const token = crypto.randomBytes(32).toString('base64url');
     await db.q('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [sha256(token), uid, new Date(Date.now() + SESSION_MS)]);
     return token;
+  }
+  // Invalidated HTTP sessions cannot keep accessing privileged socket events.
+  function revokeSocketSessions(uid, keepHash = null) {
+    const ids = online.get(uid);
+    if (!ids) return;
+    for (const sid of [...ids]) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && sock.data.sessionHash !== keepHash) {
+        sock.data.uid = null;
+        sock.data.sessionHash = null;
+        sock.leave('u:' + uid);
+        ids.delete(sid);
+        if (onAuth) onAuth(sock, null);
+      }
+    }
+    if (!ids.size) { online.delete(uid); tellFriendsPresence(uid, false); }
+  }
+  async function socketSessionValid(socket) {
+    const uid = socket.data.uid, hash = socket.data.sessionHash;
+    if (!uid || !hash) return false;
+    const row = await one('SELECT 1 FROM sessions WHERE user_id = $1 AND token_hash = $2 AND expires_at > now()', [uid, hash]);
+    return !!row;
   }
   async function userByToken(token) {
     if (!token || typeof token !== 'string' || token.length > 200) return null;
@@ -290,9 +314,9 @@ function createAccounts(d) {
     if (new Date(row.expires_at).getTime() < Date.now()) { await db.q('DELETE FROM email_codes WHERE id = $1', [row.id]); return 'expired'; }
     if (row.attempts >= CODE_MAX_TRIES) return 'too_many';            // o código fica "queimado" até vencer ou o jogador pedir outro
     const good = Buffer.from(row.code_hash, 'hex'), mine = Buffer.from(codeHash(uid, purpose, code), 'hex');
-    if (good.length !== mine.length || !crypto.timingSafeEqual(good, mine)) { await db.q('UPDATE email_codes SET attempts = attempts + 1 WHERE id = $1', [row.id]); return 'bad_code'; }
-    await db.q('DELETE FROM email_codes WHERE id = $1', [row.id]);
-    return 'ok';
+    if (good.length !== mine.length || !crypto.timingSafeEqual(good, mine)) { await db.q('UPDATE email_codes SET attempts = attempts + 1 WHERE id = $1 AND attempts < $2', [row.id, CODE_MAX_TRIES]); return 'bad_code'; }
+    const used = await db.q('DELETE FROM email_codes WHERE id = $1 AND code_hash = $2 AND attempts < $3 AND expires_at > now() RETURNING id', [row.id, row.code_hash, CODE_MAX_TRIES]);
+    return used.rowCount === 1 ? 'ok' : 'bad_code';
   }
 
   r.post('/register', guard(async (req, res) => {
@@ -387,6 +411,7 @@ function createAccounts(d) {
     if (st !== 'ok') return bad(res, 400, st);
     await db.q('UPDATE users SET pass_hash = $1, email_verified = true, email_verified_at = coalesce(email_verified_at, now()) WHERE id = $2', [await hashPassword(pw), u.id]);
     await db.q('DELETE FROM sessions WHERE user_id = $1', [u.id]);   // quem estava dentro (inclusive um invasor) é desconectado
+    revokeSocketSessions(u.id);
     res.json({ ok: true });
   }));
 
@@ -401,6 +426,7 @@ function createAccounts(d) {
     if (pw === cur) return bad(res, 400, 'same');
     await db.q('UPDATE users SET pass_hash = $1 WHERE id = $2', [await hashPassword(pw), req.user.id]);
     await db.q('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [req.user.id, sha256(req.token)]);   // sai dos outros aparelhos
+    revokeSocketSessions(req.user.id, sha256(req.token));
     res.json({ ok: true });
   }));
 
@@ -430,10 +456,21 @@ function createAccounts(d) {
 
   r.post('/logout', needUser, guard(async (req, res) => {
     await db.q('DELETE FROM sessions WHERE token_hash = $1', [sha256(req.token)]);
+    // Other tokens remain valid; this token is no longer allowed on any socket.
+    for (const sid of [...(online.get(req.user.id) || [])]) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && sock.data.sessionHash === sha256(req.token)) {
+        sock.data.uid = null; sock.data.sessionHash = null; sock.leave('u:' + req.user.id);
+        online.get(req.user.id).delete(sid);
+        if (onAuth) onAuth(sock, null);
+      }
+    }
+    if (online.has(req.user.id) && !online.get(req.user.id).size) { online.delete(req.user.id); tellFriendsPresence(req.user.id, false); }
     res.json({ ok: true });
   }));
   r.post('/logout-all', needUser, guard(async (req, res) => {
     await db.q('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
+    revokeSocketSessions(req.user.id);
     res.json({ ok: true });
   }));
 
@@ -503,6 +540,7 @@ function createAccounts(d) {
     for (const k of [...blockSet]) if (k.indexOf(req.user.id) >= 0) blockSet.delete(k);
     for (const f of fr) notify(f.other, { t: 'unfriend' });
     io.to('u:' + req.user.id).emit('acc:ev', { t: 'deleted' });
+    revokeSocketSessions(req.user.id);
     res.json({ ok: true });
   }));
 
@@ -911,10 +949,13 @@ function createAccounts(d) {
   /* ===================== Socket.IO ===================== */
   io.on('connection', (socket) => {
     const ack = (cb, v) => { if (typeof cb === 'function') cb(v); };
+    let authGeneration = 0;
     const wrap = (fn) => (data, cb) => Promise.resolve(fn(data)).then((v) => ack(cb, v), (e) => { console.error('[contas] socket:', e.message); ack(cb, { ok: false, error: 'server' }); });
 
     function unbind() {
+      authGeneration++;
       const uid = socket.data.uid;
+      socket.data.sessionHash = null;
       if (!uid) return;
       socket.data.uid = null;
       socket.leave('u:' + uid);
@@ -923,11 +964,15 @@ function createAccounts(d) {
     }
 
     socket.on('acc:auth', wrap(async (data) => {
-      const u = await userByToken((data || {}).token);
-      if (!u) return { ok: false, error: 'auth' };
-      if (socket.data.uid && socket.data.uid !== u.id) unbind();
+      const sequence = ++authGeneration;
+      const token = data && typeof data.token === 'string' ? data.token : '';
+      const u = await userByToken(token);
+      if (!u || sequence !== authGeneration || socket.connected === false) return { ok: false, error: 'auth' };
+      await ensureSeeded(u.id).catch(() => {});
+      if (sequence !== authGeneration || socket.connected === false || !await userByToken(token)) return { ok: false, error: 'auth' };
+      if (socket.data.uid) unbind();
       socket.data.uid = u.id;
-      await ensureSeeded(u.id).catch(() => {});                          // (deixa o nível pronto para mostrar nas salas)
+      socket.data.sessionHash = sha256(token);
       socket.join('u:' + u.id);
       let set = online.get(u.id);
       if (!set) { set = new Set(); online.set(u.id, set); }
@@ -940,12 +985,12 @@ function createAccounts(d) {
     }));
 
     socket.on('acc:logout', wrap(async () => { unbind(); if (onAuth) onAuth(socket, null); return { ok: true }; }));
-    socket.on('inv:send', wrap((data) => sendInvite(socket, data)));
-    socket.on('inv:respond', wrap((data) => respondInvite(socket, data || {})));
+    socket.on('inv:send', wrap(async (data) => { if (!await socketSessionValid(socket)) return { ok: false, error: 'auth' }; return sendInvite(socket, data); }));
+    socket.on('inv:respond', wrap(async (data) => { if (!await socketSessionValid(socket)) return { ok: false, error: 'auth' }; return respondInvite(socket, data || {}); }));
     // dentro de uma sala: bloqueia a outra pessoa (precisa ter conta) e o aparelho sai da sala
     socket.on('acc:blockPeer', wrap(async () => {
       const uid = socket.data.uid;
-      if (!uid) return { ok: false, error: 'auth' };
+      if (!uid || !await socketSessionValid(socket)) return { ok: false, error: 'auth' };
       const peer = peerOf ? peerOf(socket) : null;
       if (!peer) return { ok: false, error: 'no_peer' };
       if (!peer.uid) return { ok: false, error: 'guest' };

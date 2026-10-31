@@ -26,7 +26,7 @@ module.exports = function createChallenge(d) {
     io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
-    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed
+    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
   } = d;
 
   const rooms = new Map();
@@ -388,6 +388,7 @@ module.exports = function createChallenge(d) {
       if (!imageId) return reply(cb, { ok: false, error: 'noimages' });
       try { if (imageAllowed && !await imageAllowed(socket, imageId)) return reply(cb, { ok: false, error: 'library_locked' }); }
       catch (e) { return reply(cb, { ok: false, error: 'server' }); }
+      if (allowRoom && !allowRoom(socket)) return reply(cb, { ok: false, error: 'busy' });
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
       leaveSocket(socket, true);

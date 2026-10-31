@@ -506,4 +506,4 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - **Bloquear jogadores** (amigos, partida e lista de bloqueados).
 - **Código de confirmação por e-mail** (cadastro e recuperação de senha) por API web (Brevo/Resend), mais **trocar senha** e **sair de todos os aparelhos**.
 - **Cabeçalhos de segurança** em todas as respostas e **CSP** (modo `report` por padrão; `CSP_MODE=enforce` para obrigar).
-- **Banco de dados**: o certificado é conferido (saída de emergência: `DB_SSL_VERIFY=0`).
+- **Banco de dados**: o certificado TLS é obrigatoriamente verificado; `DB_SSL_VERIFY=0` não desativa essa checagem. Ver `AUDITORIA-SEGURANCA-2026-10-31.md`.
