@@ -243,6 +243,7 @@
   // miniaturas leves (3:4) para a tela de escolha: usa a miniatura pronta do servidor (imagens/mini/) quando existe;
   // sem ela, gera a partir da imagem, como sempre foi feito
   function prepareThumb(item) {
+    if (item.categoryId) return Promise.resolve(item.url); // prévia idêntica às peças da biblioteca
     if (item.thumb) return Promise.resolve(item.thumb);
     var key = item.file + '|thumb';
     if (imgCache[key]) return imgCache[key];
@@ -283,7 +284,7 @@
         state.images = (Array.isArray(c.images) ? c.images : []).concat(
           state.libraryCatalog.reduce(function (all, c) {
             return all.concat((Array.isArray(c.images) ? c.images : []).map(function (i) {
-              return { file: i.file, label: i.label, url: i.url, thumb: i.thumb, categoryId: c.id };
+              return { file: i.file, label: i.label, url: libraryMediaUrl(i.url), thumb: libraryMediaUrl(i.thumb), categoryId: c.id };
             }));
           }, [])
         );
@@ -360,6 +361,14 @@
   var libraryCategory = null;
   var libraryProgress = { clears: [], purchases: [], gems: 0, loaded: false };
   var libraryCelebrationPending = null; // só comemora o último 5/5 recém-concluído
+  // As capas, a galeria e o quebra-cabeça usam o MESMO arquivo principal.
+  // A revisão muda a chave do cache antigo sem alterar o ID da imagem nem a sala.
+  var LIBRARY_MEDIA_VERSION = 'capas-20261031';
+  function libraryMediaUrl(url) {
+    return typeof url === 'string' && url.indexOf('biblioteca/') === 0
+      ? url + (url.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION
+      : url;
+  }
   function libraryById(id) { return state.libraryCatalog.find(function (c) { return c.id === id; }); }
   function libraryDone(file) { return libraryProgress.clears.indexOf(file) !== -1; }
   function libraryAvailable(c) {
@@ -407,7 +416,7 @@
     var i = imageItem(file), img = document.createElement('img');
     img.className = 'library-photo'; img.alt = title || i.label;
     img.loading = 'lazy'; img.decoding = 'async';
-    img.src = i.thumb || i.url;
+    img.src = i.categoryId ? i.url : (i.thumb || i.url); // idêntica à imagem montada, não uma miniatura desatualizada
     img.onerror = function () { img.hidden = true; if (img.parentNode) img.parentNode.classList.add('image-failed'); };
     return img;
   }
@@ -646,7 +655,7 @@
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
     // A carta mede no máximo 250px: a miniatura pronta evita decodificar a imagem
     // original grande durante a rotação 3D (a aparência e o recorte são mantidos).
-    $('#go-img').style.backgroundImage = item ? 'url("' + (item.thumb || item.url) + '")' : 'none';
+    $('#go-img').style.backgroundImage = item ? 'url("' + (item.categoryId ? item.url : (item.thumb || item.url)) + '")' : 'none';
     $('#go-sub').textContent = '';
     $('#go-cancel').hidden = true;
     el.classList.remove('out', 'run');
@@ -3357,7 +3366,6 @@
     }
     if (e.target.closest('#library-classic')) { libraryView = 'legacy'; renderPickGrid(); }
   });
-  $('#library-back').addEventListener('click', function () { closePickSheet(); renderLibraryHome(); });
 
   $('#pick-grid').addEventListener('click', function (e) {
     if (e.target.closest('.add-card')) { chooseFile(); return; }

@@ -1,3 +1,63 @@
+# CONTINUIDADE — CORREÇÃO DE CAPAS, FONTE E NAVEGAÇÃO DAS CATEGORIAS
+
+**Data:** 31/10/2026 (Fortaleza)  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**`main` consultada antes da rodada:** `5f55121ab359c9de70b9fc5e30dd08d25a316147` — Merge PR #24, imagens próprias e design  
+**Tree da `main`:** `58ef82429517b657e47d9d19ddc27ed32c50bfce`.
+
+> **ESTA É A SEÇÃO ATUAL.** Antes de qualquer rodada, ler `CONTINUIDADE.md`, confirmar o SHA atual da `main` e comparar os arquivos para não sobrescrever alterações novas. Não publicar diretamente na `main`. O proprietário publica o ZIP em uma nova branch, confere os Actions, faz Merge, testa no Android e aprova. Sem aprovação no Android, não iniciar nova alteração.
+
+## 1. Pedido e diagnóstico
+
+Após publicar PR #24, o proprietário relatou que algumas **capas de categorias e miniaturas de seleção continuavam exibindo figuras antigas**, apesar das imagens principais já terem sido trocadas; relatou também **fonte diferente** nas novas categorias, **cabeçalho da categoria não centralizado**, botão duplicado **“Categorias”** desnecessário e botão único **“Voltar”** que deveria ser **amarelo**. Ajustar igualmente para as cinco categorias, sem mexer em animações, encaixes, Socket.IO, XP, compras ou banco.
+
+**Causa técnica provável das capas antigas:** `libraryImage` e `prepareThumb` exibiam caminhos `biblioteca/mini/...`, enquanto a montagem utilizava `biblioteca/...`. Os dois arquivos têm caches independentes, e o service worker atende imagens primeiro da cópia local. Assim, a capa antiga podia persistir mesmo quando o arquivo principal estava novo. Não foi comprovado em Android real; solução evita essa divergência por construção.
+
+## 2. Solução implementada
+
+- **`public/game.js`:** todas as capas de categoria e imagens da galeria **usam `imageItem(file).url`, exatamente o original que gera as peças do quebra-cabeça**; a prévia após escolher e a abertura também usam o original quando é uma imagem da biblioteca. Os `25` originais ganham a mesma revisão de URL `?v=capas-20261031` apenas no **cliente**, sem alterar `file`/IDs de jogo, nomes ou imagens enviadas pelo socket. Assim, não reutilizam chaves de cache antigo de miniaturas e imagens, inclusive quando já existem WebP antigos no aparelho. **Nenhuma imagem foi regravada ou adicionada.** As miniaturas antigas permanecem no repositório; não são usadas por esta tela.
+- **`public/index.html`:** remove o botão redundante `#library-back` do cabeçalho das categorias; deixa `#library-heading` sozinho para centralização. O botão existente `#btn-pick-back` usa `btn-primary` (amarelo). Ele já tinha a lógica correta: dentro de uma categoria retorna à lista de categorias; na lista volta ao menu anterior. Não foi alterado o controlador da navegação.
+- **`public/style.css`:** aplica a fonte **Fredoka local já usada no restante do jogo** aos cartões de categorias, ações e cabeçalho, sem introduzir fonte nova. Centraliza `library-heading` horizontalmente e estiliza `#btn-pick-back` amarelo de acordo com `--sun`/`--on-sun`/`--sun-deep` do projeto; deixa no topo à esquerda para fácil acesso. Mantém amarelos os botões Abrir, molduras douradas, celebração dourada, posicionamento do JOGAR e todos os demais estilos.
+- **`public/sw.js`:** cache `quebra-cabeca-v14` → `quebra-cabeca-v15`; preserva a estratégia atual de funcionamento offline/atualização.
+- **`tests/library-visual.test.js`:** adapta a versão do cache para v15 e adiciona regressões de URLs iguais entre capas/galeria/partida, fonte, cabeçalho centralizado, botão amarelo único e navegação.
+- **`CONTINUIDADE.md`:** esta documentação e histórico anterior integral.
+
+## 3. ZIP — somente 6 arquivos
+
+| Caminho | Operação |
+| --- | --- |
+| `public/game.js` | substituir |
+| `public/index.html` | substituir |
+| `public/style.css` | substituir |
+| `public/sw.js` | substituir |
+| `tests/library-visual.test.js` | substituir |
+| `CONTINUIDADE.md` | substituir na raiz |
+
+**Não enviar imagens nesta rodada:** as 20 imagens próprias (Fauna, Biomas, Cultura, Fantasia) já foram publicadas no PR #24 e estão em `public/biblioteca/`. Espaço e Ciência continua com as imagens anteriores. Não alterar arquivos do banco (`migrations/`), `library.js`, `server.js`, `accounts.js`, `challenge.js`, `xp.js` ou demais telas.
+
+## 4. Testes realmente executados
+
+- `node --check public/game.js` e `node --check public/sw.js`: **passaram**.
+- Testes Node estáticos/unidade selecionados (incluindo as regressões visuais desta rodada), com `socket.io-client` **stub apenas de carregamento**: **77 no total, 75 aprovados, 0 reprovados e 2 ignorados** (PostgreSQL real). Não equivale a teste de Socket.IO real nem a `npm test` com todas dependências.
+- Navegador Chromium real, usando HTML/CSS/JS e arquivos WebP reais embutidos em `data:` por restrição de acesso HTTP local do ambiente, API/Sockets simulados: três viewports **320×650**, **360×740**, **412×915**. Confirmado: capa categoria usa o mesmo arquivo de imagem completo que a galeria e a prévia/JOGAR; cinco galerias cobrem **25/25** imagens principais (768×1024), fonte Fredoka carregada, título de categoria centrado no contêiner, apenas um Voltar amarelo funcionando, botão JOGAR centrado; zero erros JavaScript observados. Este teste **não validou o comportamento do cache HTTP/Service Worker real**, apenas a lógica de URLs e versão no código.
+- **Não testados:** Android físico, deploy Render, banco Neon/PostgreSQL, compras reais, multiplayer Socket.IO, testes completos de partida, cache real do APK em produção. Somente o proprietário pode confirmar no Android.
+
+## 5. Publicação pelo proprietário
+
+1. Criar nova ramificação a partir da `main` (sugestão: `corrigir-capas-fonte-voltar-biblioteca`).
+2. Extrair o ZIP; **não enviar ZIP fechado**. Enviar `game.js`, `index.html`, `style.css`, `sw.js` para **`public/`**, substituir `library-visual.test.js` em **`tests/`**, e substituir `CONTINUIDADE.md` na **raiz**. **Exatamente seis arquivos.**
+3. Abrir PR com base `main`. Verificar `Files changed` (seis substituições), resultados de Actions e eventuais conflitos. Se falhar, não fazer Merge.
+4. Depois do verde, proprietário faz Merge e deploy no Render, fecha e reabre o APK para atualizar shell e cache do service worker. Pode ser necessário abrir novamente depois da atualização do aplicativo; evitar limpar dados locais, porque visitante guarda progresso local.
+5. Verificar no Android todas as cinco categorias, capas iguais às fotografias que aparecem no quebra-cabeça, botão Voltar amarelo sem botão Categorias, fonte Fredoka, título centralizado, JOGAR centrado, progresso 5/5, compras de gemas, animação de abertura/encaixe/vitória/celebração. **Aprovação do proprietário somente após esse teste.**
+
+## 6. Contratos que não foram tocados
+
+Regra SNAP/encaixe duplicada, eventos Socket.IO, salas, regra XP apenas via `payMatch`, gemas e compras validadas no servidor, migrações SQL imutáveis e privacidade infantil (frases prontas, sem exibir e-mail ou XP bruto). Imagens e identificadores 25/25 inalterados.
+
+---
+
+# HISTÓRICO INTEGRAL PRESERVADO — SEÇÕES ANTERIORES
+
 # CONTINUIDADE — RODADA DE IMAGENS PRÓPRIAS E POLIMENTO DA BIBLIOTECA
 
 **Atualizado:** 30/10/2026 (horário de Fortaleza)  

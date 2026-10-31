@@ -2185,9 +2185,14 @@ html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"
 .library-category.available .library-action { background: var(--sun); color: var(--on-sun); box-shadow: 0 3px 0 var(--sun-deep); }
 .library-legacy { width: 100%; border-radius: 16px; font-size: .87rem; justify-content: center; padding: 10px; }
 .library-note { color: var(--ink-soft); font-size: .76rem; text-align: center; line-height: 1.4; padding: 4px 10px 0; }
-.library-nav { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 7px; padding: 5px 0 12px; }
-.library-nav .btn { font-size: .8rem; min-height: 44px; padding: 0 12px; }
-.library-heading { flex: 1; font-weight: 900; text-align: right; font-size: .84rem; line-height: 1.2; }
+/* Usar a mesma fonte Fredoka das telas de início e seleção do jogo. */
+#screen-pick .library-categories, #screen-pick .library-nav { font-family: "Fredoka", var(--font); }
+#screen-pick .library-name, #screen-pick .library-heading { font-family: "Fredoka", var(--font); font-weight: 700; }
+#screen-pick .library-action, #screen-pick .library-legacy { font-family: "Fredoka", var(--font); font-weight: 700; }
+/* Um único Voltar amarelo no alto da tela; volta da galeria para as categorias. */
+#screen-pick #btn-pick-back { align-self: flex-start; background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep); font-family: "Fredoka", var(--font); font-weight: 700; }
+.library-nav { width: 100%; display: flex; justify-content: center; align-items: center; gap: 7px; padding: 5px 0 12px; }
+.library-heading { flex: 1; font-weight: 700; text-align: center; font-size: .98rem; line-height: 1.25; overflow-wrap: anywhere; }
 .pick-card .thumb { position: relative; overflow: hidden; }
 .pick-card .thumb .library-photo { border-radius: 12px; }
 .library-done { display: inline-flex; margin-top: 5px; background: #d6f6ed; border-radius: 20px; padding: 2px 8px; color: #115b4a; font-size: .7rem; font-weight: 900; }
