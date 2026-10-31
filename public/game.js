@@ -21,6 +21,7 @@
     name: '',
     cfg: null,
     images: [],
+    libraryCatalog: [],
     presets: [],
     defaultPieces: 12,
     hints: 10,
@@ -278,7 +279,14 @@
     var resolveReady;
     imagesReady = new Promise(function (res) { resolveReady = res; });
     function apply(c) {
-        state.images = Array.isArray(c.images) ? c.images : [];
+        state.libraryCatalog = Array.isArray(c.library) ? c.library : [];
+        state.images = (Array.isArray(c.images) ? c.images : []).concat(
+          state.libraryCatalog.reduce(function (all, c) {
+            return all.concat((Array.isArray(c.images) ? c.images : []).map(function (i) {
+              return { file: i.file, label: i.label, url: i.url, thumb: i.thumb, categoryId: c.id };
+            }));
+          }, [])
+        );
         state.presets = Array.isArray(c.presets) ? c.presets : [];
         state.defaultPieces = c.defaultPieces || 12;
         state.pickPieces = state.defaultPieces;
@@ -329,7 +337,10 @@
       var okSaved = state.presets.some(function (p) { return p.pieces === saved; });
       state.pickPieces = mode === 'change' && state.cfg ? state.cfg.PIECES : (okSaved ? saved : state.defaultPieces);
       if (!state.images.length) showError($('#pick-error'), 'Nenhuma imagem encontrada na pasta public/imagens. Você ainda pode adicionar a sua!');
-      renderPickGrid();
+      libraryView = 'home';
+      closePickSheet();
+      renderLibraryHome();
+      refreshLibrary().then(function () { if (currentScreen() === 'pick') renderLibraryCurrent(); });
       renderSizes();
     });
     showScreen('pick');
@@ -340,19 +351,153 @@
     return state.pickMode === 'solo' ? 'Jogar' : state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
   }
 
+  /* ---------------------------------------------------------
+   * Biblioteca de imagens — navega na tela de escolha já existente.
+   * O servidor é a fonte de verdade para contas e compras; visitantes
+   * guardam só as conclusões gratuitas neste aparelho.
+   * --------------------------------------------------------- */
+  var libraryView = 'home';   // home | legacy | category
+  var libraryCategory = null;
+  var libraryProgress = { clears: [], purchases: [], gems: 0, loaded: false };
+  function libraryById(id) { return state.libraryCatalog.find(function (c) { return c.id === id; }); }
+  function libraryDone(file) { return libraryProgress.clears.indexOf(file) !== -1; }
+  function libraryAvailable(c) {
+    if (!c) return false;
+    if (c.order === 1) return true;
+    if (c.price) return libraryProgress.purchases.indexOf(c.id) >= 0;
+    var prev = state.libraryCatalog[c.order - 2];
+    return !!prev && prev.images.every(function (x) { return libraryDone(x.file); });
+  }
+  function libraryToken() { return store.get('token', '') || ''; }
+  function refreshLibrary() {
+    var token = libraryToken();
+    if (!token || !state.accounts) {
+      libraryProgress = { clears: store.get('libraryClears', []) || [], purchases: [], gems: 0, loaded: true };
+      return Promise.resolve();
+    }
+    libraryProgress.loaded = false;
+    return fetch('/api/acc/library', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+      .then(function (res) { if (!res.ok) throw Error('status'); return res.json(); })
+      .then(function (res) {
+        if (token !== libraryToken()) return;
+        if (!res.ok) throw Error('status');
+        libraryProgress = { clears: res.library.clears || [], purchases: res.library.purchases || [], gems: Number(res.library.gems || 0), loaded: true };
+      })
+      .catch(function () { libraryProgress.loaded = false; });
+  }
+  function localLibraryComplete(file) {
+    if (libraryToken() || !state.libraryCatalog.some(function (c) { return c.images.some(function (x) { return x.file === file; }); })) return;
+    var clears = store.get('libraryClears', []) || [];
+    if (clears.indexOf(file) < 0) { clears.push(file); store.set('libraryClears', clears); }
+    libraryProgress.clears = clears;
+  }
+  function libraryEl(tag, cls, text) {
+    var el = document.createElement(tag); if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+  function libraryImage(file, title) {
+    var i = imageItem(file), img = document.createElement('img');
+    img.className = 'library-photo'; img.alt = title || i.label;
+    img.loading = 'lazy'; img.decoding = 'async';
+    img.src = i.thumb || i.url;
+    img.onerror = function () { img.hidden = true; if (img.parentNode) img.parentNode.classList.add('image-failed'); };
+    return img;
+  }
+  function librarySummary(c) {
+    var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
+    return n + '/' + c.images.length;
+  }
+  function renderLibraryHome() {
+    libraryView = 'home'; libraryCategory = null;
+    $('#library-nav').hidden = true; $('#pick-grid').hidden = true;
+    var root = $('#library-categories'); root.hidden = false; root.textContent = '';
+    var lead = libraryEl('p', 'library-lead', 'Complete as cinco imagens de cada etapa para avançar. As duas coleções especiais podem ser abertas com gemas.');
+    root.appendChild(lead);
+    state.libraryCatalog.forEach(function (c) {
+      var open = c.order === 1 || (libraryProgress.loaded && libraryAvailable(c));
+      var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
+      var card = libraryEl('article', 'library-category' + (open ? ' available' : ' locked'));
+      var cover = libraryEl('div', 'library-cover'); cover.appendChild(libraryImage(c.images[0].file, c.name));
+      card.appendChild(cover);
+      var info = libraryEl('div', 'library-info');
+      info.appendChild(libraryEl('b', 'library-name', c.order + '. ' + c.name));
+      info.appendChild(libraryEl('small', 'library-subtitle', c.subtitle));
+      var bar = libraryEl('div', 'library-track');
+      var fill = libraryEl('span', 'library-fill'); fill.style.width = (n / c.images.length * 100) + '%'; bar.appendChild(fill); info.appendChild(bar);
+      var hint = open ? (n === c.images.length ? '✓ Concluída · ' + librarySummary(c) : librarySummary(c) + ' imagens concluídas') :
+        (!libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' : c.price ? '🔒 ' + c.price + ' gemas · compra permanente' : '🔒 Conclua as 5 imagens da categoria anterior');
+      info.appendChild(libraryEl('small', 'library-hint', hint));
+      card.appendChild(info);
+      var action = libraryEl('button', 'btn library-action', open ? 'Abrir ›' : c.price ? '🔓 ' + c.price + ' 💎' : '🔒');
+      action.type = 'button'; action.dataset.category = c.id;
+      action.disabled = !open && (!libraryProgress.loaded || !c.price);
+      action.setAttribute('aria-label', open ? 'Abrir ' + c.name : c.price ? 'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name);
+      card.appendChild(action); root.appendChild(card);
+    });
+    var classics = libraryEl('button', 'btn btn-secondary library-legacy', '🖼 Imagens clássicas e Minha imagem');
+    classics.type = 'button'; classics.id = 'library-classic'; root.appendChild(classics);
+    if (!libraryToken()) root.appendChild(libraryEl('p', 'library-note', 'Seu progresso gratuito fica neste aparelho. Entre em Meu espaço para guardar suas coleções na conta e utilizar gemas.'));
+    else if (!libraryProgress.loaded) root.appendChild(libraryEl('p', 'library-note', 'Não foi possível consultar o progresso. Confira a conexão e tente abrir novamente.'));
+  }
+  function renderLibraryCategory(id) {
+    var c = libraryById(id);
+    if (!c || !libraryAvailable(c)) { renderLibraryHome(); return; }
+    libraryView = 'category'; libraryCategory = id;
+    $('#library-categories').hidden = true; $('#library-nav').hidden = false;
+    $('#library-heading').textContent = c.icon + ' ' + c.name + ' · ' + librarySummary(c);
+    renderPickGrid();
+  }
+  function renderLibraryCurrent() {
+    if (libraryView === 'category') renderLibraryCategory(libraryCategory);
+    else if (libraryView === 'legacy') renderPickGrid();
+    else renderLibraryHome();
+  }
+  function buyLibraryCategory(c) {
+    if (!c.price || !libraryProgress.loaded) return;
+    if (!libraryToken()) { toast('Entre na sua conta em Meu espaço para desbloquear com gemas.', 3800); return; }
+    if (libraryProgress.gems < c.price) { toast('Você tem ' + libraryProgress.gems + ' gemas. Esta categoria custa ' + c.price + '.', 3800); return; }
+    askConfirm({ title: 'Desbloquear ' + c.name + '?', text: 'Usar ' + c.price + ' gemas para liberar permanentemente as 5 imagens? Saldo: ' + libraryProgress.gems + '.', ok: 'Desbloquear', cancel: 'Agora não' })
+      .then(function (yes) {
+        if (!yes) return;
+        var btn = $('#library-categories').querySelector('[data-category="' + c.id + '"]');
+        if (btn) btn.disabled = true;
+        return fetch('/api/acc/library/unlock', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + libraryToken() }, body: JSON.stringify({ categoryId: c.id }) })
+          .then(function (r) { return r.json(); }).then(function (res) {
+            if (!res.ok) {
+              toast(res.error === 'gems' ? 'Gemas insuficientes. Jogue para ganhar mais!' : 'Não foi possível desbloquear. Confira seu saldo.', 3900);
+              refreshLibrary().then(renderLibraryHome); return;
+            }
+            if (libraryProgress.purchases.indexOf(c.id) < 0) libraryProgress.purchases.push(c.id);
+            libraryProgress.gems = Number(res.gems);
+            if (window.QC && window.QC.libraryBalanceChanged) window.QC.libraryBalanceChanged(libraryProgress.gems);
+            renderLibraryHome(); toast('✨ ' + c.name + ' desbloqueada para sempre!', 4200);
+          }).catch(function () {
+            toast('Conexão interrompida. Consultando se a categoria já foi liberada…', 4000);
+            refreshLibrary().then(renderLibraryHome); // não repete o débito no cliente
+          });
+      });
+  }
+
   var PLUS_SVG = '<svg class="add-plus" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs><linearGradient id="plusg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6bff"/><stop offset=".5" stop-color="#ff4f8b"/><stop offset="1" stop-color="#ffcf33"/></linearGradient></defs><circle cx="32" cy="32" r="29" fill="#fff" stroke="url(#plusg)" stroke-width="5"/><path d="M32 17v30M17 32h30" stroke="url(#plusg)" stroke-width="8" stroke-linecap="round"/></svg>';
 
   function renderPickGrid() {
     var grid = $('#pick-grid');
-    grid.innerHTML = '';
-    // 1º cartão: adicionar uma imagem do próprio celular (mesmas medidas dos outros cartões)
-    var add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'add-card';
-    add.setAttribute('aria-label', 'Adicionar minha imagem. Abre a galeria do seu celular.');
-    add.innerHTML = '<span class="add-box">' + PLUS_SVG + '<span class="add-text">Adicionar<br>minha imagem</span></span><span class="add-sub">Foto ou desenho</span>';
-    grid.appendChild(add);
-    state.custom.concat(state.images).forEach(function (item) {
+    grid.innerHTML = ''; grid.hidden = false;
+    $('#library-categories').hidden = true; $('#library-nav').hidden = false;
+    if (libraryView === 'legacy') $('#library-heading').textContent = 'Imagens clássicas e Minha imagem';
+    // A galeria antiga continua intacta, inclusive fotos do celular.
+    if (libraryView === 'legacy') {
+      var add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'add-card';
+      add.setAttribute('aria-label', 'Adicionar minha imagem. Abre a galeria do seu celular.');
+      add.innerHTML = '<span class="add-box">' + PLUS_SVG + '<span class="add-text">Adicionar<br>minha imagem</span></span><span class="add-sub">Foto ou desenho</span>';
+      grid.appendChild(add);
+    }
+    var items = libraryView === 'legacy' ? state.custom.concat(state.images.filter(function (item) { return !item.categoryId; })) :
+      state.images.filter(function (item) { return item.categoryId === libraryCategory; });
+    items.forEach(function (item) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'pick-card' + (item.fresh ? ' new' : '');
@@ -366,11 +511,15 @@
       label.textContent = item.label;
       b.appendChild(thumb);
       b.appendChild(label);
+      if (libraryDone(item.file)) b.appendChild(libraryEl('span', 'library-done', '✓ Concluída'));
       grid.appendChild(b);
-      prepareThumb(item).then(function (url) { thumb.style.backgroundImage = 'url("' + url + '")'; });
+      if (item.categoryId) thumb.appendChild(libraryImage(item.file, item.label));
+      else prepareThumb(item).then(function (url) { if (b.isConnected) thumb.style.backgroundImage = 'url("' + url + '")'; });
     });
   }
 
+  // Cada escolha tem um número para respostas atrasadas não habilitarem outra imagem.
+  var librarySelectionSeq = 0;
   // um toque na imagem: ela é escolhida na hora e o painel de baixo mostra a prévia e as quantidades de peças
   function selectImage(file, card) {
     var item = imageItem(file);
@@ -383,7 +532,21 @@
     prepareThumb(item).then(function (url) { th.style.backgroundImage = 'url("' + url + '")'; });
     if (!$('#pick-sheet').hidden) popEl(th, 'swap');
     $('#btn-pick-go').textContent = goButtonText();
-    $('#btn-pick-go').disabled = false;
+    var seq = ++librarySelectionSeq;
+    var ready = $('#btn-pick-go');
+    ready.disabled = !!item.categoryId;
+    if (item.categoryId) {
+      // Apenas a imagem escolhida é carregada por inteiro; se o download falhar,
+      // não iniciamos um quebra-cabeça com peças em branco.
+      loadImage(item.url).then(function () {
+        if (seq === librarySelectionSeq && state.pickChoice === file) ready.disabled = false;
+      }).catch(function () {
+        if (seq === librarySelectionSeq && state.pickChoice === file) {
+          ready.disabled = true;
+          showError($('#pick-error'), 'Essa imagem não carregou. Confira a conexão e tente novamente.');
+        }
+      });
+    }
     updateSizeNote();
     $('#pick-sheet').hidden = false;
     document.body.classList.add('sheet-open');
@@ -396,6 +559,7 @@
   }
 
   function closePickSheet() {
+    librarySelectionSeq++;
     state.pickChoice = null;
     document.body.classList.remove('sheet-open');
     $('#pick-sheet').hidden = true;
@@ -2210,6 +2374,7 @@
 
   socket.on('won', function (d) {
     flashLastSnap();
+    localLibraryComplete(state.imageId);
     setTimeout(function () { showWin(d); }, 650);
   });
 
@@ -3017,6 +3182,7 @@
     state.drag = null;
     state.selectedId = null;
     var won = r.winner === state.idx, opp = friendName();
+    if (won && r.reason === 'complete') localLibraryComplete(state.imageId);
     $('#duel-trophy').textContent = won ? '🏆' : '🥈';
     $('#duel-title').textContent = won ? 'Você venceu! 🎉' : opp + ' venceu!';
     var sub;
@@ -3160,6 +3326,19 @@
   });
   $('#input-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-join').click(); });
 
+  $('#library-categories').addEventListener('click', function (e) {
+    var cbtn = e.target.closest('[data-category]');
+    if (cbtn) {
+      var c = libraryById(cbtn.dataset.category);
+      if (!libraryProgress.loaded || !c) return;
+      if (libraryAvailable(c)) renderLibraryCategory(c.id);
+      else buyLibraryCategory(c);
+      return;
+    }
+    if (e.target.closest('#library-classic')) { libraryView = 'legacy'; renderPickGrid(); }
+  });
+  $('#library-back').addEventListener('click', function () { closePickSheet(); renderLibraryHome(); });
+
   $('#pick-grid').addEventListener('click', function (e) {
     if (e.target.closest('.add-card')) { chooseFile(); return; }
     var card = e.target.closest('.pick-card');
@@ -3181,6 +3360,7 @@
   $('#ps-close').addEventListener('click', closePickSheet);
 
   $('#btn-pick-back').addEventListener('click', function () {
+    if (libraryView !== 'home') { closePickSheet(); renderLibraryHome(); return; }
     closePickSheet();
     showScreen(state.pickMode === 'change' && state.inGame ? 'game' : 'home');
   });
