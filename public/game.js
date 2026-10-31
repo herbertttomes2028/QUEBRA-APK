@@ -953,7 +953,7 @@
   function paintLabel(p) {
     if (!p.tag) return;
     if (p.theirs) p.tag.textContent = displayName(p.heldBy) || 'Amigo';
-    else if (p.mine) p.tag.textContent = '↻'; // rotações ilimitadas
+    else if (p.mine) p.tag.textContent = state.duel ? '↻' : ''; // só a Sala Desafio tem giro
     p.tag.classList.toggle('mine-tag', !!p.mine);
   }
 
@@ -1180,7 +1180,7 @@
   /* ---------------------------------------------------------
    * Gestos nas peças
    *  - arrastar: segurar a peça com o dedo e arrastar
-   *  - girar: tocar na peça já escolhida (ou tocar duas vezes seguidas)
+   *  - girar: apenas na Sala Desafio, tocar na peça já escolhida
    *  - zoom: com a peça escolhida, movimento de pinça com dois dedos (roda do mouse no computador)
    *  - soltar: tocar num espaço vazio, ou arrastar e soltar
    * --------------------------------------------------------- */
@@ -1324,7 +1324,8 @@
     if (d.moved) {
       dropSelected();                         // arrastou e soltou: tenta encaixar
     } else if (d.wasSelected && !cancelled) {
-      rotateSelected();                       // tocou de novo na peça escolhida: gira
+      if (state.duel) rotateSelected();        // Sala Desafio: tocar novamente gira
+      else dropSelected();                     // Solo/Coop: tocar novamente apenas solta
     } else {
       resetIdle();                            // tocou numa peça nova: fica escolhida
     }
@@ -1346,7 +1347,7 @@
    * Girar
    * --------------------------------------------------------- */
   function rotateSelected() {
-    if (state.selectedId === null) return;
+    if (!state.duel || state.selectedId === null) return;
     var p = state.pieces[state.selectedId];
     if (!p || p.locked) return;
     p.rotUsed = 0; // rotação ilimitada; contador legado não é usado
@@ -1398,10 +1399,11 @@
   var EMOJI_ONLY = null;
   try { EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}|\\u200d|\\ufe0f|\\s){1,8}$', 'u'); } catch (e) { /* navegador antigo: sem destaque */ }
 
-  // Solo: sem tela de código, sem amigo, sem bate-papo; só isso muda (as ajudas, o giro, o cronômetro e os sons continuam)
+  // Solo: sem tela de código, sem amigo e sem bate-papo; giro só existe na Sala Desafio.
   function setSolo(on) {
     state.solo = !!on;
     $('#screen-game').classList.toggle('solo', state.solo);
+    $('#screen-game').classList.toggle('rotation-enabled', !!state.duel);
   }
   function setChatAvailability(on) {
     state.chatOn = !!on && !state.solo;
@@ -1668,7 +1670,7 @@
    * --------------------------------------------------------- */
   function updateUi() {
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    if (sel) paintLabel(sel);                // "↻" = peça selecionada
+    if (sel) paintLabel(sel);                // "↻" aparece só na Sala Desafio
     refreshLamp();
     updateHud();
   }
@@ -2074,16 +2076,23 @@
     { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela cresce enquanto você a move.' },
     { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar quantas vezes quiser. O ▲ mostra qual lado é o de cima.' },
     { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
-    { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos. Com uma peça escolhida, vira 📍 e mostra o lugar dela. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
+    { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos e 📍 indica o lugar da peça escolhida. Os dois botões ficam lado a lado. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
   ];
   var tut = { i: 0, timer: null };
 
+  function tutSteps() { return state.duel ? [0, 1, 2, 3] : [0, 2, 3]; }
+  function nextTutStep(delta) {
+    var steps = tutSteps(), pos = Math.max(0, steps.indexOf(tut.i));
+    return steps[Math.max(0, Math.min(steps.length - 1, pos + delta))];
+  }
   function showTut(i) {
-    tut.i = Math.max(0, Math.min(TUT.length - 1, i));
+    var steps = tutSteps();
+    tut.i = steps.indexOf(i) >= 0 ? i : steps[0];
     Array.prototype.forEach.call(document.querySelectorAll('.tut-scene'), function (s) { s.classList.toggle('on', Number(s.getAttribute('data-scene')) === tut.i); });
     $('#tut-head').textContent = TUT[tut.i].h;
     $('#tut-text').textContent = TUT[tut.i].t;
     Array.prototype.forEach.call(document.querySelectorAll('#tut-dots button'), function (b) {
+      b.hidden = !state.duel && Number(b.getAttribute('data-i')) === 1;
       if (Number(b.getAttribute('data-i')) === tut.i) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
     });
     var last = tut.i === TUT.length - 1;
@@ -2094,7 +2103,7 @@
   }
   function startTutTimer() {
     clearInterval(tut.timer);
-    tut.timer = setInterval(function () { if (tut.i < TUT.length - 1) showTut(tut.i + 1); else clearInterval(tut.timer); }, 5200);
+    tut.timer = setInterval(function () { if (tut.i < TUT.length - 1) showTut(nextTutStep(1)); else clearInterval(tut.timer); }, 5200);
   }
   function openTutorial() {
     showTut(0);
@@ -2147,7 +2156,7 @@
     if (old && old.parentNode) old.parentNode.removeChild(old);
     state.spotActive = false;
     state.spotPiece = null;
-    $('#btn-hint').classList.remove('lit');
+    $('#btn-spot').classList.remove('lit');
   }
   function showSpot(col, row, pieceId) {
     clearSpot();
@@ -2160,7 +2169,7 @@
     $('#field').appendChild(el);
     state.spotActive = true;
     state.spotPiece = pieceId;
-    $('#btn-hint').classList.add('lit');
+    $('#btn-spot').classList.add('lit');
     state.spotTimer = setTimeout(function () { clearSpot(); updateUi(); }, 3600);
     announce('Mostrando onde a peça encaixa: coluna ' + (col + 1) + ', linha ' + (row + 1) + '.');
   }
@@ -2182,17 +2191,16 @@
       updateUi();
     });
   }
-  // o mesmo botão: sem peça escolhida mostra a imagem (💡); com peça escolhida mostra o lugar dela (📍)
-  function useLamp() { if (state.selectedId !== null && state.pieces[state.selectedId] && !state.pieces[state.selectedId].locked) useSpot(); else useHint(); }
+  // Ajudas lado a lado: a lâmpada nunca vira o marcador ao selecionar peças.
   function refreshLamp() {
-    var btn = $('#btn-hint'), sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    var spotMode = !!(sel && !sel.locked);
-    btn.querySelector('.bulb').textContent = spotMode ? '📍' : '💡';
-    $('#hint-badge').textContent = spotMode ? state.spots : state.hints;
-    btn.disabled = spotMode ? (state.spots <= 0 || state.spotActive) : (state.hints <= 0 || state.hintActive);
-    btn.setAttribute('aria-label', spotMode
-      ? 'Mostrar onde a peça escolhida encaixa. Restam ' + state.spots
-      : 'Lâmpada: mostrar a imagem no tabuleiro por 4 segundos. Restam ' + state.hints);
+    var hint = $('#btn-hint'), spot = $('#btn-spot');
+    var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
+    $('#hint-badge').textContent = state.hints;
+    $('#spot-badge').textContent = state.spots;
+    hint.disabled = state.hints <= 0 || state.hintActive;
+    spot.disabled = !sel || sel.locked || state.spots <= 0 || state.spotActive;
+    hint.setAttribute('aria-label', 'Mostrar a imagem completa por 4 segundos. Restam ' + state.hints + ' usos');
+    spot.setAttribute('aria-label', 'Indicar onde a peça escolhida encaixa. Restam ' + state.spots + ' usos' + (!sel || sel.locked ? '. Selecione uma peça primeiro' : ''));
   }
 
   /* ---------------------------------------------------------
@@ -3473,7 +3481,8 @@
 
   $('#go-cancel').addEventListener('click', function () { setLoading(false); hideGoSplash(true); });
 
-  $('#btn-hint').addEventListener('click', useLamp);
+  $('#btn-hint').addEventListener('click', useHint);
+  $('#btn-spot').addEventListener('click', useSpot);
 
   $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
   $('#chat-close').addEventListener('click', closeChat);
@@ -3535,8 +3544,8 @@
 
   // tutorial
   $('#link-help').addEventListener('click', openTutorial);
-  $('#tut-next').addEventListener('click', function () { clearInterval(tut.timer); if (tut.i >= TUT.length - 1) closeTutorial(); else showTut(tut.i + 1); });
-  $('#tut-prev').addEventListener('click', function () { clearInterval(tut.timer); showTut(tut.i - 1); });
+  $('#tut-next').addEventListener('click', function () { clearInterval(tut.timer); if (tut.i >= TUT.length - 1) closeTutorial(); else showTut(nextTutStep(1)); });
+  $('#tut-prev').addEventListener('click', function () { clearInterval(tut.timer); showTut(nextTutStep(-1)); });
   $('#tut-skip').addEventListener('click', closeTutorial);
   $('#tut-dots').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('button'); if (b) { clearInterval(tut.timer); showTut(Number(b.getAttribute('data-i'))); } });
   $('#tut-push').addEventListener('click', function () { enablePush().then(function (ok) { if (ok) showTut(tut.i); }); });
@@ -3612,7 +3621,7 @@
       if (!$('#modal-menu').hidden) { closeModal('#modal-menu'); return; }
     }
     if (!state.inGame || e.target.tagName === 'INPUT') return;
-    if (e.key === 'r' || e.key === 'R') rotateSelected();
+    if (state.duel && (e.key === 'r' || e.key === 'R')) rotateSelected();
     if (e.key === 'Escape') dropSelected();
   });
 

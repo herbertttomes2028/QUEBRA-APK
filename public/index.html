@@ -317,9 +317,14 @@
           <button id="av-me" class="avatar" type="button" aria-label="Você"><span class="av-face">V</span><i class="av-dot" aria-hidden="true"></i></button>
           <button id="av-friend" class="avatar off" type="button" aria-label="Amigo: aguardando"><span class="av-face">?</span><i class="av-dot" aria-hidden="true"></i></button>
         </div>
-        <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Lâmpada: mostrar a imagem no tabuleiro por 4 segundos">
-          <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
-        </button>
+        <div class="hud-hints" role="group" aria-label="Ajudas da partida">
+          <button id="btn-hint" class="icon-btn lamp" type="button" aria-label="Mostrar a imagem completa no tabuleiro por 4 segundos">
+            <span class="bulb" aria-hidden="true">💡</span><span id="hint-badge" class="badge">10</span>
+          </button>
+          <button id="btn-spot" class="icon-btn lamp" type="button" aria-label="Mostrar onde a peça escolhida encaixa" disabled>
+            <span class="bulb" aria-hidden="true">📍</span><span id="spot-badge" class="badge">5</span>
+          </button>
+        </div>
         <button id="btn-chat" class="icon-btn chat" type="button" aria-label="Conversa" hidden>
           <span aria-hidden="true">💬</span><span id="chat-badge" class="badge" hidden>0</span>
         </button>

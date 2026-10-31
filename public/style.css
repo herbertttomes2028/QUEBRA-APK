@@ -473,6 +473,8 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
 .piece.theirs .puzzle-piece-outline { stroke: var(--p1); stroke-width: 2; }
 .piece.locked .puzzle-piece-outline { stroke: rgba(27,37,89,.28); stroke-width: .7; }
 .puzzle-orientation { fill: #fff; stroke: var(--ink); stroke-width: 1.4; stroke-linejoin: round; }
+/* A seta de orientação só ajuda quando existe giro (Sala Desafio). */
+#screen-game:not(.rotation-enabled) .puzzle-orientation { display: none; }
 .piece.locked .puzzle-orientation { display: none; }
 .puzzle-board-guides { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .puzzle-board-guides path { fill: none; stroke: var(--grid); stroke-width: 1.4; opacity: .55; stroke-linejoin: round; }
@@ -524,7 +526,7 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   white-space: nowrap;
   pointer-events: none;
 }
-.piece:not(.theirs):not(.mine) .tag { display: none; }
+.piece:not(.theirs):not(.mine) .tag, .piece.mine .tag:empty { display: none; }
 .piece .tag.mine-tag { background: var(--deep); color: var(--sun); }
 
 @keyframes pop {
@@ -537,7 +539,22 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   75% { translate: 8px 0; }
 }
 
-/* ---------- Lâmpada (no topo, ao lado do menu) ---------- */
+/* ---------- Ajudas independentes: imagem 💡 e localização 📍, sempre lado a lado ---------- */
+.hud-hints { display: flex; align-items: center; gap: 4px; flex: none; }
+.hud .hud-hints .icon-btn { width: 36px; height: 40px; }
+.hud-hints .badge { right: -4px; }
+/* Em celulares estreitos, cabeçalho em uma linha, sem reduzir o campo do jogo. */
+@media (max-width: 375px) {
+  .hud { padding-inline: 6px; gap: 4px; }
+  .hud-time { min-width: 48px; font-size: 1rem; }
+  .hud-progress { min-width: 40px; }
+  .hud-players { padding-left: 5px; }
+  .hud .hud-hints .icon-btn { width: 34px; }
+}
+@media (max-width: 340px) {
+  .hud-time { min-width: 44px; font-size: .96rem; }
+  .hud-progress { min-width: 36px; }
+}
 .icon-btn { position: relative; flex: none; }
 .icon-btn.lamp .bulb { font-size: 1.4rem; line-height: 1; transition: filter .2s ease, transform .2s ease; }
 .icon-btn.lamp.lit { background: var(--sun); box-shadow: 0 0 0 4px rgba(255, 207, 51, .5); }
@@ -1892,8 +1909,8 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 .hud .hud-x { width: 44px; height: 44px; margin: -2px; border-radius: 50%; font: 800 1.2rem/1 system-ui, sans-serif; }   /* 44 px visíveis, 40 px de espaço: o cabeçalho não cresce nem em altura nem em largura */
 .hud .hud-x[hidden] { display: none; }
 .hud .hud-x:active { transform: scale(.9); }
-/* partida concluída: a lâmpada não serve mais e dá a largura ao X */
-#screen-game.done #btn-hint { display: none; }
+/* partida concluída: as duas ajudas saem para deixar espaço ao X. */
+#screen-game.done .hud-hints { display: none; }
 /* modo Solo: sem o par de avatares dos amigos, sem bate-papo e sem a faixa do código (o resto da tela é igual) */
 #screen-game.solo .hud-players { display: none; }
 #screen-game.solo #hud-count { white-space: nowrap; }
