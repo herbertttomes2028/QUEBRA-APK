@@ -469,7 +469,7 @@
     el.hidden = false;
     void el.offsetWidth;
     el.classList.add('run');
-    go.on = true; go.t0 = Date.now(); go.min = reducedMotion() ? 1100 : 1900;
+    go.on = true; go.t0 = Date.now(); go.min = reducedMotion() ? 1100 : 2650;
     go.subTimer = setTimeout(function () { if (go.on) $('#go-sub').textContent = 'Criando a sala…'; }, 2800);
     go.cancelTimer = setTimeout(function () { if (go.on) $('#go-cancel').hidden = false; }, 9000);
     announce('Vamos lá!');
