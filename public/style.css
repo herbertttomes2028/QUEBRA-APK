@@ -1031,7 +1031,8 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   border-radius: 22px;
   background: #fff;
   box-shadow: 0 0 0 4px var(--sun), 0 18px 40px rgba(0, 0, 0, .45);
-  backface-visibility: hidden;
+  /* A volta completa em Y deve mostrar a carta também pela face traseira. */
+  backface-visibility: visible;
 }
 .go-img { display: block; width: 100%; height: 100%; border-radius: 16px; background-color: #e9ecff; background-size: cover; background-position: center; }
 .go-text {
@@ -1052,9 +1053,10 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
 /* Uma volta completa, mas plana: mantém a fotografia visível o tempo todo
    e evita a rasterização 3D do giro antigo em aparelhos mais simples. */
 @keyframes go-spin {
-  0%   { opacity: .85; transform: rotate(-360deg) scale(.97); }
+  /* Volta completa de carta em pé, no eixo vertical (não no plano da tela). */
+  0%   { opacity: .85; transform: rotateY(-360deg) scale(.97); }
   15%  { opacity: 1; }
-  100% { opacity: 1; transform: rotate(0deg) scale(1); }
+  100% { opacity: 1; transform: rotateY(0deg) scale(1); }
 }
 /* A frase entra devagar, sem o salto de escala de 2,6x da versão anterior. */
 @keyframes go-text-in {
