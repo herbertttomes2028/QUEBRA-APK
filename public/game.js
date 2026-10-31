@@ -10,7 +10,6 @@
   var $ = function (s) { return document.querySelector(s); };
   var PLAYER_COLORS = ['#2a5ee8', '#d1245f'];   // azul e rosa um pouco mais fortes: texto branco legível (≥ 4,5:1)
   var HINT_MS = 4000;      // quanto tempo a imagem fica visível atrás das peças
-  var HELD_SCALE = 1.04;   // peça na mão fica um pouquinho maior
   var ZOOM_MAX = 6;        // limite do zoom por pinça (também limitado pela largura da tela)
 
   /* ---------------------------------------------------------
@@ -830,26 +829,22 @@
   /* ---------------------------------------------------------
    * Campo de jogo
    * --------------------------------------------------------- */
-  // tamanho visual da peça: pequena enquanto espera na bandeja, cheia quando está na mão,
-  // no tabuleiro ou solta fora da bandeja
+  // A peça fica no tamanho da bandeja até que TODA a sua área de encaixe
+  // (TILE x TILE, tamanho final) caiba dentro da grade. Verificar só o centro
+  // fazia a peça crescer enquanto ainda atravessava a borda do tabuleiro.
+  // A posição/encaixe continuam sob autoridade do servidor; é só visual.
+  function fullyInsideBoard(p) {
+    var cfg = state.cfg;
+    var half = cfg.TILE / 2;
+    return p.x - half >= cfg.BOARD_X && p.x + half <= cfg.BOARD_X + cfg.BOARD_W &&
+      p.y - half >= cfg.BOARD_Y && p.y + half <= cfg.BOARD_Y + cfg.BOARD_H;
+  }
   function baseScale(p) {
     var cfg = state.cfg;
-    var small = cfg.TRAY / cfg.TILE;
     if (p.locked) return 1;
-    var inTray = p.y > cfg.TRAY_LINE;
-    // Seis peças: não ampliar automaticamente ao selecionar/segurar.
-    // A peça continua pequena na bandeja e assume o tamanho natural no tabuleiro.
-    // targetScale() ainda aplica o zoom por pinça quando p.zoomAbs estiver definido.
-    if (cfg.PIECES === 6) return inTray ? small : 1;
-    if (p.heldBy !== null && p.heldBy !== undefined) {
-      // peça só tocada (escolhida para girar) na bandeja continua pequena, para não cobrir as vizinhas;
-      // ao ser arrastada, ou fora da bandeja, ela cresce
-      var moving = p.heldBy === state.idx
-        ? !!(state.drag && state.drag.id === p.id && state.drag.moved)
-        : performance.now() - (p.lastMove || 0) < 500;
-      return (!inTray || moving) ? HELD_SCALE : small * 1.12;
-    }
-    return inTray ? small : 1;
+    // Nunca ampliar automaticamente ao tocar, segurar ou arrastar, seja
+    // qual for a quantidade de peças. A pinça é tratada por targetScale().
+    return fullyInsideBoard(p) ? 1 : cfg.TRAY / cfg.TILE;
   }
 
   // zoom por pinça: só vale para a peça escolhida por mim e só na minha tela
@@ -1124,7 +1119,8 @@
         paintTag(p);
         p.dirty = false;
       }
-      if (dragging) animating = true;
+      // O movimento do dedo já chama wakeFrame() em onPointerMove().
+      // Não manter 60 FPS quando o dedo para e a escala já estabilizou.
     }
     if (now - lastTimerPaint > 250) { lastTimerPaint = now; paintTimer(); }
     if (animating) wakeFrame();
@@ -1230,18 +1226,14 @@
     var rect = $('#field').getBoundingClientRect();
     var lx = (e.clientX - rect.left) / state.scale;
     var ly = (e.clientY - rect.top) / state.scale;
-    // a peça cresce ao ser pega: mantém o dedo no mesmo ponto da imagem
+    // Mantém o ponto do dedo no mesmo lugar, sem qualquer ampliação
+    // automática. A pinça explícita ainda pode usar p.zoomAbs.
     var zoomed = !!p.zoomAbs && wasSelected;
     var cx0 = zoomed && p.dx != null ? p.dx : p.x, cy0 = zoomed && p.dy != null ? p.dy : p.y;
-    // Com seis peças, preservar o ponto onde o dedo tocou: a ampliação
-    // automática não participa do cálculo de deslocamento inicial.
-    // Nos demais tamanhos, mantém-se a compensação de escala existente.
-    var six = state.cfg.PIECES === 6;
-    var k = zoomed || six ? 1 : HELD_SCALE / Math.max(0.2, p.vs);
-    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : (six ? 1 : HELD_SCALE));
+    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : 1);
     state.drag = {
       id: p.id, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY,
-      offX: clamp((lx - cx0) * k, -lim, lim), offY: clamp((ly - cy0) * k, -lim, lim),
+      offX: clamp(lx - cx0, -lim, lim), offY: clamp(ly - cy0, -lim, lim),
       rect: rect, moved: false, last: 0, wasSelected: wasSelected
     };
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
@@ -1284,9 +1276,9 @@
     var d = state.drag;
     if (!d || e.pointerId !== d.pointerId) return;
     if (!d.moved) {
-      // Reduz a resistência inicial do gesto no celular com 6 peças, sem
-      // alterar o reconhecimento dos toques/giros nos demais modos.
-      var dragThreshold = state.cfg.PIECES === 6 && e.pointerType === 'touch' ? 5 : 8;
+      // Toque no celular começa a arrastar após 5 px em qualquer quantidade;
+      // mouse mantém 8 px para evitar confundir clique com arrasto.
+      var dragThreshold = e.pointerType === 'touch' ? 5 : 8;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < dragThreshold) return;
       d.moved = true;
     }

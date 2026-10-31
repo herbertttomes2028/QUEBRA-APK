@@ -1,3 +1,50 @@
+# CONTINUIDADE — ARRASTO UNIFICADO E CRESCIMENTO SÓ APÓS ENTRADA COMPLETA NA GRADE
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base `main` confirmada antes de editar:** `834bb408ae4729398ec69a8c3e4cfc2ae5418b32` (Merge PR #31 — arrasto 6 peças), árvore `4b30e9423eb3fb7d37b9c6539d2555ca7c744774`. **Fluxo:** alterações somente em pacote ZIP para nova ramificação; o proprietário realiza PR, Merge, deploy Render e testes físicos. Nenhuma escrita em GitHub ou deploy pelo assistente.
+
+## Pedido aprovado
+
+Aplicar às partidas de **6, 12, 20, 30 e 48 peças** a remoção do **zoom automático quando a peça é selecionada/segurada/arrastada**. **Manter integralmente o zoom manual por pinça com dois dedos e o zoom por roda do mouse.** Enquanto a peça ainda estiver parcial ou totalmente fora da grade, manter seu tamanho natural de bandeja. **Só após a área nominal final completa (TILE × TILE) estar dentro dos quatro limites da grade**, crescer progressivamente até a escala 1, sem antecipar a ampliação pela passagem da linha TRAY_LINE. Melhorar o início do arrasto no celular e reduzir redesenhos desnecessários sem afetar snap, som, rotação ou partidas cooperativas.
+
+## Mudanças pontuais e explicação
+
+- `public/game.js`: introduz `fullyInsideBoard(p)`, que compara o centro e os quatro limites da peça **no tamanho final** com `BOARD_X/Y/W/H`. Diferencia claramente peça parcial fora da grade e peça inteiramente posicionada; respeita os limites de todas as opções de tamanho. `baseScale` usa apenas essa condição visual: escala `TRAY/TILE` fora, `1` dentro, `1` encaixada, independentemente de estar selecionada, segurada ou em movimento. Não interfere nas regras do servidor nem na regra duplicada de encaixe.
+- `public/game.js`: mantém `targetScale(p)` e `setZoom(p,v)` intactas, garantindo o zoom manual por **pinça** e roda do mouse, inclusive fora da grade. O crescimento é interpolado com o amortecimento já existente de `frame()` (`dv * 0.3` por quadro), sem salto instantâneo. Em `onPointerDown`, mantém o deslocamento real dedo-centro em todas as quantidades, sem fator de zoom automático. No `onPointerMove`, o arrasto touch tem limiar 5 pixels em todas as quantidades; mouse preserva 8 pixels. O laço de desenho não força 60 FPS continuamente só porque um dedo parado está segurando uma peça: cada movimento dispara `wakeFrame()`, e a transição ainda solicita quadros até estabilizar.
+- `public/sw.js`: cache PWA **v19 → v20**; não apaga dados do aparelho. Quatro testes de cache sincronizados sem mudar demais expectativas. `tests/arrasto-seis-pecas.test.js` (nome histórico preservado): amplia os testes reais por `vm` para **todas as cinco quantidades**, inclusive limites de todas as bordas, pinça, arrasto, quadro interpolado e desenho parado.
+- A verificação dos limites utiliza o quadrado **nominal de encaixe** (`TILE × TILE`), não os adornos SVG que avançam sobre peças vizinhas, para permitir encaixar peças de borda sem impedir a ampliação.
+
+**8 arquivos exatos no pacote:**
+
+| Caminho no repositório | Operação |
+| --- | --- |
+| `public/game.js` | substituir |
+| `public/sw.js` | substituir |
+| `tests/arrasto-seis-pecas.test.js` | substituir |
+| `tests/colecoes-galeria.test.js` | substituir (somente cache v20) |
+| `tests/fluidez-animacoes.test.js` | substituir (somente cache v20) |
+| `tests/library-visual.test.js` | substituir (somente cache v20) |
+| `tests/sem-piscadas.test.js` | substituir (somente cache v20) |
+| `CONTINUIDADE.md` | substituir; acrescentar registro sem eliminar histórico |
+
+**Não alterados:** `server.js`, `challenge.js`, `accounts.js`, `security.js`, `resource-guard.js`, `db.js`, `xp.js`, `gems.js`, `library.js`, `phrases.js`, `migrations/*`, `public/style.css`, imagens, sons, HTML, manifest e qualquer arquivo de conta. Eventos Socket.IO, duas cópias de SNAP/tryLock, migrações imutáveis, XP exclusivo por `payMatch`, chat só frases prontas e privacidade infantil preservados.
+
+## Testes comprovados e limites
+
+- `node --check` nos três arquivos JavaScript alterados (cliente, service worker, testes): aprovado.
+- **24 testes específicos aprovados** para as cinco quantidades, pinça explícita, quatro bordas da grade, limiar de toque/mouse, transição suave e ausência de laço de quadro inútil.
+- Suíte selecionada de regressão/segurança/contratos/biblioteca/XP/gemas/animações, com stub **somente de importação** de `socket.io-client`: **131 testes, 129 aprovados, 0 falhas e 2 ignorados (PostgreSQL real)**. O stub não reproduz cliente de rede; `npm test` completo não foi executado neste ambiente por dependências indisponíveis.
+- Teste visual em **Chromium headless de desktop**, viewport 360 × 740, DPR 2, executando as funções reais de escala/quadros em DOM: **5 opções aprovadas**; peça parcial permanece pequena, quadro intermediário precede tamanho 1, escala converge. **Não é um teste Android**.
+- **Não testados:** FPS/performance em Android físico, transição com dedo real, Socket.IO real, Render, Neon, teste de carga, integração real em múltiplos aparelhos. O proprietário valida depois de PR verde e deploy.
+
+## Publicação e aprovação
+
+1. Reconfirmar `main`/blobs antes de preparar e enviar; gerar pacote só com os oito arquivos. Criar branch nova, sugerida `arrasto-todas-pecas-grade-completa`, iniciada na `main` correspondente à base.
+2. Enviar arquivos às pastas indicadas, abrir PR para `main`, conferir somente oito arquivos e os dois workflows verdes (**Gemas e regressão/PostgreSQL isolado**; **Auditoria de dependências e proteções**) antes do Merge.
+3. Após Merge, o proprietário faz deploy Render; reabre a PWA instalada para atualizar a cópia v20. **Não desinstalar nem apagar dados** do aplicativo.
+4. Android: para **6/12/20/30/48**, selecionar/segurar não amplia; pinça amplia; puxar da bandeja segue dedo; entrada parcial na grade ainda pequena; entrada completa cresce suavemente; girar/encaixar/terminar e repetir no cooperativo com conta conectada. Reportar travadas, se ocorrerem. Não iniciar rodada adicional até aprovação.
+
+---
+
 # CONTINUIDADE — ARRASTO MAIS LEVE E SEM ZOOM AUTOMÁTICO NAS 6 PEÇAS
 
 **Data:** 31/10/2026 (America/Fortaleza). **`main` oficial confirmada antes da alteração:** `d9614ad5418ee6a99dfad68725d5eb78616ed430` (Merge PR #30 — correção de sessão cooperativa), árvore `3f62baeba31dd2ad1fcbdbb3d38ec9ca3ec037cb`. **Publicação:** somente o proprietário, por nova ramificação, PR, Merge, deploy Render e teste no Android. O assistente não realizou escrita ou deploy.
