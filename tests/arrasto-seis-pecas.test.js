@@ -22,7 +22,8 @@ function body(name) {
 function build(pieces = 6) {
   const cfg = {
     PIECES: pieces, TILE: pieces === 6 ? 420 : 320, TRAY: pieces === 6 ? 240 : 160,
-    TRAY_LINE: 1500, FIELD_W: 1000, FIELD_H: 2300
+    TRAY_LINE: 1500, FIELD_W: 1000, FIELD_H: 2300,
+    BOARD_X: 20, BOARD_Y: 50, BOARD_W: 960, BOARD_H: 1330
   };
   const p = {
     id: 0, x: 500, y: 1800, tx: 500, ty: 1800, heldBy: null,
@@ -47,7 +48,7 @@ function build(pieces = 6) {
     socket: { volatile: { emit: (name, payload) => sent.push([name, payload]) } },
     stateSent: sent,
   };
-  for (const name of ['baseScale', 'targetScale', 'pointerCount', 'onPointerDown', 'startPinch', 'setZoom', 'onPointerMove']) {
+  for (const name of ['fullyInsideBoard', 'baseScale', 'targetScale', 'pointerCount', 'onPointerDown', 'startPinch', 'setZoom', 'onPointerMove']) {
     vm.runInNewContext(body(name), ctx, { filename: 'game.js:' + name });
   }
   function pointer(x, y, pointerId = 1, pointerType = 'touch') {
@@ -69,7 +70,10 @@ test('6 peças: selecionar e segurar na bandeja não faz zoom automático', () =
   state.drag.moved = true;
   assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE, 'não cresce enquanto ainda está na bandeja');
   p.y = cfg.TRAY_LINE - 1;
-  assert.equal(ctx.baseScale(p), 1, 'no tabuleiro cresce só até o tamanho natural');
+  assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE, 'não cresce fora dos limites da grade');
+  p.x = cfg.BOARD_X + cfg.TILE / 2;
+  p.y = cfg.BOARD_Y + cfg.TILE / 2;
+  assert.equal(ctx.baseScale(p), 1, 'cresce quando a peça inteira cabe na grade');
 });
 
 test('6 peças: a pinça continua ampliando a peça selecionada', () => {
@@ -90,9 +94,10 @@ test('6 peças: a pinça continua ampliando a peça selecionada', () => {
 
 test('6 peças: peça já no tabuleiro não amplia automaticamente ao segurar', () => {
   const { ctx, cfg, p, state, pointer } = build();
-  p.y = cfg.TRAY_LINE - 200;
+  p.x = cfg.BOARD_X + cfg.TILE / 2;
+  p.y = cfg.BOARD_Y + cfg.TILE / 2;
   p.vs = 1;
-  ctx.onPointerDown(pointer(540, p.y));
+  ctx.onPointerDown(pointer(p.x + 20, p.y));
   assert.equal(ctx.baseScale(p), 1);
   state.drag.moved = true;
   assert.equal(ctx.baseScale(p), 1);
@@ -113,16 +118,17 @@ test('6 peças: iniciar arrasto no celular requer 5px e acompanha o dedo sem sal
   assert.ok(sent.some(([name]) => name === 'move'), 'evento de movimentação preservado');
 });
 
-test('12, 20, 30 e 48 peças: ampliação preservada e limiar de 5px no Solo/Coop', () => {
+test('12, 20, 30 e 48 peças: sem zoom automático; limiar de 5px no Solo/Coop', () => {
   for (const pieces of [12, 20, 30, 48]) {
     const { ctx, cfg, p, state, pointer } = build(pieces);
     ctx.onPointerDown(pointer(540, 1800));
-    assert.equal(ctx.baseScale(p), (cfg.TRAY / cfg.TILE) * 1.12);
+    assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE);
     ctx.onPointerMove(pointer(544, 1800));
     assert.equal(state.drag.moved, false, 'movimento abaixo de 5px ainda é seleção em ' + pieces);
     ctx.onPointerMove(pointer(546, 1800));
     assert.equal(state.drag.moved, true);
-    assert.equal(ctx.baseScale(p), 1.04, 'zoom ao arrastar preservado em ' + pieces);
+    assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE, 'não aumenta ao arrastar na bandeja em ' + pieces);
+    assert.equal(state.drag.offX, 40, 'o dedo mantém o deslocamento real em ' + pieces);
   }
 });
 

@@ -1,3 +1,35 @@
+# CONTINUIDADE — TAMANHO NATURAL ATÉ ENTRAR INTEIRAMENTE NA GRADE (PR #35 PRESERVADO)
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base confirmada na `main`:** `7ea674bd081aee8f9df99c07a0805a51ddbdaad3` (Merge PR #35 — corrigir fluidez do arrasto). Arquivos do ZIP #35 usados como base após confirmar hashes Git de `public/game.js`, `CONTINUIDADE.md` e testes; conferido também `public/sw.js` e estrutura do ZIP oficial anterior. A implementação do pacote anterior do PR #32 foi usada apenas como **referência da regra visual**, não como substituição da `main` nem para restaurar a regressão revertida pelo PR #33.
+
+## Comportamento restaurado com correção mínima
+
+- **Todos os tamanhos: 6, 12, 20, 30 e 48** — a peça mantém o tamanho pequeno de bandeja durante toque, seleção e arrasto fora da grade. A peça atinge seu tamanho completo apenas quando a **área nominal inteira de TILE × TILE** cabe no tabuleiro (`BOARD_X/Y/W/H`), inclusive bordas. O crescimento/redução é progressivo pelo `frame()` já existente, sem ampliar ao segurar nem reintroduzir `HELD_SCALE`.
+- `public/game.js`: adicionada `fullyInsideBoard(p)` como teste geométrico barato, sem DOM, desenho SVG adicional, redes/canvas/leituras de layout. `baseScale()` passa a usar esse teste ou `TRAY/TILE`. Ajustado o deslocamento inicial de `onPointerDown()` sem compensação de zoom automático: o dedo acompanha a peça sem salto; a medição de campo ANTES da seleção, o `refreshLamp()` leve, os 5 px Solo/Coop, os 8 px Desafio e a pausa de RAF no repouso do PR #35 permanecem.
+- **Solo e Cooperativo** seguem com todas as peças iniciando na orientação correta (`rot=0`, definido pelo `server.js` atual). **Sala Desafio Comum e Quebrando Cabeças** seguem com seus giros e funcionamento próprio, sem mexer em `server.js`/`challenge.js`. Zoom manual por pinça preservado e independente da regra automática.
+- **Não alterar:** SNAP/duas `tryLock`, Socket.IO, servidor, HTML, CSS, sombras, imagens, sons, animações de vitória, contas, XP (só `payMatch`), gemas, PostgreSQL, migrações, frases prontas e privacidade. `public/sw.js` permanece no cache `v21`, cujo `refreshShell()` verifica atualizações automaticamente ao abrir o app e aplica no início sem limpar dados locais.
+
+## Arquivos exatos para nova ramificação / PR (4)
+
+| Caminho no repositório | Operação |
+|---|---|
+| `public/game.js` | substituir |
+| `tests/arrasto-seis-pecas.test.js` | substituir (expectativas da escala) |
+| `tests/escala-grade-completa.test.js` | adicionar (todas as quantidades, geometria, gesto, pinça, interpolação e contratos) |
+| `CONTINUIDADE.md` | substituir (este registro no início; histórico intacto) |
+
+## Testes, limites e publicação
+
+- `node --check` para `public/game.js`, `tests/arrasto-seis-pecas.test.js` e `tests/escala-grade-completa.test.js`: **aprovados**.
+- `node --test` das quatro suítes específicas (arrasto de seis peças, novo teste de grade completa, fluidez do PR #35 e giros/ajudas): **51 aprovados, 0 falhas**.
+- `node --test` dos arquivos de regressão sem dependências de Socket.IO externas: **137 testes, 135 aprovados, 0 falhas, 2 ignorados** (PostgreSQL real indisponível).
+- Suíte completa executada localmente, mas **não aprovada** neste ambiente: **141 testes, 135 aprovados, 4 arquivos de integração falharam no carregamento por ausência do módulo npm `socket.io-client`, 2 ignorados**. A instalação das dependências não foi concluída neste ambiente; GitHub Actions deve executar `npm ci` e `npm test` antes do Merge.
+- Chromium headless de desktop: verificados os cinco tamanhos com SVGs representativos e CSS do repositório, transição de tamanho ao cruzar a borda e zoom manual; **não é benchmark de FPS Android nem partida real**. O servidor e demais arquivos da base foram conferidos contra blobs da `main` por SHA; o ZIP foi validado antes da entrega.
+- **Não testados aqui:** FPS Android físico, toque real em PWA/APK, dois celulares simultâneos, Render, Neon real, GitHub Actions deste novo PR. O proprietário valida esses itens após Merge e Manual Deploy.
+- Criar branch NOVA a partir da `main` no SHA acima, enviar os 4 arquivos nas pastas indicadas, abrir PR, verificar os workflows de regressão/segurança, fazer Merge e Manual Deploy pelo proprietário. Não enviar arquivos diretamente à `main`. Após a atualização automática da PWA, testar 6/12/20/30/48 em Solo/Coop, peças pequenas até a grade, progressão do tamanho, sem engasgos, pinça e ambos os botões de ajuda; Sala Desafio deve continuar permitindo giro.
+
+---
+
 # CONTINUIDADE — SELEÇÃO E ARRASTO MAIS RESPONSIVOS (RODADA DE CORREÇÃO)
 
 **Data:** 31/10/2026 (America/Fortaleza). **Base real da `main` verificada antes das alterações:** `276c2882675ab3e111ad28c2f39b7e236012f2cd` (Merge PR #34 — giro somente no Desafio e ajudas fixas). O ZIP recebido foi comparado pelos hashes de blob Git de `public/game.js`, `public/sw.js`, `CONTINUIDADE.md` e testes relevantes: arquivos idênticos aos da `main`. Não houve escrita no GitHub ou deploy pelo assistente.

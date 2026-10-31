@@ -10,7 +10,6 @@
   var $ = function (s) { return document.querySelector(s); };
   var PLAYER_COLORS = ['#2a5ee8', '#d1245f'];   // azul e rosa um pouco mais fortes: texto branco legível (≥ 4,5:1)
   var HINT_MS = 4000;      // quanto tempo a imagem fica visível atrás das peças
-  var HELD_SCALE = 1.04;   // peça na mão fica um pouquinho maior
   var ZOOM_MAX = 6;        // limite do zoom por pinça (também limitado pela largura da tela)
 
   /* ---------------------------------------------------------
@@ -830,26 +829,19 @@
   /* ---------------------------------------------------------
    * Campo de jogo
    * --------------------------------------------------------- */
-  // tamanho visual da peça: pequena enquanto espera na bandeja, cheia quando está na mão,
-  // no tabuleiro ou solta fora da bandeja
+  // Escala natural em qualquer quantidade de peças: tocar, segurar ou arrastar
+  // NÃO aumenta automaticamente. Só crescer quando toda a área final TILE x TILE
+  // já couber na grade; nenhuma leitura de layout/DOM durante o movimento.
+  // Este teste geométrico é exclusivamente visual; SNAP continua no servidor.
+  function fullyInsideBoard(p) {
+    var cfg = state.cfg, half = cfg.TILE / 2;
+    return p.x - half >= cfg.BOARD_X && p.x + half <= cfg.BOARD_X + cfg.BOARD_W &&
+      p.y - half >= cfg.BOARD_Y && p.y + half <= cfg.BOARD_Y + cfg.BOARD_H;
+  }
   function baseScale(p) {
     var cfg = state.cfg;
-    var small = cfg.TRAY / cfg.TILE;
     if (p.locked) return 1;
-    var inTray = p.y > cfg.TRAY_LINE;
-    // Seis peças: não ampliar automaticamente ao selecionar/segurar.
-    // A peça continua pequena na bandeja e assume o tamanho natural no tabuleiro.
-    // targetScale() ainda aplica o zoom por pinça quando p.zoomAbs estiver definido.
-    if (cfg.PIECES === 6) return inTray ? small : 1;
-    if (p.heldBy !== null && p.heldBy !== undefined) {
-      // peça só tocada (escolhida para girar) na bandeja continua pequena, para não cobrir as vizinhas;
-      // ao ser arrastada, ou fora da bandeja, ela cresce
-      var moving = p.heldBy === state.idx
-        ? !!(state.drag && state.drag.id === p.id && state.drag.moved)
-        : performance.now() - (p.lastMove || 0) < 500;
-      return (!inTray || moving) ? HELD_SCALE : small * 1.12;
-    }
-    return inTray ? small : 1;
+    return fullyInsideBoard(p) ? 1 : cfg.TRAY / cfg.TILE;
   }
 
   // zoom por pinça: só vale para a peça escolhida por mim e só na minha tela
@@ -1233,18 +1225,14 @@
 
     var lx = (e.clientX - rect.left) / state.scale;
     var ly = (e.clientY - rect.top) / state.scale;
-    // a peça cresce ao ser pega: mantém o dedo no mesmo ponto da imagem
+    // Sem zoom automático, o deslocamento inicial é o deslocamento real do
+    // dedo ao centro. Manter a pinça explícita com a escala visual já escolhida.
     var zoomed = !!p.zoomAbs && wasSelected;
     var cx0 = zoomed && p.dx != null ? p.dx : p.x, cy0 = zoomed && p.dy != null ? p.dy : p.y;
-    // Com seis peças, preservar o ponto onde o dedo tocou: a ampliação
-    // automática não participa do cálculo de deslocamento inicial.
-    // Nos demais tamanhos, mantém-se a compensação de escala existente.
-    var six = state.cfg.PIECES === 6;
-    var k = zoomed || six ? 1 : HELD_SCALE / Math.max(0.2, p.vs);
-    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : (six ? 1 : HELD_SCALE));
+    var lim = state.cfg.TILE / 2 * (zoomed ? p.vs : 1);
     state.drag = {
       id: p.id, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY,
-      offX: clamp((lx - cx0) * k, -lim, lim), offY: clamp((ly - cy0) * k, -lim, lim),
+      offX: clamp(lx - cx0, -lim, lim), offY: clamp(ly - cy0, -lim, lim),
       rect: rect, moved: false, last: 0, wasSelected: wasSelected
     };
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
@@ -2077,7 +2065,7 @@
    * Tutorial animado (abre sozinho na primeira vez; também em Menu > Como jogar)
    * --------------------------------------------------------- */
   var TUT = [
-    { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela cresce enquanto você a move.' },
+    { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela só cresce quando entra completamente na grade.' },
     { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar quantas vezes quiser. O ▲ mostra qual lado é o de cima.' },
     { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
     { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos e 📍 indica o lugar da peça escolhida. Os dois botões ficam lado a lado. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
