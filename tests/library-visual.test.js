@@ -10,7 +10,7 @@ test('títulos da biblioteca em maiúsculas e sem numeração; Abrir amarelo', (
   const js = read('public/game.js');
   const css = read('public/style.css');
   assert.match(js, /library-name', c\.name\.toLocaleUpperCase\('pt-BR'\)/);
-  assert.match(js, /library-heading'\)\.textContent = c\.icon \+ ' ' \+ c\.name\.toLocaleUpperCase\('pt-BR'\)/);
+  assert.match(js, /library-heading'\)\.textContent = c\.name\.toLocaleUpperCase\('pt-BR'\)/);
   assert.doesNotMatch(js, /library-name', c\.order \+ '\. '/);
   assert.match(css, /\.library-category\.available \.library-action \{ background: var\(--sun\); color: var\(--on-sun\);/);
 });
@@ -37,7 +37,7 @@ test('animação dourada ocorre só após a última conclusão, sem pagar gemas 
 });
 
 test('cache novo e catálogo/identificadores anteriores preservados', () => {
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v17'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v18'/);
   const lib = require('../library');
   assert.equal(lib.ALL.length, 25);
   assert.deepEqual(lib.CATEGORIES.map(c=>c.id),['fauna','biomas','espaco','cultura','fantasia']);
@@ -62,7 +62,7 @@ test('biblioteca com Fredoka, título centralizado e só um Voltar amarelo', () 
   assert.match(html, /id="btn-pick-back" class="btn btn-primary"/);
   assert.doesNotMatch(html, /id="library-back"/);
   assert.doesNotMatch(js, /\$\('#library-back'\)/);
-  assert.match(css, /#screen-pick \.library-categories, #screen-pick \.library-nav \{ font-family: "Fredoka", var\(--font\); \}/);
+  assert.match(css, /#screen-pick \.pick-inner \{ font-family: "Fredoka", var\(--font\); \}/);
   assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
   assert.match(css, /\.library-heading \{[^}]*text-align: center;/);
   assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); renderLibraryHome\(\); return; \}/);
