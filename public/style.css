@@ -1359,7 +1359,7 @@ html[data-theme="dark"] .add-card .add-box { border-color: #4a5599; background: 
 .pick-sheet .size-btn span { font-weight: 600; }
 .pick-sheet .size-btn[aria-checked="true"] { transform: translateY(-3px) scale(1.04); }
 .pick-sheet .size-note { min-height: 2.4em; margin: 0; font-size: .86rem; font-weight: 600; line-height: 1.25; }
-.pick-sheet #btn-pick-go { font-family: "Fredoka", var(--font); font-weight: 700; min-height: 56px; margin: 0; font-size: 1.2rem; }
+.pick-sheet #btn-pick-go { font-family: "Fredoka", var(--font); font-weight: 700; min-height: 56px; margin: 0 auto; align-self: center; width: 100%; max-width: 330px; font-size: 1.2rem; }
 
 /* janela de enquadramento da imagem própria */
 .crop-sheet { align-items: center; font-family: "Fredoka", var(--font); }
@@ -2169,9 +2169,9 @@ html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"
 .library-lead { margin: 4px 0 8px; text-align: center; font-size: .85rem; color: var(--ink-soft); font-weight: 650; }
 .library-category { width: 100%; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px; border-radius: 20px; background: var(--card); box-shadow: 0 5px 0 var(--line-2); }
 .library-category.locked { background: var(--paper-2); }
-.library-cover { width: 80px; height: 106px; flex: 0 0 80px; border-radius: 12px; overflow: hidden; background: var(--paper-3); position: relative; }
-.library-category.locked .library-cover::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.45rem; background: rgba(27,37,89,.32); }
-.library-photo { width: 100%; height: 100%; display: block; object-fit: cover; }
+.library-cover { width: 80px; height: 106px; flex: 0 0 80px; box-sizing: border-box; border: 3px solid #f5c34a; padding: 2px; border-radius: 13px; overflow: hidden; background: #fff6d9; box-shadow: 0 2px 0 #bc841c, 0 5px 10px rgba(27,37,89,.17), inset 0 0 0 1px #fff5c5; position: relative; }
+.library-category.locked .library-cover::after { content: '🔒'; position: absolute; inset: 5px; border-radius: 7px; display: grid; place-items: center; font-size: 1.45rem; background: rgba(27,37,89,.32); }
+.library-photo { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 7px; }
 .library-cover.image-failed, .thumb.image-failed { background: linear-gradient(135deg,var(--paper-3),var(--line)); }
 .library-cover.image-failed::before, .thumb.image-failed::before { content: '🧩'; display: grid; place-items: center; position: absolute; inset: 0; font-size: 1.8rem; }
 .library-info { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
@@ -2182,7 +2182,7 @@ html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"
 .library-hint { color: var(--ink-soft); font-size: .68rem; font-weight: 800; line-height: 1.25; }
 .library-action { align-self: center; min-width: 62px; flex: 0 0 auto; min-height: 44px; padding: 0 8px; font-size: .76rem; background: var(--sun); box-shadow: 0 3px 0 var(--sun-deep); border-radius: 12px; }
 .library-action:disabled { opacity: .6; cursor: default; background: var(--paper-3); box-shadow: none; }
-.library-category.available .library-action { background: var(--deep); color: #fff; box-shadow: 0 3px 0 var(--deep-shadow); }
+.library-category.available .library-action { background: var(--sun); color: var(--on-sun); box-shadow: 0 3px 0 var(--sun-deep); }
 .library-legacy { width: 100%; border-radius: 16px; font-size: .87rem; justify-content: center; padding: 10px; }
 .library-note { color: var(--ink-soft); font-size: .76rem; text-align: center; line-height: 1.4; padding: 4px 10px 0; }
 .library-nav { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 7px; padding: 5px 0 12px; }
@@ -2192,6 +2192,24 @@ html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"
 .pick-card .thumb .library-photo { border-radius: 12px; }
 .library-done { display: inline-flex; margin-top: 5px; background: #d6f6ed; border-radius: 20px; padding: 2px 8px; color: #115b4a; font-size: .7rem; font-weight: 900; }
 html[data-theme="dark"] .library-done { background: #174d48; color: #d0fff4; }
+
+/* Categoria concluída: moldura e celebração dourada somente após completar 5/5.
+   Animação puramente visual, sem alterar recompensa, partida ou histórico. */
+.library-category.completed .library-cover { border-color: #ffce42; box-shadow: 0 2px 0 #b77812, 0 0 0 2px rgba(255,203,65,.23), 0 4px 12px rgba(166,119,22,.22); }
+.library-category.celebrating { position: relative; border: 2px solid #f5c543; background: linear-gradient(120deg, var(--card) 20%, #fff3b6 50%, var(--card) 80%); }
+.library-celebration-banner { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 11px 14px; border: 2px solid #e9ae25; border-radius: 17px; color: #754400; background: linear-gradient(110deg, #fff5be, #ffdb63 48%, #fff3bd); box-shadow: 0 4px 0 #c99523, 0 4px 16px rgba(196,139,13,.22); text-align: center; font-weight: 800; }
+.library-celebration-banner strong { font-size: 1.02rem; letter-spacing: .025em; }
+.library-celebration-banner span:last-child { font-size: .78rem; }
+.library-celebration-spark { font-size: 1.25rem; letter-spacing: .36em; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="reduce"]) .library-celebration-banner { animation: library-gold-arrive .75s cubic-bezier(.2,.9,.25,1) both, library-gold-glow 1.35s ease-in-out .75s 2 alternate; }
+  html:not([data-motion="reduce"]) .library-category.celebrating { animation: library-gold-card 1.35s ease-in-out 2 alternate; }
+  html:not([data-motion="reduce"]) .library-celebration-spark { animation: library-gold-spark .95s ease-in-out 3 alternate; }
+}
+@keyframes library-gold-arrive { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes library-gold-glow { from { box-shadow: 0 4px 0 #c99523, 0 4px 12px rgba(196,139,13,.18); } to { box-shadow: 0 4px 0 #c99523, 0 0 24px rgba(255,201,44,.65); } }
+@keyframes library-gold-card { from { box-shadow: 0 5px 0 var(--line-2); } to { box-shadow: 0 5px 0 #cb9d2b, 0 0 20px rgba(255,210,58,.68); } }
+@keyframes library-gold-spark { from { opacity: .55; transform: scale(.9); } to { opacity: 1; transform: scale(1.13); } }
 @media (max-width: 370px) {
   .library-category { gap: 8px; padding: 8px; }
   .library-cover { width: 66px; height: 88px; flex-basis: 66px; }

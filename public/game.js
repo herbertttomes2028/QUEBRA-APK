@@ -359,6 +359,7 @@
   var libraryView = 'home';   // home | legacy | category
   var libraryCategory = null;
   var libraryProgress = { clears: [], purchases: [], gems: 0, loaded: false };
+  var libraryCelebrationPending = null; // só comemora o último 5/5 recém-concluído
   function libraryById(id) { return state.libraryCatalog.find(function (c) { return c.id === id; }); }
   function libraryDone(file) { return libraryProgress.clears.indexOf(file) !== -1; }
   function libraryAvailable(c) {
@@ -386,7 +387,13 @@
       .catch(function () { libraryProgress.loaded = false; });
   }
   function localLibraryComplete(file) {
-    if (libraryToken() || !state.libraryCatalog.some(function (c) { return c.images.some(function (x) { return x.file === file; }); })) return;
+    var category = state.libraryCatalog.find(function (c) { return c.images.some(function (x) { return x.file === file; }); });
+    if (!category) return;
+    // A vitória real já veio do servidor. Para contas, esperar o progresso confirmado
+    // pela API antes de mostrar o efeito dourado; para visitantes, usar o progresso local.
+    if (!libraryDone(file) && category.images.filter(function (x) { return libraryDone(x.file); }).length === category.images.length - 1)
+      libraryCelebrationPending = category.id;
+    if (libraryToken()) return;
     var clears = store.get('libraryClears', []) || [];
     if (clears.indexOf(file) < 0) { clears.push(file); store.set('libraryClears', clears); }
     libraryProgress.clears = clears;
@@ -414,14 +421,27 @@
     var root = $('#library-categories'); root.hidden = false; root.textContent = '';
     var lead = libraryEl('p', 'library-lead', 'Complete as cinco imagens de cada etapa para avançar. As duas coleções especiais podem ser abertas com gemas.');
     root.appendChild(lead);
+    var celebrate = libraryProgress.loaded && state.libraryCatalog.find(function (c) {
+      return c.id === libraryCelebrationPending && c.images.every(function (x) { return libraryDone(x.file); });
+    });
+    if (celebrate) {
+      var banner = libraryEl('div', 'library-celebration-banner');
+      banner.setAttribute('role', 'status');
+      banner.appendChild(libraryEl('span', 'library-celebration-spark', '✦ ✨ ✦'));
+      banner.appendChild(libraryEl('strong', '', 'CATEGORIA CONCLUÍDA!'));
+      banner.appendChild(libraryEl('span', '', celebrate.name.toLocaleUpperCase('pt-BR')));
+      root.appendChild(banner);
+      libraryCelebrationPending = null; // nunca repete ao reabrir o catálogo
+    }
     state.libraryCatalog.forEach(function (c) {
       var open = c.order === 1 || (libraryProgress.loaded && libraryAvailable(c));
       var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
-      var card = libraryEl('article', 'library-category' + (open ? ' available' : ' locked'));
+      var card = libraryEl('article', 'library-category' + (open ? ' available' : ' locked') +
+        (n === c.images.length ? ' completed' : '') + (celebrate && celebrate.id === c.id ? ' celebrating' : ''));
       var cover = libraryEl('div', 'library-cover'); cover.appendChild(libraryImage(c.images[0].file, c.name));
       card.appendChild(cover);
       var info = libraryEl('div', 'library-info');
-      info.appendChild(libraryEl('b', 'library-name', c.order + '. ' + c.name));
+      info.appendChild(libraryEl('b', 'library-name', c.name.toLocaleUpperCase('pt-BR')));
       info.appendChild(libraryEl('small', 'library-subtitle', c.subtitle));
       var bar = libraryEl('div', 'library-track');
       var fill = libraryEl('span', 'library-fill'); fill.style.width = (n / c.images.length * 100) + '%'; bar.appendChild(fill); info.appendChild(bar);
@@ -445,7 +465,7 @@
     if (!c || !libraryAvailable(c)) { renderLibraryHome(); return; }
     libraryView = 'category'; libraryCategory = id;
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
-    $('#library-heading').textContent = c.icon + ' ' + c.name + ' · ' + librarySummary(c);
+    $('#library-heading').textContent = c.icon + ' ' + c.name.toLocaleUpperCase('pt-BR') + ' · ' + librarySummary(c);
     renderPickGrid();
   }
   function renderLibraryCurrent() {

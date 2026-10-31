@@ -9,7 +9,7 @@
  * - Avisos (push): mostra "fulano entrou" / "nova mensagem" quando o aplicativo está fechado.
  * O jogo em si precisa de internet; sem ela aparece um aviso simples (e o app mostra "Conectando…").
  */
-const CACHE = 'quebra-cabeca-v13';
+const CACHE = 'quebra-cabeca-v14';
 // (o cliente do Socket.IO é um arquivo estático que o index.html carrega ANTES do jogo: precisa vir do celular também, senão um servidor dormindo trava o início)
 const SHELL = ['/', '/style.css', '/boot.js', '/socket.io/socket.io.js', '/game.js', '/conta.js', '/manifest.webmanifest', '/privacidade.html', '/icons/icon-192.png'];
 const SHELL_SET = new Set(SHELL);
