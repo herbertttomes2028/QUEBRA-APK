@@ -9,6 +9,7 @@
 
 const crypto = require('crypto');
 const phrases = require('./phrases');
+const library = require('./library');
 const security = require('./security');
 const { createMailer, mailerStatus } = require('./mailer');
 const express = require('express');
@@ -165,7 +166,7 @@ app.get('/health', (req, res) => res.type('text').send('ok'));
 
 app.get('/api/config', (req, res) => {
   res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM }, accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
+  res.json({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), upload: { maxBytes: UPLOAD_MAX, maxDim: UPLOAD_DIM }, accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
 });
 
 // Verificação do aplicativo Android (APK).
@@ -337,7 +338,7 @@ function listImages() {
   try {
     const names = readImageNames();
     const order = Object.keys(names);
-    return fs
+    const old = fs
       .readdirSync(IMG_DIR)
       .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
       .sort((a, b) => {
@@ -354,8 +355,9 @@ function listImages() {
         const mini = fs.existsSync(path.join(IMG_DIR, 'mini', f)) ? 'imagens/mini/' + encodeURIComponent(f) : null;
         return { file: f, url: 'imagens/' + encodeURIComponent(f), thumb: mini, label: nice || prettyName(f) };
       });
+    return old.concat(library.assets());
   } catch (e) {
-    return [];
+    return library.assets();
   }
 }
 
@@ -788,7 +790,8 @@ const challenge = require('./challenge')({
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
   levelOf: (uid) => (accHooks.levelOf && uid ? accHooks.levelOf(uid) : 0),                          // nível do jogador (0 = visitante)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
-  phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases
+  phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases,
+  imageAllowed: async (socket, file) => !library.image(file) || (accounts ? accounts.libraryCanPlay(socket.data.uid, file) : !library.cat(library.image(file).categoryId).price)
 });
 
 // frase liberada? (visitante: só as básicas e as reações; conta: também as que ele já liberou jogando)
@@ -862,12 +865,16 @@ function restoreUpload(buf) {
 io.on('connection', (socket) => {
   socket.data.lastMove = 0;
 
-  socket.on('create', (data, cb) => {
+  socket.on('create', async (data, cb) => {
     data = data || {};
     const pid = cleanPid(data.pid);
     if (!pid) return reply(cb, { ok: false, error: 'invalid' });
     const imageId = validImage(data.imageId);
     if (!imageId) return reply(cb, { ok: false, error: 'noimages' });
+    try {
+      if (library.image(imageId) && !(accounts ? await accounts.libraryCanPlay(socket.data.uid, imageId) : !library.cat(library.image(imageId).categoryId).price))
+        return reply(cb, { ok: false, error: 'library_locked' });
+    } catch (e) { return reply(cb, { ok: false, error: 'server' }); }
     const code = newCode();
     if (!code) return reply(cb, { ok: false, error: 'busy' });
 
@@ -1001,7 +1008,7 @@ io.on('connection', (socket) => {
 
   // Recomeçar / trocar imagem ou peças: se o amigo está na sala, ele precisa aceitar (30 s).
   // Sozinho na sala, recomeça na hora.
-  socket.on('restart', (data, cb) => {
+  socket.on('restart', async (data, cb) => {
     const c = ctx(socket);
     if (!c) return reply(cb, { ok: false });
     const { room, idx } = c;
@@ -1011,6 +1018,10 @@ io.on('connection', (socket) => {
       imageId: validImage(data && data.imageId) || room.imageId,
       pieces: validPieces(data && data.pieces, room.cfg.PIECES)
     };
+    try {
+      if (library.image(params.imageId) && !(accounts ? await accounts.libraryCanPlay(socket.data.uid, params.imageId) : !library.cat(library.image(params.imageId).categoryId).price))
+        return reply(cb, { ok: false, error: 'library_locked' });
+    } catch (e) { return reply(cb, { ok: false, error: 'server' }); }
     if (!op || !op.connected) {
       performRestart(room, params);
       return reply(cb, { ok: true, immediate: true });

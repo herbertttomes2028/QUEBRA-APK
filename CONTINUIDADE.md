@@ -1,6 +1,81 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
 **Atualizado em:** 30/10/2026 (horário de Fortaleza)  
+**Rodada atual:** Biblioteca de imagens — 5 categorias, 25 ilustrações 3:4, progresso e gemas  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Commit da `main` lido e comparado antes da implementação:** `0c641ff44f7263a14d338d99265b18347c0336bc`  
+**Árvore Git da `main` de referência:** `d4d4dbcd952ad3b5aa7459ab98328b39dcf497f0`.
+
+> **ESTA É A SEÇÃO MAIS RECENTE.** Todo o `CONTINUIDADE.md` efetivamente presente na `main` de referência foi preservado integralmente abaixo da seção HISTÓRICO (blob original `46815ad3cac52f6d83bf6cf8e4ffb4b21b5d0305`). Antes de outra rodada, confirmar novamente a `main`. O assistente não publica, não faz Merge e não realiza deploy. Não começar outra rodada antes da validação em Android pelo proprietário.
+
+## 1. Solicitação e referência aprovada
+
+- O proprietário confirmou que a versão anterior do aplicativo ficou excelente e deve ser **preservada como referência**. Mantidas por completo as animações da abertura (360° em pé, texto suave), a vitória (pulo leve e flutuação), a subida de nível, encaixes, magnetismo, peças SVG, sons, botões, controles e UI de salas.
+- Foi solicitada uma biblioteca de **cinco categorias temáticas e cinco imagens por categoria** (25), todas **3:4**, com progresso individual permanente, desbloqueio automático 1→2→3 e compras opcionais e independentes de 4 e 5.
+- Categorias inspiradas nas ideias anteriormente reservadas: **fauna brasileira**, **natureza e biomas**, **espaço e ciência**, **cultura brasileira**, **mundos fantásticos**. Cada imagem foi criada como **ilustração autoral detalhada em WebP**, e não apresentada como fotografia/IA fotorealista; a escolha de ilustrações usa a alternativa expressamente autorizada pelo proprietário e reduz custos de memória no Android.
+
+## 2. Conteúdo da biblioteca e preços
+
+| Etapa | Categoria | 5 imagens | Condição |
+| --- | --- | --- | --- |
+| 1 | Fauna brasileira | Onça-pintada; Arara-azul; Tucano-toco; Capivara do Pantanal; Boto-cor-de-rosa | Livre desde o início |
+| 2 | Natureza e biomas | Cachoeira amazônica; Dunas dos Lençóis; Cerrado florido; Reflexos do Pantanal; Araucárias na serra | Concluir 5/5 da etapa 1 |
+| 3 | Espaço e ciência | Saturno e seus anéis; Astronauta explorador; Paisagem lunar; Nebulosa colorida; Planeta Terra | Concluir 5/5 da etapa 2 |
+| 4 | Cultura brasileira | Frevo em movimento; Festa junina; Capoeira ao entardecer; Maracatu de cores; Renda do Nordeste | **25 gemas**, permanente |
+| 5 | Mundos fantásticos | Dragão das montanhas; Castelo nas nuvens; Ilhas flutuantes; Bosque encantado; Baleia das estrelas | **40 gemas**, permanente e **independente** da 4 |
+
+Preços calculados em relação à economia existente: partidas válidas de **12 peças dão 2 gemas**, sem contar bônus de nível. São cerca de 13 conclusões para 25 gemas e 20 para 40, ou menos com níveis. Não há compra real nem dinheiro; somente gemas gratuitas já ganhas jogando. Cada desbloqueio é definitivo por conta, debitado no máximo uma vez.
+
+## 3. Integração preservando arquitetura
+
+- **Galeria existente:** `public/game.js` mantém `openPick`, seleção de quantidade de peças, cartão inferior, modais, fluxo de Solo, Cooperativo, Desafio e “Minha imagem”. A biblioteca é uma navegação por categorias **dentro da mesma tela `screen-pick`**, e a galeria antiga está disponível em “Imagens clássicas e Minha imagem”. Sem outra tela duplicada, sem mexer na mecânica do jogo.
+- **Compatibilidade com versões antigas:** `/api/config` ainda envia `images` somente com imagens clássicas, adicionando campo independente `library` com categorias e metadados. `game.js` novo as agrega para a seleção; clientes antigos não recebem imagens bloqueadas misturadas à galeria e continuam funcionando.
+- **Servidor:** módulo novo `library.js` contém catálogo, regras de disponibilidade e serviços de compra/progresso. `server.js` verifica o acesso ao criar e reiniciar salas; `challenge.js` verifica ao criar Sala Desafio. Jogadores convidados podem acompanhar partidas criadas por colegas, sem compra forçada. Não foram alteradas funções de encaixe, `SNAP`, comandos de movimento ou pacotes de socket já existentes.
+- **Conclusões e XP:** `accounts.js` registra uma imagem na tabela `library_clears` **dentro da mesma transação de `awardMatch`**, *somente* para conclusão legítima (`rw.earnedCompletion`), com chave única por usuário/imagem. XP continua vindo exclusivamente de `payMatch`. As partidas incompletas, desistências, derrotas sem completar e partidas inválidas por duração curta não liberam imagens.
+- **Persistência:** contas autenticadas consultam o estado em `GET /api/acc/library`; o banco guarda permanentemente imagens completadas e categorias compradas. Visitantes guardam conclusão gratuita no `localStorage` deste aparelho; esse histórico local pode desaparecer ao limpar dados/reinstalar e não é transferido à conta automaticamente. Compras de gemas exigem sessão autenticada.
+- **Compra atômica:** `POST /api/acc/library/unlock` autentica a sessão, trava `users` com `FOR UPDATE`, verifica o desbloqueio existente, consulta o saldo, insere em `library_unlocks` (chave única usuário/categoria) e debita `users.gems` na **mesma transação**. Reenvios e acessos simultâneos não devem cobrar duas vezes; se a conexão cair, o cliente consulta novamente o estado. Não se alteram as migrações anteriores nem `gem_events` (que registra somente créditos).
+- **Migração nova e imutável:** `006_biblioteca.sql`, somente tabelas adicionais. Hash registrado em `tests/migrations.sha256.json`. O Render aplica com `db.migrate()` na inicialização; GitHub Actions testa no PostgreSQL 16 descartável. Não executar manualmente testes no Neon de produção.
+- **Imagens:** 25 arquivos WebP completos em `public/biblioteca/`, **768 × 1024 pixels**; 25 miniaturas independentes em `public/biblioteca/mini/`, **240 × 320 pixels**. Proporção exata 3:4 nas duas versões. Arquivos completos juntos ≈ 0,56 MiB e miniaturas ≈ 0,10 MiB. Interface carrega inicialmente 5 capas/miniaturas e somente mais cinco ao abrir uma categoria; a imagem principal só é decodificada quando o jogador a escolhe, com botão de partida temporariamente desabilitado até o sucesso do carregamento. Nada de carregar 25 imagens grandes ao mesmo tempo. Falha de miniatura exibe imagem substituta sem quebrar navegação. Service worker v13 armazena biblioteca sob demanda e atualiza casca do aplicativo como um conjunto.
+- **Segurança infantil:** bate-papo continua apenas com frases prontas; não há informações de e-mail, XP bruto de terceiros nem ranking público. Compras não aceitam preços do cliente, apenas IDs reconhecidos.
+
+## 4. Arquivos exatos da rodada (65 arquivos)
+
+**Arquivos existentes alterados (11):** `server.js`, `accounts.js`, `challenge.js`, `public/game.js`, `public/conta.js`, `public/index.html`, `public/style.css`, `public/sw.js`, `tests/migrations.sha256.json`, `tests/gemas-postgres.test.js` e `CONTINUIDADE.md` na raiz.
+
+**Arquivos novos de código e banco (4):** `library.js` (raiz), `migrations/006_biblioteca.sql`, `tests/library.test.js`, `tests/library-postgres.test.js`.
+
+**Imagens novas (50):** cinco originais para cada um dos prefixos `lib-fauna-`, `lib-biomas-`, `lib-espaco-`, `lib-cultura-` e `lib-fantasia-`, cada um numerado `01` a `05`, em `public/biblioteca/` e os mesmos 25 nomes em `public/biblioteca/mini/`. Extensão `.webp`.
+
+**TOTAL: 65 arquivos** = 11 existentes + 4 novos de código/banco + 50 imagens. Nenhum arquivo antigo da pasta `public/imagens/` é substituído; nenhuma arte de peça SVG é modificada.
+
+## 5. Testes e limitações (somente afirmações efetivamente executadas)
+
+- Verificação de sintaxe com `node --check` em `server.js`, `accounts.js`, `challenge.js`, `library.js`, `public/game.js`, `public/conta.js` e `public/sw.js`: **aprovadas**.
+- `node --test` em onze arquivos de testes independentes de conexões reais: **71 testes, 69 aprovados, 0 falhas, 2 pulados** (os dois PostgreSQL reais exigem `GEMAS_TEST_DB=1` e o banco temporário). `socket.io-client` ausente foi substituído **somente para carregar testes estáticos** por stub local que não realiza conexão de rede; não usar isso como prova de integração.
+- Um Chromium real executou o **HTML/CSS/scripts reais** em um ambiente simulado com respostas de configuração/conta e miniaturas embutidas: **320×650, 360×740 e 412×915**, verificando cinco categorias, categoria 1 gratuita, abertura de cinco imagens, painel de peças, retorno de navegação, estado local de 5/5 liberando categoria 2, **compra simulada de categoria 5 sem comprar categoria 4** e seleção/carregamento das **25 imagens individuais**, com navegação Voltar preservada e sem erros JS observados. Este **não** é um servidor/jogo com Socket.IO nem compra real no PostgreSQL.
+- Testes em Node verificaram todos os **25 arquivos principais 768×1024 e 25 miniaturas 240×320**, com bytes WebP válidos e limites de tamanho; 25 nomes distintos e progresso/condições corretos.
+- **Não executados nesta rodada:** `npm test` completo com `socket.io-client` real, migração `006` e compras com PostgreSQL real, partida Solo/Coop/Desafio de ponta a ponta, Render/Neon, medição de FPS e Android físico. O GitHub Actions realiza a integração em banco isolado no PR; **não fazer Merge se ficar vermelho**. Teste real no Android só cabe ao proprietário.
+
+## 6. Publicação controlada pelo proprietário
+
+1. Criar nova branch a partir da `main` `0c641ff`, sugerida `biblioteca-categorias-progressao` (nunca enviar diretamente na `main`). Extrair ZIP e enviar **somente os 65 arquivos, preservando as subpastas**, incluindo `public/biblioteca/` e `public/biblioteca/mini/`.
+2. No PR para `main`, conferir `Files changed`, especialmente todos os 50 WebP, migração 006 e a ausência de modificações em pastas de imagens antigas e regra de encaixe. O workflow `Gemas e regressao (PostgreSQL isolado)` deve ficar verde; investigar qualquer falha antes do Merge.
+3. O proprietário executa Merge e deploy manual no Render. Antes de testar compras, verificar se `schema_migrations` do Neon inclui `006_biblioteca.sql` após o deploy; não rodar migração manual duas vezes e não executar testes de bancos descartáveis em produção.
+4. No Android: abrir todas as categorias, completar cada uma das 5 imagens da etapa 1 e depois da etapa 2, testar 3, comprar separadamente 5 e depois 4, sair/reabrir app, conferir saldos, impedir compra duplicada, verificar visita/conta, “Minha imagem”, Solo/Cooperativo/Desafio, reconexão, controles, som e todas as animações já aprovadas. Repetir em celular mais lento; só após aprovação iniciar outra rodada.
+
+## 7. Contratos imutáveis e ideias futuras
+
+`tryLock` e `SNAP = Math.round(tile * .33)` duplicados em `server.js` e `challenge.js` devem continuar idênticos. XP apenas por `payMatch`, gemas somente do servidor, migrações antigas imutáveis; comunicação por frases prontas, nada de e-mail ou XP bruto de outros jogadores.
+
+Ideias futuras **não implementadas** nesta rodada: álbum de medalhas/conquistas, personalizações com gemas, jornada de aventuras, desafios cooperativos especiais, curiosidades educativas e campeonatos amistosos. As coleções de imagens desta rodada não incluem compras individuais de imagens nem uma segunda central de recompensas (o perfil existente continua exibindo saldo/nível).
+
+---
+
+# HISTÓRICO PRESERVADO INTEGRALMENTE — CONTINUIDADE DA MAIN ANTERIOR
+
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
+**Atualizado em:** 30/10/2026 (horário de Fortaleza)  
 **Rodada:** correção da abertura — volta completa de 360° **no eixo vertical**, com texto suave  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  
 **`main` consultada e verificada antes de implementar:** `d2d0ddba26bfac03c0eec14a18261ac394f9ef0b`  
