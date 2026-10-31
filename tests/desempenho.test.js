@@ -89,7 +89,11 @@ test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
 
 test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
   assert.match(game, /\(item\.thumb \|\| item\.url\)/);
-  assert.match(css, /rotate\(-360deg\) scale\(\.97\)/);
+  assert.match(css, /rotateY\(-360deg\) scale\(\.97\)/);
+  assert.match(css, /rotateY\(0deg\) scale\(1\)/);
+  assert.doesNotMatch(css, /rotate\(-360deg\)/, 'a imagem não pode girar no plano da tela');
+  assert.match(css, /\.go-card\s*\{[^}]*backface-visibility: visible;/,
+    'a carta não deve desaparecer durante meia-volta no eixo vertical');
   assert.match(css, /go-spin 2\.4s/);
   assert.match(css, /go-text-in 1\.3s[^;]*\.75s both/);
   assert.match(css, /translate3d\(0, 18px, 0\) rotate\(-3deg\) scale\(\.96\)/);
