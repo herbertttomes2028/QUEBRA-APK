@@ -1,3 +1,29 @@
+# CONTINUIDADE — CORREÇÃO DE SESSÃO AO FINAL DA PARTIDA COOPERATIVA
+
+**Data:** 31/10/2026 (America/Fortaleza). **`main` de referência confirmada:** `47af66b1119878681b86ff5a68c93c5ad6009666` (PR #29 — auditoria de segurança). **Nova rodada:** correção de regressão de autenticação descoberta em teste Android pelo proprietário. **A alteração foi preparada localmente; não houve publicação nem deploy pelo assistente.**
+
+## Sintoma e causa no código
+
+Após concluir uma sala cooperativa e retornar à tela inicial, o cliente executa uma nova atualização de perfil (`loadMe`), que também reautentica o Socket.IO. Se outra autenticação do mesmo socket ainda estiver pendente, a versão do PR #29 retorna `error: 'auth'` para a resposta **obsoleta** (`sequence !== authGeneration`). O `public/conta.js` interpreta qualquer retorno `error: 'auth'` como token revogado e chama `logoutLocal()`, apagando o login. Um token de sessão **válido** pode, portanto, ser apagado em uma condição de corrida, sem logout real no banco. A reprodução controlada da sequência de autenticações confirma esse comportamento; ainda não foi reproduzido em Android físico por este ambiente.
+
+## Correção mínima — 3 arquivos no ZIP
+
+1. **`accounts.js` (raiz, substituir):** diferenciar respostas `superseded` (requisito de autenticação obsoleto ou socket desligado) das respostas `auth` (token verdadeiramente inválido/revogado). Manter a segunda consulta SQL de validade do token, para preservar o reforço de segurança anterior. Retornar sucesso sem desfazer/refazer o vínculo quando o token e o usuário já são os mesmos; impede oscilações de presença entre amigos.
+2. **`tests/sessao-coop-race.test.js` (`tests/`, adicionar):** quatro testes com o `createAccounts` real e consultas SQL/Socket.IO simulados: autenticações concorrentes ao voltar da partida, reautenticação idempotente, rejeição de token revogado e logout durante autenticação pendente.
+3. **`CONTINUIDADE.md` (raiz, substituir):** este registro, sem apagar o histórico.
+
+**Nenhum `public/*`, `server.js`, `security.js`, `resource-guard.js`, `challenge.js`, `xp.js`, `gems.js`, banco, migração, imagem ou animação foi alterado.** Não muda cache, APK, sessão de banco nem XP. Eventos, encaixe duplicado, migrações imutáveis, pagamento de XP exclusivamente por `payMatch`, mensagens só por frases prontas e privacidade infantil continuam iguais.
+
+## Evidência e limites dos testes
+
+- Reproduzido sobre o **`accounts.js` original do PR #29**: 4 casos, **1 aprovado e 3 falharam** devido à diferenciação ausente de autenticação obsoleta e vínculo repetido.
+- Com a correção: 4 testes, **4 aprovados**; em conjunto com testes selecionados de segurança, XP, gemas e biblioteca: **40 aprovados e 0 falhas**.
+- `node --check accounts.js` e `node --check tests/sessao-coop-race.test.js`: aprovados.
+- Dependências npm não estão instaladas neste ambiente: **não foi executada a integração real HTTP/Socket.IO/PostgreSQL**, nem a suíte completa `npm test`, nem testes Android. O GitHub Actions deverá executar `npm ci`, `npm audit`, `npm test` e o workflow de PostgreSQL isolado no Pull Request.
+- Aprovação definitiva: o proprietário deve criar branch, enviar exatamente os 3 arquivos, conferir os dois workflows verdes, fazer Merge/deploy e testar **em dois aparelhos/contas** a conclusão cooperativa, retorno à tela inicial, permanência do login, amigos, histórico e XP/gemas. Não avançar rodada sem essa confirmação.
+
+---
+
 # CONTINUIDADE — AUDITORIA DEFENSIVA DE SEGURANÇA E RESILIÊNCIA
 
 **Data:** 31/10/2026 (America/Fortaleza). **Base real `main` verificada no GitHub:** `8928aca2862ea0646bf111e4da964cd365abff63` (Merge PR #28 — Galeria B), árvore `97beca01896a6702e17844978a924fa5cf392647`. **Ponto de retorno:** mesmo commit, sem sobrescrever `main`; pacote para branch/PR do proprietário, sem escrita/deploy pelo assistente.
