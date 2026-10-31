@@ -1,3 +1,32 @@
+# CONTINUIDADE — ZOOM ESTÁVEL APÓS ENTRADA NA GRADE E ARRASTO MAIS SUAVE
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base `main` confirmada antes da alteração:** `9d8ed2dbb3c4129afdf22c1b13e620b0f54fede0` (Merge PR #36 — corrigir escala grade completa). Conferidos os blobs Git da `main` para `public/game.js` (`d09bd3110e4cb19c87f60b1ba89cdae2bcb9ade3`), `CONTINUIDADE.md` (`0daf2193f7d5f56479ae6575540cd5a0b6d1ac76`) e `tests/escala-grade-completa.test.js` (`a98e558238b64db2861989eeac43ba6de7a3c615`); são idênticos ao pacote PR #36 aplicado sobre a cópia de trabalho. **Nenhuma escrita no GitHub/Render foi realizada pelo assistente.**
+
+## Sintoma reportado e causa identificada
+
+Depois de uma peça entrar inteiramente no tabuleiro e crescer, o zoom diminuía ao passar um pouco das bordas e podia aumentar de novo. A antiga `baseScale()` recalculava o alvo entre `1` e `TRAY/TILE` em todo quadro usando somente `fullyInsideBoard(p)`; qualquer oscilação de posição por frações de pixel alterava o alvo e revertia a animação.
+
+## Correção localizada
+
+- **`public/game.js` / `baseScale(p)`:** `fullyInsideBoard(p)` continua definindo a **primeira** entrada completa no tabuleiro. Ao entrar, `p.boardExpanded` registra o aumento. A partir daí, o tamanho final (`1`) é mantido ao arrastar perto das bordas, sem oscilar. O estado só volta a pequeno **após soltar a peça na área da bandeja**, abaixo de `TRAY_LINE + TRAY/2`; se ainda estiver sendo segurada, permanece grande. Peças já encaixadas continuam sempre em escala `1`. Cada nova sala cria estado independente (`boardExpanded: false`). O tamanho inicial de bandeja fica inalterado para 6/12/20/30/48 peças.
+- **`public/game.js` / `frame(now)`:** escala passa de interpolação fixa de 30% por quadro para *easing* por tempo decorrido (constante de 82 ms para expansão natural e 48 ms para zoom por pinça), com intervalo limitado a 8–48 ms para manter comportamento estável em telas de diferentes frequências e após pausas. A animação **continua a expandir gradualmente**; não muda o movimento `x/y` que acompanha o dedo, nem introduz desenhos contínuos quando parado.
+- **`tests/escala-grade-completa.test.js`:** regressões para as cinco quantidades, bordas com flutuações de 0,1 a 0,6 px sem encolher, volta à bandeja somente após soltar, nova entrada, suavidade em 30/60/120 Hz e preservação de pinça, arrasto, SNAP e giros.
+
+**Arquivos exatos do pacote (3):** `public/game.js` (substituir), `tests/escala-grade-completa.test.js` (substituir) e `CONTINUIDADE.md` (substituir). **Não alterar:** `public/sw.js` (cache v21 atualiza os recursos de forma automática), `public/style.css`, HTML, imagens, `server.js`, `challenge.js`, Socket.IO, ambos `tryLock`/SNAP, banco/Neon, migrações SQL imutáveis, contas, XP (`payMatch`), gemas, ajudas fixas, sons, frases prontas ou privacidade de outros jogadores. Solo/Coop continuam com rot=0 e Sala Desafio mantém giros.
+
+## Testes executados e limitações
+
+- `node --check public/game.js` e `node --check tests/escala-grade-completa.test.js`: **aprovados**.
+- Quatro suítes específicas (escala da grade, arrasto de seis peças, fluidez e giros/ajudas): **58 aprovados, 0 falhas**.
+- Suíte sem quatro arquivos de integração que exigem `socket.io-client`: **144 testes, 142 aprovados, 0 falhas, 2 ignorados** (dependem do PostgreSQL real).
+- `npm test` completo **tentado, mas não aprovado localmente**: quatro testes de integração não conseguiram carregar `socket.io-client` neste ambiente. Necessário validar `npm ci` e `npm test` no GitHub Actions.
+- Chromium headless de desktop com SVG e CSS do jogo, testando 6/12/20/30/48: crescimento até `1`, retenção do tamanho ao cruzar 0,5 px da borda e pinça manual: **aprovado**. Não é medição de FPS nem uso em Android físico.
+- **Não testado:** FPS, suavidade real, toque e sincronização em Android físico/duas contas, Render, Neon real, e GitHub Actions deste novo PR. Os testes automatizados não substituem a aprovação no celular.
+
+**Publicação pelo proprietário:** criar uma **nova branch** partindo da `main` reconfirmada, enviar somente os três arquivos acima nos caminhos indicados, abrir PR, exigir ambos workflows de regressão e segurança aprovados, fazer Merge e Manual Deploy no Render. Fechar e reabrir a PWA sem limpar dados; confirmar atualização ao voltar à tela inicial. No Android testar todos os cinco tamanhos em Solo/Coop, arrastar junto à borda depois de crescer (não encolher), voltar à bandeja e soltar (ficar pequeno), voltar à grade (crescer suavemente), zoom por pinça e giro nos dois modos da Sala Desafio. **Aguardar a validação do proprietário antes de iniciar nova rodada.**
+
+---
+
 # CONTINUIDADE — TAMANHO NATURAL ATÉ ENTRAR INTEIRAMENTE NA GRADE (PR #35 PRESERVADO)
 
 **Data:** 31/10/2026 (America/Fortaleza). **Base confirmada na `main`:** `7ea674bd081aee8f9df99c07a0805a51ddbdaad3` (Merge PR #35 — corrigir fluidez do arrasto). Arquivos do ZIP #35 usados como base após confirmar hashes Git de `public/game.js`, `CONTINUIDADE.md` e testes; conferido também `public/sw.js` e estrutura do ZIP oficial anterior. A implementação do pacote anterior do PR #32 foi usada apenas como **referência da regra visual**, não como substituição da `main` nem para restaurar a regressão revertida pelo PR #33.

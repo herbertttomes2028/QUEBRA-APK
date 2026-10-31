@@ -90,28 +90,44 @@ for (const pieces of [6, 12, 20, 30, 48]) {
     assert.equal(ctx.targetScale(p), original);
   });
 
-  test(pieces + ' peças: só cresce quando a área NOMINAL inteira cabe no tabuleiro', () => {
+  test(pieces + ' peças: só ativa o zoom quando cabe inteira e não oscila nas bordas', () => {
     const { ctx, p, cfg, inside } = build(pieces);
     const small = cfg.TRAY / cfg.TILE;
+    p.x = cfg.BOARD_X + cfg.TILE / 2 - 0.1;
+    p.y = cfg.BOARD_Y + cfg.TILE / 2;
+    assert.equal(ctx.baseScale(p), small, 'antes da entrada inteira permanece pequena');
     inside();
     assert.equal(ctx.fullyInsideBoard(p), true, 'o canto exato cabe dentro');
     assert.equal(ctx.baseScale(p), 1);
-    p.y -= 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora de cima ainda é pequeno');
-    p.y += 0.1;
-    p.x = cfg.BOARD_X + cfg.BOARD_W - cfg.TILE / 2 + 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora da direita ainda é pequeno');
-    p.x -= 0.1;
-    p.y = cfg.BOARD_Y + cfg.BOARD_H - cfg.TILE / 2 + 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora de baixo ainda é pequeno');
-    p.y -= 0.1;
-    p.x = cfg.BOARD_X + cfg.TILE / 2 - 0.1;
-    assert.equal(ctx.baseScale(p), small, 'um pedacinho fora da esquerda ainda é pequeno');
-    p.x += 0.1;
-    assert.equal(ctx.baseScale(p), 1, 'com os quatro limites dentro, tamanho natural');
+    assert.equal(p.boardExpanded, true, 'travou escala natural após primeira entrada');
+    const bordas = [
+      [cfg.BOARD_X + cfg.TILE / 2 - 0.1, cfg.BOARD_Y + cfg.TILE / 2],
+      [cfg.BOARD_X + cfg.BOARD_W - cfg.TILE / 2 + 0.1, cfg.BOARD_Y + cfg.TILE / 2],
+      [cfg.BOARD_X + cfg.TILE / 2, cfg.BOARD_Y + cfg.BOARD_H - cfg.TILE / 2 + 0.1],
+      [cfg.BOARD_X + cfg.TILE / 2, cfg.BOARD_Y + cfg.TILE / 2 - 0.1],
+    ];
+    for (const [x, y] of bordas) {
+      p.x = x; p.y = y;
+      assert.equal(ctx.fullyInsideBoard(p), false);
+      assert.equal(ctx.baseScale(p), 1, 'zoom retido apesar de ultrapassar borda');
+    }
     p.locked = true;
     p.x = 0; p.y = 0;
-    assert.equal(ctx.baseScale(p), 1, 'peça já encaixada sempre conserva tamanho final');
+    assert.equal(ctx.baseScale(p), 1, 'peça encaixada continua no tamanho final');
+  });
+
+  test(pieces + ' peças: só volta ao tamanho pequeno quando SOLTA na bandeja', () => {
+    const { ctx, p, cfg, inside } = build(pieces);
+    inside();
+    p.heldBy = 0;
+    assert.equal(ctx.baseScale(p), 1);
+    p.y = cfg.TRAY_LINE + cfg.TRAY / 2 + 5;
+    assert.equal(ctx.baseScale(p), 1, 'segurando: mantém zoom mesmo de volta à bandeja');
+    p.heldBy = null;
+    assert.equal(ctx.baseScale(p), cfg.TRAY / cfg.TILE, 'ao soltar na bandeja volta a diminuir');
+    assert.equal(p.boardExpanded, false, 'libera o zoom automático só no retorno intencional');
+    inside();
+    assert.equal(ctx.baseScale(p), 1, 'pode crescer novamente ao entrar de novo');
   });
 
   test(pieces + ' peças: pinça manual continua ampliando na bandeja e na grade', () => {
@@ -169,8 +185,54 @@ test('transição da bandeja para a grade aumenta suavemente, nunca num salto', 
   assert.ok(Math.abs(p.vs - 1) < 0.001, 'converge ao tamanho de encaixe');
   const prev = p.vs;
   p.y -= cfg.TILE / 2 + 1;
+  p.tx = p.x; p.ty = p.y;
   ctx.frame(1800);
-  assert.ok(p.vs < prev && p.vs > small, 'volta a diminuir gradualmente ao sair');
+  assert.equal(p.vs, prev, 'não diminui por ultrapassar a borda após ter crescido');
+  assert.equal(p.boardExpanded, true);
+  p.y = cfg.TRAY_LINE + cfg.TRAY / 2 + 5;
+  p.tx = p.x; p.ty = p.y;
+  p.heldBy = null;
+  ctx.frame(1816);
+  assert.ok(p.vs < prev && p.vs > small, 'só diminui suavemente ao voltar e soltar na bandeja');
+});
+
+test('a expansão é suave em 30/60/120 Hz e não move a peça para longe do dedo', () => {
+  const sizes = [33.333, 16.667, 8.333];
+  const values = [];
+  for (const interval of sizes) {
+    const { ctx, p, cfg, inside } = build(12);
+    inside();
+    let last = 1000;
+    ctx.frame(last);
+    const first = p.vs;
+    assert.ok(first > cfg.TRAY / cfg.TILE && first < 1, 'primeiro quadro de escala é gradual');
+    assert.equal(p.x, p.tx, 'coordenada do dedo não sofre interpolação');
+    for (let i = 1; last + interval <= 1240; i++) {
+      last = 1000 + i * interval;
+      if (last > 1240) break;
+      ctx.frame(last);
+    }
+    values.push(p.vs);
+  }
+  assert.ok(values.every(v => v > .96 && v <= 1), 'crescimento perceptível, sem salto');
+  assert.ok(Math.max(...values) - Math.min(...values) < .025, 'resultado semelhante em ritmos de tela distintos');
+});
+
+test('oscilações pequenas nas bordas não reiniciam a animação de aumento', () => {
+  const { ctx, p, cfg, inside } = build(20);
+  inside();
+  ctx.frame(1000);
+  let previous = p.vs;
+  for (let i = 1; i < 25; i++) {
+    p.x = cfg.BOARD_X + cfg.TILE / 2 + (i % 2 ? -.6 : +.6);
+    p.tx = p.x;
+    p.y = cfg.BOARD_Y + cfg.TILE / 2;
+    p.ty = p.y;
+    ctx.frame(1000 + i * 16);
+    assert.ok(p.vs >= previous, 'escala não pode diminuir durante passagem pela borda');
+    previous = p.vs;
+  }
+  assert.ok(previous > .98);
 });
 
 test('dedo parado não força desenho a 60 quadros após estabilizar', () => {
