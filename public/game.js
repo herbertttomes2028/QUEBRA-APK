@@ -1124,7 +1124,8 @@
         paintTag(p);
         p.dirty = false;
       }
-      if (dragging) animating = true;
+      // Enquanto o dedo para, não manter 60 quadros/s só pelo estado de arrasto.
+      // pointermove chama wakeFrame() sempre que a posição muda.
     }
     if (now - lastTimerPaint > 250) { lastTimerPaint = now; paintTimer(); }
     if (animating) wakeFrame();
@@ -1167,7 +1168,7 @@
       classify(p);
       gameEmit('drop', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
     }
-    updateUi();
+    refreshLamp(); // soltar não altera placar, avatares nem progresso
   }
 
   function shake(p) {
@@ -1212,6 +1213,9 @@
       return;
     }
     e.preventDefault();
+    // Medir o tabuleiro ANTES de mudar classes da peça evita forçar layout síncrono
+    // durante a seleção (a geometria não depende de quem está segurando a peça).
+    var rect = $('#field').getBoundingClientRect();
 
     var wasSelected = state.selectedId === p.id;
     if (!wasSelected) {
@@ -1227,7 +1231,6 @@
       gameEmit('grab', { id: p.id });
     }
 
-    var rect = $('#field').getBoundingClientRect();
     var lx = (e.clientX - rect.left) / state.scale;
     var ly = (e.clientY - rect.top) / state.scale;
     // a peça cresce ao ser pega: mantém o dedo no mesmo ponto da imagem
@@ -1246,7 +1249,7 @@
     };
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
     clearTimeout(state.idleTimer);
-    updateUi();
+    refreshLamp(); // seleção altera apenas as ajudas, não o placar/avatares
   }
 
   function startPinch() {
@@ -1284,9 +1287,10 @@
     var d = state.drag;
     if (!d || e.pointerId !== d.pointerId) return;
     if (!d.moved) {
-      // Reduz a resistência inicial do gesto no celular com 6 peças, sem
-      // alterar o reconhecimento dos toques/giros nos demais modos.
-      var dragThreshold = state.cfg.PIECES === 6 && e.pointerType === 'touch' ? 5 : 8;
+      // No Solo/Coop, 5px bastam para começar a arrastar no celular.
+      // No Desafio mantemos o limiar original de 8px (exceto nas 6 peças):
+      // o segundo toque na peça selecionada continua sendo o gesto de girar.
+      var dragThreshold = (state.cfg.PIECES === 6 || !state.duel) && e.pointerType === 'touch' ? 5 : 8;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < dragThreshold) return;
       d.moved = true;
     }
@@ -1330,7 +1334,7 @@
       resetIdle();                            // tocou numa peça nova: fica escolhida
     }
     if (p && !p.locked) p.dirty = true;
-    updateUi();
+    refreshLamp(); // evita redesenho do HUD ao terminar toque/arrasto
   }
 
   // roda do mouse (computador): zoom na peça escolhida
