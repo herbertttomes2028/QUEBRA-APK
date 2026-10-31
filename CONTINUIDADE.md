@@ -1,3 +1,73 @@
+# CONTINUIDADE — RODADA DE IMAGENS PRÓPRIAS E POLIMENTO DA BIBLIOTECA
+
+**Atualizado:** 30/10/2026 (horário de Fortaleza)  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Commit atual da `main` consultado antes da implementação:** `377d64ecfeb88ac27512391a6b047b070646d029` (Merge PR #23, Biblioteca categorias progressao)  
+**Árvore-base da `main`:** `bd3ff70c66f13c42acaf9790bd8e2611be09e29b`.
+
+> **ESTA É A SEÇÃO MAIS RECENTE.** O `CONTINUIDADE.md` da `main` de referência está preservado integralmente depois de "HISTÓRICO PRESERVADO". Próxima rodada: reler a seção atual e confirmar o novo SHA da `main`. Não atualizar `main` diretamente; preparar ZIP, enviar a uma nova branch, verificar Actions, fazer Merge e deploy pelo proprietário, testar no Android e aprovar. O assistente não tem acesso de escrita ao GitHub, ao Render nem ao Neon.
+
+## 1. Pedido e conteúdo entregue
+
+O proprietário enviou **quatro arquivos ZIP com 20 imagens próprias** para substituir as quatro categorias correspondentes da biblioteca que já está publicada no GitHub. Pediu manter **Espaço e ciência** como estava, títulos das categorias **sem números e em maiúsculas**, botões **Abrir amarelos**, imagens de capa **dentro de molduras**, uma **animação dourada ao concluir uma categoria (5/5)** e o botão **JOGAR centralizado** abaixo das quantidades de peças.
+
+- **20 imagens principais** da fonte do proprietário, convertidas de JPG/PNG para WebP 768×1024, e **20 miniaturas** WebP 240×320. As versões fornecidas já tinham a proporção 3:4 (exceto uma diferença menor que 1% na capivara, recortada ao centro). Os arquivos originais foram tratados com redução LANCZOS e compressão WebP, sem criação ou troca dos objetos das fotografias.
+- Os **cinco arquivos de `lib-espaco-01.webp` a `lib-espaco-05.webp` e suas cinco miniaturas foram mantidos byte a byte**, iguais à base da `main`; todos os outros arquivos da biblioteca não incluídos na lista de entrega foram preservados.
+- Categoria **FAUNA BRASILEIRA**: `lib-fauna-01.webp` onça-pintada ("Onça-pintada avançando na selva.png"); `-02` arara-azul; `-03` tucano; `-04` **capivara** (arquivo de origem com nome genérico "Gemini_Generated_Image_om16w0om16w0om16.jpg"); `-05` boto-cor-de-rosa.
+- Categoria **NATUREZA E BIOMAS**: `lib-biomas-01` cachoeira amazônica; `-02` dunas; `-03` cerrado; `-04` Pantanal; `-05` araucárias.
+- Categoria **CULTURA BRASILEIRA**: `lib-cultura-01` frevo; `-02` festa junina; `-03` capoeira; `-04` maracatu; `-05` renda.
+- Categoria **MUNDOS FANTÁSTICOS**: `lib-fantasia-01` dragão; `-02` castelo; `-03` ilhas flutuantes; `-04` bosque; `-05` baleia das estrelas.
+- **IDs e rótulos do catálogo `library.js` não mudaram.** Isso preserva compras, desbloqueios, progressão e compatibilidade com partidas. Atenção: conquistas já registradas sob o mesmo ID permanecem concluídas mesmo após a fotografia ser substituída (solicitação de substituição, não de criação de uma imagem nova).
+
+## 2. Alterações de código estritamente visuais
+
+- **`public/game.js`:** o cartão de categoria exibe o nome com `toLocaleUpperCase('pt-BR')`, **sem prefixar número**; o cabeçalho da categoria também usa maiúsculas. Ao receber um evento de conclusão de jogo que fecha 5/5, marca uma possível celebração; só a mostra na tela de categorias quando o progresso é validado: armazenamento local no caso de visitante, API do servidor no caso de conta. Uma faixa "CATEGORIA CONCLUÍDA!" e o cartão recém-concluído recebem o efeito, **uma vez por nova conclusão**. Não modifica `won`, pagamentos nem eventos de socket; apenas usa a chamada existente `localLibraryComplete`.
+- **`public/style.css`:** moldura dourada discreta na capa 3:4 de cada categoria (inclusive bloqueada), botão **Abrir** amarelo com texto escuro, animações CSS douradas na faixa/cartão ao concluir, e o botão `#btn-pick-go` centralizado no `.pick-sheet` com `margin: 0 auto; align-self: center; max-width: 330px`. Animação respeita tanto `prefers-reduced-motion: reduce` quanto o ajuste do próprio aplicativo `data-motion="reduce"`. Não muda a animação de vitória, abertura, peças, magnetismo, som ou telas antigas.
+- **`public/sw.js`:** cache do aplicativo de `quebra-cabeca-v13` para **`v14`**, garantindo que, na atualização do APK/PWA, os WebP alterados não continuem na cache da versão anterior. A estratégia de cache do projeto não foi alterada.
+- **`tests/library-visual.test.js`:** teste novo de regressão para títulos, botão amarelo, moldura, botão JOGAR centralizado, celebração 5/5 e cache v14.
+- **`CONTINUIDADE.md`:** este registro atualizado e histórico anterior integral.
+
+**Não foram modificados:** `library.js`, `server.js`, `accounts.js`, `challenge.js`, `xp.js`, migrações SQL, economia de gemas, outros testes nem telas de contas. **Nenhuma migração nova é necessária.**
+
+## 3. Lista exata dos arquivos do ZIP
+
+**45 arquivos:**
+
+| Tipo | Caminho | Quantidade |
+| --- | --- | ---: |
+| Interface | `public/game.js`, `public/style.css`, `public/sw.js` | 3 |
+| Imagens principais da biblioteca | `public/biblioteca/lib-{fauna,biomas,cultura,fantasia}-{01..05}.webp` | 20 |
+| Miniaturas | `public/biblioteca/mini/lib-{fauna,biomas,cultura,fantasia}-{01..05}.webp` | 20 |
+| Teste novo | `tests/library-visual.test.js` | 1 |
+| Continuidade | `CONTINUIDADE.md` | 1 |
+| **Total** | | **45** |
+
+As cinco imagens e cinco miniaturas `espaco` não são incluídas no ZIP **porque não precisam ser substituídas**; já estão na `main`.
+
+## 4. Testes executados e limitações
+
+- **Verificação de sintaxe:** `node --check public/game.js` e `node --check public/sw.js`: passaram.
+- **Suíte de testes da rodada (com stub *apenas* para carregar os testes estáticos dependentes de `socket.io-client`):** 75 testes no total, **73 aprovados, 0 falhas e 2 ignorados** (PostgreSQL real). A suíte completa `npm test` com dependências reais, Socket.IO e PostgreSQL **não foi executada** neste ambiente. Stub não equivale a uma conexão real.
+- **Chromium real, com HTML/CSS/JS do projeto em ambiente controlado, sem servidor Socket.IO:** larguras **320×650, 360×740 e 412×915**, cinco cartões de categoria, títulos em caixa-alta sem números, capa com borda de 3px, botão "Abrir" com `rgb(255, 207, 51)`, botão "JOGAR" com desvio horizontal **0,00 px** em cada largura; navegação, seleção e carregamento das 25 imagens, compra de categoria 5 com API *simulada* independente da 4, progresso local liberando a 2; comemoração após 5/5, sem repetição e confirmação de progresso da conta com API *simulada*. Zero erros de JavaScript observados.
+- **Arquivos:** os 25 originais (20 substituídos + 5 preservados) foram verificados como WebP 768×1024; as 25 miniaturas como WebP 240×320, abaixo dos limites de tamanho. A capivara foi identificada por inspeção visual na prancha de imagens do usuário.
+- **Não testados:** Android físico, Render, Neon, compras reais, conexão Socket.IO real, partidas Solo/Coop/Desafio de ponta a ponta e desempenho de FPS do aparelho. Validar no Pull Request com GitHub Actions e depois pelo proprietário no Android.
+
+## 5. Como publicar e validar
+
+1. Confirmar antes do envio que a `main` não mudou em relação ao commit `377d64e`. Se mudou, comparar os arquivos de novo. Criar branch nova, sugerida `biblioteca-imagens-proprias-design` (nunca editar `main` diretamente).
+2. Extrair ZIP e enviar **somente seus 45 arquivos** respeitando a hierarquia; substituir `game.js`, `style.css`, `sw.js`, `CONTINUIDADE.md`, vinte fotos principais e vinte miniaturas; adicionar teste `tests/library-visual.test.js`. Manter `library.js`, todos os arquivos da categoria Espaço, outras imagens clássicas e todos os demais arquivos sem alteração.
+3. Abrir Pull Request para `main`. Conferir aba `Files changed`: exatamente **45 arquivos**, sendo 44 substituídos e **um teste adicionado**. Aguardar o workflow de regressão ficar verde; em caso de erro, corrigir a branch antes de fazer Merge.
+4. O proprietário faz Merge, deploy manual no Render e abre/reabre o APK para o service worker atualizar para cache v14. Nenhuma SQL nova é necessária.
+5. No Android, abrir as quatro categorias atualizadas, confirmar imagem principal e miniatura, títulos sem numeração e em caixa-alta, botões Abrir amarelos, capas em molduras, botão JOGAR alinhado ao centro abaixo das peças em Solo/Coop/Desafio. Finalizar **5/5** de uma categoria com conta e depois como visitante para verificar a celebração dourada, sem repetir à toa; confirmar que a 2 e a 3 desbloqueiam como antes e que as compras 4 e 5 não perderam estado. Testar abertura vertical 360°, animação de vitória, sons, encaixes, reconexão e "Minha imagem". Aprovação do proprietário no celular antes de outra rodada.
+
+## 6. Contratos preservados
+
+O encaixe `SNAP` e as duas versões de `tryLock` não foram tocados, assim como todos os eventos Socket.IO. XP continua somente em `payMatch`; gemas somente no servidor; migrações antigas imutáveis. O bate-papo continua por frases prontas, sem exposição de e-mail nem XP bruto de terceiros.
+
+---
+
+# HISTÓRICO PRESERVADO INTEGRALMENTE — CONTINUIDADE ANTERIOR DO GITHUB
+
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
 **Atualizado em:** 30/10/2026 (horário de Fortaleza)  
