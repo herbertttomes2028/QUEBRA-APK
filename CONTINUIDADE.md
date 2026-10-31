@@ -1,3 +1,62 @@
+# CONTINUIDADE — REMOÇÃO DAS PISCADAS EM AMIGOS E ESTATÍSTICAS
+
+**Data:** 31/10/2026 (Fortaleza)  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Base `main`:** `5113728fe2567e8e2ef6c749c59acf6b276017f5` — Merge PR #25 (`corrigir-capas-fonte-voltar-biblioteca-4`)  
+**Árvore-base:** `efb62603770377afce37fb590a9840d780c6bd5b`.
+
+## 1. Solicitação e diagnóstico
+
+O proprietário aprovou a correção anterior e identificou que, ao abrir **Amigos**, nomes e linhas pareciam piscar três vezes; o mesmo ocorria nos quadros das estatísticas de partidas no **Perfil**, inclusive perfil de amigo. O problema foi encontrado na UI: `.fr-row` e `.me-stat` tinham animação `me-row` com opacidade inicial zero aplicada a cada novo nó, enquanto `openMe` chamava `renderFriends` e múltiplas buscas/redesenhos, e `renderProfile` zerava e recriava os quatro cartões a cada atualização.
+
+Esta rodada **não altera** o servidor, Socket.IO, PostgreSQL, o cálculo ou a gravação de XP/gemas, o histórico das partidas, o sistema de amigos, as imagens ou as regras de encaixe do quebra-cabeça.
+
+## 2. Correção implementada
+
+- **`public/style.css`:** remove apenas `animation: me-row...` das regras `.fr-row` e `.me-stat`. As linhas, cores, bordas, molduras, tamanhos e os outros efeitos do jogo ficam inalterados. Isso também evita a piscada dos registros visuais na aba Partidas, que usam `.fr-row`.
+- **`public/conta.js`:** implementa `paintStats` para atualizar os valores nos mesmos quatro cartões DOM de **Meu perfil** e **Perfil do amigo**, sem apagar a grade nem reiniciar transições; remove os `animationDelay` desses cartões. Nas listas de amigos, respostas `/friends` idênticas não recriam os nós; respostas com presença ou convites alterados continuam atualizando normalmente. Remove uma chamada duplicada a `loadFriends` em `setTab('friends')`, pois `openMe` e `afterAuth` já a fazem. Evita redesenhar estatísticas ocultas ao abrir Amigos em resposta a `/me`.
+- **`public/sw.js`:** cache da interface `quebra-cabeca-v15` → `quebra-cabeca-v16` para o APK carregar os novos `conta.js` e `style.css`. Preserva estratégia offline e endpoints não cacheados.
+- **`tests/library-visual.test.js`:** expectativa da versão do cache atualizada de v15 para v16.
+- **`tests/sem-piscadas.test.js`:** quatro testes novos: CSS sem animações, cartões reaproveitados, amigos não recriados em dados idênticos e cache atualizado.
+- **`CONTINUIDADE.md`:** registra esta rodada, preservando integralmente o histórico anterior abaixo.
+
+## 3. Arquivos ZIP para a nova ramificação — 6 arquivos
+
+| Pasta | Arquivo | Operação |
+| --- | --- | --- |
+| `public/` | `conta.js` | substituir |
+| `public/` | `style.css` | substituir |
+| `public/` | `sw.js` | substituir |
+| `tests/` | `library-visual.test.js` | substituir |
+| `tests/` | `sem-piscadas.test.js` | adicionar |
+| raiz | `CONTINUIDADE.md` | substituir |
+
+Não enviar `game.js`, `index.html`, imagens, `library.js` nem arquivos SQL. Antes de montar o ZIP, os arquivos de base foram comparados pelo SHA de blob Git com a `main` atual. Não enviar diretamente à `main`.
+
+## 4. Testes realizados e limites
+
+- `node --check public/conta.js` e `node --check public/sw.js`: **passaram**.
+- Suite Node selecionada, com **stub de `socket.io-client` apenas para permitir carregamento de arquivos estáticos de contratos**, sem simular uma integração real: **81 testes, 79 aprovados, 0 falhas, 2 ignorados (PostgreSQL)**. Inclui os quatro testes novos.
+- Chromium real com interface HTML/CSS/JS atual, mas API e Socket.IO **simulados**: larguras 320, 360 e 412 px, sem exceções de JS; verificou quadros sem animação, estatística mudando de 12 para 13 sem substituir o mesmo nó, repetição de evento de presença sem recriar a linha, mudança real online/offline preservada e perfil do amigo sem animação.
+- O primeiro comando `node tests/run.js` no ambiente isolado falhou por **falta da dependência `socket.io-client`**, que não está instalada neste ambiente, e pela antiga expectativa `v15` em teste (corrigida nesta rodada). O resultado de 79 aprovados é de uma **seleção de testes**, não de `npm test` completo com dependências reais.
+- **Não testados:** Android físico (somente o proprietário testa), banco Neon/PostgreSQL, deploy Render, multiplayer real e ciclo completo de login usando serviços reais, efeito do service worker instalado no APK. **Nenhuma publicação ou deploy foi feita pelo assistente.**
+
+## 5. Procedimento de publicação
+
+1. Criar uma nova ramificação baseada na `main` no GitHub, por exemplo `corrigir-piscadas-amigos-perfil`.
+2. Extrair ZIP e enviar os três arquivos `conta.js`, `style.css`, `sw.js` para `public/`; os dois testes para `tests/`; `CONTINUIDADE.md` para a raiz. Conferir **6 arquivos** em `Files changed`.
+3. Abrir Pull Request com base `main`, conferir Actions; **não fazer Merge se os testes estiverem vermelhos**.
+4. Com Actions verdes, proprietário faz Merge e deploy no Render, fecha e abre o Android para atualização do cache, sem limpar os dados do aplicativo.
+5. No Android: abrir Amigos (nomes sem piscar), acompanhar entrada/saída online, abrir Meu Perfil (estatísticas estáveis), abrir Perfil de amigo (estatísticas estáveis), conferir Partidas e resultados, e testar jogo rápido para verificar regressões. Só após aprovação iniciar nova rodada.
+
+## 6. Contratos preservados
+
+Sockets e salas inalterados; regra SNAP/encaixe duplicada inalterada; XP somente via `payMatch`; gemas e compra no servidor; migrações imutáveis; bate-papo infantil somente frases prontas, sem exibir e-mail nem XP bruto de outros jogadores.
+
+---
+
+# HISTÓRICO ANTERIOR PRESERVADO
+
 # CONTINUIDADE — CORREÇÃO DE CAPAS, FONTE E NAVEGAÇÃO DAS CATEGORIAS
 
 **Data:** 31/10/2026 (Fortaleza)  
