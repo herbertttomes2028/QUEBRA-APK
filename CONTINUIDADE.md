@@ -1,3 +1,44 @@
+# CONTINUIDADE — CORREÇÃO DO ENCAIXE COM ANIMAÇÕES REDUZIDAS
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base oficial da `main` confirmada:** `6e02e45606419cbb6198d0abeceaddc9553fd0de` (Merge do PR #37, "Corrigir zoom estável"). Verificados no GitHub os blobs de `public/game.js`, `public/style.css` e `CONTINUIDADE.md` antes de alterar. A implementação parte da árvore atual, sem substituir por cópias de PRs antigos. O assistente não escreve no GitHub nem faz deploy.
+
+## Relato e investigação
+
+O proprietário observou que **desativar as animações em Ajustes** torna o encaixe menos fluido e causa pequenos travamentos. Foram conferidos os PRs #31 (arrasto de seis peças), #32 (grade em todas as quantidades), #33 (reversão), #34 (orientação/ajudas), #35 (fluidez), #36 (grade completa) e #37 (zoom estável). Os três últimos alteraram a dinâmica de seleção/escala, mas não removeram do caminho de encaixe operações de layout síncronas preexistentes.
+
+**Evidências do código original da `main`:**
+
+- `socket.on('locked')` encerra o arrasto e chama `checkMilestones()`. Ao atingir 25%, 50% ou 75% do progresso, `showMilestone()` executava `void el.offsetWidth` para reiniciar a animação *mesmo com movimento reduzido*. Isso força uma leitura síncrona de layout durante o encaixe.
+- `popEl()` (feedback em botões, caixa de presentes e outras interações) e `shake()` também forçavam `offsetWidth` mesmo se os efeitos visuais estivessem desativados.
+- A regra de CSS `.piece.locked .tile { animation: pop .35s ease-out }` continuava criando uma animação; no modo reduzido a regra universal encurtava a duração para `.01ms`, mas não removia a animação.
+- O `frame()` continuava interpolando a escala de uma peça **já encaixada** mesmo em modo reduzido. A posição final do SNAP estava correta no servidor; contudo, o cliente podia continuar desenhando quadros para completar a escala visual já finalizada.
+
+Esses pontos reproduzem **trabalho visual desnecessário** no modo reduzido e explicam uma origem plausível de engasgos; não afirmam diagnóstico de FPS no Android sem medição no aparelho. Os testes isolados adicionados falham em 5 dos 10 casos na versão anterior e passam integralmente com a correção.
+
+## Mudanças mínimas
+
+1. **`public/game.js`:** `showMilestone()`, `popEl()` e `shake()` não medem `offsetWidth` quando `reducedMotion()` é verdadeiro. Os estados visuais, mensagens, som, limpeza por timeout e animações normais permanecem.
+2. **`public/game.js`:** no quadro de um encaixe confirmado, **somente se as animações estiverem reduzidas** e a peça ainda não estiver na escala final, `p.vs` vai imediatamente ao tamanho final e `scaleAnimTime` é encerrado, sem gerar RAF adicional pela escala. Arrasto, expansão da peça antes do encaixe e pinça conservam a lógica do PR #37.
+3. **`public/style.css`:** a animação temporária `pop` da peça encaixada é realmente desabilitada em `data-motion="reduce"` **e** quando o sistema operacional solicita movimento reduzido. Com animações ligadas, a animação atual permanece.
+4. **`tests/animacoes-reduzidas-encaixe.test.js`:** novo teste com funções reais avaliadas em `vm`, cobrindo reflows, encaixe visual, movimento padrão, preservação de eventos e contratos. A documentação histórica é mantida nesta seção do `CONTINUIDADE.md`.
+
+**Arquivos exatos do pacote (4):** substituir `public/game.js`, `public/style.css` e `CONTINUIDADE.md`; adicionar `tests/animacoes-reduzidas-encaixe.test.js`.
+
+**Não alterar:** `server.js`, `challenge.js`, ambos os `tryLock`/SNAP, eventos Socket.IO, `accounts.js`, `xp.js`, `gems.js`, segurança, banco/Neon, migrações SQL imutáveis, `public/sw.js` (cache `v21`, atualização automática da PWA), imagens, sons, layout/HTML, ajuda 💡/📍, proteção de crianças e frases prontas. Solo/Coop conservam orientação zero; Sala Desafio conserva giros. XP permanece exclusivamente em `payMatch`.
+
+## Testes e limites
+
+- Os 10 testes de regressão novos **falharam em 5** sobre a versão original (falhas específicas de reflow/transição/efeito) e **passaram 10/10** com a correção.
+- Chromium headless de desktop: testados tamanhos **6, 12, 20, 30 e 48** em modo normal, movimento reduzido no app e preferência reduzida do sistema, verificando as propriedades CSS computadas (`animation-name`), o tamanho final da peça e a ausência de quadros extras no modo reduzido; 15 cenários passaram. Não é teste de Android físico nem medição de FPS.
+- Testes sintáticos e regressões do projeto registrados separadamente nesta rodada; relatórios detalhados ficam nos logs locais de preparação, não no ZIP distribuído.
+- **Não testados:** latência real de um Android, sala cooperativa real em dois aparelhos, Socket.IO integrado, PostgreSQL real, Render, deploy e GitHub Actions desta nova branch. O proprietário fará o teste após PR, Merge e deploy, como de costume.
+
+## Publicação e aprovação
+
+Conferir a `main` novamente antes do envio; a base esperada é `6e02e45`. Criar **nova ramificação** (sugestão: `corrigir-encaixe-sem-animacoes`), carregar **somente os 4 arquivos** mantendo suas pastas, abrir PR para `main`, verificar `Files changed` e os workflows de regressão PostgreSQL isolado e segurança. O proprietário faz Merge e Manual Deploy no Render. Fechar e reabrir a PWA instalada **sem apagar dados**, voltar à tela inicial para permitir atualização do cache quando necessário. Testar em Android todos os tamanhos Solo/Coop e ambos os modos da Sala Desafio, principalmente encaixes nos marcos de 25%, 50% e 75%, primeiro com animações desligadas e depois ligadas; conferir arrasto, crescimento único na grade, encaixe, zoom por pinça, orientação correta, ajudas e continuidade da partida. Somente depois do retorno/validação iniciar nova rodada.
+
+---
+
 # CONTINUIDADE — ZOOM ESTÁVEL APÓS ENTRADA NA GRADE E ARRASTO MAIS SUAVE
 
 **Data:** 31/10/2026 (America/Fortaleza). **Base `main` confirmada antes da alteração:** `9d8ed2dbb3c4129afdf22c1b13e620b0f54fede0` (Merge PR #36 — corrigir escala grade completa). Conferidos os blobs Git da `main` para `public/game.js` (`d09bd3110e4cb19c87f60b1ba89cdae2bcb9ade3`), `CONTINUIDADE.md` (`0daf2193f7d5f56479ae6575540cd5a0b6d1ac76`) e `tests/escala-grade-completa.test.js` (`a98e558238b64db2861989eeac43ba6de7a3c615`); são idênticos ao pacote PR #36 aplicado sobre a cópia de trabalho. **Nenhuma escrita no GitHub/Render foi realizada pelo assistente.**

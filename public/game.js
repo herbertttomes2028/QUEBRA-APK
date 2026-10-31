@@ -177,7 +177,8 @@
 
   function popEl(el, cls) {
     el.classList.remove(cls);
-    void el.offsetWidth;
+    // No modo sem animacoes, nao reiniciar um efeito inexistente medindo layout.
+    if (!reducedMotion()) void el.offsetWidth;
     el.classList.add(cls);
     setTimeout(function () { el.classList.remove(cls); }, 650);
   }
@@ -1105,7 +1106,13 @@
         p.x = p.tx; p.y = p.ty; changed = true;
       }
       var ts = targetScale(p);
-      if (p.vs !== ts) {
+      // Encaixe e definitivo: sem efeitos visuais nao manter interpolacao
+      // de escala de uma peca ja travada (nem RAFs adicionais por isso).
+      if (p.locked && p.vs !== ts && reducedMotion()) {
+        p.vs = ts;
+        p.scaleAnimTime = null;
+        changed = true;
+      } else if (p.vs !== ts) {
         var dv = ts - p.vs;
         if (Math.abs(dv) > 0.003) {
           // Suaviza a expansão sem atrasar x/y (sempre acompanhando o dedo).
@@ -1181,7 +1188,8 @@
 
   function shake(p) {
     p.el.classList.remove('shake');
-    void p.el.offsetWidth;
+    // Evita reflow do tabuleiro inteiro quando a animacao esta desativada.
+    if (!reducedMotion()) void p.el.offsetWidth;
     p.el.classList.add('shake');
     setTimeout(function () { p.el.classList.remove('shake'); }, 320);
   }
@@ -2146,9 +2154,14 @@
     el.textContent = text;
     el.hidden = false;
     el.style.animation = 'none';
-    void el.offsetWidth;
-    if (reducedMotion()) { el.style.opacity = '1'; el.style.transform = 'translateX(-50%)'; }
-    else { el.style.opacity = ''; el.style.transform = ''; el.style.animation = ''; }
+    if (reducedMotion()) {
+      // No marco de encaixe o modo reduzido nao deve forcar reflow
+      // para reiniciar uma animacao que o jogador desativou.
+      el.style.opacity = '1'; el.style.transform = 'translateX(-50%)';
+    } else {
+      void el.offsetWidth;
+      el.style.opacity = ''; el.style.transform = ''; el.style.animation = '';
+    }
     clearTimeout(state.msTimer);
     state.msTimer = setTimeout(function () { el.hidden = true; }, 2300);
     playSound('chime');
