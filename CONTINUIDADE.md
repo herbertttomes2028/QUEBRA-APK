@@ -1,5 +1,65 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
+**Atualizado em:** 30/10/2026 (horário de Fortaleza)  
+**Rodada:** correção da abertura da partida — giro completo 360° e entrada suave do texto  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Commit `main` confirmado antes de implementar:** `8f3c0d9758b55f39fec8e4e84858516525bcfd6c`  
+**Árvore Git confirmada:** `5061c9d9ad46ba25e7530e08e84d2f767fa01a0f`  
+
+> **LEIA PRIMEIRO:** esta seção é a mais recente. O documento anterior está reproduzido integralmente abaixo, sem exclusões. Sempre reconferir `main` no GitHub antes de qualquer rodada; o assistente não tem permissão para fazer Merge nem deploy.
+
+## 1. Pedido aprovado
+
+O proprietário relatou que a versão com giro de 65° não atende ao visual desejado: a fotografia **precisa dar uma volta completa de 360°**, mas de forma mais lenta e sem travamentos. A entrada da frase **VAMOS LÁ!** ainda era brusca e provocava engasgos; foi solicitada desaceleração desse efeito. A conclusão com pulo leve e flutuação foi aprovada no Android e não deve ser modificada.
+
+## 2. Implementação desta rodada
+
+- **`public/style.css`**: a carta executa **360° completos em 2,4 s**, usando rotação **plana em 2D** (`rotate(-360deg)` até `rotate(0deg)`). É uma mudança deliberada de 3D para 2D: mantém a fotografia visível durante toda a volta e evita a renderização do verso e o efeito de perspectiva que pode custar mais no Android. Escala mínima 97%, máxima 100%, sem pulsação infinita.
+- **`public/style.css`**: o texto **VAMOS LÁ!** deixou de iniciar em `scale(2.6)` com entrada brusca. Agora aparece por baixo com deslocamento vertical de **18 px**, escala de **96% a 100%**, e opacidade suave durante **1,3 s**, iniciando após **0,75 s**. Não anima fontes, sombras ou filtros diretamente.
+- **`public/game.js`**: a duração mínima da apresentação, no modo normal, foi ajustada de **1,9 s para 2,65 s** para permitir que a volta completa de 2,4 s termine antes de abrir o tabuleiro. O modo de movimento reduzido continua com 1,1 s. O carregamento da miniatura já otimizada, áudio, mensagens da sala e botão cancelar não mudaram.
+- **`tests/desempenho.test.js`**: testes de regressão atualizados para exigir 360°, 2,4 s, texto mais lento, ausência do salto 2,6x e início de partida após a animação.
+- **Não alterados:** `public/index.html`, SVG das peças, magnetismo/rotação de peças, conclusão de vitória, subida de nível, XP, gemas, contas, sockets, PostgreSQL, migrações, `server.js`, `challenge.js`, sons e visual fora da abertura.
+
+## 3. Arquivos exatos do ZIP
+
+| Pasta/caminho no GitHub | Ação |
+| --- | --- |
+| `public/style.css` | substituir |
+| `public/game.js` | substituir |
+| `tests/desempenho.test.js` | substituir |
+| `CONTINUIDADE.md` (raiz) | substituir |
+
+**Total: 4 arquivos.** Não adicionar outras versões antigas ao pacote. A base local dos três arquivos de código foi conferida por SHA de blob Git e coincide com a `main` verificada acima. O documento base, `CONTINUIDADE.md`, foi extraído do ZIP da rodada anterior e seu SHA Git `74f3211b4129b598e8c6d072c9e3f7c6689d1afd` corresponde exatamente à `main` atual.
+
+## 4. Testes realmente executados
+
+- `node --check public/game.js` e `node --check tests/desempenho.test.js`: aprovados.
+- Oito grupos de testes independentes com Node, incluindo regressões de desempenho, SVG, encaixe, XP, gemas, sons, celebração e contratos: **64 testes aprovados, 0 falhas**. Para carregar contratos estáticos, foi usado um stub local de `socket.io-client`; testes com rede real não foram executados neste ambiente.
+- Chromium desktop (CSS real, abertura simulada): verificações em **320×650, 360×740 e 412×915 px**, confirmando uma única rotação de 360° por 2,4 s, entrada do texto por 1,3 s com atraso de 0,75 s, sem escala de 2,6x. Com `prefers-reduced-motion: reduce`, nenhuma dessas animações é iniciada. Não é medição de FPS nem um teste Android.
+- **Não executados:** `npm test` completo com Socket.IO real, PostgreSQL integrado, Render, Neon e Android real. Exigir GitHub Actions verde no PR e avaliação no celular antes de aprovar esta rodada.
+
+## 5. Publicação e teste no Android
+
+1. Criar nova ramificação da `main`, sugerida `abertura-360-texto-suave`. Substituir apenas os quatro arquivos nos caminhos listados.
+2. Abrir PR para `main`; conferir **Files changed** com exatamente quatro arquivos. Aguardar o workflow **Gemas e regressao (PostgreSQL isolado)** verde; não fazer Merge em caso de falha.
+3. Só o proprietário faz Merge e deploy manual no Render. Não há migração SQL nova.
+4. No Android, abrir partidas Solo, Cooperativo e Desafio, observar se a imagem faz **uma volta de 360° fluida**, se **VAMOS LÁ!** entra sem engasgos e se a partida só aparece após a apresentação. Confirmar imagem, som, botão cancelar, XP/gemas e conclusão do jogo. Se travar, considerar reduzir outros efeitos de abertura sem modificar o tabuleiro.
+5. Apenas após a aprovação do proprietário iniciar outra rodada.
+
+## 6. Segurança e contratos permanentes
+
+Respeitar as cópias de `tryLock()` e `SNAP = Math.round(tile * .33)` no servidor e Desafio; XP pago somente por `payMatch`, gemas pelo servidor, migrações anteriores imutáveis, sem texto livre no bate-papo nem dados privados de jogadores. Não executar testes destrutivos no Neon de produção.
+
+## 7. Ideias futuras reservadas
+
+Manter as sugestões já registradas no histórico: imagens especiais desbloqueáveis, conquistas e medalhas, personalizações cosméticas com gemas, jornada de aventuras, curiosidades educativas, desafios cooperativos e campeonatos amistosos. O perfil já reúne nível, XP, gemas e progresso; não duplicar a tela de recompensas.
+
+---
+
+# DOCUMENTO ANTERIOR — PRESERVADO INTEGRALMENTE PARA HISTÓRICO
+
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
 **Atualizado em:** 30/10/2026 (horário de Brasília)  
 **Rodada atual:** Ajuste da animação de entrada da partida — giro menor e mais lento  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  

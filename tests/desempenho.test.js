@@ -89,11 +89,12 @@ test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
 
 test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
   assert.match(game, /\(item\.thumb \|\| item\.url\)/);
-  assert.match(css, /rotateY\(-65deg\) scale\(\.9\)/);
-  assert.match(css, /go-spin 1\.7s/);
-  assert.doesNotMatch(css, /rotateY\(-900deg\)|go-pulse.*infinite/);
-  assert.match(css, /backface-visibility: hidden;/);
-  assert.match(game, /go\.min = reducedMotion\(\) \? 1100 : 1900/);
+  assert.match(css, /rotate\(-360deg\) scale\(\.97\)/);
+  assert.match(css, /go-spin 2\.4s/);
+  assert.match(css, /go-text-in 1\.3s[^;]*\.75s both/);
+  assert.match(css, /translate3d\(0, 18px, 0\) rotate\(-3deg\) scale\(\.96\)/);
+  assert.doesNotMatch(css, /rotateY\(-900deg\)|go-pulse.*infinite|go-slam \.5s|scale\(2\.6\)/);
+  assert.match(game, /go\.min = reducedMotion\(\) \? 1100 : 2650/);
   assert.match(css, /html:not\(\[data-motion=\"reduce\"\]\) \.go-splash\.run:not\(\.out\) \.go-card \{ will-change: transform; \}/);
   assert.match(game, /playSound\('tann'\)/);
 });

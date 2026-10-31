@@ -1049,20 +1049,23 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
 .go-cancel { min-height: 44px; padding: 0 24px; }
 .go-splash.out { opacity: 0; transition: opacity .3s ease; }
 
+/* Uma volta completa, mas plana: mantém a fotografia visível o tempo todo
+   e evita a rasterização 3D do giro antigo em aparelhos mais simples. */
 @keyframes go-spin {
-  0%   { opacity: .55; transform: rotateY(-65deg) scale(.9); }
-  24%  { opacity: 1; }
-  100% { opacity: 1; transform: rotateY(0) scale(1); }
+  0%   { opacity: .85; transform: rotate(-360deg) scale(.97); }
+  15%  { opacity: 1; }
+  100% { opacity: 1; transform: rotate(0deg) scale(1); }
 }
-@keyframes go-slam {
-  0%   { opacity: 0; transform: scale(2.6) rotate(-9deg); }
-  100% { opacity: 1; transform: scale(1) rotate(-3deg); }
+/* A frase entra devagar, sem o salto de escala de 2,6x da versão anterior. */
+@keyframes go-text-in {
+  0%   { opacity: 0; transform: translate3d(0, 18px, 0) rotate(-3deg) scale(.96); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) rotate(-3deg) scale(1); }
 }
 @media (prefers-reduced-motion: no-preference) {
   /* Reserva a camada gráfica só enquanto a carta está girando. */
   html:not([data-motion="reduce"]) .go-splash.run:not(.out) .go-card { will-change: transform; }
-  html:not([data-motion="reduce"]) .go-splash.run .go-card { animation: go-spin 1.7s cubic-bezier(.2, .65, .25, 1) both; }
-  html:not([data-motion="reduce"]) .go-splash.run .go-text { animation: go-slam .5s cubic-bezier(.2, 1.6, .4, 1) .8s both; }
+  html:not([data-motion="reduce"]) .go-splash.run .go-card { animation: go-spin 2.4s cubic-bezier(.38, .58, .33, 1) both; }
+  html:not([data-motion="reduce"]) .go-splash.run .go-text { animation: go-text-in 1.3s cubic-bezier(.22, .68, .28, 1) .75s both; }
 }
 html[data-motion="reduce"] .go-splash.out { transition: none; }
 
