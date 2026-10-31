@@ -505,6 +505,12 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
   box-shadow: inset 0 0 0 1px rgba(27, 37, 89, .14);
   animation: pop .35s ease-out;
 }
+/* Encaixe no modo sem animacoes: nenhum efeito temporario na pecas SVG.
+   O posicionamento e o SNAP continuam no JavaScript e no servidor. */
+html[data-motion="reduce"] .piece.locked .tile { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .piece.locked .tile { animation: none; }
+}
 .piece.locked .tile:not(.puzzle-shaped-tile)::after { display: none; }
 .piece.shake .tile { animation: shake .3s ease; }
 
