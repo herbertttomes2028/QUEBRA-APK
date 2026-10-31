@@ -424,12 +424,15 @@
     var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
     return n + '/' + c.images.length;
   }
+  // Galeria de coleções: fotos protagonistas, informação curta e progresso em 5 marcas.
+  // Nenhuma regra de liberação é recalculada aqui; usamos libraryAvailable e a API existente.
   function renderLibraryHome() {
     libraryView = 'home'; libraryCategory = null;
+    $('#screen-pick').classList.remove('library-inside-category');
+    $('#pick-title').textContent = 'ESCOLHA UMA CATEGORIA';
+    $('#pick-lead').textContent = 'Explore imagens e complete suas coleções.';
     $('#library-nav').hidden = true; $('#pick-grid').hidden = true;
     var root = $('#library-categories'); root.hidden = false; root.textContent = '';
-    var lead = libraryEl('p', 'library-lead', 'Complete as cinco imagens de cada etapa para avançar. As duas coleções especiais podem ser abertas com gemas.');
-    root.appendChild(lead);
     var celebrate = libraryProgress.loaded && state.libraryCatalog.find(function (c) {
       return c.id === libraryCelebrationPending && c.images.every(function (x) { return libraryDone(x.file); });
     });
@@ -445,24 +448,44 @@
     state.libraryCatalog.forEach(function (c) {
       var open = c.order === 1 || (libraryProgress.loaded && libraryAvailable(c));
       var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
+      var complete = n === c.images.length;
+      var premium = !!c.price;
       var card = libraryEl('article', 'library-category' + (open ? ' available' : ' locked') +
-        (n === c.images.length ? ' completed' : '') + (celebrate && celebrate.id === c.id ? ' celebrating' : ''));
-      var cover = libraryEl('div', 'library-cover'); cover.appendChild(libraryImage(c.images[0].file, c.name));
+        (complete ? ' completed' : '') + (premium ? ' premium' : '') +
+        (celebrate && celebrate.id === c.id ? ' celebrating' : ''));
+      var status = complete ? '✦ COLEÇÃO COMPLETA' : open ? (premium ? '✦ COLEÇÃO DESBLOQUEADA' : '● DISPONÍVEL') :
+        premium ? '✦ COLEÇÃO ESPECIAL' : '◈ PRÓXIMA COLEÇÃO';
+      card.appendChild(libraryEl('div', 'library-status', status));
+      var cover = libraryEl('div', 'library-cover');
+      cover.appendChild(libraryImage(c.images[0].file, c.name));
       card.appendChild(cover);
       var info = libraryEl('div', 'library-info');
-      info.appendChild(libraryEl('b', 'library-name', c.name.toLocaleUpperCase('pt-BR')));
-      info.appendChild(libraryEl('small', 'library-subtitle', c.subtitle));
-      var bar = libraryEl('div', 'library-track');
-      var fill = libraryEl('span', 'library-fill'); fill.style.width = (n / c.images.length * 100) + '%'; bar.appendChild(fill); info.appendChild(bar);
-      var hint = open ? (n === c.images.length ? '✓ Concluída · ' + librarySummary(c) : librarySummary(c) + ' imagens concluídas') :
-        (!libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' : c.price ? '🔒 ' + c.price + ' gemas · compra permanente' : '🔒 Conclua as 5 imagens da categoria anterior');
-      info.appendChild(libraryEl('small', 'library-hint', hint));
-      card.appendChild(info);
-      var action = libraryEl('button', 'btn library-action', open ? 'Abrir ›' : c.price ? '🔓 ' + c.price + ' 💎' : '🔒');
+      info.appendChild(libraryEl('h3', 'library-name', c.name.toLocaleUpperCase('pt-BR')));
+      info.appendChild(libraryEl('p', 'library-subtitle', c.subtitle));
+      var progress = libraryEl('div', 'library-progress');
+      progress.setAttribute('role', 'group');
+      progress.setAttribute('aria-label', n + ' de ' + c.images.length + ' imagens concluídas');
+      var dots = libraryEl('div', 'library-dots'); dots.setAttribute('aria-hidden', 'true');
+      c.images.forEach(function (im) {
+        dots.appendChild(libraryEl('span', 'library-dot' + (libraryDone(im.file) ? ' is-done' : '')));
+      });
+      progress.appendChild(dots);
+      progress.appendChild(libraryEl('span', 'library-progress-label', n + ' DE ' + c.images.length + ' CONCLUÍDAS'));
+      info.appendChild(progress);
+      if (!open) {
+        var hint = !libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' :
+          premium ? 'Desbloqueio permanente com gemas' :
+          'Conclua ' + state.libraryCatalog[c.order - 2].name + ' para liberar';
+        info.appendChild(libraryEl('p', 'library-hint', hint));
+      }
+      var label = open ? 'ABRIR' : premium ? 'DESBLOQUEAR · ' + c.price + ' GEMAS' : 'BLOQUEADA';
+      var action = libraryEl('button', 'btn btn-primary library-action', label);
       action.type = 'button'; action.dataset.category = c.id;
-      action.disabled = !open && (!libraryProgress.loaded || !c.price);
-      action.setAttribute('aria-label', open ? 'Abrir ' + c.name : c.price ? 'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name);
-      card.appendChild(action); root.appendChild(card);
+      action.disabled = !open && (!libraryProgress.loaded || !premium);
+      action.setAttribute('aria-label', open ? 'Abrir ' + c.name : premium ?
+        'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name);
+      info.appendChild(action);
+      card.appendChild(info); root.appendChild(card);
     });
     var classics = libraryEl('button', 'btn btn-secondary library-legacy', '🖼 Imagens clássicas e Minha imagem');
     classics.type = 'button'; classics.id = 'library-classic'; root.appendChild(classics);
@@ -473,8 +496,10 @@
     var c = libraryById(id);
     if (!c || !libraryAvailable(c)) { renderLibraryHome(); return; }
     libraryView = 'category'; libraryCategory = id;
+    $('#screen-pick').classList.add('library-inside-category');
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
-    $('#library-heading').textContent = c.icon + ' ' + c.name.toLocaleUpperCase('pt-BR') + ' · ' + librarySummary(c);
+    $('#library-heading').textContent = c.name.toLocaleUpperCase('pt-BR');
+    $('#library-detail').textContent = 'Escolha sua imagem · ' + librarySummary(c) + ' concluídas';
     renderPickGrid();
   }
   function renderLibraryCurrent() {
@@ -513,8 +538,13 @@
   function renderPickGrid() {
     var grid = $('#pick-grid');
     grid.innerHTML = ''; grid.hidden = false;
+    grid.classList.toggle('library-gallery', libraryView === 'category');
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
-    if (libraryView === 'legacy') $('#library-heading').textContent = 'Imagens clássicas e Minha imagem';
+    if (libraryView === 'legacy') {
+      $('#screen-pick').classList.add('library-inside-category');
+      $('#library-heading').textContent = 'IMAGENS CLÁSSICAS E MINHA IMAGEM';
+      $('#library-detail').textContent = 'Escolha uma imagem ou adicione a sua';
+    }
     // A galeria antiga continua intacta, inclusive fotos do celular.
     if (libraryView === 'legacy') {
       var add = document.createElement('button');
@@ -540,7 +570,7 @@
       label.textContent = item.label;
       b.appendChild(thumb);
       b.appendChild(label);
-      if (libraryDone(item.file)) b.appendChild(libraryEl('span', 'library-done', '✓ Concluída'));
+      if (libraryDone(item.file)) b.appendChild(libraryEl('span', 'library-done', '★ Concluída'));
       grid.appendChild(b);
       if (item.categoryId) thumb.appendChild(libraryImage(item.file, item.label));
       else prepareThumb(item).then(function (url) { if (b.isConnected) thumb.style.backgroundImage = 'url("' + url + '")'; });
