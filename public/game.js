@@ -1539,22 +1539,27 @@
     photo.style.height = source.height + 'px';
     layer.hidden = false;
     var sx = target.width / source.width, sy = target.height / source.height;
-    var lift = Math.min(1.16, Math.max(1.045, Math.max(sx, sy) * 1.11));
-    var dx = (window.innerWidth - source.width * lift) / 2 - source.left;
-    var dy = (window.innerHeight - source.height * lift) / 2 - source.top;
+    var heroScale = Math.min(window.innerWidth * .84 / source.width, window.innerHeight * .54 / source.height);
+    heroScale = Math.max(1.18, Math.max(sx, sy) * 1.32, heroScale);
+    heroScale = Math.min(heroScale, 1.72);
+    var heroLeft = (window.innerWidth - source.width * heroScale) / 2;
+    var heroTop = (window.innerHeight - source.height * heroScale) / 2 - Math.min(18, source.height * .06);
+    var heroX = heroLeft - source.left, heroY = heroTop - source.top;
     var tx = target.left - source.left, ty = target.top - source.top;
     var frames = [
       { offset: 0, transform: 'translate3d(0,0,0) scale(1)' },
-      { offset: .57, transform: 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(' + lift + ')' },
+      { offset: .46, transform: 'translate3d(' + (heroX * .92) + 'px,' + (heroY * .92) + 'px,0) scale(' + (heroScale * 1.03) + ')' },
+      { offset: .68, transform: 'translate3d(' + heroX + 'px,' + heroY + 'px,0) scale(' + heroScale + ')' },
+      { offset: .83, transform: 'translate3d(' + heroX + 'px,' + (heroY - 4) + 'px,0) scale(' + heroScale + ')' },
       { offset: 1, transform: 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + sx + ',' + sy + ')' }
     ];
     try {
       victoryMotion.finish = reveal;
       victoryMotion.animation = photo.animate(frames, {
-        duration: 1220, easing: 'cubic-bezier(.2,.72,.22,1)', fill: 'forwards'
+        duration: 2260, easing: 'cubic-bezier(.18,.78,.18,1)', fill: 'forwards'
       });
       victoryMotion.animation.finished.then(reveal, function () { if (victoryMotion.finish) reveal(); });
-      victoryMotion.timer = setTimeout(reveal, 1600);  // limite: nunca bloqueia o resultado
+      victoryMotion.timer = setTimeout(reveal, 2800);  // limite: nunca bloqueia o resultado
     } catch (e) { reveal(); }
   }
   $('#victory-flight').addEventListener('pointerdown', function (e) {
