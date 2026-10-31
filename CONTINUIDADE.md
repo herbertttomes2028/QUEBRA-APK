@@ -1,3 +1,49 @@
+# CONTINUIDADE — ARRASTO MAIS LEVE E SEM ZOOM AUTOMÁTICO NAS 6 PEÇAS
+
+**Data:** 31/10/2026 (America/Fortaleza). **`main` oficial confirmada antes da alteração:** `d9614ad5418ee6a99dfad68725d5eb78616ed430` (Merge PR #30 — correção de sessão cooperativa), árvore `3f62baeba31dd2ad1fcbdbb3d38ec9ca3ec037cb`. **Publicação:** somente o proprietário, por nova ramificação, PR, Merge, deploy Render e teste no Android. O assistente não realizou escrita ou deploy.
+
+## Pedido aprovado
+
+O proprietário confirmou a correção da desconexão ao fim de partidas cooperativas e autorizou melhorar a sensação de peça presa à bandeja e leves engasgos em **6 peças**. Esclarecimento indispensável: **não remover o zoom manual por pinça**, mesmo nas 6 peças. Retirar exclusivamente o **zoom automático ao selecionar, segurar e arrastar** nas partidas de 6 peças; nas outras 4 quantidades, preservar a ampliação atual. Manter o tamanho reduzido natural na bandeja e tamanho normal quando levado ao tabuleiro. Não alterar estética, sombras, sons, animações ou encaixe.
+
+## Correções mínimas
+
+- `public/game.js`: `baseScale()` retorna escala natural `TRAY/TILE` para peças de **6** na bandeja, inclusive selecionadas/arrastadas; ao chegar ao tabuleiro retorna `1` (tamanho normal), sem ampliação automática `HELD_SCALE` ou `small*1.12`. `targetScale()` e `setZoom()` permanecem iguais, portanto **zoom de pinça continua disponível**. A lógica de 12/20/30/48 não foi alterada.
+- `public/game.js`: nas 6 peças, `onPointerDown()` guarda o deslocamento real entre dedo e centro da peça (`k=1`), sem correção de ampliação automática; `onPointerMove()` reconhece arrasto por toque após **5 px** em vez de 8 px. Nos outros modos, o cálculo e limiar antigo de 8 px continuam. O ajuste evita o salto/atraso inicial percebido ao puxar a peça da bandeja. Ao eliminar a ampliação desnecessária, também reduz o trabalho de reescalar as peças grandes por vários quadros quando apenas selecionadas/seguradas.
+- `public/sw.js`: cache PWA `v18` → `v19` para entregar o novo `game.js` ao aplicativo instalado sem desinstalar ou limpar dados.
+- Quatro testes de cache existentes atualizados para `v19`, sem mudar seus outros contratos, e novo `tests/arrasto-seis-pecas.test.js` para executar isoladamente trechos reais do cliente: sete casos de seleção, pinça, arrasto, comportamento das demais quantidades, prevenção de redesenho desnecessário e cache.
+
+**Arquivos exatos do pacote (8):**
+
+| Caminho no GitHub | Operação |
+| --- | --- |
+| `public/game.js` | substituir |
+| `public/sw.js` | substituir |
+| `tests/arrasto-seis-pecas.test.js` | adicionar |
+| `tests/colecoes-galeria.test.js` | substituir (somente cache v19) |
+| `tests/fluidez-animacoes.test.js` | substituir (somente cache v19) |
+| `tests/library-visual.test.js` | substituir (somente cache v19) |
+| `tests/sem-piscadas.test.js` | substituir (somente cache v19) |
+| `CONTINUIDADE.md` | substituir (acrescentado este registro, todo histórico preservado) |
+
+**Não alterar:** `server.js`, `challenge.js`, `accounts.js`, `resource-guard.js`, `security.js`, `xp.js`, `gems.js`, `library.js`, `phrases.js`, migrações, `public/style.css`, imagens, sons, HTML, manifest e restante do projeto. Servidor continua autoridade para encaixes e sincronização, dois `tryLock`/SNAP intocados, eventos Socket.IO preservados, XP só por `payMatch`, frases prontas e proteção de dados infantis sem alteração.
+
+## Testes executados e limitações
+
+- `node --check public/game.js`, `node --check public/sw.js` e novo teste: aprovados.
+- `node --test tests/arrasto-seis-pecas.test.js`: **7 aprovados**, 0 falhas. Testes de lógica com funções reais via `vm` e ponteiros simulados (não em tela Android).
+- Suíte de testes locais selecionados (contratos, segurança, XP, gemas, biblioteca, desempenho, animações, conta e gestos): **114 no total, 112 aprovados, 0 falhas, 2 ignorados** (PostgreSQL real indisponível). `socket.io-client` foi substituído por stub **somente para importar o módulo de helpers nos testes estáticos**, sem fingir integração. Testes de rede real e servidor/Socket.IO real não foram executados no ambiente porque dependências npm não estavam instaladas.
+- **Não testados:** FPS e suavidade em Android físico, partida completa em aparelhos diferentes, servidor Render, Neon real, simulação de gestos em navegador real, teste de carga. O diagnóstico do engasgo visual é baseado no código e pode exigir ajuste fino após o teste real.
+
+## Publicação, teste e aprovação
+
+1. Conferir `main` novamente, criar nova branch, por exemplo `arrasto-6-pecas-sem-zoom-automatico`.
+2. Enviar exatamente os 8 arquivos, nas pastas indicadas. Fazer PR para `main`; conferir 8 alterações e ambos os workflows de regressão e segurança verdes **antes do Merge**.
+3. O proprietário faz Merge e deploy Render; fecha e reabre a PWA instalada pelo Chrome. Não desinstalar nem limpar os dados do aplicativo. Cache `v19` deve atualizar.
+4. Android real: jogar 6 peças em Solo e Cooperativo; **tocar e segurar** não pode ampliar; **pinça de dois dedos** continua ampliando; puxar da bandeja precisa acompanhar dedo, girar, soltar, encaixar e concluir normalmente; voltar à tela inicial sem desconectar conta. Conferir também 12/20/30/48 para confirmar zoom anterior intacto. Reportar se ainda há engasgos para avaliar FPS/profiling de navegador, sem mudar outras mecânicas antes de aprovar esta rodada.
+
+---
+
 # CONTINUIDADE — CORREÇÃO DE SESSÃO AO FINAL DA PARTIDA COOPERATIVA
 
 **Data:** 31/10/2026 (America/Fortaleza). **`main` de referência confirmada:** `47af66b1119878681b86ff5a68c93c5ad6009666` (PR #29 — auditoria de segurança). **Nova rodada:** correção de regressão de autenticação descoberta em teste Android pelo proprietário. **A alteração foi preparada localmente; não houve publicação nem deploy pelo assistente.**

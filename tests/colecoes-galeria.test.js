@@ -59,13 +59,13 @@ test('galeria de cinco imagens em duas colunas e um único Voltar amarelo', () =
   assert.match(js, /'★ Concluída'/);
 });
 
-test('sem movimentos contínuos, imagens e jogo protegidos, cache v18', () => {
+test('sem movimentos contínuos, imagens e jogo protegidos, cache v19', () => {
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\)/);
   assert.match(css, /html:not\(\[data-motion="reduce"\]\) \.library-celebration-banner/);
   assert.doesNotMatch(css.slice(css.indexOf('/* Galeria de coleções'), css.indexOf('/* Categoria concluída:')), /animation:/);
   assert.match(js, /img\.src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\)/);
   assert.match(js, /var LIBRARY_MEDIA_VERSION = 'capas-20261031'/);
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v18'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v19'/);
   assert.match(js, /function localLibraryComplete\(file\)/);
   assert.match(js, /function showGoSplash\(/);
 });
