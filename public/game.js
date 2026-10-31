@@ -1512,7 +1512,7 @@
       refreshXp();
       if (onShown) onShown();
     }
-    var board = $('#board'), modal = $(modalSel);
+    var board = $('#board');
     // Preferências de acessibilidade, partida retomada e navegadores antigos:
     // resultado completo e acessível imediatamente, sem movimento.
     if (!canFly || reducedMotion() || !board || !state.imageUrl ||
@@ -1521,16 +1521,9 @@
     var source = board.getBoundingClientRect();
     if (source.width < 30 || source.height < 30) { reveal(); return; }
 
-    // Medição única, sem animação e sem foco: evita adivinhar a posição final
-    // em telas de tamanhos diferentes, inclusive com rolagem no cartão.
-    modal.classList.add('victory-measuring');
-    modal.hidden = false;
-    var targetEl = modalSel === '#modal-win' ? $('#win-art') : $('#duel-art');
-    var target = targetEl.getBoundingClientRect();
-    modal.hidden = true;
-    modal.classList.remove('victory-measuring');
-    if (target.width < 30 || target.height < 30) { reveal(); return; }
-
+    // A foto permanece no lugar do tabuleiro: nada de voo até o cartão,
+    // nem ampliação desproporcional. Só um pulinho de 6% e flutuação leve.
+    // Um único bitmap e apenas transform (sem mexer nas peças SVG).
     var layer = $('#victory-flight'), photo = $('#victory-flight-photo');
     photo.style.backgroundImage = 'url("' + state.imageUrl + '")';
     photo.style.left = source.left + 'px';
@@ -1538,28 +1531,21 @@
     photo.style.width = source.width + 'px';
     photo.style.height = source.height + 'px';
     layer.hidden = false;
-    var sx = target.width / source.width, sy = target.height / source.height;
-    var heroScale = Math.min(window.innerWidth * .84 / source.width, window.innerHeight * .54 / source.height);
-    heroScale = Math.max(1.18, Math.max(sx, sy) * 1.32, heroScale);
-    heroScale = Math.min(heroScale, 1.72);
-    var heroLeft = (window.innerWidth - source.width * heroScale) / 2;
-    var heroTop = (window.innerHeight - source.height * heroScale) / 2 - Math.min(18, source.height * .06);
-    var heroX = heroLeft - source.left, heroY = heroTop - source.top;
-    var tx = target.left - source.left, ty = target.top - source.top;
     var frames = [
       { offset: 0, transform: 'translate3d(0,0,0) scale(1)' },
-      { offset: .46, transform: 'translate3d(' + (heroX * .92) + 'px,' + (heroY * .92) + 'px,0) scale(' + (heroScale * 1.03) + ')' },
-      { offset: .68, transform: 'translate3d(' + heroX + 'px,' + heroY + 'px,0) scale(' + heroScale + ')' },
-      { offset: .83, transform: 'translate3d(' + heroX + 'px,' + (heroY - 4) + 'px,0) scale(' + heroScale + ')' },
-      { offset: 1, transform: 'translate3d(' + tx + 'px,' + ty + 'px,0) scale(' + sx + ',' + sy + ')' }
+      { offset: .18, transform: 'translate3d(0,-4px,0) scale(1.06)' },
+      { offset: .36, transform: 'translate3d(0,-8px,0) scale(1.025)' },
+      { offset: .58, transform: 'translate3d(0,-3px,0) scale(1.035)' },
+      { offset: .80, transform: 'translate3d(0,-7px,0) scale(1.025)' },
+      { offset: 1, transform: 'translate3d(0,-4px,0) scale(1.025)' }
     ];
     try {
       victoryMotion.finish = reveal;
       victoryMotion.animation = photo.animate(frames, {
-        duration: 2260, easing: 'cubic-bezier(.18,.78,.18,1)', fill: 'forwards'
+        duration: 2300, easing: 'ease-in-out', fill: 'forwards'
       });
       victoryMotion.animation.finished.then(reveal, function () { if (victoryMotion.finish) reveal(); });
-      victoryMotion.timer = setTimeout(reveal, 2800);  // limite: nunca bloqueia o resultado
+      victoryMotion.timer = setTimeout(reveal, 2800); // limite: nunca bloqueia o resultado
     } catch (e) { reveal(); }
   }
   $('#victory-flight').addEventListener('pointerdown', function (e) {
