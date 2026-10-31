@@ -35,7 +35,7 @@ test('PostgreSQL: migração, créditos atômicos, idempotência, rollback e con
   const balance = async () => Number((await pool.query('SELECT gems FROM users WHERE id = $1', [uid])).rows[0].gems);
   try {
     const migrations = (await pool.query('SELECT name FROM schema_migrations ORDER BY name')).rows.map(x => x.name);
-    assert.deepEqual(migrations, ['001_contas.sql','002_seguranca.sql','003_xp.sql','004_modo_solo.sql','005_gemas.sql']);
+    assert.deepEqual(migrations, ['001_contas.sql','002_seguranca.sql','003_xp.sql','004_modo_solo.sql','005_gemas.sql','006_biblioteca.sql']);
     const unique = crypto.randomBytes(8).toString('hex');
     uid = (await pool.query("INSERT INTO users (google_sub, name, friend_code) VALUES ($1, 'Teste Gemas', $2) RETURNING id", ['test-gems-' + unique, unique.slice(0,8).toUpperCase()])).rows[0].id;
     assert.equal(await balance(), 0);

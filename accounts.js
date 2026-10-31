@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const phrases = require('./phrases');
 const xpm = require('./xp');
 const gemm = require('./gems');
+const library = require('./library');
 const { codeEmail } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
@@ -109,6 +110,7 @@ const ACHIEVEMENTS = [
 
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, getUpload, putUpload, onAuth, mailer, peerOf } = d;
+  const libraryService = library.makeService(db);
   const googleClientId = d.googleClientId || null;
   const getKeys = d.googleKeys || googleKeys;
 
@@ -603,6 +605,15 @@ function createAccounts(d) {
     res.json({ ok: true, matches: rows.map((m) => ({ mode: m.mode, imageLabel: m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, durationMs: m.duration_ms == null ? null : Number(m.duration_ms), opponent: m.opponent, at: m.created_at })) });
   }));
 
+  /* Biblioteca pessoal: progresso e desbloqueios somente do titular da sessão. */
+  r.get('/library', needUser, guard(async (req, res) => res.json({ ok: true, library: await libraryService.status(req.user.id) })));
+  r.post('/library/unlock', needUser, guard(async (req, res) => {
+    if (!allow('library:buy:' + req.user.id, 15, 60 * 1000)) return bad(res, 429, 'rate');
+    const result = await libraryService.buy(req.user.id, (req.body || {}).categoryId);
+    if (!result.ok) return bad(res, result.error === 'gems' ? 409 : 400, result.error);
+    res.json(result);
+  }));
+
   r.get('/save', needUser, guard(async (req, res) => res.json({ ok: true, save: await saveSummary(req.user.id) })));
   r.post('/save/discard', needUser, guard(async (req, res) => { await db.q('DELETE FROM saves WHERE user_id = $1', [req.user.id]); res.json({ ok: true }); }));
 
@@ -727,6 +738,7 @@ function createAccounts(d) {
       if (rw.total <= 0) return { gained: 0, parts: rw.parts, before: u.xp, after: u.xp, gems: { match: 0, level: 0 }, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
       await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'match',$3,$4)", [uid, o.ref, rw.total, JSON.stringify({ parts: rw.parts, puzzle: key, pieces: o.pieces, partner: pk, clears, label: o.label })]);
       if (rw.earnedCompletion) await q('INSERT INTO puzzle_clears (user_id, puzzle_key, clears, last_at) VALUES ($1,$2,1,now()) ON CONFLICT (user_id, puzzle_key) DO UPDATE SET clears = puzzle_clears.clears + 1, last_at = now()', [uid, key]);
+      if (rw.earnedCompletion && o.imageId) await libraryService.recordTx(q, uid, o.imageId); // transação idempotente de XP; não paga uma segunda vez
       const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [rw.total, uid]);
       const gems = await gemm.creditTx(q, uid, o.ref, o.pieces, rw.earnedCompletion, u.xp, r.rows[0].xp);
       return { gained: rw.total, parts: rw.parts, before: u.xp, after: r.rows[0].xp, gems, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
@@ -808,7 +820,7 @@ function createAccounts(d) {
       if (!solo) await deleteSave(p.uid).catch(() => {});
       await addMatch(p.uid, { mode: solo ? 'solo' : 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: gameMs, opponent: other ? other.name : '' });
       await payMatch(p.uid, {
-        ref: 'c:' + room.code + ':' + room.startedAt, label: imageLabel(room.imageId), pieces: room.pieces.length, custom: /^custom:/.test(room.imageId),
+        ref: 'c:' + room.code + ':' + room.startedAt, imageId: room.imageId, label: imageLabel(room.imageId), pieces: room.pieces.length, custom: /^custom:/.test(room.imageId),
         completed: true, won: false, humans: !!other && !same, partnerUid, friend: partnerUid ? await areFriends(p.uid, partnerUid) : false, elapsedMs: gameMs, gameMs
       });
     }
@@ -828,7 +840,7 @@ function createAccounts(d) {
         durationMs: me.finishedMs != null ? me.finishedMs : null, opponent: other.name
       });
       await payMatch(p.uid, {
-        ref: 'd:' + room.code + ':' + result.match + ':' + room.startedAt, label: imageLabel(result.imageId), pieces: result.total, custom: /^custom:/.test(result.imageId),
+        ref: 'd:' + room.code + ':' + result.match + ':' + room.startedAt, imageId: result.imageId, label: imageLabel(result.imageId), pieces: result.total, custom: /^custom:/.test(result.imageId),
         completed, won, humans: !!op && !same, partnerUid, friend: partnerUid ? await areFriends(p.uid, partnerUid) : false,
         elapsedMs: me.finishedMs != null ? me.finishedMs : null, gameMs: result.elapsedMs
       });
@@ -946,7 +958,7 @@ function createAccounts(d) {
   return {
     enabled: true,
     config: { google: googleClientId },
-    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, levelOf, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
+    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
     verifyGoogleIdToken: (t) => verifyGoogleIdToken(t, googleClientId, getKeys),
     close: () => { clearInterval(sweeper); }
   };

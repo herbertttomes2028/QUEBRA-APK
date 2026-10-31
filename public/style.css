@@ -2160,3 +2160,42 @@ html[data-motion="reduce"] #modal-win.victory-ready *, html[data-motion="reduce"
 @media (prefers-reduced-motion: reduce) {
   .victory-flight, .victory-flight *, #modal-win.victory-ready *, #modal-duel.victory-ready * { animation: none !important; }
 }
+
+/* ============================================================
+ * Biblioteca de imagens — usa paleta, tipografia e cartões do jogo.
+ * Miniaturas 3:4; só cinco imagens por categoria montadas no DOM.
+ * ============================================================ */
+.library-categories { width: 100%; display: flex; flex-direction: column; gap: 12px; padding: 4px 0 18px; }
+.library-lead { margin: 4px 0 8px; text-align: center; font-size: .85rem; color: var(--ink-soft); font-weight: 650; }
+.library-category { width: 100%; display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px; border-radius: 20px; background: var(--card); box-shadow: 0 5px 0 var(--line-2); }
+.library-category.locked { background: var(--paper-2); }
+.library-cover { width: 80px; height: 106px; flex: 0 0 80px; border-radius: 12px; overflow: hidden; background: var(--paper-3); position: relative; }
+.library-category.locked .library-cover::after { content: '🔒'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.45rem; background: rgba(27,37,89,.32); }
+.library-photo { width: 100%; height: 100%; display: block; object-fit: cover; }
+.library-cover.image-failed, .thumb.image-failed { background: linear-gradient(135deg,var(--paper-3),var(--line)); }
+.library-cover.image-failed::before, .thumb.image-failed::before { content: '🧩'; display: grid; place-items: center; position: absolute; inset: 0; font-size: 1.8rem; }
+.library-info { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.library-name { font-size: .98rem; line-height: 1.13; overflow-wrap: anywhere; }
+.library-subtitle { font-size: .71rem; line-height: 1.2; color: var(--ink-soft); }
+.library-track { height: 8px; width: 100%; border-radius: 20px; background: var(--track); overflow: hidden; margin: 3px 0; }
+.library-fill { display: block; height: 100%; border-radius: inherit; background: var(--mint); transition: width .2s ease; }
+.library-hint { color: var(--ink-soft); font-size: .68rem; font-weight: 800; line-height: 1.25; }
+.library-action { align-self: center; min-width: 62px; flex: 0 0 auto; min-height: 44px; padding: 0 8px; font-size: .76rem; background: var(--sun); box-shadow: 0 3px 0 var(--sun-deep); border-radius: 12px; }
+.library-action:disabled { opacity: .6; cursor: default; background: var(--paper-3); box-shadow: none; }
+.library-category.available .library-action { background: var(--deep); color: #fff; box-shadow: 0 3px 0 var(--deep-shadow); }
+.library-legacy { width: 100%; border-radius: 16px; font-size: .87rem; justify-content: center; padding: 10px; }
+.library-note { color: var(--ink-soft); font-size: .76rem; text-align: center; line-height: 1.4; padding: 4px 10px 0; }
+.library-nav { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 7px; padding: 5px 0 12px; }
+.library-nav .btn { font-size: .8rem; min-height: 44px; padding: 0 12px; }
+.library-heading { flex: 1; font-weight: 900; text-align: right; font-size: .84rem; line-height: 1.2; }
+.pick-card .thumb { position: relative; overflow: hidden; }
+.pick-card .thumb .library-photo { border-radius: 12px; }
+.library-done { display: inline-flex; margin-top: 5px; background: #d6f6ed; border-radius: 20px; padding: 2px 8px; color: #115b4a; font-size: .7rem; font-weight: 900; }
+html[data-theme="dark"] .library-done { background: #174d48; color: #d0fff4; }
+@media (max-width: 370px) {
+  .library-category { gap: 8px; padding: 8px; }
+  .library-cover { width: 66px; height: 88px; flex-basis: 66px; }
+  .library-name { font-size: .84rem; }
+  .library-subtitle, .library-hint { font-size: .65rem; }
+  .library-action { min-width: 53px; font-size: .7rem; padding: 0 5px; }
+}

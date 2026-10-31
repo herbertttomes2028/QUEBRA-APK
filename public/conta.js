@@ -754,6 +754,11 @@
       else QC.toast('Sala criada, mas não deu para convidar: ' + errText(res && res.error), 4200);
     });
   };
+  QC.libraryBalanceChanged = function (gems) {
+    if (!acc.me || !Number.isSafeInteger(gems) || gems < 0) return;
+    acc.me.gems = gems; paintChip();
+    if ($('#screen-me').classList.contains('active')) renderProfile();
+  };
   QC.onScreen = function (name) {
     if (name === 'home') { acc.pending = null; QC.goLabel = null; if (acc.me) loadMe(); }
   };

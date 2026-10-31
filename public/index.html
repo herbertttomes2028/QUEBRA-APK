@@ -246,7 +246,13 @@
             <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
             <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
           </div>
-          <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis. Toque numa imagem para escolher."></div>
+          <!-- Biblioteca dentro da tela de escolha existente: não cria outra navegação. -->
+          <div id="library-categories" class="library-categories" aria-label="Categorias de imagens"></div>
+          <div id="library-nav" class="library-nav" hidden>
+            <button id="library-back" class="btn btn-ghost" type="button">‹ Categorias</button>
+            <span id="library-heading" class="library-heading"></span>
+          </div>
+          <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis. Toque numa imagem para escolher." hidden></div>
           <p id="pick-error" class="error" role="alert" hidden></p>
         </div>
       </div>

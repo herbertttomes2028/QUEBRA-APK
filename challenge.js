@@ -26,7 +26,7 @@ module.exports = function createChallenge(d) {
     io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
-    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen
+    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed
   } = d;
 
   const rooms = new Map();
@@ -380,12 +380,14 @@ module.exports = function createChallenge(d) {
   }
 
   function register(socket) {
-    socket.on('ch:create', (data, cb) => {
+    socket.on('ch:create', async (data, cb) => {
       data = data || {};
       const pid = cleanPid(data.pid);
       if (!pid) return reply(cb, { ok: false, error: 'invalid' });
       const imageId = validImage(data.imageId);
       if (!imageId) return reply(cb, { ok: false, error: 'noimages' });
+      try { if (imageAllowed && !await imageAllowed(socket, imageId)) return reply(cb, { ok: false, error: 'library_locked' }); }
+      catch (e) { return reply(cb, { ok: false, error: 'server' }); }
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
       leaveSocket(socket, true);
