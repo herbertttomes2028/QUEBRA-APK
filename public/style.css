@@ -1724,7 +1724,7 @@ html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-mo
 .me-h { margin: 6px 4px 8px; font: 700 1.14rem "Fredoka", var(--font); color: var(--ink); }
 .me-h small { color: var(--ink-soft); font-weight: 700; font-size: .82rem; }
 .me-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
-.me-stat { background: var(--card); border-radius: 20px; padding: 12px 14px; box-shadow: 0 5px 0 var(--line-2); display: flex; flex-direction: column; border-left: 7px solid var(--c, var(--cobalt)); animation: me-row .35s ease-out backwards; }
+.me-stat { background: var(--card); border-radius: 20px; padding: 12px 14px; box-shadow: 0 5px 0 var(--line-2); display: flex; flex-direction: column; border-left: 7px solid var(--c, var(--cobalt)); }
 .me-stat.c1 { --c: var(--cobalt); } .me-stat.c2 { --c: var(--mint); } .me-stat.c3 { --c: var(--pink); } .me-stat.c4 { --c: var(--sun-deep); }
 .me-stat b { font: 700 2.1rem/1.05 "Fredoka", var(--font); color: var(--ink); }
 .me-stat span { font-weight: 800; color: var(--ink-soft); font-size: .85rem; }
@@ -1750,7 +1750,7 @@ html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-mo
 /* amigos e partidas */
 .me-add-row { display: flex; gap: 8px; margin-top: 6px; }
 .me-add-row input { letter-spacing: .1em; font-weight: 700; text-transform: uppercase; }
-.fr-row { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 20px; padding: 10px 12px; margin-bottom: 10px; box-shadow: 0 4px 0 var(--line-2); animation: me-row .3s ease-out backwards; }
+.fr-row { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 20px; padding: 10px 12px; margin-bottom: 10px; box-shadow: 0 4px 0 var(--line-2); }
 .fr-row.bare { box-shadow: none; background: var(--paper-2); }
 .fr-found { background: var(--paper-2); box-shadow: none; margin: 10px 0 0; }
 .fr-av { position: relative; width: 46px; height: 46px; border-radius: 50%; background: var(--paper-3); display: grid; place-items: center; font-size: 1.5rem; flex: none; }

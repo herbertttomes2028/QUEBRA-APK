@@ -208,7 +208,7 @@
   function loadMe() {
     if (!acc.token) return Promise.resolve(null);
     return api('GET', '/me').then(function (j) {
-      if (j && j.ok) { applyAccount(j.me); if (socket.connected) authSocket(); if ($('#screen-me').classList.contains('active')) renderProfile(); }
+      if (j && j.ok) { applyAccount(j.me); if (socket.connected) authSocket(); if ($('#screen-me').classList.contains('active') && acc.view === 'profile') renderProfile(); }
       return j;
     });
   }
@@ -216,7 +216,10 @@
     if (!acc.token) return Promise.resolve();
     return api('GET', '/friends').then(function (j) {
       if (j && j.ok) {
-        acc.friends = j; paintChip(); if ($('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends();
+        // Uma atualização sem mudanças não deve recriar nomes e botões na tela.
+        var changed = !acc.friends || JSON.stringify(acc.friends) !== JSON.stringify(j);
+        acc.friends = j; paintChip();
+        if (changed && $('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends();
         if (!$('#modal-fprofile').hidden && fpUser && !j.friends.some(function (x) { return x.code === fpUser.code; })) { QC.closeModal('#modal-fprofile'); QC.toast('Esta pessoa não está mais na sua lista de amigos.', 3200); }
       }
     });
@@ -250,7 +253,7 @@
     Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     $('#me-scroll').scrollTop = 0;
     if (t === 'profile') renderProfile();
-    if (t === 'friends') { renderFriends(); loadFriends(); }
+    if (t === 'friends') renderFriends(); // openMe/afterAuth já atualizam a lista; sem pedido duplicado
     if (t === 'history') loadHistory();
   }
   Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
@@ -437,14 +440,27 @@
     $('#me-email').textContent = me.email || '(conta Google)';
     show('#me-del-pass', me.hasPassword);
     $('#sec-pw-open').hidden = !me.hasPassword;
-    var st = me.stats, stats = $('#me-stats');
-    stats.innerHTML = '';
-    [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']].forEach(function (x, i) {
-      var c = el('div', 'me-stat ' + x[2]); c.style.animationDelay = (i * 60) + 'ms';
-      c.appendChild(el('b', '', String(x[1]))); c.appendChild(el('span', '', x[0])); stats.appendChild(c);
-    });
+    var st = me.stats;
+    paintStats($('#me-stats'), [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']]);
     paintAch($('#me-ach'), $('#me-ach-count'), me.achievements);
     paintContinue();
+  }
+  // Mantém os quatro cartões existentes: uma atualização do servidor só troca os números,
+  // sem apagar/recriar elementos (o que causava repetições visuais na tela).
+  function paintStats(box, rows) {
+    rows.forEach(function (x, i) {
+      var card = box.children[i];
+      if (!card || !card.classList.contains('me-stat')) {
+        card = el('div', 'me-stat ' + x[2]);
+        card.appendChild(el('b')); card.appendChild(el('span'));
+        box.appendChild(card);
+      }
+      card.className = 'me-stat ' + x[2];
+      var value = String(x[1]);
+      if (card.firstChild.textContent !== value) card.firstChild.textContent = value;
+      if (card.lastChild.textContent !== x[0]) card.lastChild.textContent = x[0];
+    });
+    while (box.children.length > rows.length) box.lastElementChild.remove();
   }
   // selo ao lado do rótulo do nome + barra de progresso até o próximo nível
   function paintXpCard(xp) {
@@ -816,11 +832,8 @@
     try { since = ' · joga desde ' + new Date(p.since).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); } catch (e) { /* sem data */ }
     $('#fp-status').textContent = (p.online ? '🟢 online agora' : 'offline') + since;
     $('#fp-code').textContent = p.code;
-    var st = p.stats, box = $('#fp-stats'); box.innerHTML = '';
-    [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.challenges, 'c1'], ['Vitórias', st.wins, 'c2']].forEach(function (x, i) {
-      var t = el('div', 'me-stat ' + x[2]); t.style.animationDelay = (i * 60) + 'ms';
-      t.appendChild(el('b', '', String(x[1]))); t.appendChild(el('span', '', x[0])); box.appendChild(t);
-    });
+    var st = p.stats;
+    paintStats($('#fp-stats'), [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.challenges, 'c1'], ['Vitórias', st.wins, 'c2']]);
     paintAch($('#fp-ach'), $('#fp-ach-count'), p.achievements);
     $('#fp-body').hidden = false;
   }
