@@ -57,12 +57,20 @@ function fixture({reduce = false, screen = 'game', duel = false, sourceSize = 20
   return {ctx, nodes, events, calls, animations, state};
 }
 
-test('imagem única inicia na grade, aproxima-se e chega ao resultado; toque dispensa uma vez', () => {
+test('imagem única dá pulinho de 6%, flutua sem deslocar na horizontal; toque dispensa uma vez', () => {
   const f = fixture();
   f.ctx.showVictoryResult('#modal-win', '#win-again', true, () => f.calls.push(['som']));
   assert.equal(f.animations.length, 1);
-  assert.equal(f.animations[0].frames.length, 5);
-  assert.equal(f.animations[0].config.duration, 2260);
+  assert.equal(f.animations[0].frames.length, 6);
+  assert.equal(f.animations[0].config.duration, 2300);
+  const frames = f.animations[0].frames;
+  assert.equal(frames[0].transform, 'translate3d(0,0,0) scale(1)');
+  assert.ok(frames.some(x => x.transform.includes('scale(1.06)')), 'pulinho inicial de 6%');
+  assert.ok(frames.every(x => /translate3d\(0,(?:0|-\d+px),0\)/.test(x.transform)),
+    'sem voo horizontal nem movimento para outro lugar');
+  const scales = frames.map(x => Number(x.transform.match(/scale\(([^)]+)\)/)[1]));
+  assert.ok(scales.every(x => x >= 1 && x <= 1.06), 'zoom deve ser mínimo');
+  assert.ok(scales.at(-1) > 1 && scales.at(-1) < 1.04, 'imagem ainda flutua antes do resultado');
   assert.equal(f.nodes['#victory-flight'].hidden, false);
   assert.equal(f.nodes['#modal-win'].hidden, true);
   assert.equal(f.nodes['#victory-flight-photo'].style.backgroundImage, 'url("blob:fixture")');
@@ -72,6 +80,15 @@ test('imagem única inicia na grade, aproxima-se e chega ao resultado; toque dis
   assert.deepEqual(f.calls.map(x => x[0]), ['modal', 'xp', 'som']);
   f.events.pointerdown({preventDefault() {}});
   assert.equal(f.calls.length, 3, 'sem segundo pagamento ou resultado duplicado');
+});
+
+test('o cartão de resultado não é medido nem exibido antes da flutuação', () => {
+  const f = fixture();
+  f.nodes['#win-art'].getBoundingClientRect = () => { throw Error('resultado não deve ser medido'); };
+  f.ctx.showVictoryResult('#modal-win', '#win-again', true);
+  assert.equal(f.animations.length, 1);
+  assert.equal(f.nodes['#modal-win'].hidden, true);
+  assert.equal(f.calls.length, 0);
 });
 
 test('movimento reduzido entrega resultado imediatamente, sem criar animação', () => {
@@ -111,6 +128,7 @@ test('HTML/CSS preservam imagem, medalha, XP, gemas e comandos com movimento lev
   assert.match(html, /class="victory-medal"/);
   assert.match(html, /id="duel-art"[^>]*hidden/);
   assert.match(css, /\.victory-flight-photo\s*\{/);
+  assert.match(css, /transform-origin:\s*center center/);
   assert.match(css, /@keyframes victory-glint/);
   assert.match(css, /@keyframes victory-last-glow/);
   assert.match(game, /function flashLastSnap\(\)/);

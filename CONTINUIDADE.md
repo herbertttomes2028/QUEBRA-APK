@@ -1,5 +1,64 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
+**Atualizado em:** 30/10/2026 (horário de Brasília)  
+**Rodada atual:** 3C — animação de vitória com pulo mínimo e flutuação  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**`main` verificada antes da implementação:** `b2a30cc2b2fc871da28e0ba5a2f280954a7c03c5`  
+**Árvore Git de referência:** `8c78a40a856a05dca732836a5284c8d32b805783`
+
+> **ESTE É O REGISTRO MAIS RECENTE.** As seções abaixo de “HISTÓRICO” descrevem rodadas anteriores e permanecem para consulta. Antes de qualquer nova modificação, verificar novamente o commit e os arquivos da `main`. O assistente não publica no GitHub, não faz Merge e não realiza deploy.
+
+## 1. O que foi solicitado e aprovado
+
+Após testar no Android as animações anteriores, o proprietário informou que o zoom e o deslocamento da imagem estavam exagerados. A nova solicitação aprovada é **um pequeno pulo (zoom discreto) da imagem montada, seguido de flutuação suave no mesmo lugar**, com borda e reflexo dourados, e apresentação do resultado ao final. A conclusão não deve lançar a imagem até o centro, nem transportá-la para o cartão de resultados.
+
+## 2. Implementação da rodada 3C
+
+- `public/game.js`: na função `showVictoryResult`, removidas as medições da posição do cartão de resultado e os deslocamentos da imagem para outro lugar da tela. A foto permanece na posição da grade, com **escala máxima 1,06 (aumento de 6%)**, pequenos deslocamentos **verticais entre -3 e -8 pixels**, e seis quadros de animação por **2,3 segundos**. Ao final, a camada some e o resultado já existente aparece com XP, gemas e ações normais.
+- `public/style.css`: apenas o `transform-origin` da foto da celebração passou a `center center` para que o pequeno zoom não a empurre lateralmente. Brilho dourado e reflexo continuam.
+- `tests/vitoria-animacao.test.js`: valida o limite de zoom de 6%, ausência de movimento horizontal, duração, abertura do resultado depois da celebração, toque para pular, movimento reduzido, cancelamento e Desafio.
+- **Nenhuma mudança** em `public/index.html`, SQL, `accounts.js`, `gems.js`, `server.js`, `challenge.js`, geometria SVG, regras de encaixe, sons, eventos Socket.IO ou XP. Sem nova migração.
+- **A animação de subida de nível** continua ocorrendo somente após voltar à tela inicial. O saldo de gemas e XP permanece sob autoridade do servidor.
+
+## 3. Arquivos EXATOS do pacote
+
+| Caminho | Operação |
+| --- | --- |
+| `public/game.js` | substituir |
+| `public/style.css` | substituir |
+| `tests/vitoria-animacao.test.js` | substituir |
+| `CONTINUIDADE.md` | substituir na raiz |
+
+**Total: quatro arquivos**. Não enviar outros arquivos de ZIPs antigos.
+
+## 4. Testes realmente executados
+
+- `node --check public/game.js` e `node --check tests/vitoria-animacao.test.js`: aprovados.
+- `node --test` em oito arquivos independentes de testes (contratos, desempenho, gemas, histórico e sons, níveis, rotação visual, vitória, XP): **64 testes aprovados**, nenhuma falha. `socket.io-client` foi carregado por um stub **somente para testes estáticos**; isso não substitui testes de rede reais.
+- Chromium real, usando o trecho atual de `showVictoryResult` e CSS completo do jogo em ambiente de tela simulado, tamanhos **320 × 650, 360 × 740 e 412 × 915**: verificou imagem única, zoom discreto, eixo horizontal estável, abertura do cartão ao final e **zero erros JavaScript observados**.
+- **Não executados aqui:** `npm test` completo com rede/Socket.IO, integração PostgreSQL, Render ou Android real. Exigir GitHub Actions verde no novo PR e teste de fluidez no Android antes de aprovar a rodada.
+
+## 5. Publicação e validação
+
+1. Criar uma ramificação nova da `main`, sugerida `vitoria-pulo-flutuante`. Usar os **quatro arquivos** listados acima, preservando os caminhos.
+2. Abrir PR com base `main`, comparar Files changed (apenas quatro), aguardar o workflow **Gemas e regressao (PostgreSQL isolado)** finalizar verde. **Se falhar, não mesclar.**
+3. O proprietário faz Merge e deploy manual no Render; o assistente não faz nenhuma operação de escrita no GitHub.
+4. Validar no Android Solo, Cooperativo e Desafio (vitória por completar, derrota), tocar para pular, movimento reduzido, travamento em 6/12 peças, resultado e créditos de XP/gemas. Só após aprovação começar outra rodada.
+
+## 6. Contratos e segurança permanentes
+
+Preservar as duas cópias de `tryLock()` e `SNAP = Math.round(tile * .33)`, os eventos de Socket.IO, as migrações imutáveis e a regra de XP **somente por `payMatch`**; gemas são creditadas no servidor. Bate-papo infantil só com frases prontas; nunca expor e-mail nem XP bruto de terceiros. Nenhum teste destrutivo deve tocar o Neon de produção. O perfil já apresenta saldo, XP, nível e progresso, portanto não criar tela duplicada.
+
+## 7. Ideias futuras reservadas, ainda não implementadas
+
+Coleções de imagens desbloqueáveis; medalhas/conquistas visuais; personalizações cosméticas com gemas; jornada de aventuras; desafios cooperativos especiais; curiosidades educativas; campeonatos amistosos. O proprietário pediu para preservar essas ideias, sem começar outra rodada antes de validar esta.
+
+---
+
+# HISTÓRICO DAS RODADAS ANTERIORES — ARQUIVO PRESERVADO
+
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
 **Atualizado em:** 31/10/2026  
 **Rodada 3B:** Ajuste da Celebração de Vitória 2.0 — imagem avança em direção à tela, dura mais e só depois entra no resultado  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  

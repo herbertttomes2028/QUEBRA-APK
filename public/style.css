@@ -2116,7 +2116,7 @@ html[data-motion="reduce"] #field.victory-last #board::after { animation: none; 
 .victory-flight { position: fixed; inset: 0; z-index: 65; overflow: hidden; touch-action: manipulation; }
 .victory-veil { position: absolute; inset: 0; background: rgba(12, 19, 48, .78); animation: victory-veil .32s ease-out both; }
 .victory-flight-photo {
-  position: absolute; transform-origin: 0 0; border-radius: 14px;
+  position: absolute; transform-origin: center center; border-radius: 14px;
   background-position: center; background-size: 100% 100%; background-repeat: no-repeat;
   box-shadow: 0 0 0 4px #f4c64f, 0 0 0 7px rgba(255, 238, 177, .55), 0 12px 26px rgba(0, 0, 0, .3);
   pointer-events: none;
