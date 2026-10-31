@@ -1,6 +1,60 @@
 # CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
 
 **Atualizado em:** 30/10/2026 (horário de Fortaleza)  
+**Rodada:** correção da abertura — volta completa de 360° **no eixo vertical**, com texto suave  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**`main` consultada e verificada antes de implementar:** `d2d0ddba26bfac03c0eec14a18261ac394f9ef0b`  
+**Árvore Git da `main`:** `09c136fb8fd32a0043e1bb24961cf2d624db6bd5`
+
+> **ESTA É A SEÇÃO ATUAL.** A seção anterior e todo o histórico foram preservados integralmente depois de "HISTÓRICO". Antes da próxima tarefa, ler este documento e confirmar de novo a `main` do GitHub. O assistente não publica, não faz Merge e não realiza deploy.
+
+## 1. Pedido e diagnóstico
+
+O proprietário esclareceu que "360°" significa **a fotografia girar em pé**, como um cartão que vira em torno de seu próprio **eixo vertical (Y)** — o efeito que existia antes das otimizações —, e **não** a rotação plana `rotate(-360deg)` introduzida na rodada imediatamente anterior. Ele também quer a entrada da frase **VAMOS LÁ!** mais lenta e sem o antigo salto abrupto, evitando travamentos.
+
+## 2. Correção implementada nesta rodada
+
+- **`public/style.css`**: `go-spin` restaurado para `rotateY(-360deg)` até `rotateY(0deg)`, mantendo **uma volta completa em 2,4 segundos**, escala discreta **0,97 → 1**, opacidade suave e nenhuma pulsação infinita. A rotação agora ocorre no eixo vertical, não no plano da tela. A propriedade `backface-visibility` passou de `hidden` para `visible` somente na carta `.go-card`, para que a imagem não desapareça durante a metade posterior da volta (o verso aparece espelhado, comportamento normal de uma carta de uma única face em CSS 3D).
+- **Frase "VAMOS LÁ!"**: preservada a entrada de **1,3 segundo**, com atraso de **0,75 segundo**, deslocamento de **18 pixels** e escala inicial de **96%**, sem o antigo `go-slam` com aumento de 260%. Mantidos cores, fontes, sons, tela de abertura e imagem miniaturizada já otimizada.
+- **`tests/desempenho.test.js`**: atualizado para assegurar o eixo **Y**, a volta completa, a apresentação do verso e a rejeição da rotação 2D; demais testes de performance e encaixe preservados.
+- **`public/game.js` não mudou**: continua com a duração mínima **2,65 segundos**, suficiente para concluir o giro de 2,4 segundos, e o mesmo som, carregamento de imagem e fluxo de partida. Não foram alterados servidor, arquivos SQL, imagens SVG, posições, encaixe, Socket.IO, XP, gemas, animação de vitória aprovada ou animação de nível.
+
+## 3. Arquivos exatos do pacote de correção
+
+| Caminho no GitHub | Ação |
+| --- | --- |
+| `public/style.css` | substituir |
+| `tests/desempenho.test.js` | substituir |
+| `CONTINUIDADE.md` (raiz) | substituir |
+
+**Total: 3 arquivos.** Criar uma nova ramificação, por exemplo `abertura-360-eixo-vertical`. Nunca enviar diretamente à `main`. Não reenviar arquivos de ZIPs anteriores. A base anterior foi comparada com os blobs da `main` atual: CSS `b14c690f1b306cada04656a68d184a4f23ee2bd2`; teste `21aa8450680f4b8dfedd31eca4f10864261f9a7a`; documentação `b82521bbf532a7303596aa128c544d9f7af8d56f`.
+
+## 4. Testes realmente realizados
+
+- `node --check public/game.js` e `node --check tests/desempenho.test.js`: **aprovados**.
+- 8 arquivos de testes independentes, executados com Node: **64 aprovados, 0 falhas**. O módulo `socket.io-client` foi substituído por um stub **apenas para o carregamento de verificações estáticas**; nenhuma conexão real foi simulada por esse stub.
+- **Chromium desktop com CSS real** em **320×650, 360×740 e 412×915 pixels**: confirmado `rotateY` com volta completa e duração de **2,4 s**, visibilidade da face traseira e entrada da frase com **1,3 s após 0,75 s**. O exame de matrizes de transformação confirmou mudança no eixo Y (não giro 2D). Em movimento reduzido, nenhuma animação é acionada.
+- **Não executados:** Android real, medições de FPS ou travamento no celular, jogo real com Socket.IO/Render e suíte `npm test` completa com PostgreSQL. O GitHub Actions no novo PR deverá ficar verde antes do Merge; a aprovação visual e de desempenho depende do proprietário em Android real.
+
+## 5. Publicação e aprovação no celular
+
+1. Criar branch nova a partir da `main` verificada, sugerida `abertura-360-eixo-vertical`.
+2. Substituir os **3 arquivos** nas pastas corretas; conferir em **Files changed** que há somente esses três. Abrir Pull Request para `main`.
+3. Aguardar **Gemas e regressao (PostgreSQL isolado)** ficar verde. Não fazer Merge com teste vermelho.
+4. O proprietário faz Merge e deploy manual no Render. Nenhuma migração Neon necessária.
+5. Testar no Android: a imagem deve girar **em pé** uma volta completa, com a frase surgindo suavemente; verificar engasgos, som, tela de jogo, cancelamento, peças, XP e gemas. Só depois dessa validação considerar esta rodada aprovada e avançar para outra.
+
+## 6. Contratos e ideias futuras
+
+Manter `SNAP = Math.round(tile * .33)` e as duas cópias de `tryLock()`; eventos Socket.IO e migrações imutáveis; XP somente via `payMatch`; gemas concedidas apenas pelo servidor. Chat infantil exclusivamente com frases prontas, sem exposição de e-mail ou XP bruto de terceiros. Sugestões reservadas: imagens especiais desbloqueáveis, álbum de medalhas, personalização com gemas, jornada de aventuras, desafios cooperativos, curiosidades educativas e campeonatos amistosos. O perfil já mostra XP, nível, progresso e gemas — não duplicar.
+
+---
+
+# HISTÓRICO PRESERVADO — ANTERIOR A ESTA RODADA
+
+# CONTINUIDADE — ESTADO ATUAL DO QUEBRA-CABEÇA A DOIS
+
+**Atualizado em:** 30/10/2026 (horário de Fortaleza)  
 **Rodada:** correção da abertura da partida — giro completo 360° e entrada suave do texto  
 **Repositório:** `herbertttomes2028/QUEBRA-APK`  
 **Commit `main` confirmado antes de implementar:** `8f3c0d9758b55f39fec8e4e84858516525bcfd6c`  
