@@ -37,9 +37,33 @@ test('animação dourada ocorre só após a última conclusão, sem pagar gemas 
 });
 
 test('cache novo e catálogo/identificadores anteriores preservados', () => {
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v14'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v15'/);
   const lib = require('../library');
   assert.equal(lib.ALL.length, 25);
   assert.deepEqual(lib.CATEGORIES.map(c=>c.id),['fauna','biomas','espaco','cultura','fantasia']);
   assert.deepEqual(lib.CATEGORIES.map(c=>c.price),[0,0,0,25,40]);
+});
+
+
+test('capas, imagens da galeria, prévia e quebra-cabeça usam o mesmo arquivo principal e revisam o cache', () => {
+  const js = read('public/game.js');
+  assert.match(js, /var LIBRARY_MEDIA_VERSION = 'capas-20261031'/);
+  assert.match(js, /url: libraryMediaUrl\(i\.url\), thumb: libraryMediaUrl\(i\.thumb\)/);
+  assert.match(js, /img\.src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\)/);
+  assert.match(js, /if \(item\.categoryId\) return Promise\.resolve\(item\.url\)/);
+  assert.match(js, /loadImage\(item\.url\)\.then/);
+  assert.match(js, /imageItem\(file\)/);
+});
+
+test('biblioteca com Fredoka, título centralizado e só um Voltar amarelo', () => {
+  const html = read('public/index.html');
+  const css = read('public/style.css');
+  const js = read('public/game.js');
+  assert.match(html, /id="btn-pick-back" class="btn btn-primary"/);
+  assert.doesNotMatch(html, /id="library-back"/);
+  assert.doesNotMatch(js, /\$\('#library-back'\)/);
+  assert.match(css, /#screen-pick \.library-categories, #screen-pick \.library-nav \{ font-family: "Fredoka", var\(--font\); \}/);
+  assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
+  assert.match(css, /\.library-heading \{[^}]*text-align: center;/);
+  assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); renderLibraryHome\(\); return; \}/);
 });
