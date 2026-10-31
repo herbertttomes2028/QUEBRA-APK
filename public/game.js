@@ -565,6 +565,14 @@
     var ready = $('#btn-pick-go');
     ready.disabled = !!item.categoryId;
     if (item.categoryId) {
+      // Pré-aquece a textura pequena da abertura durante a escolha, sem esperar
+      // seu download para habilitar o jogo. Assim, o giro não inicia um decode grande.
+      if (item.thumb) {
+        var goThumb = new Image();
+        goThumb.decoding = 'async';
+        goThumb.src = item.thumb + (item.thumb.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION;
+        if (goThumb.decode) goThumb.decode().catch(function () { /* usa o carregamento padrão */ });
+      }
       // Apenas a imagem escolhida é carregada por inteiro; se o download falhar,
       // não iniciamos um quebra-cabeça com peças em branco.
       loadImage(item.url).then(function () {
@@ -647,22 +655,30 @@
   /* ---------------------------------------------------------
    * Abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!"
    * --------------------------------------------------------- */
-  var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null };
+  var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null, frame: null };
   function goRemaining() { return go.on ? Math.max(0, go.min - (Date.now() - go.t0)) : 0; }
   function showGoSplash(file) {
     var item = imageItem(file);
     var el = $('#go-splash');
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
-    // A carta mede no máximo 250px: a miniatura pronta evita decodificar a imagem
-    // original grande durante a rotação 3D (a aparência e o recorte são mantidos).
-    $('#go-img').style.backgroundImage = item ? 'url("' + (item.categoryId ? item.url : (item.thumb || item.url)) + '")' : 'none';
+    if (go.frame !== null) { cancelAnimationFrame(go.frame); go.frame = null; }
+    // A carta mede até 250 px. Usar a miniatura da MESMA foto (não o original de
+    // 768x1024) evita decodificar uma textura pesada durante o giro 3D no Android.
+    // A capa e as peças seguem usando o arquivo principal, sem nenhuma mudança.
+    var preview = item && (item.thumb || item.url);
+    if (item && item.categoryId && item.thumb) preview = item.thumb + (item.thumb.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION;
+    $('#go-img').style.backgroundImage = preview ? 'url("' + preview + '")' : 'none';
     $('#go-sub').textContent = '';
     $('#go-cancel').hidden = true;
     el.classList.remove('out', 'run');
     el.hidden = false;
-    void el.offsetWidth;
-    el.classList.add('run');
     go.on = true; go.t0 = Date.now(); go.min = reducedMotion() ? 1100 : 2650;
+    // Não medir offsetWidth de toda a tela de escolha: isso forçava layout síncrono
+    // com as capas já desenhadas, exatamente ao iniciar a rotação.
+    go.frame = requestAnimationFrame(function () {
+      go.frame = null;
+      if (go.on && !el.hidden) el.classList.add('run');
+    });
     go.subTimer = setTimeout(function () { if (go.on) $('#go-sub').textContent = 'Criando a sala…'; }, 2800);
     go.cancelTimer = setTimeout(function () { if (go.on) $('#go-cancel').hidden = false; }, 9000);
     announce('Vamos lá!');
@@ -670,6 +686,7 @@
   function hideGoSplash(instant) {
     var el = $('#go-splash');
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
+    if (go.frame !== null) { cancelAnimationFrame(go.frame); go.frame = null; }
     go.on = false;
     if (el.hidden) return;
     if (instant || reducedMotion()) { el.hidden = true; el.classList.remove('run', 'out'); return; }
@@ -1701,6 +1718,10 @@
       if (!state.duel && (!state.inGame || currentScreen() !== 'game')) return;
       if (state.duel && currentScreen() !== 'game' && currentScreen() !== 'lobby') return;
       openModal(modalSel, focusSel);
+      // A fotografia do resultado já está cobrindo o tabuleiro. Só agora retiramos
+      // contornos de dezenas de peças; antes isso forçava repintura dos SVGs no
+      // mesmo quadro em que a animação e a janela eram preparadas.
+      if (modalSel === '#modal-win') $('#field').classList.add('won');
       $(modalSel).classList.add('victory-ready');
       refreshXp();
       if (onShown) onShown();
@@ -1776,7 +1797,7 @@
     b.textContent = best.text;
     b.className = 'win-best' + (best.record ? ' record' : '');
     b.hidden = !best.text;
-    $('#field').classList.add('won');            // some as linhas entre as peças
+    // A classe 'won' só entra ao revelar a janela, depois da animação fotográfica.
     state.winBlob = null;
     $('#confetti').textContent = '';   // container legado, sem partículas
     showVictoryResult('#modal-win', '#win-again', true, function () {

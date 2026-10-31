@@ -1030,7 +1030,9 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   padding: 6px;
   border-radius: 22px;
   background: #fff;
-  box-shadow: 0 0 0 4px var(--sun), 0 18px 40px rgba(0, 0, 0, .45);
+  /* Sombra menor sobre a textura em giro: menos área a rasterizar no Android. */
+  box-shadow: 0 0 0 4px var(--sun), 0 9px 18px rgba(0, 0, 0, .36);
+  transform-origin: center center;
   /* A volta completa em Y deve mostrar a carta também pela face traseira. */
   backface-visibility: visible;
 }
@@ -2122,6 +2124,8 @@ html[data-motion="reduce"] #field.victory-last #board::after { animation: none; 
 .victory-veil { position: absolute; inset: 0; background: rgba(12, 19, 48, .78); animation: victory-veil .32s ease-out both; }
 .victory-flight-photo {
   position: absolute; transform-origin: center center; border-radius: 14px;
+  /* Isola o layout sem cortar o contorno dourado que excede a foto. */
+  contain: layout;
   background-position: center; background-size: 100% 100%; background-repeat: no-repeat;
   box-shadow: 0 0 0 4px #f4c64f, 0 0 0 7px rgba(255, 238, 177, .55), 0 12px 26px rgba(0, 0, 0, .3);
   pointer-events: none;

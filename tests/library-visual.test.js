@@ -37,7 +37,7 @@ test('animação dourada ocorre só após a última conclusão, sem pagar gemas 
 });
 
 test('cache novo e catálogo/identificadores anteriores preservados', () => {
-  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v16'/);
+  assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v17'/);
   const lib = require('../library');
   assert.equal(lib.ALL.length, 25);
   assert.deepEqual(lib.CATEGORIES.map(c=>c.id),['fauna','biomas','espaco','cultura','fantasia']);

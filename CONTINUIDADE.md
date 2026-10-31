@@ -1,3 +1,74 @@
+# CONTINUIDADE — FLUIDEZ NA ABERTURA E NA EXIBIÇÃO DE RESULTADOS
+
+**Data:** 31/10/2026 (Fortaleza)  
+**Repositório:** `herbertttomes2028/QUEBRA-APK`  
+**Base `main` confirmada em GitHub:** `f4c8a3e92fa1f3adf3f01bbe3b90421da6bbd70d` (Merge do PR #26, correção de piscadas em amigos e perfil)  
+**Tree GitHub:** `9b6c17bbf4e49bcb26499266080ca4f542921422`.
+
+> Esta seção descreve a rodada mais recente. Todo o histórico anterior segue abaixo, intacto. Para nova rodada, ler este documento e conferir a `main` novamente. Nenhuma escrita/deploy feita pelo assistente; só o proprietário faz Merge, deploy e validação Android.
+
+## 1. Pedido do proprietário
+
+Após aprovar a rodada das piscadas, o proprietário relatou **engasgo ao aparecer o resultado de imagem concluída** e **pequenos travamentos no giro vertical da carta da abertura**. Pedido: aliviar ambos mantendo movimentos e funções que já foram aprovados.
+
+## 2. Diagnóstico de código e mudanças pontuais
+
+A implementação atual utilizava, na abertura de imagens da biblioteca, **o arquivo principal 768×1024** como textura de uma carta de no máximo 250 px. Na preparação do giro, forçava `void el.offsetWidth`, uma leitura de layout síncrona depois de mostrar a camada, justamente enquanto a grade de seleção ainda estava montada. O CSS aplicava sombra de 40 px à carta em rotação 3D.
+
+Na conclusão Solo/Cooperativo, `showWin` aplicava `#field.won` antes de `showVictoryResult`, fazendo o navegador alterar estilos das peças e ocultar seus contornos **antes** de `board.getBoundingClientRect()`; a medição podia exigir atualização sincronizada do layout no começo da animação. Não há evidência de que este seja o único fator de engasgo no Android; é um ponto de custo identificado no código.
+
+**Alterações:**
+
+- **`public/game.js` — abertura:** somente a **carta giratória** passa a usar a miniatura WebP correspondente (`item.thumb`, com a revisão de cache já adotada na biblioteca). A imagem do quebra-cabeça e as capas/galerias **continuam sendo as imagens principais**, exatamente como na rodada anterior. Durante a escolha na biblioteca, a miniatura da abertura é pré-carregada e solicitada para decodificação assíncrona, sem atrasar o botão JOGAR por causa dela. Se não existe miniatura, há fallback para o arquivo principal. Removida a leitura `void el.offsetWidth`; a classe de animação é aplicada no próximo `requestAnimationFrame`. Um quadro agendado é cancelado se a abertura for fechada, para evitar animação atrasada.
+- **`public/game.js` — conclusão:** a classe visual `#field.won`, que remove contornos dos SVGs, é aplicada apenas quando a janela de resultados é revelada, e não antes da medida inicial do tabuleiro. Preservados o pulinho de 6%, flutuação de **2,3 s**, sobreposição dourada, toque para pular, cancelamento, acessibilidade, som e o momento de mostrar XP/gemas. O resultado do Desafio continua seguindo seu fluxo original.
+- **`public/style.css`:** reduz a sombra da carta que está girando (de 40 px para 18 px) mantendo moldura amarela e **giro em pé `rotateY(-360deg)` até zero**. Em `.victory-flight-photo`, adiciona `contain: layout` para isolar layout sem cortar o contorno dourado exterior. Nenhuma animação aprovada removida.
+- **`public/sw.js`:** revisão de shell `v16` → **`v17`** para o Android receber a nova interface. Sem alteração nas rotas de rede nem no armazenamento de dados.
+- **`tests/desempenho.test.js`**, **`tests/vitoria-animacao.test.js`**: preservam/regredem geometria, giro, duração, miniatura, não forçar layout síncrono, e a ordem de `won` em relação à janela de resultado.
+- **`tests/library-visual.test.js`**, **`tests/sem-piscadas.test.js`**: atualizam apenas a expectativa da versão de cache de v16 para v17.
+- **`tests/fluidez-animacoes.test.js`** (novo): três testes para abertura (com VM sem leitura de offsetWidth, agendamento/cancelamento da animação e miniatura), conclusão e estilos.
+- **`CONTINUIDADE.md`**: documentação desta rodada.
+
+**Contratos intocados:** regras de encaixe `tryLock`/`SNAP` em `server.js` e `challenge.js`, eventos Socket.IO, migrações, XP apenas via `payMatch`, gemas só no servidor, sala Solo/Cooperativa/Desafio, biblioteca com 25 imagens, contas, amigos, privacidade infantil, sons e animações originais de sucesso.
+
+## 3. Arquivos do pacote — 9 no total
+
+| Pasta | Arquivo | Ação |
+| --- | --- | --- |
+| `public/` | `game.js` | substituir |
+| `public/` | `style.css` | substituir |
+| `public/` | `sw.js` | substituir |
+| `tests/` | `desempenho.test.js` | substituir |
+| `tests/` | `vitoria-animacao.test.js` | substituir |
+| `tests/` | `library-visual.test.js` | substituir |
+| `tests/` | `sem-piscadas.test.js` | substituir |
+| `tests/` | `fluidez-animacoes.test.js` | adicionar |
+| raiz | `CONTINUIDADE.md` | substituir |
+
+**Não enviar nem substituir:** fotos, miniaturas, `server.js`, `challenge.js`, `accounts.js`, `conta.js`, arquivos de configuração do Render, SQL ou migrações. O APK não precisa ser recompilado para esta alteração do PWA; somente o proprietário confere o resultado instalado.
+
+## 4. Comparação com a `main`
+
+Imediatamente antes de preparar a entrega, a `main` ainda estava no commit `f4c8a3e`, tree `9b6c17b`. Os blobs originais dos oito arquivos preexistentes acima foram conferidos localmente com os hashes retornados pela árvore oficial do GitHub, sem divergência. `tests/fluidez-animacoes.test.js` é arquivo novo (ausente na `main`). Assim, o ZIP não foi baseado em uma versão antiga do jogo.
+
+## 5. Testes e limites
+
+- `node --check public/game.js`, `node --check public/sw.js`, `node --check public/conta.js`: aprovados.
+- Suíte **selecionada** em Node (contratos, desempenho, vitória, biblioteca, contas visuais, XP, gemas e histórico): **84 testes**, **82 aprovados**, **0 falhas**, **2 ignorados**, os dois de PostgreSQL. Para permitir carregar a infraestrutura de testes estáticos sem dependências `npm` instaladas no ambiente, `socket.io-client` usou um stub *somente para carregamento*; isso **não é teste de integração Socket.IO**.
+- Chromium real com HTML/CSS reais, trecho real do controlador de abertura/vitória e funções servidor/cliente simuladas: **320×650, 360×740 e 412×915 px**. Em todos: classe `go-spin` entrou normalmente; imagem referenciada na abertura usou a pasta de miniaturas; resultado apareceu após animação, `#field.won` não foi ativado antes e ficou ativo ao final; **0 exceções JS observadas**. O ambiente isolado não permitiu carregar as imagens via HTTP/`file://`; esse ensaio cobre o comportamento e a pintura do CSS/DOM, não comprova decodificação nem taxa de FPS no Android.
+- **Não testados:** Android físico, FPS/taxa de quadros no aparelho do proprietário, Socket.IO real/cooperativo/desafio ponta a ponta, Neon/PostgreSQL real, Render e comportamento do cache num APK já instalado. Não se afirma que qualquer engasgo Android esteja 100% eliminado sem validação do proprietário.
+
+## 6. Publicação e validação
+
+1. Criar nova branch a partir da `main`, sugestão `fluidez-abertura-resultado`.
+2. Extrair ZIP e enviar somente os nove arquivos exatamente nas pastas da tabela. Conferir **9 arquivos** no Pull Request, base `main`.
+3. Aguardar GitHub Actions. **Não fazer Merge se o workflow falhar.**
+4. Com Actions verdes, o proprietário faz Merge e deploy manual no Render; abrir o APK para atualização do service worker v17 e, se necessário, fechar/abrir novamente. **Não limpar armazenamento ou dados do app**.
+5. Testar no Android girando imagens clássicas e novas, Solo, Cooperativo e Desafio; concluir imagens de 6, 12, 20, 30 e 48 peças, observar resultados, toque para continuar, som, XP e gemas. Se o engasgo persistir, trazer vídeo do aparelho e informar modelo, modo e número de peças para novo diagnóstico após a validação desta rodada.
+
+---
+
+# HISTÓRICO ANTERIOR PRESERVADO
+
 # CONTINUIDADE — REMOÇÃO DAS PISCADAS EM AMIGOS E ESTATÍSTICAS
 
 **Data:** 31/10/2026 (Fortaleza)  
