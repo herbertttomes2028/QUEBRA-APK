@@ -57,23 +57,34 @@ function securityHeaders(req, res, next) {
 }
 
 // relatório de violações da CSP: guarda uma contagem e as últimas ocorrências (aparecem em /diagnostico)
-const cspStats = { total: 0, porRegra: {}, ultimas: [] };
+const cspStats = { total: 0, porRegra: Object.create(null), ultimas: [] };
+function safeCspLocation(raw) {
+  try { const u = new URL(String(raw || '')); return (u.protocol === 'https:' || u.protocol === 'http:') ? u.origin + u.pathname.slice(0, 70) : '[redacted]'; }
+  catch (_) { return '[redacted]'; }
+}
 function cspReportHandler(express) {
   const hits = new Map();
+  const sweep = setInterval(() => { const now = Date.now(); for (const [ip, times] of hits) if (!times.some(t => now - t < 60000)) hits.delete(ip); }, 60000);
+  sweep.unref();
   return [
     express.json({ type: ['application/json', 'application/csp-report', 'application/reports+json'], limit: '8kb' }),
     (req, res) => {
-      const now = Date.now(), a = (hits.get(req.ip) || []).filter((t) => now - t < 60000);
+      const now = Date.now();
+      if (!hits.has(req.ip) && hits.size >= 5000) return res.status(204).end();
+      const a = (hits.get(req.ip) || []).filter((t) => now - t < 60000);
       if (a.length < 30) {
         a.push(now);
         const r = (req.body && (req.body['csp-report'] || (Array.isArray(req.body) ? (req.body[0] || {}).body : req.body))) || {};
-        const rule = String(r['violated-directive'] || r.effectiveDirective || '?').slice(0, 60), what = String(r['blocked-uri'] || r.blockedURL || '?').slice(0, 120);
-        cspStats.total++; cspStats.porRegra[rule] = (cspStats.porRegra[rule] || 0) + 1;
-        cspStats.ultimas.push({ regra: rule, bloqueado: what, pagina: String(r['document-uri'] || r.documentURL || '').slice(0, 80), quando: new Date().toISOString() });
+        const rule = String(r['violated-directive'] || r.effectiveDirective || '?').slice(0, 60);
+        const what = safeCspLocation(r['blocked-uri'] || r.blockedURL);
+        cspStats.total++;
+        if (Object.hasOwn(cspStats.porRegra, rule) || Object.keys(cspStats.porRegra).length < 80)
+          cspStats.porRegra[rule] = (cspStats.porRegra[rule] || 0) + 1;
+        cspStats.ultimas.push({ regra: rule, bloqueado: what, pagina: safeCspLocation(r['document-uri'] || r.documentURL), quando: new Date().toISOString() });
         if (cspStats.ultimas.length > 10) cspStats.ultimas.shift();
         console.log('[csp] bloquearia:', rule, '|', what);
       }
-      hits.set(req.ip, a);
+      if (hits.size < 5000 || hits.has(req.ip)) hits.set(req.ip, a);
       res.status(204).end();
     }
   ];
@@ -88,7 +99,17 @@ function createJoinGuard(env) {
   const LOCKS = [15 * 60 * 1000, 60 * 60 * 1000, 6 * 3600 * 1000, 24 * 3600 * 1000].map((v) => (env.JOIN_LOCK_SCALE ? v * Number(env.JOIN_LOCK_SCALE) : v));
   const DAY = 24 * 3600 * 1000;
   const map = new Map();
-  const get = (ip) => { let e = map.get(ip); if (!e) { e = { fails: [], day: [], strikes: 0, strikeAt: 0, lockUntil: 0, lastKey: '', lastAt: 0 }; map.set(ip, e); } return e; };
+  const MAX_TRACKED_IPS = 8000;
+  const get = (ip) => {
+    let e = map.get(ip);
+    if (!e) {
+      // Evict only expired entries; reject new keys if full rather than resetting active quotas.
+      if (map.size >= MAX_TRACKED_IPS) return null;
+      e = { fails: [], day: [], strikes: 0, strikeAt: 0, lockUntil: 0, lastKey: '', lastAt: 0 };
+      map.set(ip, e);
+    }
+    return e;
+  };
   setInterval(() => { const now = Date.now(); for (const [k, e] of map) if (e.lockUntil < now && !e.day.some((t) => now - t < DAY)) map.delete(k); }, 10 * 60 * 1000).unref();
 
   return {
@@ -97,6 +118,7 @@ function createJoinGuard(env) {
     // registra um palpite errado (o mesmo código repetido em poucos segundos conta uma vez só)
     fail(ip, code) {
       const e = get(ip), now = Date.now(), key = String(code);
+      if (!e) return { locked: true, retryMs: 10 * 60 * 1000 };
       if (e.lastKey === key && now - e.lastAt < 4000) return this.check(ip);
       e.lastKey = key; e.lastAt = now;
       e.fails = e.fails.filter((t) => now - t < WINDOW); e.fails.push(now);

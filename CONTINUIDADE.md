@@ -1,3 +1,35 @@
+# CONTINUIDADE — AUDITORIA DEFENSIVA DE SEGURANÇA E RESILIÊNCIA
+
+**Data:** 31/10/2026 (America/Fortaleza). **Base real `main` verificada no GitHub:** `8928aca2862ea0646bf111e4da964cd365abff63` (Merge PR #28 — Galeria B), árvore `97beca01896a6702e17844978a924fa5cf392647`. **Ponto de retorno:** mesmo commit, sem sobrescrever `main`; pacote para branch/PR do proprietário, sem escrita/deploy pelo assistente.
+
+## Escopo
+
+Rodada exclusiva de **segurança, proteção de contas, privacidade e estabilidade**; não foram alterados visuais, imagens, animações, mecânica de encaixe, níveis/XP/gemas, migrações SQL, sons ou arquivos `public/*`. Auditados Express e endpoints, Socket.IO dos dois modos, contas/sessões, código por e-mail, TLS PostgreSQL, relatórios CSP, limites de recursos, dependências declaradas e CI. **Relatório integral:** `AUDITORIA-SEGURANCA-2026-10-31.md`.
+
+## Arquivos do pacote desta rodada
+
+Arquivos alterados na raiz: `accounts.js`, `challenge.js`, `db.js`, `security.js`, `server.js`, `README.md`, `SEGURANCA.md`, `CONTINUIDADE.md`. Novos na raiz: `resource-guard.js`, `AUDITORIA-SEGURANCA-2026-10-31.md`. Novos em pastas: `.github/workflows/seguranca-dependencias.yml` e `tests/security-resilience.test.js`. **12 arquivos**.
+
+## Correções
+
+- Teto compartilhado de salas coop/duelo, limite por IP para criação; cotas de conexões e de eventos Socket.IO; controle de origem; limitação de uploads/HTTP/API/estáticos e operações pesadas; prazos de HTTP e banco. Proteções reagem com `busy`, `rate` ou `503` apenas ao excesso de requisições.
+- Socket.IO de contas revalida sessões antes de convites e bloqueios; logout, logout-all, reset/troca de senha e exclusão invalidam identidades em tempo real; uma resposta atrasada não deve recriar autenticação revogada.
+- Códigos de confirmação e recuperação consumidos atomicamente em SQL, sem nova migração; certificados remotos TLS sempre validados.
+- Rota HTTP de caixa de e-mail de testes removida (nunca pública), CSP com dados/redação de URL e contadores limitados; workflow extra exige audit npm e testes em PR.
+- Documentação atualizada, incluindo proibição da alternativa anterior `DB_SSL_VERIFY=0`.
+
+## Limites da validação / NÃO APROVADO para distribuição pública ainda
+
+**103 testes selecionados: 101 aprovados, 0 falhas, 2 ignorados**, incluindo 14 testes de `security-resilience` e simulação isolada de 20 mil tentativas sem rede externa. **Não executados:** banco PostgreSQL real, sessão de Socket.IO real, suíte npm completa com dependências instaladas, `npm audit` no registro, testes de carga em staging, Render/Neon, Android físico. Esses pontos exigem GitHub Actions + ambiente de teste autorizado, antes de liberar. **Persistem** risco elevado de DDoS distribuído sem WAF/proteção externa, necessidade de ativar CSP de bloqueio depois de testar, segredos/permissões/backup dos painéis a auditar. Não afirmar que o aplicativo é invulnerável ou está pronto até verificar isso.
+
+## Invariantes
+
+Preservar eventos Socket.IO, duas cópias de `tryLock`/SNAP, migrações imutáveis, XP unicamente em `payMatch`, gemas protegidas por PostgreSQL, 25 imagens/categorias e progresso, chat só frases prontas, privacidade de e-mail/XP bruto alheios, UI e animações. Os arquivos de imagem e `public/*` ficaram idênticos ao commit-base.
+
+---
+
+# HISTÓRICO ANTERIOR PRESERVADO
+
 # CONTINUIDADE — REDESIGN DA BIBLIOTECA: GALERIA DE COLEÇÕES (OPÇÃO B)
 
 **Data:** 31/10/2026 (America/Fortaleza)  

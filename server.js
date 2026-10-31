@@ -11,6 +11,8 @@ const crypto = require('crypto');
 const phrases = require('./phrases');
 const library = require('./library');
 const security = require('./security');
+const { makeProtection } = require('./resource-guard');
+const protection = makeProtection();
 const { createMailer, mailerStatus } = require('./mailer');
 const express = require('express');
 const http = require('http');
@@ -157,9 +159,10 @@ const uploadHits = new Map();            // ip -> horários dos últimos envios
 const app = express();
 app.set('trust proxy', 1);              // atrás do Render: pega o IP real
 app.disable('x-powered-by');
-app.use(security.securityHeaders);      // cabeçalhos de segurança em TODAS as respostas
+app.use(security.securityHeaders);       // cabeçalhos em todas as respostas
+app.use(protection.httpMiddleware);      // limites de abuso por IP e concorrência
 app.post('/api/csp-report', ...security.cspReportHandler(express));
-if (mailer && mailer.provider === 'test') app.get('/api/test-outbox', (req, res) => res.json(mailer.outbox));   // SÓ para os testes automáticos (MAIL_PROVIDER=test)
+// A caixa de códigos de teste existe apenas na memória, sem qualquer rota HTTP de leitura.
 app.disable('x-powered-by');
 
 app.get('/health', (req, res) => res.type('text').send('ok'));
@@ -248,6 +251,7 @@ app.set('trust proxy', 1);              // atrás do Render: pega o IP real (par
 app.post('/api/upload', express.raw({ type: () => true, limit: UPLOAD_MAX }), (req, res) => {
   res.set('Cache-Control', 'no-store');
   const ip = req.ip || 'x', now = Date.now();
+  if (!uploadHits.has(ip) && uploadHits.size >= 3000) return res.status(429).json({ ok: false, error: 'rate' });
   const hits = (uploadHits.get(ip) || []).filter((t) => now - t < 10 * 60 * 1000);
   if (hits.length >= UPLOAD_RATE) return res.status(429).json({ ok: false, error: 'rate' });
   hits.push(now);
@@ -286,11 +290,17 @@ app.use(
 );
 
 const server = http.createServer(app);
+// Guard against slow/incomplete HTTP headers and request bodies, without changing WebSocket heartbeats.
+server.headersTimeout = 15000;
+server.requestTimeout = 30000;
+server.maxRequestsPerSocket = 500;
 const io = new Server(server, {
   pingInterval: 10000,
   pingTimeout: 15000,
-  maxHttpBufferSize: 1e5
+  maxHttpBufferSize: 1e5,
+  allowRequest: (req, callback) => callback(null, protection.sameOrigin(req))
 });
+protection.installSocketShield(io);
 
 /* ---------- Imagens ---------- */
 const SMALL_WORDS = new Set(['e', 'de', 'do', 'da', 'dos', 'das', 'a', 'o', 'com']);
@@ -791,6 +801,7 @@ const challenge = require('./challenge')({
   levelOf: (uid) => (accHooks.levelOf && uid ? accHooks.levelOf(uid) : 0),                          // nível do jogador (0 = visitante)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
   phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases,
+  allowRoom: socket => protection.allowRoom(socket, rooms.size + challenge.size()),
   imageAllowed: async (socket, file) => !library.image(file) || (accounts ? accounts.libraryCanPlay(socket.data.uid, file) : !library.cat(library.image(file).categoryId).price)
 });
 
@@ -875,6 +886,7 @@ io.on('connection', (socket) => {
       if (library.image(imageId) && !(accounts ? await accounts.libraryCanPlay(socket.data.uid, imageId) : !library.cat(library.image(imageId).categoryId).price))
         return reply(cb, { ok: false, error: 'library_locked' });
     } catch (e) { return reply(cb, { ok: false, error: 'server' }); }
+    if (!protection.allowRoom(socket, rooms.size + challenge.size())) return reply(cb, { ok: false, error: 'busy' });
     const code = newCode();
     if (!code) return reply(cb, { ok: false, error: 'busy' });
 
@@ -904,6 +916,7 @@ io.on('connection', (socket) => {
       } else if (validImage(imageId) !== imageId) {
         return reply(cb, { ok: false, error: 'imagegone' });          // a imagem da galeria não existe mais
       }
+      if (!protection.allowRoom(socket, rooms.size + challenge.size())) return reply(cb, { ok: false, error: 'busy' });
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
       leaveCurrent(socket);
