@@ -46,17 +46,17 @@ test('Todo botão recebe exatamente um som de clique no evento click, inclusive 
   }}});
   const a = btn(), b = btn();
   fire(a); fire(b); // o mesmo som para todos os botões
-  assert.deepEqual(clicks, ['blip', 'blip']);
+  assert.deepEqual(clicks, ['snap', 'snap']);        // "dois tons" em todos os botões
   assert.equal(ctx.lastBtn, b, 'mantém o retorno de foco às janelas');
   fire(null); fire(btn(true)); fire(btn(false, 'true'));
-  assert.deepEqual(clicks, ['blip', 'blip'], 'ignora cliques fora de botões e botões desabilitados');
+  assert.deepEqual(clicks, ['snap', 'snap'], 'ignora cliques fora de botões e botões desabilitados');
 });
 
 test('Não duplica som de clique: chamadas locais removidas e áudio respeita ajuste de som', () => {
   assert.doesNotMatch(conta, /QC\.playSound\('blip'\)/);
-  assert.equal((game.match(/playSound\('blip'\)/g) || []).length, 2, 'um no clique global, outro ao religar som');
+  assert.equal((game.match(/playSound\('blip'\)/g) || []).length, 0, 'o clique global e o religar som usam o "dois tons" (snap): nenhum blip de botão');
   assert.match(game, /function getAudio\(\)\s*\{\s*if \(!state\.settings\.sound\) return null;/);
   assert.match(game, /snap: function \(c\)/, 'som de encaixe existente continua');
   assert.match(game, /blip: function \(c\)/, 'som Amigos existente continua');
-  assert.match(game, /if \(key === 'sound' && state\.settings\.sound\) playSound\('blip'\)/);
+  assert.match(game, /if \(key === 'sound' && state\.settings\.sound\) playSound\('snap'\)/);
 });
