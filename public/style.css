@@ -465,7 +465,7 @@ h3 { margin: 0 0 14px; font-size: 1.4rem; font-weight: 900; text-align: center; 
    Androids refiltra a imagem recortada durante o arrasto e provoca engasgos.
    A mesma sombra fica na silhueta opaca, atrás da imagem, e é reutilizável na rotação. */
 .puzzle-piece-svg { width: 100%; height: 100%; overflow: visible; display: block; }
-.puzzle-piece-shadow { fill: #fff; filter: drop-shadow(0 calc(var(--tile) * .04) calc(var(--tile) * .07) rgba(27,37,89,.28)); }
+.puzzle-piece-shadow { fill: #fff; }      /* SEM sombra (decisão do dono, por desempenho: o drop-shadow em cada peça era o custo dominante do desenho); o fundo branco evita transparência atrás da imagem */
 /* Só a peça manipulada pode reservar a camada para sua rotação. */
 .piece.mine .tile.puzzle-shaped-tile, .piece.theirs .tile.puzzle-shaped-tile { will-change: transform; }
 .puzzle-piece-outline { fill: none; stroke: rgba(27,37,89,.45); stroke-width: .85; stroke-linejoin: round; }

@@ -928,10 +928,10 @@
     im.setAttribute('href', state.imageUrl);
     svg.appendChild(im);
     svg.appendChild(shapeNode('path', { d: path, class: 'puzzle-piece-outline' }));
-    // Seta dentro da área quadrada; desloca do encaixe central quando necessário.
-    var triangleX = pieceEdges(col, row, cfg.COLS, cfg.ROWS)[0] ? 35 : 62;
+    // Seta SEMPRE centralizada (x = 62, o meio do quadrado 12 a 112) e abaixo da região do encaixe: a saliência ou a cavidade do topo
+    // avança no máximo 14 unidades (até y = 26); a seta ocupa de y = 33 a 42, com 7 unidades de folga.
     svg.appendChild(shapeNode('path', {
-      d: 'M ' + triangleX + ' 27 l -5.2 9 h 10.4 Z', class: 'puzzle-orientation'
+      d: 'M 62 33 l -5.2 9 h 10.4 Z', class: 'puzzle-orientation'
     }));
     return svg;
   }
@@ -1906,7 +1906,7 @@
     if (key === 'push') { if (state.settings.push) disablePush(); else enablePush(); return; }
     state.settings[key] = !state.settings[key];
     saveSettings();
-    if (key === 'sound' && state.settings.sound) playSound('blip');
+    if (key === 'sound' && state.settings.sound) playSound('snap');
     if (key === 'vibrate' && state.settings.vibrate) vibrate(40);
   }
 
@@ -1917,7 +1917,7 @@
     var b = e.target.closest && e.target.closest('button');
     if (!b) return;
     lastBtn = b;
-    if (!b.disabled && b.getAttribute('aria-disabled') !== 'true') playSound('blip');
+    if (!b.disabled && b.getAttribute('aria-disabled') !== 'true') playSound('snap');       // "dois tons" em todos os botões
   }, true);
   function openModal(sel, focusSel) {
     var m = $(sel);
@@ -2027,7 +2027,18 @@
     [1046.5, 1568].forEach(function (f, k) { tone(c, f, 0.02 + k * 0.03, 1.4, 'triangle', 0.035); });
   }
   /*TANN-END*/
+  // "Plástico": estalo curto de plástico (ruído filtrado + dois corpos que morrem rápido). É o som de uma peça que ENCAIXA.
+  function noiseBurst(ctx, filter, freq, q, dur, vol) {
+    var n = Math.floor(ctx.sampleRate * (dur + 0.01)), buf = ctx.createBuffer(1, n, ctx.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), t0 = ctx.currentTime;
+    s.buffer = buf; f.type = filter; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(f); f.connect(g); g.connect(ctx.destination); s.start(t0); s.stop(t0 + dur + 0.02);
+  }
+  function soundClack(c) { noiseBurst(c, 'bandpass', 3200, 2.5, 0.016, 0.6); tone(c, 1500, 0, .04, 'triangle', .22); tone(c, 620, 0, .06, 'sine', .22); }
   var SOUNDS = {
+    clack: soundClack,
     tann: soundTann,
     gift: function (c) { tone(c, 330, 0, .07, 'triangle', .12); tone(c, 494, .05, .08, 'triangle', .12); tone(c, 740, .1, .16, 'sine', .12); },
     tick: function (c) { tone(c, 520, 0, .14, 'sine', .15); },
@@ -2473,7 +2484,7 @@
     if (d.by === state.idx) vibrate(25);
     if (state.spotPiece === p.id) { clearSpot(); }
     updateUi();
-    if (state.locked < state.total) { playSound('snap'); announce('Peça encaixada. ' + state.locked + ' de ' + state.total + '.'); }
+    if (state.locked < state.total) { playSound('clack'); announce('Peça encaixada. ' + state.locked + ' de ' + state.total + '.'); }
     checkMilestones();
   });
 
