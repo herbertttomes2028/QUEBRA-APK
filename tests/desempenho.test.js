@@ -17,16 +17,17 @@ function functionText(name) {
 }
 function sha(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 
-test('geometria de encaixes, setas e grade SVG preservadas; sombra otimizada', () => {
+test('geometria de encaixes e grade SVG preservadas; seta centralizada; SEM sombra', () => {
   const hashes = {
     pieceEdges: '54975e8c496e83fa8cbcb9966524a08fea40c4c8aa467f0c7b41533ad13ea630',
     puzzlePath: 'c7f9820d6b27c581bf504099e6616efa3c43ce60a413f10fd3620b41f9de7f39',
-    pieceArt: '140dfa5d13fde80554e94344bd68b1bb573c513959b3efaaad17f57a5b7cb272',
+    pieceArt: '9d12c827562286508568faf0cfe2fdb3569af0e8b110c7f193493dc47a55d20e',    // mudou só a seta: sempre centralizada e abaixo do encaixe (tests/sons-pecas.test.js prova a folga)
     boardGuides: '4c8659d7a2b5db156a22ecec53a0fcf2bfe052d8a51568b16ea5acb5c2717c62'
   };
   for (const [name, digest] of Object.entries(hashes)) assert.equal(sha(functionText(name)), digest, name);
   assert.doesNotMatch(css.match(/\.puzzle-piece-svg \{[^}]*\}/)[0], /filter:/);
-  assert.match(css, /\.puzzle-piece-shadow \{[^}]*filter: drop-shadow\(/);
+  assert.doesNotMatch(css, /\.puzzle-piece-shadow \{[^}]*filter:/, 'sem sombra: o drop-shadow por peça era o custo dominante do desenho');
+  assert.match(css, /\.puzzle-piece-shadow \{ fill: #fff; \}/);
   assert.match(css, /\.puzzle-board-guides path \{[^}]*stroke: var\(--grid\)/);
   assert.match(css, /\.puzzle-orientation \{ fill: #fff; stroke: var\(--ink\)/);
 });
@@ -74,7 +75,7 @@ test('o servidor mantém magnetismo e canais de comunicação', () => {
   }
 });
 
-test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
+test('o fundo branco fica isolado atrás da imagem (sem filtro de sombra)', () => {
   const art = functionText('pieceArt');
   const shadow = art.indexOf("class: 'puzzle-piece-shadow'");
   const photo = art.indexOf("var im = shapeNode('image'");
@@ -84,7 +85,8 @@ test('filtro da sombra não envolve mais a imagem SVG giratória', () => {
   assert.match(art, /var path = puzzlePath\(col, row, cfg\.COLS, cfg\.ROWS\)/);
   assert.match(art, /'clip-path': 'url\(#' \+ clipId \+ '\)'/);
   assert.match(css, /\.piece\.mine \.tile\.puzzle-shaped-tile, \.piece\.theirs \.tile\.puzzle-shaped-tile \{ will-change: transform; \}/);
-  assert.match(css, /\.puzzle-piece-shadow \{ fill: #fff; filter: drop-shadow\(0 calc\(var\(--tile\) \* \.04\)/);
+  assert.match(css, /\.puzzle-piece-shadow \{ fill: #fff; \}/);
+  assert.doesNotMatch(css, /drop-shadow\(0 calc\(var\(--tile\)/, 'nenhum drop-shadow proporcional ao tamanho da peça');
 });
 
 test('abertura mantém giro e texto, mas usa miniatura leve quando disponível', () => {
