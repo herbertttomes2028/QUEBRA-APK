@@ -325,6 +325,26 @@
   /* ---------------------------------------------------------
    * Tela de escolha de imagem
    * --------------------------------------------------------- */
+  // Aquece o recorte da imagem (o MESMO que a partida faz ao entrar) enquanto o jogador ainda escolhe. Recortar e recodificar em JPEG trava a
+  // thread principal por centenas de milissegundos; feito na abertura, isso caía justo no giro da imagem e no "VAMOS LÁ!".
+  // prepareImage guarda o resultado por imagem + grade (imgCache): ao tocar em "Jogar" a imagem já está pronta e nada trava.
+  var warmPickTimer = null;
+  function warmPick() {
+    clearTimeout(warmPickTimer);
+    var file = state.pickChoice, pieces = state.pickPieces;
+    if (!file) return;
+    warmPickTimer = setTimeout(function () {
+      if (state.pickChoice !== file || state.pickPieces !== pieces || !$('#screen-pick').classList.contains('active')) return;
+      var item = imageItem(file), pr = state.presets.filter(function (p) { return p.pieces === pieces; })[0];
+      if (!item || !pr) return;
+      var run = function () {
+        if (state.pickChoice !== file || state.pickPieces !== pieces) return;
+        prepareImage(item, pr.cols, pr.rows).then(trimPreparedImages);
+      };
+      if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 1500 }); else run();
+    }, 800);
+  }
+
   function openPick(mode) {
     state.pickMode = mode;
     $('#pick-title').textContent = mode === 'create' || mode === 'solo' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
@@ -615,6 +635,7 @@
       });
     }
     updateSizeNote();
+    warmPick();
     $('#pick-sheet').hidden = false;
     document.body.classList.add('sheet-open');
     if (card) {
@@ -3485,6 +3506,7 @@
       b.setAttribute('aria-checked', b === btn ? 'true' : 'false');
     });
     updateSizeNote();
+    warmPick();
   });
 
   $('#ps-close').addEventListener('click', closePickSheet);
@@ -3497,6 +3519,7 @@
 
   $('#btn-pick-go').addEventListener('click', function () {
     if (!state.pickChoice) return;
+    clearTimeout(warmPickTimer);        // o aquecimento pendente não compete com a abertura (se já terminou, a imagem está pronta)
     if (state.pickMode === 'duel') {
       createDuel();
     } else if (state.pickMode === 'solo') {
