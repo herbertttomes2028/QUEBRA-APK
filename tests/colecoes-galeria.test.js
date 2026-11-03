@@ -55,7 +55,7 @@ test('galeria de cinco imagens em duas colunas e um único Voltar amarelo', () =
   assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
   assert.match(css, /\.pick-sheet #btn-pick-go \{[^}]*margin: 0 auto; align-self: center;/);
   assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); renderLibraryHome\(\); return; \}/);
-  assert.match(js, /libraryView === 'legacy' \? state\.custom\.concat/);
+  assert.match(js, /libraryView === 'legacy' \? state\.images\.filter/);
   assert.match(js, /'★ Concluída'/);
 });
 

@@ -268,7 +268,6 @@
         <p id="size-note" class="size-note" aria-live="polite"></p>
         <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
       </div>
-      <input id="file-input" type="file" accept="image/*" hidden tabindex="-1" aria-hidden="true">
     </section>
 
     <!-- ========== SALA DESAFIO: RECEPÇÃO ========== -->
@@ -605,26 +604,6 @@
         <div id="cd-num" class="cd-num">3</div>
         <div class="cd-card"><span id="cd-img" class="cd-img"></span></div>
         <p id="cd-vs" class="cd-vs"></p>
-      </div>
-    </div>
-
-    <!-- ========== MINHA IMAGEM: ENQUADRAMENTO ========== -->
-    <div id="modal-crop" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="crop-title">
-      <div class="sheet crop-sheet">
-        <h3 id="crop-title">Sua imagem</h3>
-        <p class="crop-sub">Arraste e aproxime para escolher a parte que vira quebra-cabeça.</p>
-        <div class="crop-stage">
-          <canvas id="crop-canvas" width="300" height="400" aria-label="Prévia do quebra-cabeça. Arraste para mover."></canvas>
-          <div id="crop-busy" class="crop-busy" hidden><div class="spinner" aria-hidden="true"></div><span id="crop-busy-text">Enviando sua imagem…</span></div>
-        </div>
-        <div class="crop-tools">
-          <button id="crop-fill" class="btn btn-secondary btn-small" type="button">Preencher</button>
-          <input id="crop-zoom" type="range" min="0" max="100" value="0" aria-label="Aproximar ou afastar a imagem">
-          <button id="crop-fit" class="btn btn-secondary btn-small" type="button">Inteira</button>
-        </div>
-        <p id="crop-warn" class="crop-warn" hidden role="status"></p>
-        <button id="crop-use" class="btn btn-primary btn-block" type="button">Usar esta imagem</button>
-        <button id="crop-other" class="btn btn-secondary btn-block" type="button">Escolher outra</button>
       </div>
     </div>
 

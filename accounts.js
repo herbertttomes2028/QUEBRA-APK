@@ -110,7 +110,7 @@ const ACHIEVEMENTS = [
 ];
 
 function createAccounts(d) {
-  const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, getUpload, putUpload, onAuth, mailer, peerOf } = d;
+  const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
   const googleClientId = d.googleClientId || null;
   const getKeys = d.googleKeys || googleKeys;
@@ -661,14 +661,13 @@ function createAccounts(d) {
   /* ===================== salvamento do progresso ===================== */
   const timers = new Map();                       // uid -> { t, data }
   async function writeSave(uid, s) {
-    let custom = null;
-    if (/^custom:/.test(s.imageId)) { const up = getUpload(s.imageId.slice(7)); if (up) custom = up.buf; else return; }   // sem a imagem não dá para retomar
+    if (/^custom:/.test(s.imageId)) return;           // imagens enviadas por jogadores não existem mais (LGPD): nunca se grava foto
     await db.q(
-      `INSERT INTO saves (user_id, image_id, image_label, pieces, locked, elapsed_ms, partner_name, custom_image, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+      `INSERT INTO saves (user_id, image_id, image_label, pieces, locked, elapsed_ms, partner_name, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, now())
        ON CONFLICT (user_id) DO UPDATE SET image_id = EXCLUDED.image_id, image_label = EXCLUDED.image_label, pieces = EXCLUDED.pieces,
-         locked = EXCLUDED.locked, elapsed_ms = EXCLUDED.elapsed_ms, partner_name = EXCLUDED.partner_name, custom_image = EXCLUDED.custom_image, updated_at = now()`,
-      [uid, /^custom:/.test(s.imageId) ? 'custom' : s.imageId, s.imageLabel, s.pieces, JSON.stringify(s.locked), Math.round(s.elapsedMs), s.partner, custom]);
+         locked = EXCLUDED.locked, elapsed_ms = EXCLUDED.elapsed_ms, partner_name = EXCLUDED.partner_name, updated_at = now()`,
+      [uid, s.imageId, s.imageLabel, s.pieces, JSON.stringify(s.locked), Math.round(s.elapsedMs), s.partner]);
   }
   function flush(uid) {
     const e = timers.get(uid);
@@ -695,9 +694,9 @@ function createAccounts(d) {
     }
   }
   async function loadSave(uid) {
-    const s = await one('SELECT * FROM saves WHERE user_id = $1', [uid]);
+    const s = await one('SELECT image_id, pieces, locked, elapsed_ms, partner_name FROM saves WHERE user_id = $1', [uid]);      // nunca lê custom_image
     if (!s) return null;
-    return { imageId: s.image_id, pieces: s.pieces, locked: s.locked, elapsedMs: Number(s.elapsed_ms), partner: s.partner_name, customImage: s.custom_image };
+    return { imageId: s.image_id, pieces: s.pieces, locked: s.locked, elapsedMs: Number(s.elapsed_ms), partner: s.partner_name };
   }
   const deleteSave = async (uid) => { const e = timers.get(uid); if (e) { clearTimeout(e.t); timers.delete(uid); } await db.q('DELETE FROM saves WHERE user_id = $1', [uid]); };
 

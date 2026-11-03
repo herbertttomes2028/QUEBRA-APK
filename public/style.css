@@ -1314,44 +1314,11 @@ html[data-theme="dark"] .hand-slot { border-color: rgba(255, 255, 255, .2); }
 #screen-pick { overflow: hidden; align-items: stretch; }
 .pick-scroll { flex: 1; min-height: 0; width: 100%; overflow-y: auto; overscroll-behavior: contain; display: flex; justify-content: center; }
 .pick-scroll .pick-inner { padding-bottom: 22px; }
-.pick-card { font-family: "Fredoka", var(--font); font-weight: 600; transition: transform .26s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease; }
-.pick-card:active { transform: scale(.97); }
+/* Escolher a imagem = UMA elevação suave (sem mola, sem animação de "pop"): antes eram dois pulos somados (a curva com mola + pick-pop). */
+.pick-card { font-family: "Fredoka", var(--font); font-weight: 600; transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s ease; }
+.pick-card:active { transform: translateY(-3px) scale(1.03); }       /* o toque já começa a elevar; não afunda e volta */
 .pick-card[aria-selected="true"] { transform: translateY(-3px) scale(1.03); box-shadow: 0 0 0 4px var(--sel), 0 9px 0 4px var(--line-2), 0 14px 22px rgba(27, 37, 89, .22); }
 .pick-card[aria-selected="true"]::after { top: 12px; right: 12px; width: 32px; height: 32px; box-shadow: 0 0 0 3px var(--card), 0 2px 0 var(--sun-deep); }
-
-/* cartão "Adicionar minha imagem": mesmas medidas dos outros cartões */
-.add-card {
-  appearance: none;
-  border: 0;
-  padding: 8px 8px 10px;
-  background: var(--card);
-  border-radius: 20px;
-  box-shadow: 0 5px 0 var(--line-2);
-  text-align: center;
-  font-family: "Fredoka", var(--font);
-  font-weight: 600;
-  color: var(--ink);
-  transition: transform .26s cubic-bezier(.34, 1.56, .64, 1);
-}
-.add-card:active { transform: scale(.97); }
-.add-card .add-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 14px;
-  border: 3px dashed #aab4ee;
-  background: linear-gradient(180deg, #ffffff 0%, #f3f5ff 100%);
-}
-html[data-theme="dark"] .add-card .add-box { border-color: #4a5599; background: linear-gradient(180deg, #232c63 0%, #1a2150 100%); }
-.add-plus { width: 62px; height: 62px; flex: none; filter: drop-shadow(0 4px 0 rgba(27, 37, 89, .16)); }
-.add-text { font-size: 1.02rem; font-weight: 700; line-height: 1.15; color: var(--ink); }
-.add-sub { display: block; font-weight: 600; color: var(--ink-soft); }
 
 /* painel de baixo */
 .pick-sheet {
@@ -1386,29 +1353,10 @@ html[data-theme="dark"] .add-card .add-box { border-color: #4a5599; background: 
 .pick-sheet .size-note { min-height: 2.4em; margin: 0; font-size: .86rem; font-weight: 600; line-height: 1.25; }
 .pick-sheet #btn-pick-go { font-family: "Fredoka", var(--font); font-weight: 700; min-height: 56px; margin: 0 auto; align-self: center; width: 100%; max-width: 330px; font-size: 1.2rem; }
 
-/* janela de enquadramento da imagem própria */
-.crop-sheet { align-items: center; font-family: "Fredoka", var(--font); }
-.crop-sheet h3 { margin: 0; font-weight: 700; }
-.crop-sheet .btn { font-family: "Fredoka", var(--font); font-weight: 700; }
-.crop-sub { margin: 0; text-align: center; color: var(--ink-soft); font-weight: 600; font-size: .95rem; }
-.crop-stage { position: relative; }
-#crop-canvas { display: block; width: min(60vw, 240px, 34vh); height: auto; border-radius: 16px; background: var(--paper-2); box-shadow: 0 0 0 4px #fff, 0 10px 26px rgba(27, 37, 89, .3); touch-action: none; cursor: grab; }
-#crop-canvas:active { cursor: grabbing; }
-.crop-busy { position: absolute; inset: 0; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 10px; text-align: center; background: rgba(20, 27, 74, .78); color: #fff; font-weight: 700; }
-.crop-busy[hidden] { display: none; }
-.crop-tools { width: 100%; display: flex; align-items: center; gap: 10px; }
-.crop-tools input[type="range"] { flex: 1; min-width: 0; height: 36px; accent-color: var(--sel); }
-.crop-tools .btn-small { flex: none; }
-.crop-warn { margin: 0; min-height: 1.2em; text-align: center; font-size: .86rem; font-weight: 700; color: var(--ink-soft); }
-.crop-warn.err { color: var(--warn); }
-.crop-sheet .btn-block { width: 100%; }
-
-@keyframes pick-pop { 0% { transform: scale(1); } 38% { transform: translateY(-4px) scale(1.1); } 68% { transform: translateY(-2px) scale(.99); } 100% { transform: translateY(-3px) scale(1.03); } }
 @keyframes pick-new { 0% { transform: scale(.4) rotate(-8deg); opacity: 0; } 60% { transform: scale(1.1) rotate(2deg); opacity: 1; } 100% { transform: none; } }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes ps-swap { 0% { transform: scale(.7); opacity: .2; } 100% { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-motion="reduce"]) .pick-card.pop { animation: pick-pop .45s ease-out; }
   html:not([data-motion="reduce"]) .pick-card.new { animation: pick-new .6s cubic-bezier(.2, 1.2, .4, 1); }
   html:not([data-motion="reduce"]) .pick-sheet:not([hidden]) { animation: sheet-up .26s cubic-bezier(.2, .9, .3, 1); }
   html:not([data-motion="reduce"]) .pick-sheet .ps-thumb.swap { animation: ps-swap .3s ease-out; }
