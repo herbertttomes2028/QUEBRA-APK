@@ -50,7 +50,7 @@ test('progresso libera categorias 2 e 3 só com 5/5; premium independente', () =
 test('HTML reutiliza tela de seleção, sem quebrar sala, controles ou conteúdo antigo', () => {
   const html=read('public/index.html'),js=read('public/game.js'),css=read('public/style.css');
   assert.match(html,/id="library-categories"/);assert.match(html,/id="library-nav"/);
-  assert.match(html,/id="pick-grid"/);assert.match(html,/id="pick-sheet"/);assert.match(html,/id="file-input"/);
+  assert.match(html,/id="pick-grid"/);assert.match(html,/id="pick-sheet"/);assert.doesNotMatch(html,/id="file-input"/);
   assert.match(js,/state\.libraryCatalog/);assert.match(js,/function renderLibraryHome/);assert.match(js,/function renderLibraryCategory/);
   assert.match(js,/function localLibraryComplete/);assert.match(js,/store\.set\('libraryClears'/);
   assert.match(css,/\.library-category\s*\{/);assert.match(css,/\.library-photo\s*\{/);

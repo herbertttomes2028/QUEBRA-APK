@@ -20,7 +20,7 @@ const alvo = (cfg, p) => ({ x: cfg.BOARD_X + p.col * cfg.TILE + cfg.TILE / 2, y:
 const fecha = (...s) => s.forEach((x) => x.close());
 
 test('/api/config traz os campos que o cliente lê', () => {
-  for (const k of ['images', 'presets', 'defaultPieces', 'hints', 'spots', 'maxName', 'chat', 'codeLen', 'phrases', 'avatars', 'push', 'accounts', 'upload']) assert.ok(k in cfgJson, 'faltou ' + k);
+  for (const k of ['images', 'presets', 'defaultPieces', 'hints', 'spots', 'maxName', 'chat', 'codeLen', 'phrases', 'avatars', 'push', 'accounts']) assert.ok(k in cfgJson, 'faltou ' + k);
   assert.equal(cfgJson.accounts.enabled, false, 'sem DATABASE_URL as contas ficam desligadas');
   assert.deepEqual(cfgJson.presets.map((p) => p.pieces), [6, 12, 20, 30, 48]);
   assert.equal(cfgJson.codeLen, 6);
