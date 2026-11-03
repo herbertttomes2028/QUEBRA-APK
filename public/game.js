@@ -444,6 +444,33 @@
     var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
     return n + '/' + c.images.length;
   }
+  // ---- Galeria de categorias em formato de quebra-cabeça (geometria idêntica à das peças do jogo) ----
+  var LIBRARY_COLORS = { fauna: '#127a56', biomas: '#0a7c92', espaco: '#4b3fc4', cultura: '#b8470f', fantasia: '#8b2fb0' };
+  var LIBRARY_FALLBACK = ['#127a56', '#0a7c92', '#4b3fc4', '#b8470f', '#8b2fb0', '#a02f5b'];
+  function libraryColor(c, i) { return LIBRARY_COLORS[c.id] || LIBRARY_FALLBACK[i % LIBRARY_FALLBACK.length]; }
+  function hintFor(c) { var prev = state.libraryCatalog[c.order - 2]; return prev && !c.price ? 'Conclua ' + prev.name + ' para liberar.' : ''; }
+  function libraryClip(el, idx) { el.style.clipPath = el.style.webkitClipPath = 'url(#lib-clip-' + idx + ')'; }
+  function libraryClipDefs(cols, rows, cells) {
+    var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), defs = document.createElementNS(NS, 'defs');
+    svg.setAttribute('class', 'library-defs'); svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+    svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+    for (var i = 0; i < cells; i++) {
+      var cp = document.createElementNS(NS, 'clipPath'), p = document.createElementNS(NS, 'path');
+      cp.setAttribute('id', 'lib-clip-' + i); cp.setAttribute('clipPathUnits', 'objectBoundingBox');
+      p.setAttribute('transform', 'scale(0.0080645)');             // 1/124: o desenho das peças vive numa caixa de 124 unidades
+      p.setAttribute('d', puzzlePath(i % cols, Math.floor(i / cols), cols, rows));
+      cp.appendChild(p); defs.appendChild(cp);
+    }
+    svg.appendChild(defs);
+    return svg;
+  }
+  function libraryOutline(col, row, cols, rows) {
+    var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), d = puzzlePath(col, row, cols, rows);
+    svg.setAttribute('class', 'library-outline'); svg.setAttribute('viewBox', '0 0 124 124'); svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('focusable', 'false');
+    ['library-ring', 'library-line'].forEach(function (cls) { var p = document.createElementNS(NS, 'path'); p.setAttribute('class', cls); p.setAttribute('d', d); svg.appendChild(p); });
+    return svg;
+  }
   // Galeria de coleções: fotos protagonistas, informação curta e progresso em 5 marcas.
   // Nenhuma regra de liberação é recalculada aqui; usamos libraryAvailable e a API existente.
   function renderLibraryHome() {
@@ -465,7 +492,11 @@
       root.appendChild(banner);
       libraryCelebrationPending = null; // nunca repete ao reabrir o catálogo
     }
-    state.libraryCatalog.forEach(function (c) {
+    // Cada categoria é UMA PEÇA de um quebra-cabeça de 2 colunas: o recorte usa EXATAMENTE a mesma geometria (puzzlePath) das peças e do
+    // tabuleiro, então os encaixes se entrelaçam. Nenhuma sombra e nenhum filtro (o drop-shadow por peça já provou ser o maior custo de desenho).
+    var cols = 2, total = state.libraryCatalog.length, cells = total + (total % 2), rows = Math.max(1, Math.ceil(cells / cols));
+    root.appendChild(libraryClipDefs(cols, rows, cells));
+    state.libraryCatalog.forEach(function (c, idx) {
       var open = c.order === 1 || (libraryProgress.loaded && libraryAvailable(c));
       var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
       var complete = n === c.images.length;
@@ -473,40 +504,58 @@
       var card = libraryEl('article', 'library-category' + (open ? ' available' : ' locked') +
         (complete ? ' completed' : '') + (premium ? ' premium' : '') +
         (celebrate && celebrate.id === c.id ? ' celebrating' : ''));
-      var status = complete ? '✦ COLEÇÃO COMPLETA' : open ? (premium ? '✦ COLEÇÃO DESBLOQUEADA' : '● DISPONÍVEL') :
-        premium ? '✦ COLEÇÃO ESPECIAL' : '◈ PRÓXIMA COLEÇÃO';
-      card.appendChild(libraryEl('div', 'library-status', status));
+      card.style.setProperty('--cat', libraryColor(c, idx));      // a cor da categoria vale também quando bloqueada: o cadeado e o véu leve indicam o bloqueio
+      var piece = libraryEl('div', 'library-piece');
+      var face = libraryEl('div', 'library-face'); libraryClip(face, idx);
       var cover = libraryEl('div', 'library-cover');
       cover.appendChild(libraryImage(c.images[0].file, c.name));
-      card.appendChild(cover);
+      face.appendChild(cover);
+      if (!open) face.appendChild(libraryEl('div', 'library-veil'));
+      piece.appendChild(face);
+      piece.appendChild(libraryOutline(idx % cols, Math.floor(idx / cols), cols, rows));
+      var mark = complete ? '✓' : !open ? (premium ? '💎' : '🔒') : '';
+      if (mark) { var badge = libraryEl('span', 'library-badge', mark); badge.setAttribute('aria-hidden', 'true'); piece.appendChild(badge); }
+      if (open) { var go = libraryEl('span', 'library-go', '▶'); go.setAttribute('aria-hidden', 'true'); piece.appendChild(go); }
       var info = libraryEl('div', 'library-info');
       info.appendChild(libraryEl('h3', 'library-name', c.name.toLocaleUpperCase('pt-BR')));
-      info.appendChild(libraryEl('p', 'library-subtitle', c.subtitle));
-      var progress = libraryEl('div', 'library-progress');
-      progress.setAttribute('role', 'group');
-      progress.setAttribute('aria-label', n + ' de ' + c.images.length + ' imagens concluídas');
-      var dots = libraryEl('div', 'library-dots'); dots.setAttribute('aria-hidden', 'true');
-      c.images.forEach(function (im) {
-        dots.appendChild(libraryEl('span', 'library-dot' + (libraryDone(im.file) ? ' is-done' : '')));
-      });
-      progress.appendChild(dots);
-      progress.appendChild(libraryEl('span', 'library-progress-label', n + ' DE ' + c.images.length + ' CONCLUÍDAS'));
-      info.appendChild(progress);
-      if (!open) {
+      if (open) {
+        var progress = libraryEl('div', 'library-progress');
+        progress.setAttribute('role', 'group');
+        progress.setAttribute('aria-label', n + ' de ' + c.images.length + ' imagens concluídas');
+        var dots = libraryEl('div', 'library-dots'); dots.setAttribute('aria-hidden', 'true');
+        c.images.forEach(function (im) {
+          dots.appendChild(libraryEl('span', 'library-dot' + (libraryDone(im.file) ? ' is-done' : '')));
+        });
+        progress.appendChild(dots);
+        progress.appendChild(libraryEl('span', 'library-progress-label', n + '/' + c.images.length));
+        info.appendChild(progress);
+      } else if (premium) {
+        info.appendChild(libraryEl('p', 'library-price', '💎 ' + c.price + ' gemas'));
+      } else {
         var hint = !libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' :
-          premium ? 'Desbloqueio permanente com gemas' :
           'Conclua ' + state.libraryCatalog[c.order - 2].name + ' para liberar';
         info.appendChild(libraryEl('p', 'library-hint', hint));
       }
+      piece.appendChild(info);
       var label = open ? 'ABRIR' : premium ? 'DESBLOQUEAR · ' + c.price + ' GEMAS' : 'BLOQUEADA';
-      var action = libraryEl('button', 'btn btn-primary library-action', label);
+      // O botão cobre a peça inteira (recortado no mesmo formato): tocar em qualquer lugar da peça abre a categoria.
+      var action = libraryEl('button', 'library-action', label);
       action.type = 'button'; action.dataset.category = c.id;
       action.disabled = !open && (!libraryProgress.loaded || !premium);
-      action.setAttribute('aria-label', open ? 'Abrir ' + c.name : premium ?
-        'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name);
-      info.appendChild(action);
-      card.appendChild(info); root.appendChild(card);
+      action.setAttribute('aria-label', open ? 'Abrir ' + c.name + ', ' + n + ' de ' + c.images.length + ' imagens concluídas' : premium ?
+        'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name + '. ' + hintFor(c));
+      libraryClip(action, idx);
+      piece.insertBefore(action, piece.querySelector('.library-outline'));
+      card.appendChild(piece); root.appendChild(card);
     });
+    if (cells > total) {            // número ímpar: a última peça do quebra-cabeça fica vazia, como convite
+      var slot = libraryEl('div', 'library-category library-slot');
+      var sp = libraryEl('div', 'library-piece');
+      var sf = libraryEl('div', 'library-face'); libraryClip(sf, total); sp.appendChild(sf);
+      sp.appendChild(libraryOutline(total % cols, Math.floor(total / cols), cols, rows));
+      sp.appendChild(libraryEl('p', 'library-slot-text', 'Mais coleções em breve'));
+      slot.appendChild(sp); root.appendChild(slot);
+    }
     var classics = libraryEl('button', 'btn btn-secondary library-legacy', '🖼 Imagens clássicas e Minha imagem');
     classics.type = 'button'; classics.id = 'library-classic'; root.appendChild(classics);
     if (!libraryToken()) root.appendChild(libraryEl('p', 'library-note', 'Seu progresso gratuito fica neste aparelho. Entre em Meu espaço para guardar suas coleções na conta e utilizar gemas.'));
