@@ -9,10 +9,10 @@ const js = read('public/game.js');
 const css = read('public/style.css');
 const html = read('public/index.html');
 
-test('cinco coleções em cartões verticais, capas principais enquadradas e título sem numeração', () => {
-  assert.match(css, /\.library-category \{[^}]*flex-direction: column;/);
-  assert.match(css, /\.library-cover \{[^}]*border: 3px solid/);
-  assert.match(css, /\.library-cover \.library-photo \{[^}]*object-fit: contain/);
+test('cinco coleções em peças de quebra-cabeça de 2 colunas, capas principais e título sem numeração', () => {
+  assert.match(css, /\.library-categories \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.library-piece \{[^}]*aspect-ratio: 1 \/ 1\.25/);
+  assert.match(css, /\.library-photo \{[^}]*object-fit: cover/);
   assert.doesNotMatch(css, /\.library-category\.locked \.library-cover::after/);
   assert.match(js, /libraryImage\(c\.images\[0\]\.file, c\.name\)/);
   assert.match(js, /library-name', c\.name\.toLocaleUpperCase\('pt-BR'\)/);
@@ -37,8 +37,8 @@ test('progresso usa 5 marcas acessíveis, sem alterar a regra de desbloqueio', (
 test('ações amarelas, bloqueios informativos, preço de compra sem mudar saldo', () => {
   assert.match(js, /'DESBLOQUEAR · ' \+ c\.price \+ ' GEMAS'/);
   assert.match(js, /'BLOQUEADA'/);
-  assert.match(css, /\.library-category\.available \.library-action \{ background: var\(--sun\);/);
-  assert.match(css, /\.library-category\.locked \.library-action:not\(:disabled\) \{ background: var\(--sun\);/);
+  assert.match(css, /\.library-go \{[^}]*background: var\(--sun\)/, 'a pista amarela de que a peça abre');
+  assert.match(css, /\.library-action \{[^}]*background: transparent/, 'o botão cobre a peça inteira, sem desenho próprio');
   assert.match(js, /libraryProgress\.gems < c\.price/);
   assert.match(js, /\/api\/acc\/library\/unlock/);
   assert.doesNotMatch(js.slice(js.indexOf('function renderLibraryHome()'), js.indexOf('function renderLibraryCategory(')), /payMatch|xp_events|INSERT INTO/);

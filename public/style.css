@@ -2199,55 +2199,59 @@ html[data-theme="dark"] #screen-pick { background: var(--paper); }
 #screen-pick #pick-title { font-family: "Fredoka", var(--font); font-size: clamp(1.38rem, 5.4vw, 1.85rem); letter-spacing: -.015em; }
 #screen-pick #pick-lead { max-width: 330px; text-align: center; color: var(--ink-soft); margin: 0 0 18px; }
 #screen-pick #btn-pick-back { align-self: flex-start; background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep); font-family: "Fredoka", var(--font); font-weight: 700; }
-.library-categories { width: 100%; display: flex; flex-direction: column; gap: 20px; padding: 4px 0 20px; }
-.library-category {
-  width: 100%; display: flex; flex-direction: column; gap: 0; min-width: 0;
-  padding: 14px 14px 16px; border-radius: 24px; background: var(--card);
-  border: 1px solid var(--line); box-shadow: 0 5px 0 var(--line-2);
-}
-.library-category.locked { background: var(--card); }
-.library-status {
-  display: inline-flex; align-items: center; align-self: flex-start;
-  margin: 0 0 11px 2px; padding: 5px 11px; border-radius: 999px;
-  color: var(--ink); background: var(--paper-2); font-size: .7rem;
-  font-weight: 700; letter-spacing: .035em; line-height: 1.25;
-}
-.library-category.available .library-status { color: #12674f; background: #e4f7ec; }
-.library-category.premium .library-status { color: #835308; background: #fff2cc; }
-.library-category.completed .library-status { color: #76500c; background: #ffedb5; }
-.library-cover {
-  width: 100%; height: clamp(186px, 57vw, 244px); min-width: 0; box-sizing: border-box;
-  border: 3px solid #f5c34a; padding: 5px; border-radius: 19px;
-  overflow: hidden; background: linear-gradient(145deg, #fff4d5, #f4e9d4 52%, #eee7e0);
-  box-shadow: 0 2px 0 #bc841c, inset 0 0 0 1px #fff7d9; position: relative;
-  display: flex; justify-content: center; align-items: center;
-}
-.library-cover .library-photo { display: block; width: auto; max-width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
-.library-category.locked:not(.premium) .library-photo { opacity: .82; filter: saturate(.78); }
 .library-photo { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 12px; }
 .library-cover.image-failed, .thumb.image-failed { background: linear-gradient(135deg,var(--paper-3),var(--line)); }
 .library-cover.image-failed::before, .thumb.image-failed::before { content: '🧩'; display: grid; place-items: center; position: absolute; inset: 0; font-size: 1.8rem; }
-.library-info { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; padding: 14px 4px 0; }
-.library-name { margin: 0; font-size: clamp(1.13rem, 4.7vw, 1.36rem); line-height: 1.16; font-weight: 700; text-align: center; overflow-wrap: anywhere; }
-.library-subtitle { margin: 5px 0 12px; font-size: .86rem; line-height: 1.3; text-align: center; color: var(--ink-soft); }
-.library-progress { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 7px; margin-bottom: 12px; }
-.library-dots { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 19px; }
-.library-dot {
-  width: 17px; height: 17px; border: 2px solid var(--line); border-radius: 50%;
-  background: var(--paper-2); box-shadow: inset 0 1px 1px rgba(27,37,89,.06);
-}
-.library-dot.is-done { border-color: #d59e1c; background: #ffcf33; box-shadow: 0 1px 0 #ad7c0f; }
-.library-progress-label { color: var(--ink-soft); font-size: .72rem; line-height: 1.2; font-weight: 700; letter-spacing: .025em; }
-.library-hint { margin: -1px 0 12px; color: var(--ink-soft); font-size: .78rem; font-weight: 650; text-align: center; line-height: 1.35; }
-.library-action {
-  align-self: stretch; width: min(100%, 270px); min-width: 0; min-height: 48px;
-  margin: 0 auto; padding: 10px 14px; font-size: .9rem; border-radius: 14px;
-  background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep);
-  font-family: "Fredoka", var(--font); font-weight: 700;
-}
-.library-category.available .library-action { background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep); }
-.library-category.locked .library-action:not(:disabled) { background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep); }
-.library-category .library-action:disabled { color: var(--ink-soft); opacity: 1; cursor: default; background: var(--paper-3); box-shadow: 0 3px 0 var(--line-2); }
+/* ---------- Galeria de categorias: um quebra-cabeça de 2 colunas ----------
+   Cada categoria é UMA PEÇA, recortada com a MESMA geometria (puzzlePath) das peças e do tabuleiro, então os encaixes se entrelaçam.
+   Sem sombra e sem filtro (o drop-shadow por peça foi o maior custo de desenho medido). Texto branco sobre cores de contraste >= 4,5:1. */
+.library-categories { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; padding: 10px 4px 22px; position: relative; font-family: "Fredoka", var(--font); }
+.library-categories > .library-celebration-banner, .library-categories > .library-legacy, .library-categories > .library-note { grid-column: 1 / -1; }
+.library-categories > .library-celebration-banner { margin: 0 0 14px; }
+.library-categories > .library-legacy { margin-top: 18px; }
+.library-categories > .library-note { margin-top: 12px; }
+.library-defs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.library-category { --cat: #535c8f; min-width: 0; }
+.library-piece { position: relative; aspect-ratio: 1 / 1.25; }
+/* a caixa de desenho tem 124 unidades (100 do corpo + 12 de encaixe de cada lado): 12,1% do corpo para fora */
+.library-face, .library-action, .library-outline { position: absolute; inset: -12.1%; width: 124.2%; height: 124.2%; }
+.library-face { z-index: 1; background: var(--paper-2); }
+.library-cover { position: absolute; inset: 0; }
+.library-photo { width: 100%; height: 100%; display: block; object-fit: cover; object-position: 50% 32%; border-radius: 0; }
+.library-cover.image-failed, .thumb.image-failed { background: linear-gradient(135deg,var(--paper-3),var(--line)); }
+.library-cover.image-failed::before, .thumb.image-failed::before { content: '🧩'; display: grid; place-items: center; position: absolute; inset: 0; font-size: 1.8rem; }
+.library-veil { position: absolute; inset: 0; background: rgba(27, 37, 89, .34); }
+.library-outline { z-index: 2; pointer-events: none; overflow: visible; }
+.library-outline path { fill: none; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.library-line { stroke: var(--cat); stroke-width: 3px; }
+.library-ring { stroke: none; stroke-width: 0; }
+.library-category.completed .library-line { stroke: #e9a912; stroke-width: 4.2px; }
+.library-badge, .library-go { position: absolute; z-index: 3; display: grid; place-items: center; border-radius: 50%; line-height: 1; pointer-events: none; }
+.library-badge { left: 9%; top: 6%; width: 30px; height: 30px; font-size: .95rem; font-weight: 700; color: var(--cat); background: #fff; border: 2px solid var(--cat); }
+.library-category.completed .library-badge { color: #6b4700; background: #ffcf33; border-color: #b8790b; }
+.library-go { right: 9%; top: 6%; width: 34px; height: 34px; font-size: .9rem; padding-left: 2px; color: var(--on-sun); background: var(--sun); border: 2px solid var(--on-sun); }
+/* a placa com o nome fica na faixa livre do corpo: o encaixe de cima e o de baixo ocupam no máximo 14% e os laterais só a faixa do meio */
+.library-info { position: absolute; z-index: 3; left: 13%; right: 13%; bottom: 15%; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 6px 7px; border-radius: 12px; background: var(--cat); color: #fff; text-align: center; min-width: 0; pointer-events: none; }
+.library-name { margin: 0; font-size: clamp(.74rem, 3.5vw, .9rem); line-height: 1.12; font-weight: 700; letter-spacing: .01em; overflow-wrap: anywhere; color: #fff; }
+.library-progress { display: flex; align-items: center; justify-content: center; gap: 7px; }
+.library-dots { display: flex; align-items: center; gap: 3px; }
+.library-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .85); background: transparent; }
+.library-dot.is-done { border-color: #ffcf33; background: #ffcf33; }
+.library-progress-label { font-size: .72rem; line-height: 1; font-weight: 700; color: #fff; }
+.library-hint, .library-price { margin: 0; font-size: .7rem; line-height: 1.2; font-weight: 600; color: #fff; }
+.library-price { font-size: .8rem; font-weight: 700; }
+/* o botão cobre a peça inteira (recortado no mesmo formato): sem texto visível, o rótulo vai em aria-label */
+.library-action { z-index: 4; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: transparent; font-size: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.library-action:disabled { cursor: default; }
+.library-action:focus { outline: none; }
+.library-action:focus-visible ~ .library-outline .library-ring { stroke: #fff; stroke-width: 9px; }
+.library-action:focus-visible ~ .library-outline .library-line { stroke: #1b2559; stroke-width: 4.5px; }
+.library-slot .library-face { background: transparent; }
+.library-slot .library-line { stroke: var(--line); stroke-dasharray: 6 5; stroke-width: 2.6px; }
+.library-slot-text { position: absolute; z-index: 3; left: 16%; right: 16%; top: 50%; transform: translateY(-50%); margin: 0; text-align: center; color: var(--ink-soft); font-size: .78rem; font-weight: 600; line-height: 1.25; }
+html[data-theme="dark"] .library-face { background: var(--paper-3); }
+html[data-theme="dark"] .library-badge { background: #1b2559; }
+html[data-theme="dark"] .library-category.completed .library-badge { background: #ffcf33; }
 .library-legacy { width: 100%; min-height: 52px; border-radius: 16px; font-size: .9rem; justify-content: center; padding: 10px; font-family: "Fredoka", var(--font); font-weight: 700; }
 .library-note { color: var(--ink-soft); font-size: .78rem; text-align: center; line-height: 1.5; padding: 2px 10px 0; margin: 0; }
 /* A categoria aberta exibe um único título centralizado e uma galeria de duas colunas. */
@@ -2264,34 +2268,24 @@ html[data-theme="dark"] #screen-pick { background: var(--paper); }
 .pick-card .thumb .library-photo { border-radius: 12px; }
 .library-done { display: inline-flex; margin-top: 5px; background: #fff0b8; border-radius: 20px; padding: 3px 8px; color: #6e4c09; font-size: .69rem; font-weight: 700; }
 html[data-theme="dark"] .library-done { background: #59430e; color: #ffe8a3; }
-html[data-theme="dark"] .library-status { background: #30395f; color: #e1e7ff; }
-html[data-theme="dark"] .library-category.available .library-status { background: #20493f; color: #b7f5df; }
-html[data-theme="dark"] .library-category.premium .library-status, html[data-theme="dark"] .library-category.completed .library-status { background: #544218; color: #ffe5a0; }
-html[data-theme="dark"] .library-cover { background: linear-gradient(145deg, #403724, #33354c); }
-html[data-theme="dark"] .library-dot { background: var(--paper-2); }
-html[data-theme="dark"] .library-dot.is-done { background: #ffcf33; }
 /* Categoria concluída: moldura e celebração dourada somente após completar 5/5.
    Animação puramente visual, sem alterar recompensa, partida ou histórico. */
-.library-category.completed .library-cover { border-color: #ffce42; box-shadow: 0 2px 0 #b77812, 0 0 0 2px rgba(255,203,65,.23), 0 4px 12px rgba(166,119,22,.22); }
-.library-category.celebrating { position: relative; border: 2px solid #f5c543; background: linear-gradient(120deg, var(--card) 20%, #fff3b6 50%, var(--card) 80%); }
 .library-celebration-banner { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 11px 14px; border: 2px solid #e9ae25; border-radius: 17px; color: #754400; background: linear-gradient(110deg, #fff5be, #ffdb63 48%, #fff3bd); box-shadow: 0 4px 0 #c99523, 0 4px 16px rgba(196,139,13,.22); text-align: center; font-weight: 800; }
 .library-celebration-banner strong { font-size: 1.02rem; letter-spacing: .025em; }
 .library-celebration-banner span:last-child { font-size: .78rem; }
 .library-celebration-spark { font-size: 1.25rem; letter-spacing: .36em; }
 @media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="reduce"]) .library-category.celebrating .library-line { animation: library-gold-line 1.1s ease-in-out 3 alternate; }
   html:not([data-motion="reduce"]) .library-celebration-banner { animation: library-gold-arrive .75s cubic-bezier(.2,.9,.25,1) both, library-gold-glow 1.35s ease-in-out .75s 2 alternate; }
-  html:not([data-motion="reduce"]) .library-category.celebrating { animation: library-gold-card 1.35s ease-in-out 2 alternate; }
   html:not([data-motion="reduce"]) .library-celebration-spark { animation: library-gold-spark .95s ease-in-out 3 alternate; }
 }
+@keyframes library-gold-line { from { stroke: #e9a912; stroke-width: 4.2px; } to { stroke: #ffcf33; stroke-width: 7px; } }
 @keyframes library-gold-arrive { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes library-gold-glow { from { box-shadow: 0 4px 0 #c99523, 0 4px 12px rgba(196,139,13,.18); } to { box-shadow: 0 4px 0 #c99523, 0 0 24px rgba(255,201,44,.65); } }
-@keyframes library-gold-card { from { box-shadow: 0 5px 0 var(--line-2); } to { box-shadow: 0 5px 0 #cb9d2b, 0 0 20px rgba(255,210,58,.68); } }
 @keyframes library-gold-spark { from { opacity: .55; transform: scale(.9); } to { opacity: 1; transform: scale(1.13); } }
-@media (max-width: 370px) {
-  .library-category { padding: 10px 10px 14px; }
-  .library-categories { gap: 16px; }
-  .library-cover { height: 186px; }
-  .library-dots { gap: 8px; }
-  .library-action { font-size: .84rem; }
-  #screen-pick .pick-grid.library-gallery { gap: 10px; }
+
+@media (max-width: 350px) {
+  .library-info { left: 11%; right: 11%; padding: 6px 4px; gap: 3px; }
+  .library-badge { width: 26px; height: 26px; }
+  .library-go { width: 30px; height: 30px; }
 }
