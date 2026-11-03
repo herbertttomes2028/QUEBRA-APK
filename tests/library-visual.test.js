@@ -6,19 +6,19 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('títulos da biblioteca em maiúsculas e sem numeração; Abrir amarelo', () => {
+test('títulos da biblioteca em maiúsculas e sem numeração; pista amarela de abrir', () => {
   const js = read('public/game.js');
   const css = read('public/style.css');
   assert.match(js, /library-name', c\.name\.toLocaleUpperCase\('pt-BR'\)/);
   assert.match(js, /library-heading'\)\.textContent = c\.name\.toLocaleUpperCase\('pt-BR'\)/);
   assert.doesNotMatch(js, /library-name', c\.order \+ '\. '/);
-  assert.match(css, /\.library-category\.available \.library-action \{ background: var\(--sun\); color: var\(--on-sun\);/);
+  assert.match(css, /\.library-go \{[^}]*color: var\(--on-sun\); background: var\(--sun\)/);
 });
 
-test('moldura das miniaturas de categoria e botão JOGAR centralizado', () => {
+test('contorno das peças de categoria (sem sombra) e botão JOGAR centralizado', () => {
   const css = read('public/style.css');
-  assert.match(css, /\.library-cover \{[^}]*border: 3px solid/);
-  assert.match(css, /\.library-cover \{[^}]*box-shadow:/);
+  assert.match(css, /\.library-line \{ stroke: var\(--cat\);/);
+  assert.match(css, /\.library-category\.completed \.library-line \{ stroke: #e9a912;/);
   assert.match(css, /\.pick-sheet #btn-pick-go \{[^}]*margin: 0 auto; align-self: center;/);
   assert.match(css, /\.pick-sheet #btn-pick-go \{[^}]*max-width: 330px;/);
 });
