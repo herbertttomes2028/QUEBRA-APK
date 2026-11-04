@@ -12,6 +12,8 @@ const game = read('public/game.js'), css = read('public/style.css');
 const start = game.indexOf('  var go = {'), end = game.indexOf('  function doCreate(', start);
 assert.ok(start > 0 && end > start);
 const splashSource = game.slice(start, end);
+// auxiliares REAIS do game.js usados pela abertura (origem da imagem e revisão da miniatura)
+const helperSource = ['  function crossOriginOf(', '  function splashThumbUrl('].map((n) => { const a = game.indexOf(n); assert.ok(a > 0, n); return game.slice(a, game.indexOf('\n', a) + 1); }).join('\n');
 
 test('giro usa miniatura da mesma imagem e inicia sem reflow síncrono', () => {
   const tags = [], callbacks = [], canceled = [];
@@ -30,14 +32,14 @@ test('giro usa miniatura da mesma imagem e inicia sem reflow síncrono', () => {
     $: sel => { assert.ok(elems[sel], sel); return elems[sel]; },
     imageItem: () => ({categoryId:'fauna',
       thumb:'biblioteca/mini/lib-fauna-01.webp', url:'biblioteca/lib-fauna-01.webp'}),
-    LIBRARY_MEDIA_VERSION:'capas-20261031',
+    LIBRARY_MEDIA_VERSION:'capas-20261031', URL, location:{href:'http://localhost/', origin:'http://localhost'},
     clearTimeout:()=>{}, setTimeout:()=>123,
     requestAnimationFrame: cb => {callbacks.push(cb);return ++nextFrame;},
     cancelAnimationFrame: id => canceled.push(id),
     reducedMotion:()=>false, announce: text=>tags.push(text)
   };
   Object.defineProperty(splash, 'offsetWidth', {get() {throw Error('layout forçado');}});
-  vm.runInNewContext(splashSource, ctx);
+  vm.runInNewContext(helperSource + '\n' + splashSource, ctx);
   ctx.showGoSplash('lib-fauna-01.webp');
   assert.match(img.style.backgroundImage, /biblioteca\/mini\/lib-fauna-01\.webp\?v=capas-20261031/);
   assert.equal(splash.hidden,false);
@@ -74,4 +76,15 @@ test('estilos preservam giro em pé, pulinho dourado e contorno sem filtro caro'
   assert.match(css, /\.victory-flight-photo::before/);
   assert.match(css, /@keyframes victory-glint/);
   assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v21'/);
+});
+
+test('miniatura da abertura: arquivo local ganha a revisão do cliente; imagem EXTERNA não ganha uma segunda (outra chave de cache = baixar duas vezes)', () => {
+  const ctx = { LIBRARY_MEDIA_VERSION: 'capas-20261031', URL, location: { href: 'http://localhost/', origin: 'http://localhost' } };
+  vm.runInNewContext(helperSource, ctx);
+  assert.equal(ctx.splashThumbUrl('biblioteca/mini/a.webp'), 'biblioteca/mini/a.webp?v=capas-20261031');
+  assert.equal(ctx.splashThumbUrl('biblioteca/mini/a.webp?v=x1'), 'biblioteca/mini/a.webp?v=x1&v=capas-20261031', 'comportamento local inalterado');
+  assert.equal(ctx.splashThumbUrl('https://img.exemplo.com.br/biblioteca/mini/a.webp?v=059151a7'), 'https://img.exemplo.com.br/biblioteca/mini/a.webp?v=059151a7');
+  assert.equal(ctx.crossOriginOf('https://img.exemplo.com.br/a.webp'), true);
+  assert.equal(ctx.crossOriginOf('biblioteca/a.webp'), false);
+  assert.equal(ctx.crossOriginOf('http://localhost/biblioteca/a.webp'), false);
 });

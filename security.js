@@ -19,13 +19,15 @@ function ipOfSocket(socket) {
 const CSP_MODE = ['report', 'enforce', 'off'].includes(String(process.env.CSP_MODE || '').toLowerCase()) ? String(process.env.CSP_MODE).toLowerCase() : 'report';
 const PERMISSIONS = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=(), display-capture=(), accelerometer=(), gyroscope=(), magnetometer=(), interest-cohort=()';
 
+const MEDIA = require('./media').fromEnv(process.env);       // origem externa das imagens da biblioteca (já validada; null = só arquivos locais)
+
 function cspPolicy(host, withAncestors) {
   const h = /^[a-z0-9.\-]+(:\d+)?$/i.test(host || '') ? host : '';
   return [
     "default-src 'self'",
     "script-src 'self' https://accounts.google.com/gsi/client",
     "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
-    "img-src 'self' data: blob: https://*.googleusercontent.com",
+    "img-src 'self' data: blob: https://*.googleusercontent.com" + (MEDIA ? ' ' + MEDIA.origin : ''),
     "media-src 'self' blob: data:",
     "font-src 'self' data:",
     "connect-src 'self'" + (h ? ' ws://' + h + ' wss://' + h : '') + ' https://accounts.google.com/gsi/',

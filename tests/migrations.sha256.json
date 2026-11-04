@@ -5,5 +5,6 @@
   "004_modo_solo.sql": "ee3fb26546d9b00968fdf2bbb1e73f6ea0a8d96f0524613cd8992e3c556d7f17",
   "005_gemas.sql": "915553740e247711da8798d02f9f561c8c838283ca969e717787bca02f414b95",
   "006_biblioteca.sql": "a6cb2e5f0b2f2a8220aed7da5ef40075eddb523e3c264632478ce400b3ae22a0",
-  "007_remover_fotos_enviadas.sql": "b5246bf3aff9c0c7782f5fec8fbfb586d07e2c3cea1cd37f7fe9fb3153505d6c"
+  "007_remover_fotos_enviadas.sql": "b5246bf3aff9c0c7782f5fec8fbfb586d07e2c3cea1cd37f7fe9fb3153505d6c",
+  "008_catalogo_biblioteca.sql": "0f21414bd3436bb557c01978dbb5ad7b07543b61e3dd7803b72520b0accd6234"
 }

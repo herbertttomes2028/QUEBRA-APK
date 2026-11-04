@@ -2185,6 +2185,8 @@ html[data-theme="dark"] #screen-pick { background: var(--paper); }
 .library-dots { display: flex; align-items: center; gap: 3px; }
 .library-dot { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .85); background: transparent; }
 .library-dot.is-done { border-color: #ffcf33; background: #ffcf33; }
+.library-bar { display: block; width: 52px; height: 9px; border-radius: 5px; border: 1.5px solid rgba(255, 255, 255, .85); overflow: hidden; }
+.library-bar i { display: block; height: 100%; background: #ffcf33; }
 .library-progress-label { font-size: .72rem; line-height: 1; font-weight: 700; color: #fff; }
 .library-hint, .library-price { margin: 0; font-size: .7rem; line-height: 1.2; font-weight: 600; color: #fff; }
 .library-price { font-size: .8rem; font-weight: 700; }

@@ -49,7 +49,8 @@ test('capas, imagens da galeria, prévia e quebra-cabeça usam o mesmo arquivo p
   const js = read('public/game.js');
   assert.match(js, /var LIBRARY_MEDIA_VERSION = 'capas-20261031'/);
   assert.match(js, /url: libraryMediaUrl\(i\.url\), thumb: libraryMediaUrl\(i\.thumb\)/);
-  assert.match(js, /img\.src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\)/);
+  assert.match(js, /var src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\);/);
+  assert.match(js, /img\.src = src;/);
   assert.match(js, /if \(item\.categoryId\) return Promise\.resolve\(item\.url\)/);
   assert.match(js, /loadImage\(item\.url\)\.then/);
   assert.match(js, /imageItem\(file\)/);

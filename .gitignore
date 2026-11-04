@@ -23,3 +23,14 @@ Thumbs.db
 
 # Saídas locais
 coverage/
+
+# Rastros de provedores de nuvem (Supabase, Cloudflare etc.): chaves e configuração local NUNCA no GitHub
+supabase/.temp/
+supabase/.env*
+supabase/.branches/
+.dev.vars
+.wrangler/
+credentials*.json
+service-account*.json
+*.p12
+*.pfx

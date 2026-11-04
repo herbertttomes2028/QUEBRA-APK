@@ -10,6 +10,8 @@
 const crypto = require('crypto');
 const phrases = require('./phrases');
 const library = require('./library');
+// Origem externa das imagens da biblioteca (opcional). Valor inválido é IGNORADO e o jogo segue com os arquivos locais (falha fechada).
+{ const m = library.configureMedia(process.env.MEDIA_BASE_URL); if (process.env.MEDIA_BASE_URL) console.log(m ? '[biblioteca] imagens externas em ' + m.origin : '[biblioteca] MEDIA_BASE_URL inválida: usando os arquivos locais'); }
 const security = require('./security');
 const { makeProtection } = require('./resource-guard');
 const protection = makeProtection();
@@ -157,9 +159,20 @@ app.disable('x-powered-by');
 
 app.get('/health', (req, res) => res.type('text').send('ok'));
 
+// /api/config com o catálogo de centenas de imagens passa de 100 KB: comprime com o zlib do próprio Node (sem dependência nova) e guarda o
+// resultado comprimido enquanto o conteúdo for o mesmo (a configuração só muda quando o catálogo muda).
+const zlib = require('zlib');
+let configGz = { body: '', gz: null };
 app.get('/api/config', (req, res) => {
-  res.set('Cache-Control', 'no-cache');
-  res.json({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
+  res.set({ 'Cache-Control': 'no-cache', 'Vary': 'Accept-Encoding' });
+  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
+  res.type('application/json');
+  if (body.length > 1024 && /\bgzip\b/i.test(req.get('accept-encoding') || '')) {
+    if (configGz.body !== body) configGz = { body, gz: zlib.gzipSync(body) };
+    res.set('Content-Encoding', 'gzip');
+    return res.send(configGz.gz);
+  }
+  res.send(body);
 });
 
 // Verificação do aplicativo Android (APK).
@@ -1085,6 +1098,10 @@ async function start() {
       accHooks.duelFinish = (room, result) => accounts.finishDuel(room, result);
       accHooks.levelOf = (uid) => accounts.levelOf(uid);
       console.log('[contas] sistema de contas ATIVO' + (process.env.GOOGLE_CLIENT_ID ? ' (com login Google)' : ''));
+      try {                                                                 // catálogo da biblioteca vindo do banco (validado; se falhar, vale o embutido)
+        const ok = await library.loadFromDb(db);
+        console.log('[biblioteca] catálogo ' + (ok ? 'carregado do banco' : 'embutido'));
+      } catch (e) { console.error('[biblioteca] catálogo do banco ignorado (usando o embutido):', e.message); }
     } catch (e) {
       console.error('[contas] NÃO foi possível ativar as contas (o jogo segue como visitante):', e.message);
       accounts = null;
