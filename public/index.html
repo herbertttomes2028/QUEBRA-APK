@@ -251,6 +251,8 @@
           <div id="library-nav" class="library-nav" hidden>
             <span id="library-heading" class="library-heading"></span>
             <small id="library-detail" class="library-detail"></small>
+            <small id="library-gate" class="library-gate" hidden></small>
+            <button id="library-continue" class="library-continue" type="button" hidden></button>
           </div>
           <div id="pick-grid" class="pick-grid" role="listbox" aria-label="Imagens disponíveis. Toque numa imagem para escolher." hidden></div>
           <p id="pick-error" class="error" role="alert" hidden></p>
@@ -384,10 +386,13 @@
     <!-- ========== CELEBRAÇÃO DE NÍVEL (só na tela inicial, após a partida) ========== -->
     <div id="lvup" class="lvup" hidden role="dialog" aria-modal="true" aria-labelledby="lvup-title" aria-describedby="lvup-desc">
       <div class="lvup-stars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div id="lvup-confetti" class="lvup-confetti" aria-hidden="true"></div>
       <div class="lvup-card">
         <span class="lvup-eyebrow">CONQUISTA DESBLOQUEADA</span>
         <h2 id="lvup-title">NOVO NÍVEL!</h2>
+        <p id="lvup-tier" class="lvup-tier" hidden>✦ NOVA FAIXA! ✦</p>
         <div class="lvup-award" aria-hidden="true">
+          <span class="lvup-flash"></span><span class="lvup-ring"></span>
           <span class="lvup-ribbon left"></span><span class="lvup-ribbon right"></span>
           <div class="lvup-medal">
             <div class="lvup-medal-inner"><span class="lvup-medal-star">★</span><b id="lvup-n">2</b></div>
@@ -406,6 +411,7 @@
       <div class="sheet cfm-sheet">
         <h3 id="cfm-title">Confirmar</h3>
         <p id="cfm-text" class="cfm-text"></p>
+        <div id="cfm-preview" class="cfm-preview" aria-hidden="true" hidden></div>
         <div class="sheet-actions">
           <button id="cfm-ok" class="btn btn-primary" type="button">Confirmar</button>
           <button id="cfm-cancel" class="btn btn-secondary" type="button" data-back>Cancelar</button>

@@ -2209,11 +2209,11 @@ html[data-theme="dark"] .library-category.completed .library-badge { background:
 .library-nav { width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; padding: 12px 0 17px; }
 .library-heading { width: 100%; font-family: "Fredoka", var(--font); font-weight: 700; text-align: center; font-size: clamp(1.2rem, 5vw, 1.5rem); line-height: 1.2; overflow-wrap: anywhere; }
 .library-detail { font-size: .83rem; color: var(--ink-soft); text-align: center; line-height: 1.3; }
-#screen-pick .pick-grid.library-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-#screen-pick .library-gallery .pick-card { min-width: 0; border: 1px solid var(--line); border-radius: 18px; padding: 7px 7px 12px; line-height: 1.25; }
-#screen-pick .library-gallery .pick-card .thumb { position: relative; overflow: hidden; border-radius: 13px; border: 2px solid #f5c34a; background: #fff4db; }
-#screen-pick .library-gallery .pick-card .thumb .library-photo { border-radius: 10px; }
-#screen-pick .library-gallery .pick-card .library-done { display: block; width: fit-content; margin: 7px auto 0; }
+#screen-pick .pick-grid.library-gallery { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+#screen-pick .library-gallery .pick-card { min-width: 0; border: 1px solid var(--line); border-radius: 14px; padding: 5px 5px 8px; line-height: 1.2; }
+#screen-pick .library-gallery .pick-card .thumb { position: relative; overflow: hidden; border-radius: 10px; border: 2px solid #f5c34a; background: #fff4db; }
+#screen-pick .library-gallery .pick-card .thumb .library-photo { border-radius: 8px; }
+#screen-pick .library-gallery .pick-card .library-done { display: block; width: fit-content; margin: 5px auto 0; font-size: .6rem; padding: 2px 6px; }
 .pick-card .thumb { position: relative; overflow: hidden; }
 .pick-card .thumb .library-photo { border-radius: 12px; }
 .library-done { display: inline-flex; margin-top: 5px; background: #fff0b8; border-radius: 20px; padding: 3px 8px; color: #6e4c09; font-size: .69rem; font-weight: 700; }
@@ -2239,3 +2239,71 @@ html[data-theme="dark"] .library-done { background: #59430e; color: #ffe8a3; }
   .library-badge { width: 26px; height: 26px; }
   .library-go { width: 30px; height: 30px; }
 }
+
+/* ===================== Rodada A: categorias (3 colunas, "próxima", gate, prévia) ===================== */
+.pick-label { display: block; }
+#screen-pick .library-gallery .pick-label { margin-top: 5px; font-size: .72rem; line-height: 1.18; min-height: 2.36em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.pick-chip { position: absolute; z-index: 2; top: 5px; padding: 2px 6px; border-radius: 999px; font: 800 .58rem/1.3 "Fredoka", var(--font); letter-spacing: .02em; box-shadow: 0 1px 0 rgba(0, 0, 0, .28); pointer-events: none; }
+.pick-chip.next-chip { left: 5px; background: #ffd23f; color: #3a2a00; }
+.pick-chip.key-chip { right: 5px; background: #fff; color: #1b2559; font-size: .7rem; padding: 1px 5px; }
+#screen-pick .library-gallery .pick-card.next { box-shadow: 0 0 0 3px #ffbe36; }
+#screen-pick .library-gallery .pick-card.next[aria-selected="true"] { box-shadow: 0 0 0 4px var(--sel), 0 9px 0 4px var(--line-2), 0 14px 22px rgba(27, 37, 89, .22); }
+html:not([data-motion="reduce"]) .pick-card.ping { animation: pick-ping 1.2s cubic-bezier(.2, 1.2, .4, 1); }
+@keyframes pick-ping { 0% { transform: scale(1); } 25% { transform: scale(1.09); } 55% { transform: scale(.98); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .pick-card.ping { animation: none; } }
+.library-gate { margin-top: 2px; padding: 4px 11px; border-radius: 999px; background: #fff0b8; color: #5b3f00; font-size: .76rem; font-weight: 700; line-height: 1.25; text-align: center; }
+html[data-theme="dark"] .library-gate { background: #59430e; color: #ffe8a3; }
+.library-gate[hidden], .library-continue[hidden], .cfm-preview[hidden] { display: none; }
+.library-continue { margin-top: 8px; min-height: 44px; padding: 8px 16px; border: 2px solid #f5c34a; border-radius: 14px; background: #fff4db; color: #5a3d00; font: 700 .86rem/1.2 "Fredoka", var(--font); cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }
+html[data-theme="dark"] .library-continue { background: #3a2c0c; color: #ffe8a3; }
+.library-continue:focus-visible { outline: 3px solid var(--sel, #4f63ff); outline-offset: 3px; }
+.library-count { margin: 0; font-size: .72rem; line-height: 1.2; font-weight: 700; color: #fff; opacity: .95; }
+.library-gate-progress { margin-top: 1px; }
+.cfm-preview { display: flex; justify-content: center; gap: 6px; margin: 2px 0 10px; }
+.cfm-thumb { display: block; width: 62px; height: 83px; border-radius: 10px; overflow: hidden; border: 2px solid #f5c34a; background: #fff4db; }
+.cfm-thumb .library-photo { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ===================== Rodada A: celebração de nível em sequência ===================== */
+/* A cor da medalha segue a faixa do selo "Nv N" (1–9 azul, 10–19 verde, 20–29 roxo, 30–49 laranja, 50+ dourado). */
+.lvup.t1 { --m1: #e3edff; --m2: #7ea3ff; --m3: #3558c9; --m4: #b3c9ff; --rim: #86a8ff; --rim-d: #1f3a8f; --i1: #f2f6ff; --i2: #c4d6ff; --i3: #86a8ff; --ink: #162a6b; --star: #3558c9; }
+.lvup.t2 { --m1: #dcfbef; --m2: #3fd9aa; --m3: #0b8461; --m4: #a6efd3; --rim: #4fdcb0; --rim-d: #065a43; --i1: #effff8; --i2: #b8f2dc; --i3: #55d9ae; --ink: #054534; --star: #0b8461; }
+.lvup.t3 { --m1: #efe6ff; --m2: #a98bff; --m3: #5f34b8; --m4: #d2c0ff; --rim: #b399ff; --rim-d: #3d1f80; --i1: #f7f2ff; --i2: #d9c9ff; --i3: #a98bff; --ink: #34176e; --star: #5f34b8; }
+.lvup.t4 { --m1: #fff0dc; --m2: #ffb25f; --m3: #d9701a; --m4: #ffd7a3; --rim: #ffb768; --rim-d: #8f4a0b; --i1: #fff8ee; --i2: #ffddb0; --i3: #ffb25f; --ink: #532600; --star: #b85a0f; }
+.lvup.t5 { --m1: #fffaad; --m2: #f9c249; --m3: #df8a21; --m4: #ffe57c; --rim: #ffda66; --rim-d: #a75c18; --i1: #fff9c7; --i2: #ffe28b; --i3: #efb74c; --ink: #663e17; --star: #a96a18; }
+.lvup .lvup-medal { border-color: var(--rim, #ffda66); background: linear-gradient(140deg, var(--m1, #fffaad) 4%, var(--m2, #f9c249) 28%, var(--m3, #df8a21) 58%, var(--m4, #ffe57c) 90%); box-shadow: 0 5px 0 var(--rim-d, #a75c18), 0 10px 28px rgba(0, 0, 0, .28), inset 0 0 0 3px var(--m1, #fff4b5); animation: none; }
+.lvup .lvup-medal-inner { background: radial-gradient(circle at 35% 20%, var(--i1, #fff9c7), var(--i2, #ffe28b) 45%, var(--i3, #efb74c)); color: var(--ink, #663e17); }
+.lvup .lvup-medal-star { color: var(--star, #a96a18); }
+.lvup-flash, .lvup-ring { position: absolute; border-radius: 50%; opacity: 0; pointer-events: none; }
+.lvup-flash { z-index: 3; width: 200px; height: 200px; background: radial-gradient(circle, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 68%); }
+.lvup-ring { z-index: 1; width: 158px; height: 158px; border: 5px solid var(--rim, #ffda66); }
+.lvup-tier { display: inline-block; margin: 4px auto 0; padding: 4px 15px; border-radius: 999px; background: linear-gradient(90deg, var(--m3, #df8a21), var(--m2, #f9c249)); color: #fff; font: 800 .72rem/1.3 "Fredoka", var(--font); letter-spacing: .12em; box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
+.lvup-tier[hidden] { display: none; }
+.lvup-confetti { position: fixed; z-index: 4; width: 0; height: 0; pointer-events: none; }
+.lvup-confetti i { position: absolute; left: 0; top: 0; width: 9px; height: 14px; border-radius: 2px; background: var(--c, #ffe08b); opacity: 0; animation: lvup-confetti 1.25s cubic-bezier(.12, .7, .3, 1) both; }
+.lvup-confetti i:nth-child(3n) { width: 10px; height: 10px; border-radius: 50%; }
+.lvup-confetti i:nth-child(4n) { width: 6px; height: 16px; }
+/* as animações novas só existem com .lvup-go, que o JavaScript só põe quando o movimento NÃO está reduzido */
+.lvup-go .lvup-medal { animation: lvup-stamp .85s .2s cubic-bezier(.2, 1.1, .4, 1) both; }
+.lvup-go .lvup-card h2 { animation: lvup-title .7s .45s cubic-bezier(.2, 1.5, .4, 1) both; }
+.lvup-go .lvup-ring { animation: lvup-ring .95s .78s ease-out both; }                 /* .78 s = o instante em que a medalha bate */
+.lvup-go .lvup-flash { animation: lvup-flash .55s .78s ease-out both; }
+.lvup-go:not(.lvup-land) .lvup-gems { opacity: 0; transform: scale(.85); }
+.lvup-go.lvup-land .lvup-gems { animation: lvup-pop .55s cubic-bezier(.2, 1.6, .4, 1) both; }
+.lvup-go.lvup-land .lvup-tier { animation: lvup-pop .6s cubic-bezier(.2, 1.6, .4, 1) both; }
+.lvup-go.lvup-land .lvup-medal-inner { animation: lvup-bump .5s ease-out; }
+.lvup-go.lvup-land .lvup-continue { animation: lvup-nudge 1.1s .35s ease-in-out 3; }
+#lvup-n.roll-out { animation: lvup-roll-out .13s ease-in both; }
+#lvup-n.roll-in { animation: lvup-roll-in .36s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes lvup-stamp { 0% { transform: translateY(-90px) scale(1.8) rotate(-16deg); opacity: 0; } 45% { opacity: 1; } 68% { transform: translateY(0) scale(.92) rotate(3deg); } 84% { transform: scale(1.05) rotate(-1deg); } 100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; } }
+@keyframes lvup-title { 0% { transform: scale(.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes lvup-ring { 0% { transform: scale(.9); opacity: 0; } 6% { opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
+@keyframes lvup-flash { 0% { transform: scale(.55); opacity: 0; } 8% { opacity: .95; } 100% { transform: scale(1.5); opacity: 0; } }
+@keyframes lvup-pop { 0% { transform: scale(.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes lvup-bump { 0% { transform: scale(1); } 35% { transform: scale(1.13); } 100% { transform: scale(1); } }
+@keyframes lvup-nudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes lvup-roll-out { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-55%) scale(.7); opacity: 0; } }
+@keyframes lvup-roll-in { 0% { transform: translateY(60%) scale(.6); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes lvup-confetti { 0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: translate3d(var(--dx), calc(var(--dy) + 90px), 0) rotate(var(--r)); opacity: 0; } }
+html[data-motion="reduce"] .lvup-flash, html[data-motion="reduce"] .lvup-ring, html[data-motion="reduce"] .lvup-confetti { display: none; }
+@media (prefers-reduced-motion: reduce) { .lvup-flash, .lvup-ring, .lvup-confetti { display: none; } }
+@media (max-height: 630px) { .lvup-flash { width: 160px; height: 160px; } .lvup-ring { width: 128px; height: 128px; } }
