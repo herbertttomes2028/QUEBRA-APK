@@ -23,17 +23,15 @@ test('PostgreSQL: migração 008, carga do catálogo, lote gerado pelo script, r
     await client.query(fs.readFileSync(path.join(__dirname, '..', 'migrations', '008_catalogo_biblioteca.sql'), 'utf8'));
     const embutido = JSON.stringify(lib.catalog().map((c) => ({ ...c, images: c.images.map((i) => ({ file: i.file, label: i.label, categoryId: i.categoryId })) })));
 
-    // 0) a migração 009 (lote de 51 imagens) entra no banco; o catálogo do banco passa a ter 76 imagens e a liberação segue exigindo só as 5 primeiras
-    for (const f of ['009_imagens_2026-11-a.sql', '010_imagens_2026-11-b.sql', '011_imagens_2026-11-c.sql']) await client.query(fs.readFileSync(path.join(__dirname, '..', 'migrations', f), 'utf8'));
-    assert.equal(Number((await client.query('SELECT count(*) FROM library_images')).rows[0].count), 128);
+    // 0) GATE: acrescentar imagens a uma categoria NÃO trava de novo a seguinte (14 linhas sintéticas em fauna, sem depender dos lotes reais)
+    for (let n = 6; n <= 19; n++) await client.query("INSERT INTO library_images (file, category_id, label, sort_order, width, height, bytes, sha256, thumb_sha256, source, license) VALUES ($1, 'fauna', $2, $3, 768, 1024, 1000, repeat('a', 64), repeat('b', 64), 'teste', 'teste')", ['lib-fauna-' + String(n).padStart(2, '0') + '.webp', 'Teste ' + n, n]);
     assert.equal(await lib.loadFromDb(db, log), true);
-    assert.equal(lib.ALL.length, 128);
-    assert.equal(lib.ALL.filter((i) => i.categoryId === 'fantasia').length, 63);
     const fauna5 = lib.ALL.filter((i) => i.categoryId === 'fauna').slice(0, 5).map((i) => i.file);
     assert.equal(lib.ALL.filter((i) => i.categoryId === 'fauna').length, 19);
     assert.equal(lib.unlocksFrom(fauna5, []).biomas, true, 'as 5 primeiras de fauna (o gate) liberam biomas, mesmo havendo 19');
     assert.equal(lib.unlocksFrom(fauna5.slice(0, 4), []).biomas, false);
-    await client.query("DELETE FROM library_images WHERE file >= 'lib-' AND sort_order > 5");        // volta ao estado só-008 para a comparação com o embutido abaixo
+    assert.equal(lib.unlocksFrom(lib.ALL.filter((i) => i.categoryId === 'fauna').slice(5).map((i) => i.file), []).biomas, false, 'só as extras não liberam');
+    await client.query("DELETE FROM library_images WHERE source = 'teste'");        // volta ao estado só-008 para a comparação com o embutido abaixo
 
     // 1) a carga do banco entrega o MESMO catálogo do embutido (mesmos ids, rótulos, ordem, regras e preços)
     assert.equal(await lib.loadFromDb(db, log), true);
