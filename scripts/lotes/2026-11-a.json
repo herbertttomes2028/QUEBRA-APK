@@ -1,0 +1,382 @@
+{
+ "lote": "2026-11-a",
+ "categorias": [],
+ "imagens": [
+  {
+   "arquivo": "lib-fauna-06.webp",
+   "categoria": "fauna",
+   "rotulo": "Arara e papagaio",
+   "ordem": 6,
+   "fonte": "Wikimedia Commons: autor desconhecido. commons.wikimedia.org/wiki/File:Ara_ararauna_-_Ara_severus,_da_Cole%C3%A7%C3%A3o_Brasiliana_Iconogr%C3%A1fica.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-07.webp",
+   "categoria": "fauna",
+   "rotulo": "Arara-canindé",
+   "ordem": 7,
+   "fonte": "Wikimedia Commons: John Gerrard Keulemans (1876). commons.wikimedia.org/wiki/File:Ara_ararauna_1876.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-08.webp",
+   "categoria": "fauna",
+   "rotulo": "Araras da Amazônia",
+   "ordem": 8,
+   "fonte": "Wikimedia Commons: Belem, Brazil; Göldi, Emil August (1900). commons.wikimedia.org/wiki/File:Album_de_aves_amazonicas_(Plate_14)_(6993299604).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-09.webp",
+   "categoria": "fauna",
+   "rotulo": "Preguiças na árvore",
+   "ordem": 9,
+   "fonte": "Wikimedia Commons: autor desconhecido (1835). commons.wikimedia.org/wiki/File:Penny_Magazine_1835_001_Sloths.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-10.webp",
+   "categoria": "fauna",
+   "rotulo": "Preguiça-comum",
+   "ordem": 10,
+   "fonte": "Wikimedia Commons: Alfred Brehm / Wilhelm Haacke / Eduard Pec (1895). commons.wikimedia.org/wiki/File:Brehm%27s_Life_of_animals_(Page_383)_(6220169259).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-11.webp",
+   "categoria": "fauna",
+   "rotulo": "Tucano-araçari",
+   "ordem": 11,
+   "fonte": "Wikimedia Commons: John Gould / Henry Constantine Richter (1854). commons.wikimedia.org/wiki/File:Aulacoramphus_wagleri_Gould_%26_Richter_(cropped).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-12.webp",
+   "categoria": "fauna",
+   "rotulo": "Araçari-verde",
+   "ordem": 12,
+   "fonte": "Wikimedia Commons: Edward Lear (1833). commons.wikimedia.org/wiki/File:Pteroglossus_viridis_Edward_Lear.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-13.webp",
+   "categoria": "fauna",
+   "rotulo": "Tucaninhos",
+   "ordem": 13,
+   "fonte": "Wikimedia Commons: John Gould / Elizabeth Gould (1833). commons.wikimedia.org/wiki/File:Selenidera_culik.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-14.webp",
+   "categoria": "fauna",
+   "rotulo": "Anta",
+   "ordem": 14,
+   "fonte": "Wikimedia Commons: Bull; Cuvier, Georges; Gray, George Robert (1827). commons.wikimedia.org/wiki/File:The_animal_kingdom_(Pl._64)_(7109345439).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-15.webp",
+   "categoria": "fauna",
+   "rotulo": "Anta na mata",
+   "ordem": 15,
+   "fonte": "Wikimedia Commons: W. Coleman ? (1872). commons.wikimedia.org/wiki/File:PSM_V02_D155_American_tapir.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-06.webp",
+   "categoria": "biomas",
+   "rotulo": "Borboletas Heliconius I",
+   "ordem": 6,
+   "fonte": "Wikimedia Commons: Hewitson, William C.; Hullmandel &amp; Wal (1856). commons.wikimedia.org/wiki/File:Illustrations_of_new_species_of_exotic_butterflies_(Heliconidae-_Helicon)_(6006142266).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-07.webp",
+   "categoria": "biomas",
+   "rotulo": "Borboletas Heliconius II",
+   "ordem": 7,
+   "fonte": "Wikimedia Commons: Hewitson, William C.; Hullmandel &amp; Wal (1856). commons.wikimedia.org/wiki/File:Illustrations_of_new_species_of_exotic_butterflies_(Heliconidae-_Helicon_I)_(6005597529).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-08.webp",
+   "categoria": "biomas",
+   "rotulo": "Paisagem de Pernambuco",
+   "ordem": 8,
+   "fonte": "Wikimedia Commons: Frans Post (1650). commons.wikimedia.org/wiki/File:Frans_Post_-_Paisagem_de_Pernambuco_(Engenho_com_rio).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-09.webp",
+   "categoria": "biomas",
+   "rotulo": "Paisagem brasileira",
+   "ordem": 9,
+   "fonte": "Wikimedia Commons: Frans Post (1670). commons.wikimedia.org/wiki/File:Braziliaans_landschap_Rijksmuseum_SK-A-2333.jpeg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-10.webp",
+   "categoria": "biomas",
+   "rotulo": "Palmeiras e casas",
+   "ordem": 10,
+   "fonte": "Wikimedia Commons: Frans Post (1663). commons.wikimedia.org/wiki/File:Frans_Jansz_Post_(11.1612_-_2.1680)_-_Brazilian_landscape_with_the_Igarassu_Franciscan_Monastery_-_66.1_-_Gem%C3%A4ldegalerie.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-11.webp",
+   "categoria": "biomas",
+   "rotulo": "Floresta virgem",
+   "ordem": 11,
+   "fonte": "Wikimedia Commons: Johann Moritz Rugendas (1827). commons.wikimedia.org/wiki/File:For%C3%A8t_Vi%C3%A9rge_Pr%C3%A8s_Manqueritipa_dans_la_province_de_Rio_de_Janeiro_(cropped).png",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-12.webp",
+   "categoria": "biomas",
+   "rotulo": "Bananeira e mariposa",
+   "ordem": 12,
+   "fonte": "Wikimedia Commons: Maria Sibylla Merian (1647-1717) (1705). commons.wikimedia.org/wiki/File:Maria_Sibylla_Merian_Banana_Flower_and_Fruit,_from_Metamorphosis_insectorum_Surinamensium_1705.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-13.webp",
+   "categoria": "biomas",
+   "rotulo": "Abacaxi",
+   "ordem": 13,
+   "fonte": "Wikimedia Commons: autor desconhecido (1848). commons.wikimedia.org/wiki/File:SEWALL(1848)_p61_PINE_APPLE_(Bromelia_Ananas).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-06.webp",
+   "categoria": "espaco",
+   "rotulo": "Planeta jovem (arte da NASA)",
+   "ordem": 6,
+   "fonte": "Wikimedia Commons: NASA/JPL-Caltech/R. Hurt, K. Miller (Calte (2025). commons.wikimedia.org/wiki/File:Young_Exoplanet_(Artist%E2%80%99s_Concept)_(PIA26601).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-07.webp",
+   "categoria": "espaco",
+   "rotulo": "Chuva de meteoros",
+   "ordem": 7,
+   "fonte": "Wikimedia Commons: Étienne Léopold Trouvelot (1868). commons.wikimedia.org/wiki/File:Trouvelot-_The_November_meteors._-_1868.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-08.webp",
+   "categoria": "espaco",
+   "rotulo": "Eclipse parcial da Lua",
+   "ordem": 8,
+   "fonte": "Wikimedia Commons: Étienne Léopold Trouvelot (1882). commons.wikimedia.org/wiki/File:Trouvelot_-_Partial_Eclipse_of_the_Moon.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-09.webp",
+   "categoria": "espaco",
+   "rotulo": "Sondas no espaço (arte da NASA)",
+   "ordem": 9,
+   "fonte": "Wikimedia Commons: autor desconhecido (1988). commons.wikimedia.org/wiki/File:Cassini-Huygens_planning_status_in_1988.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-10.webp",
+   "categoria": "espaco",
+   "rotulo": "Marte visto do espaço",
+   "ordem": 10,
+   "fonte": "Wikimedia Commons: NASA/JPL (1980). commons.wikimedia.org/wiki/File:Global_mosaic_of_Hellas_and_Arabia_areas_on_Mars.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-espaco-11.webp",
+   "categoria": "espaco",
+   "rotulo": "O interior de Marte",
+   "ordem": 11,
+   "fonte": "Wikimedia Commons: Produced By: JPL , Image Credit: JPL/NASA (2012). commons.wikimedia.org/wiki/File:Mars_Interior_(Artist_Concept).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-06.webp",
+   "categoria": "cultura",
+   "rotulo": "Roupa estendida",
+   "ordem": 6,
+   "fonte": "Wikimedia Commons: Eliseu Visconti (1943). commons.wikimedia.org/wiki/File:Eliseu_Visconti_-_Roupa_estendida_-_1943.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-07.webp",
+   "categoria": "cultura",
+   "rotulo": "Efeito matinal",
+   "ordem": 7,
+   "fonte": "Wikimedia Commons: Eliseu Visconti (1940). commons.wikimedia.org/wiki/File:Eliseu_Visconti_-_Efeito_matinal,_paisagem_de_Teres%C3%B3polis_-_1940.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-08.webp",
+   "categoria": "cultura",
+   "rotulo": "O rabequista",
+   "ordem": 8,
+   "fonte": "Wikimedia Commons: Pedro Américo (1884). commons.wikimedia.org/wiki/File:Pedro_Am%C3%A9rico_-_A_rabequista_%C3%A1rabe_-_1884.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-09.webp",
+   "categoria": "cultura",
+   "rotulo": "Revoada de pombos",
+   "ordem": 9,
+   "fonte": "Wikimedia Commons: Eliseu Visconti (1926). commons.wikimedia.org/wiki/File:Eliseu_Visconti_-_Revoada_de_pombos_-_1926.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-10.webp",
+   "categoria": "cultura",
+   "rotulo": "Cocar do povo Aparai",
+   "ordem": 10,
+   "fonte": "Wikimedia Commons: Daderot (2011). commons.wikimedia.org/wiki/File:Headdress,_Aparai_people,_northern_Brazil,_c._1900_-_Staatliches_Museum_f%C3%BCr_V%C3%B6lkerkunde_M%C3%BCnchen_-_DSC08572.JPG",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-11.webp",
+   "categoria": "cultura",
+   "rotulo": "Cocar de penas azuis",
+   "ordem": 11,
+   "fonte": "Wikimedia Commons: Daderot (2011). commons.wikimedia.org/wiki/File:Headdress,_feathers,_Brazil_-_Museo_de_las_Americas_-_San_Juan,_Puerto_Rico_-_DSC06894.JPG",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-06.webp",
+   "categoria": "fantasia",
+   "rotulo": "A festa na cidade",
+   "ordem": 6,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1910). commons.wikimedia.org/wiki/File:Stories_from_Hans_Andersen_-_Edmund_Dulac_color_plate_at_page_215.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-07.webp",
+   "categoria": "fantasia",
+   "rotulo": "A princesa",
+   "ordem": 7,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1911). commons.wikimedia.org/wiki/File:Edmund_Dulac_-_Prince_and_Princess.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-08.webp",
+   "categoria": "fantasia",
+   "rotulo": "A donzela na torre",
+   "ordem": 8,
+   "fonte": "Wikimedia Commons: Arthur Rackham (1917). commons.wikimedia.org/wiki/File:Arthur_Rackham_Maid_Maleen1.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-09.webp",
+   "categoria": "fantasia",
+   "rotulo": "Sereia entre os polvos",
+   "ordem": 9,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1911). commons.wikimedia.org/wiki/File:Edmund_Dulac_-_The_Mermaid_-_bright_liquid.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-10.webp",
+   "categoria": "fantasia",
+   "rotulo": "A Rainha da Neve",
+   "ordem": 10,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1911). commons.wikimedia.org/wiki/File:Edmund_Dulac_-_The_Snow_Queen.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-11.webp",
+   "categoria": "fantasia",
+   "rotulo": "Sereia no mar",
+   "ordem": 11,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1911). commons.wikimedia.org/wiki/File:Edmund_Dulac_-_The_Mermaid_-_in_the_sea.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-12.webp",
+   "categoria": "fantasia",
+   "rotulo": "O rei dos tritões",
+   "ordem": 12,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1911). commons.wikimedia.org/wiki/File:Edmund_Dulac_-_The_Mermaid_-_Merman_King.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-13.webp",
+   "categoria": "fantasia",
+   "rotulo": "Os três homenzinhos da floresta",
+   "ordem": 13,
+   "fonte": "Wikimedia Commons: Arthur Rackham (1917). commons.wikimedia.org/wiki/File:Arthur_Rackham_The_Three_Little_Men_in_the_Wood.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-14.webp",
+   "categoria": "fantasia",
+   "rotulo": "O mercado dos gnomos",
+   "ordem": 14,
+   "fonte": "Wikimedia Commons: Arthur Rackham (1927). commons.wikimedia.org/wiki/File:Frontispiece_to_English_Fairy_Tales_(Steel).png",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-15.webp",
+   "categoria": "fantasia",
+   "rotulo": "O cavaleiro",
+   "ordem": 15,
+   "fonte": "Wikimedia Commons: Howard Pyle (1903). commons.wikimedia.org/wiki/File:Arthur-Pyle_Sir_Gawaine_the_Son_of_Lot,_King_of_Orkney.JPG",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-16.webp",
+   "categoria": "fantasia",
+   "rotulo": "A Duquesa e o bebê",
+   "ordem": 16,
+   "fonte": "Wikimedia Commons: Sir John Tenniel (1869). commons.wikimedia.org/wiki/File:Alice_par_John_Tenniel_21.png",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-17.webp",
+   "categoria": "fantasia",
+   "rotulo": "Alice e os animais",
+   "ordem": 17,
+   "fonte": "Wikimedia Commons: John Tenniel (1820 – 1914), uploader user: (2006). commons.wikimedia.org/wiki/File:Alice_par_John_Tenniel_10.png",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-18.webp",
+   "categoria": "fantasia",
+   "rotulo": "Capa de Simbad",
+   "ordem": 18,
+   "fonte": "Wikimedia Commons: Edmund Dulac (1914). commons.wikimedia.org/wiki/File:Sinbad_the_sailor_%26_other_stories_from_the_Arabian_nights_-_Dulac_cover_design.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-19.webp",
+   "categoria": "fantasia",
+   "rotulo": "Crianças na floresta",
+   "ordem": 19,
+   "fonte": "Wikimedia Commons: Arthur Rackham (1906). commons.wikimedia.org/wiki/File:Houghton_Typ_905R.06.195_(A)_-_Arthur_Rackham,_Peter_Pan_-_One_day_they_were.png",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-20.webp",
+   "categoria": "fantasia",
+   "rotulo": "A Bela e a Fera",
+   "ordem": 20,
+   "fonte": "Wikimedia Commons: Walter Crane (1874). commons.wikimedia.org/wiki/File:Beauty_and_the_Beast-1874-01.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-21.webp",
+   "categoria": "fantasia",
+   "rotulo": "Pôr do sol na floresta",
+   "ordem": 21,
+   "fonte": "Wikimedia Commons: Ivan Bilibin (1942). commons.wikimedia.org/wiki/File:Ivan_Bilibin_-_illustration.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fantasia-22.webp",
+   "categoria": "fantasia",
+   "rotulo": "O troll e o menino",
+   "ordem": 22,
+   "fonte": "Wikimedia Commons: John Bauer (1912). commons.wikimedia.org/wiki/File:John_Bauer_-_%22Ho,_What_a_Pipsqueak%5E_Said_the_Troll%22,_Bland_tomtar_och_troll,_1912_-_NMH_118-1982_-_Nationalmuseum.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  }
+ ]
+}

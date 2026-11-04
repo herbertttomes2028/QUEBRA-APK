@@ -1,0 +1,126 @@
+{
+ "lote": "2026-11-c",
+ "categorias": [],
+ "imagens": [
+  {
+   "arquivo": "lib-fauna-16.webp",
+   "categoria": "fauna",
+   "rotulo": "Macaco",
+   "ordem": 16,
+   "fonte": "Wikimedia Commons: Wied, Maximilian (1822). commons.wikimedia.org/wiki/File:Abbildungen_zur_Naturgeschichte_Brasiliens_(Plate_1)_(6011854813).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-17.webp",
+   "categoria": "fauna",
+   "rotulo": "Rã na folha",
+   "ordem": 17,
+   "fonte": "Wikimedia Commons: Wied, Maximilian (1822). commons.wikimedia.org/wiki/File:Abbildungen_zur_Naturgeschichte_Brasiliens_(Plate_84)_(6011878779).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-18.webp",
+   "categoria": "fauna",
+   "rotulo": "Rãs",
+   "ordem": 18,
+   "fonte": "Wikimedia Commons: Wied, Maximilian (1822). commons.wikimedia.org/wiki/File:Abbildungen_zur_Naturgeschichte_Brasiliens_(Plate_85)_(6011879117).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-fauna-19.webp",
+   "categoria": "fauna",
+   "rotulo": "Sapos",
+   "ordem": 19,
+   "fonte": "Wikimedia Commons: Wied, Maximilian (1822). commons.wikimedia.org/wiki/File:Abbildungen_zur_Naturgeschichte_Brasiliens_(Plate_87)_(6012426882).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-14.webp",
+   "categoria": "biomas",
+   "rotulo": "Cachoeira do Rio Sorocaba",
+   "ordem": 14,
+   "fonte": "Wikimedia Commons: Benedito Calixto (1891). commons.wikimedia.org/wiki/File:Benedito_Calixto_de_Jesus_-_A_Cachoeira_do_Rio_Sorocaba,_1891.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-15.webp",
+   "categoria": "biomas",
+   "rotulo": "Paisagem de águas paradas",
+   "ordem": 15,
+   "fonte": "Wikimedia Commons: Antônio Parreiras (1894). commons.wikimedia.org/wiki/File:Ant%C3%B4nio_Parreiras_-_Paisagem_(%C3%81gua_parada).JPG",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-16.webp",
+   "categoria": "biomas",
+   "rotulo": "Campo do Ipiranga",
+   "ordem": 16,
+   "fonte": "Wikimedia Commons: Antônio Parreiras (1893). commons.wikimedia.org/wiki/File:Ant%C3%B4nio_Diogo_da_Silva_Parreiras_-_Paisagem_do_Campo_do_Ipiranga,_Acervo_do_Museu_Paulista_da_USP.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-17.webp",
+   "categoria": "biomas",
+   "rotulo": "Mata no Corcovado",
+   "ordem": 17,
+   "fonte": "Wikimedia Commons: autor desconhecido. commons.wikimedia.org/wiki/File:Silva_in_Monte_Corcovado_Prope_Sebastianopolin,_Prov._Rio_de_Janeiro,_da_Cole%C3%A7%C3%A3o_Brasiliana_Iconogr%C3%A1fica.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-18.webp",
+   "categoria": "biomas",
+   "rotulo": "Cachoeira na mata",
+   "ordem": 18,
+   "fonte": "Wikimedia Commons: Johann Moritz Rugendas (1827). commons.wikimedia.org/wiki/File:Rugendas_-_Voyage_pittoresque_dans_le_Br%C3%A9sil,_fascicule_3,_trad_Golb%C3%A9ry,_1827_(page_13_crop).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-19.webp",
+   "categoria": "biomas",
+   "rotulo": "Floresta tropical",
+   "ordem": 19,
+   "fonte": "Wikimedia Commons: Johann Moritz Rugendas (1827). commons.wikimedia.org/wiki/File:Rugendas_-_Voyage_pittoresque_dans_le_Br%C3%A9sil,_fascicule_15,_trad_Golb%C3%A9ry,_1827_(page_13_crop).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-biomas-20.webp",
+   "categoria": "biomas",
+   "rotulo": "Coqueiros na praia",
+   "ordem": 20,
+   "fonte": "Wikimedia Commons: Johann Moritz Rugendas (1827). commons.wikimedia.org/wiki/File:Rugendas_-_Voyage_pittoresque_dans_le_Br%C3%A9sil,_fascicule_6,_trad_Golb%C3%A9ry,_1827_(page_17_crop).jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-12.webp",
+   "categoria": "cultura",
+   "rotulo": "Rua da Constituição",
+   "ordem": 12,
+   "fonte": "Wikimedia Commons: Benedito Calixto. commons.wikimedia.org/wiki/File:Benedito_Calixto_de_Jesus_-_Rua_da_Constitui%C3%A7%C3%A3o,_1862_(Rua_Flor%C3%AAncio_de_Abreu),_Acervo_do_Museu_Paulista_da_USP.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-13.webp",
+   "categoria": "cultura",
+   "rotulo": "Ladeira do Colégio",
+   "ordem": 13,
+   "fonte": "Wikimedia Commons: Benedito Calixto. commons.wikimedia.org/wiki/File:Benedito_Calixto_de_Jesus_-_Ladeira_do_Col%C3%A9gio,_1860_(Ladeira_do_Pal%C3%A1cio,_Ladeira_Jo%C3%A3o_Alfredo,_Ladeira_General_Carn",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-14.webp",
+   "categoria": "cultura",
+   "rotulo": "Igreja da Misericórdia",
+   "ordem": 14,
+   "fonte": "Wikimedia Commons: Benedito Calixto (1921). commons.wikimedia.org/wiki/File:Benedito_Calixto_de_Jesus_-_Hospital_e_Igreja_da_Miseric%C3%B3rdia_de_Santos,_Acervo_do_Museu_Paulista_da_USP.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  },
+  {
+   "arquivo": "lib-cultura-15.webp",
+   "categoria": "cultura",
+   "rotulo": "Viagem pela Chapada",
+   "ordem": 15,
+   "fonte": "Wikimedia Commons: Aimé-Adrien Taunay (1827). commons.wikimedia.org/wiki/File:Adrien_Taunay_Chapada_1827.jpg",
+   "licenca": "Domínio público (verificado na página do arquivo; sem exigência de crédito)"
+  }
+ ]
+}
