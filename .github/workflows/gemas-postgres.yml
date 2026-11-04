@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Privilégio mínimo: este fluxo só lê o código (nunca escreve no repositório nem usa segredos).
+permissions:
+  contents: read
+
 jobs:
   regressao:
     runs-on: ubuntu-latest
