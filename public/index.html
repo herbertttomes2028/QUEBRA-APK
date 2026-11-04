@@ -177,7 +177,8 @@
               <h3 class="me-h">Minhas estatísticas</h3>
               <div id="me-stats" class="me-stats"></div>
               <h3 class="me-h">Conquistas <small id="me-ach-count"></small></h3>
-              <div id="me-ach" class="me-ach"></div>
+              <div id="me-ach" class="ach-next"></div>
+              <button id="me-ach-all" class="btn btn-secondary btn-block" type="button">Ver todas as conquistas ›</button>
               <div class="me-card me-sec">
                 <h3 class="me-h-in">🔒 Segurança</h3>
                 <button id="sec-pw-open" class="btn btn-secondary" type="button">Trocar minha senha</button>
@@ -206,6 +207,20 @@
               </div>
             </div>
 
+            <!-- conquistas -->
+            <div id="tab-ach" class="me-tabpane" hidden>
+              <div id="ach-summary" class="me-card ach-summary"></div>
+              <div id="ach-filters" class="ach-chips" role="group" aria-label="Mostrar conquistas"></div>
+              <div id="ach-groups" class="ach-chips ach-chips-scroll" role="group" aria-label="Grupo de conquistas"></div>
+              <div id="ach-list"></div>
+            </div>
+
+            <!-- coleções (uma área para cada categoria) -->
+            <div id="tab-col" class="me-tabpane" hidden>
+              <h3 class="me-h">Minhas coleções <small id="col-count"></small></h3>
+              <div id="col-list" class="col-list"></div>
+            </div>
+
             <!-- amigos -->
             <div id="tab-friends" class="me-tabpane" hidden>
               <div class="me-card">
@@ -230,7 +245,9 @@
         </div>
         <nav id="me-tabs" class="me-tabs" hidden aria-label="Áreas do meu espaço">
           <button class="me-tab on" type="button" data-tab="profile"><span aria-hidden="true">👤</span>Perfil</button>
-          <button class="me-tab" type="button" data-tab="history"><span aria-hidden="true">🏅</span>Partidas</button>
+          <button class="me-tab" type="button" data-tab="ach"><span aria-hidden="true">🏆</span>Conquistas<i id="me-tab-ach-badge" class="me-badge" hidden></i></button>
+          <button class="me-tab" type="button" data-tab="col"><span aria-hidden="true">🗂️</span>Coleções</button>
+          <button class="me-tab" type="button" data-tab="history"><span aria-hidden="true">🎮</span>Partidas</button>
         </nav>
       </div>
     </section>
@@ -648,7 +665,7 @@
         <div id="fp-body" hidden>
           <div id="fp-stats" class="me-stats"></div>
           <h4 class="fp-h">🏅 Conquistas <span id="fp-ach-count"></span></h4>
-          <div id="fp-ach" class="me-ach"></div>
+          <div id="fp-ach" class="shelf"></div>
         </div>
         <div class="fp-actions">
           <button id="fp-invite" class="btn btn-primary btn-block" type="button">🎮 Convidar para jogar</button>

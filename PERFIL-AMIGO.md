@@ -8,7 +8,7 @@ Ao tocar no **cartão de um amigo** (Amigos > lista), abre o perfil dele. O menu
 - **Código de amigo**, com os botões **Copiar** e **Compartilhar**. Qualquer amigo pode ver e repassar o código.
 - Quatro quadros: **Partidas**, **Concluídos**, **Desafios jogados** e **Vitórias**.
 - O perfil **não mostra** melhores tempos, últimas partidas, derrotas nem quantidade de amigos (e esses dados nem saem do servidor).
-- As **10 conquistas** (as ganhas em cor; as demais apagadas, com a dica de como ganhar).
+- As **conquistas públicas** que ele ganhou, numa prateleira de emblemas com a cor do nível (Bronze, Prata, Ouro, Diamante), mais "X de Y". Só "ganhou ou não": **nunca** o progresso, o XP, tempos, número de amigos, dias ou horários de jogo, nem conquistas secretas. As de velocidade, amizade, constância e os segredos são **só do dono** (inclusive "Primeiro amigo" e "Turma", que antes revelavam o número de amigos).
 - Ações: **Convidar para jogar**, **Remover dos amigos** e **Bloquear**.
 
 ## Regras de privacidade

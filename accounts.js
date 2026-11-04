@@ -15,6 +15,7 @@ const phrases = require('./phrases');
 const xpm = require('./xp');
 const gemm = require('./gems');
 const library = require('./library');
+const ach = require('./achievements');
 const { codeEmail } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
@@ -95,19 +96,8 @@ async function verifyGoogleIdToken(token, clientId, getKeys) {
   return { sub: String(payload.sub), email: payload.email_verified ? normEmail(payload.email) : null, name: String(payload.given_name || payload.name || '') };
 }
 
-/* ---------- conquistas (calculadas a partir das estatísticas) ---------- */
-const ACHIEVEMENTS = [
-  { id: 'primeira', icon: '🌟', title: 'Primeira partida', desc: 'Jogue sua primeira partida', test: (s) => s.games >= 1 },
-  { id: 'dez', icon: '🔟', title: 'Dez partidas', desc: 'Jogue 10 partidas', test: (s) => s.games >= 10 },
-  { id: 'vitoria', icon: '🏆', title: 'Primeira vitória', desc: 'Vença uma Sala Desafio', test: (s) => s.wins >= 1 },
-  { id: 'campeao', icon: '👑', title: 'Campeão', desc: 'Vença 10 desafios', test: (s) => s.wins >= 10 },
-  { id: 'montador', icon: '🧩', title: 'Montador', desc: 'Conclua 5 quebra-cabeças', test: (s) => s.completed >= 5 },
-  { id: 'mestre', icon: '🧠', title: 'Mestre dos 48', desc: 'Conclua um quebra-cabeça de 48 peças', test: (s) => s.maxPieces >= 48 },
-  { id: 'veloz', icon: '⚡', title: 'Veloz', desc: 'Conclua 20+ peças em menos de 5 minutos', test: (s) => s.fastest20 != null && s.fastest20 < 5 * 60 * 1000 },
-  { id: 'imagem', icon: '📸', title: 'Minha imagem', desc: 'Jogue com uma imagem sua', test: (s) => s.customGames >= 1 },
-  { id: 'amigo', icon: '🤝', title: 'Primeiro amigo', desc: 'Adicione um amigo', test: (s) => s.friends >= 1 },
-  { id: 'turma', icon: '🎉', title: 'Turma', desc: 'Tenha 5 amigos', test: (s) => s.friends >= 5 }
-];
+/* ---------- conquistas: catálogo, regras e estatísticas vivem em achievements.js (módulo puro); o PAGAMENTO fica aqui, na transação do XP ---------- */
+const ACHIEVEMENTS = ach.STATIC;
 
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
@@ -198,7 +188,17 @@ function createAccounts(d) {
     const f = await one("SELECT count(*)::int AS n FROM friendships WHERE status = 'accepted' AND (user_a = $1 OR user_b = $1)", [uid]);
     return { games: s.games, wins: s.wins, losses: s.losses, completed: s.completed, maxPieces: s.maxPieces, fastest20: s.fastest20 == null ? null : Number(s.fastest20), customGames: s.customGames, totalMs: Number(s.totalMs), friends: f.n };
   }
-  const achievementsOf = (st) => ACHIEVEMENTS.map((a) => ({ id: a.id, icon: a.icon, title: a.title, desc: a.desc, done: !!a.test(st) }));
+  // Estatísticas para as conquistas = básicas (statsOf) + extras (SQL em achievements.js) + as que dependem das duas.
+  async function achStatsOf(uid, base) {
+    const b = base || await statsOf(uid);
+    const extra = await ach.gatherStats((sql, p) => db.q(sql, p), uid, library);
+    return ach.complete(b, extra, ach.list(library));
+  }
+  // Linhas completas (para o dono) e o que fica visível para cada tipo de leitor.
+  async function achRowsOf(uid, base) {
+    const st = await achStatsOf(uid, base);
+    return { st, rows: ach.evaluate(ach.list(library), st, st.earned) };
+  }
 
   async function saveSummary(uid) {
     const s = await one('SELECT image_label, pieces, jsonb_array_length(locked) AS n, elapsed_ms, partner_name, updated_at FROM saves WHERE user_id = $1', [uid]);
@@ -218,6 +218,7 @@ function createAccounts(d) {
   async function meOf(u) {
     const xpTot = await xpTotal(u.id);                                   // converte o histórico antigo na primeira vez
     const stats = await statsOf(u.id);
+    const { st: ast, rows: achRows } = await achRowsOf(u.id, stats);
     const [save, pend, inv] = await Promise.all([
       saveSummary(u.id),
       one("SELECT count(*)::int AS n FROM friendships WHERE status = 'pending' AND requested_by <> $1 AND (user_a = $1 OR user_b = $1)", [u.id]),
@@ -225,7 +226,9 @@ function createAccounts(d) {
     ]);
     return {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
-      createdAt: u.created_at, stats, achievements: achievementsOf(stats), save,
+      createdAt: u.created_at, stats, achievements: ach.meView(achRows), achSummary: ach.summary(achRows),
+      collections: ach.collectionsOf(library, ast.clearsSet, ast.purchasesSet, library.unlocksFrom([...ast.clearsSet], [...ast.purchasesSet]), achRows),
+      achMeta: { groups: ach.GROUPS, tiers: ach.TIERS }, save,
       xp: xpm.progress(xpTot), gems: Number((await one('SELECT gems FROM users WHERE id = $1', [u.id]) || {}).gems || 0), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
       pending: { requests: pend.n, invites: inv.n }
     };
@@ -627,13 +630,14 @@ function createAccounts(d) {
     const fr = t && t.id !== req.user.id ? await friendRow(req.user.id, t.id) : null;
     if (!t || !fr || fr.status !== 'accepted' || blockedBetween(req.user.id, t.id)) return bad(res, 403, 'forbidden');
     const st = await statsOf(t.id);
-    // Só o que a tela mostra. Não sai daqui: derrotas, lista ou número de amigos, melhores tempos, partidas, e-mail, nem nome de adversário.
+    const fr2 = await achRowsOf(t.id, st);
+    // Só o que a tela mostra. Não sai daqui: derrotas, lista ou número de amigos, melhores tempos, hábitos de dias/horários, conquistas secretas, partidas, e-mail, nem nome de adversário.
     res.json({
       ok: true,
       profile: {
         code: fmtCode(t.friend_code), name: t.name, avatar: t.avatar, level: xpm.levelFromXp(await xpTotal(t.id)), online: isOnline(t.id), since: t.created_at,
         stats: { games: st.games, completed: st.completed, challenges: st.wins + st.losses, wins: st.wins },
-        achievements: achievementsOf(st)
+        achievements: ach.friendView(fr2.rows), achSummary: ach.friendSummary(fr2.rows)
       }
     });
   }));
@@ -781,18 +785,29 @@ function createAccounts(d) {
       return { gained: rw.total, parts: rw.parts, before: u.xp, after: r.rows[0].xp, gems, rep: xpm.repFactor(clears), puzzle: o.label, pieces: o.pieces };
     });
   }
-  // Paga as conquistas que acabaram de ser ganhas (uma única vez cada).
+  // Paga as conquistas que acabaram de ser ganhas (uma única vez cada, pela ref 'ach:<id>'). Várias passadas: o XP de uma conquista
+  // pode subir o nível (e as de nível, ou as de "quantas conquistas", só aparecem na passada seguinte). Limite de 6 passadas.
   async function awardAchievements(uid) {
-    const st = await statsOf(uid);
-    const done = ACHIEVEMENTS.filter((a) => a.test(st) && xpm.ACH_XP[a.id]);
+    let total = null;
+    for (let pass = 0; pass < 6; pass++) {
+      const r = await awardPass(uid);
+      if (!r) break;
+      total = total ? { got: total.got.concat(r.got), add: total.add + r.add, before: total.before, after: r.after,
+        gems: { match: 0, level: ((total.gems && total.gems.level) || 0) + ((r.gems && r.gems.level) || 0), balance: r.gems ? r.gems.balance : (total.gems && total.gems.balance) } } : r;
+    }
+    return total;
+  }
+  async function awardPass(uid) {
+    const st = await achStatsOf(uid);
+    const done = ach.list(library).filter((a) => !st.earned.has(a.id) && ach.isDone(a, st) && a.xp > 0);
     if (!done.length) return null;
     return tx(async (q) => {
       const u = (await q('SELECT xp FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
       if (!u) return null;
       const got = []; let add = 0;
       for (const a of done) {
-        const r = await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'ach',$3,$4) ON CONFLICT (user_id, ref) DO NOTHING RETURNING id", [uid, 'ach:' + a.id, xpm.ACH_XP[a.id], JSON.stringify({ id: a.id, title: a.title })]);
-        if (r.rowCount) { got.push({ id: a.id, icon: a.icon, title: a.title, xp: xpm.ACH_XP[a.id] }); add += xpm.ACH_XP[a.id]; }
+        const r = await q("INSERT INTO xp_events (user_id, ref, kind, amount, meta) VALUES ($1,$2,'ach',$3,$4) ON CONFLICT (user_id, ref) DO NOTHING RETURNING id", [uid, 'ach:' + a.id, a.xp, JSON.stringify({ id: a.id, title: a.title })]);
+        if (r.rowCount) { got.push({ id: a.id, icon: a.icon, title: a.title, tier: a.tier, xp: a.xp }); add += a.xp; }
       }
       if (!add) return null;
       const r = await q('UPDATE users SET xp = xp + $1 WHERE id = $2 RETURNING xp', [add, uid]);
@@ -800,6 +815,7 @@ function createAccounts(d) {
       return { got, add, before: u.xp, after: r.rows[0].xp, gems };
     });
   }
+
   // junta partida + conquistas em UM aviso para o celular (e atualiza o nível guardado)
   function xpEvent(m, ach) {
     if (!m && !ach) return null;                                // nada novo (partida já paga e nenhuma conquista nova)
