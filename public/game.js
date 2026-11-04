@@ -217,9 +217,12 @@
   /* ---------------------------------------------------------
    * Imagens: redimensiona/recorta para 3:4 (720×960) uma única vez
    * --------------------------------------------------------- */
+  // Imagem de OUTRO endereço (armazenamento externo): pede com CORS, senão o navegador impede o recorte em canvas (toBlob).
+  function crossOriginOf(url) { try { return new URL(url, location.href).origin !== location.origin; } catch (e) { return false; } }
   function loadImage(url) {
     return new Promise(function (res, rej) {
       var im = new Image();
+      if (crossOriginOf(url)) im.crossOrigin = 'anonymous';
       im.onload = function () { res(im); };
       im.onerror = function () { rej(new Error('Falha ao carregar ' + url)); };
       im.src = url;
@@ -388,15 +391,24 @@
       ? url + (url.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION
       : url;
   }
+  // Miniatura da abertura: arquivo local ganha a revisão do cliente; imagem EXTERNA já traz a revisão (?v=sha256) vinda do servidor, e uma segunda
+  // revisão criaria outra chave de cache (baixaria a mesma imagem duas vezes).
+  function splashThumbUrl(t) { return crossOriginOf(t) ? t : t + (t.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION; }
   function libraryById(id) { return state.libraryCatalog.find(function (c) { return c.id === id; }); }
   function libraryDone(file) { return libraryProgress.clears.indexOf(file) !== -1; }
+  // Regra de liberação vinda do servidor: free = aberta; gems = comprada; after = a categoria "requires" está toda concluída.
+  // (Servidor antigo, sem esses campos: a regra de sempre, pela ordem.)
+  function libraryFree(c) { return c.unlock ? c.unlock === 'free' : c.order === 1; }
+  function libraryRequired(c) { return c.unlock === 'after' ? libraryById(c.requires) : state.libraryCatalog[c.order - 2]; }
   function libraryAvailable(c) {
     if (!c) return false;
-    if (c.order === 1) return true;
-    if (c.price) return libraryProgress.purchases.indexOf(c.id) >= 0;
-    var prev = state.libraryCatalog[c.order - 2];
-    return !!prev && prev.images.every(function (x) { return libraryDone(x.file); });
+    if (libraryFree(c)) return true;
+    if (c.unlock ? c.unlock === 'gems' : c.price) return libraryProgress.purchases.indexOf(c.id) >= 0;
+    var prev = libraryRequired(c);
+    return !!prev && libraryGate(prev).every(function (x) { return libraryDone(x.file); });
   }
+  // imagens que precisam estar concluídas para liberar as categorias que dependem desta: as N primeiras (gate) ou todas (igual ao servidor)
+  function libraryGate(c) { return c.gate ? c.images.slice(0, c.gate) : c.images; }
   function libraryToken() { return store.get('token', '') || ''; }
   function refreshLibrary() {
     var token = libraryToken();
@@ -435,7 +447,9 @@
     var i = imageItem(file), img = document.createElement('img');
     img.className = 'library-photo'; img.alt = title || i.label;
     img.loading = 'lazy'; img.decoding = 'async';
-    img.src = i.categoryId ? i.url : (i.thumb || i.url); // idêntica à imagem montada, não uma miniatura desatualizada
+    var src = i.categoryId ? i.url : (i.thumb || i.url);
+    if (crossOriginOf(src)) img.crossOrigin = 'anonymous';       // o MESMO modo de carga do recorte: evita a imagem sem CORS ficar no cache e "contaminar" o canvas
+    img.src = src; // idêntica à imagem montada, não uma miniatura desatualizada
     img.onerror = function () { img.hidden = true; if (img.parentNode) img.parentNode.classList.add('image-failed'); };
     return img;
   }
@@ -447,7 +461,7 @@
   var LIBRARY_COLORS = { fauna: '#127a56', biomas: '#0a7c92', espaco: '#4b3fc4', cultura: '#b8470f', fantasia: '#8b2fb0' };
   var LIBRARY_FALLBACK = ['#127a56', '#0a7c92', '#4b3fc4', '#b8470f', '#8b2fb0', '#a02f5b'];
   function libraryColor(c, i) { return LIBRARY_COLORS[c.id] || LIBRARY_FALLBACK[i % LIBRARY_FALLBACK.length]; }
-  function hintFor(c) { var prev = state.libraryCatalog[c.order - 2]; return prev && !c.price ? 'Conclua ' + prev.name + ' para liberar.' : ''; }
+  function hintFor(c) { var prev = libraryRequired(c); return prev && !(c.unlock ? c.unlock === 'gems' : c.price) ? 'Conclua ' + prev.name + ' para liberar.' : ''; }
   function libraryClip(el, idx) { el.style.clipPath = el.style.webkitClipPath = 'url(#lib-clip-' + idx + ')'; }
   function libraryClipDefs(cols, rows, cells) {
     var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), defs = document.createElementNS(NS, 'defs');
@@ -496,7 +510,7 @@
     var cols = 2, total = state.libraryCatalog.length, cells = total + (total % 2), rows = Math.max(1, Math.ceil(cells / cols));
     root.appendChild(libraryClipDefs(cols, rows, cells));
     state.libraryCatalog.forEach(function (c, idx) {
-      var open = c.order === 1 || (libraryProgress.loaded && libraryAvailable(c));
+      var open = libraryFree(c) || (libraryProgress.loaded && libraryAvailable(c));
       var n = c.images.filter(function (i) { return libraryDone(i.file); }).length;
       var complete = n === c.images.length;
       var premium = !!c.price;
@@ -522,17 +536,22 @@
         progress.setAttribute('role', 'group');
         progress.setAttribute('aria-label', n + ' de ' + c.images.length + ' imagens concluídas');
         var dots = libraryEl('div', 'library-dots'); dots.setAttribute('aria-hidden', 'true');
-        c.images.forEach(function (im) {
-          dots.appendChild(libraryEl('span', 'library-dot' + (libraryDone(im.file) ? ' is-done' : '')));
-        });
-        progress.appendChild(dots);
+        if (c.images.length > 8) {          // muitas imagens: uma barra (15 bolinhas estourariam a placa)
+          var bar = libraryEl('span', 'library-bar'), fill = libraryEl('i', ''); fill.style.width = Math.round(100 * n / c.images.length) + '%';
+          bar.appendChild(fill); progress.appendChild(bar);
+        } else {
+          c.images.forEach(function (im) {
+            dots.appendChild(libraryEl('span', 'library-dot' + (libraryDone(im.file) ? ' is-done' : '')));
+          });
+          progress.appendChild(dots);
+        }
         progress.appendChild(libraryEl('span', 'library-progress-label', n + '/' + c.images.length));
         info.appendChild(progress);
       } else if (premium) {
         info.appendChild(libraryEl('p', 'library-price', '💎 ' + c.price + ' gemas'));
       } else {
         var hint = !libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' :
-          'Conclua ' + state.libraryCatalog[c.order - 2].name + ' para liberar';
+          'Conclua ' + libraryRequired(c).name + ' para liberar';
         info.appendChild(libraryEl('p', 'library-hint', hint));
       }
       piece.appendChild(info);
@@ -657,7 +676,7 @@
       if (item.thumb) {
         var goThumb = new Image();
         goThumb.decoding = 'async';
-        goThumb.src = item.thumb + (item.thumb.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION;
+        goThumb.src = splashThumbUrl(item.thumb);
         if (goThumb.decode) goThumb.decode().catch(function () { /* usa o carregamento padrão */ });
       }
       // Apenas a imagem escolhida é carregada por inteiro; se o download falhar,
@@ -753,7 +772,7 @@
     // 768x1024) evita decodificar uma textura pesada durante o giro 3D no Android.
     // A capa e as peças seguem usando o arquivo principal, sem nenhuma mudança.
     var preview = item && (item.thumb || item.url);
-    if (item && item.categoryId && item.thumb) preview = item.thumb + (item.thumb.indexOf('?') < 0 ? '?' : '&') + 'v=' + LIBRARY_MEDIA_VERSION;
+    if (item && item.categoryId && item.thumb) preview = splashThumbUrl(item.thumb);
     $('#go-img').style.backgroundImage = preview ? 'url("' + preview + '")' : 'none';
     $('#go-sub').textContent = '';
     $('#go-cancel').hidden = true;

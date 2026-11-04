@@ -32,7 +32,7 @@ test('cada categoria é uma peça recortada com a MESMA geometria das peças do 
 });
 
 test('contrato preservado: regras de liberação, gemas, rótulos, classes de estado e data-category só no botão', () => {
-  assert.match(home, /var open = c\.order === 1 \|\| \(libraryProgress\.loaded && libraryAvailable\(c\)\)/);
+  assert.match(home, /var open = libraryFree\(c\) \|\| \(libraryProgress\.loaded && libraryAvailable\(c\)\)/);
   for (const cls of ["' available' : ' locked'", "' completed'", "' premium'", "' celebrating'"]) assert.ok(home.includes(cls), cls);
   assert.match(home, /'DESBLOQUEAR · ' \+ c\.price \+ ' GEMAS'/);
   assert.match(home, /'BLOQUEADA'/);
