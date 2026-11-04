@@ -409,6 +409,20 @@
   }
   // imagens que precisam estar concluídas para liberar as categorias que dependem desta: as N primeiras (gate) ou todas (igual ao servidor)
   function libraryGate(c) { return c.gate ? c.images.slice(0, c.gate) : c.images; }
+  function libraryGateDone(c) { return libraryGate(c).filter(function (x) { return libraryDone(x.file); }).length; }
+  function libraryHasGate(c) { return !!c.gate && c.gate < c.images.length; }
+  // O que falta para liberar a categoria "c": a regra exata que o servidor aplica (só as N primeiras da anterior contam).
+  function libraryUnlockInfo(c) {
+    var prev = libraryRequired(c); if (!prev) return null;
+    var g = libraryGate(prev).length;
+    return { text: libraryHasGate(prev) ? 'Conclua as ' + g + ' primeiras de ' + prev.name : 'Conclua ' + prev.name, done: libraryGateDone(prev), total: g };
+  }
+  function libraryDependents(c) { return state.libraryCatalog.filter(function (d) { return d.unlock === 'after' && d.requires === c.id; }); }
+  // até 4 imagens espalhadas pela categoria: dá uma ideia do conjunto todo na hora de decidir a compra
+  function libraryPreview(c) {
+    var n = c.images.length, idx = [0, Math.floor(n / 3), Math.floor((2 * n) / 3), n - 1];
+    return idx.filter(function (v, i) { return idx.indexOf(v) === i; }).map(function (i) { return c.images[i].file; });
+  }
   function libraryToken() { return store.get('token', '') || ''; }
   function refreshLibrary() {
     var token = libraryToken();
@@ -443,11 +457,12 @@
     if (text != null) el.textContent = text;
     return el;
   }
-  function libraryImage(file, title) {
+  function libraryImage(file, title, small) {
     var i = imageItem(file), img = document.createElement('img');
     img.className = 'library-photo'; img.alt = title || i.label;
     img.loading = 'lazy'; img.decoding = 'async';
     var src = i.categoryId ? i.url : (i.thumb || i.url);
+    if (small && i.thumb) src = splashThumbUrl(i.thumb);          // cartões pequenos da categoria: a miniatura (25 KB), com versão no endereço para nunca ficar desatualizada
     if (crossOriginOf(src)) img.crossOrigin = 'anonymous';       // o MESMO modo de carga do recorte: evita a imagem sem CORS ficar no cache e "contaminar" o canvas
     img.src = src; // idêntica à imagem montada, não uma miniatura desatualizada
     img.onerror = function () { img.hidden = true; if (img.parentNode) img.parentNode.classList.add('image-failed'); };
@@ -461,7 +476,7 @@
   var LIBRARY_COLORS = { fauna: '#127a56', biomas: '#0a7c92', espaco: '#4b3fc4', cultura: '#b8470f', fantasia: '#8b2fb0' };
   var LIBRARY_FALLBACK = ['#127a56', '#0a7c92', '#4b3fc4', '#b8470f', '#8b2fb0', '#a02f5b'];
   function libraryColor(c, i) { return LIBRARY_COLORS[c.id] || LIBRARY_FALLBACK[i % LIBRARY_FALLBACK.length]; }
-  function hintFor(c) { var prev = libraryRequired(c); return prev && !(c.unlock ? c.unlock === 'gems' : c.price) ? 'Conclua ' + prev.name + ' para liberar.' : ''; }
+  function hintFor(c) { var u = libraryUnlockInfo(c); return u && !(c.unlock ? c.unlock === 'gems' : c.price) ? u.text + ' (' + u.done + ' de ' + u.total + ') para liberar.' : ''; }
   function libraryClip(el, idx) { el.style.clipPath = el.style.webkitClipPath = 'url(#lib-clip-' + idx + ')'; }
   function libraryClipDefs(cols, rows, cells) {
     var NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg'), defs = document.createElementNS(NS, 'defs');
@@ -549,10 +564,17 @@
         info.appendChild(progress);
       } else if (premium) {
         info.appendChild(libraryEl('p', 'library-price', '💎 ' + c.price + ' gemas'));
+        info.appendChild(libraryEl('p', 'library-count', c.images.length + ' imagens'));
       } else {
-        var hint = !libraryProgress.loaded && libraryToken() ? 'Consultando seu progresso…' :
-          'Conclua ' + libraryRequired(c).name + ' para liberar';
-        info.appendChild(libraryEl('p', 'library-hint', hint));
+        var u = libraryUnlockInfo(c);
+        if (!libraryProgress.loaded && libraryToken()) info.appendChild(libraryEl('p', 'library-hint', 'Consultando seu progresso…'));
+        else if (u) {
+          info.appendChild(libraryEl('p', 'library-hint', u.text));
+          var gp = libraryEl('div', 'library-progress library-gate-progress'); gp.setAttribute('aria-hidden', 'true');
+          var gb = libraryEl('span', 'library-bar'), gf = libraryEl('i', ''); gf.style.width = Math.round(100 * u.done / Math.max(1, u.total)) + '%';
+          gb.appendChild(gf); gp.appendChild(gb); gp.appendChild(libraryEl('span', 'library-progress-label', u.done + '/' + u.total));
+          info.appendChild(gp);
+        }
       }
       piece.appendChild(info);
       var label = open ? 'ABRIR' : premium ? 'DESBLOQUEAR · ' + c.price + ' GEMAS' : 'BLOQUEADA';
@@ -561,7 +583,7 @@
       action.type = 'button'; action.dataset.category = c.id;
       action.disabled = !open && (!libraryProgress.loaded || !premium);
       action.setAttribute('aria-label', open ? 'Abrir ' + c.name + ', ' + n + ' de ' + c.images.length + ' imagens concluídas' : premium ?
-        'Desbloquear ' + c.name + ' por ' + c.price + ' gemas' : 'Categoria bloqueada: ' + c.name + '. ' + hintFor(c));
+        'Desbloquear ' + c.name + ' por ' + c.price + ' gemas, ' + c.images.length + ' imagens' : 'Categoria bloqueada: ' + c.name + '. ' + hintFor(c));
       libraryClip(action, idx);
       piece.insertBefore(action, piece.querySelector('.library-outline'));
       card.appendChild(piece); root.appendChild(card);
@@ -587,6 +609,12 @@
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
     $('#library-heading').textContent = c.name.toLocaleUpperCase('pt-BR');
     $('#library-detail').textContent = 'Escolha sua imagem · ' + librarySummary(c) + ' concluídas';
+    var deps = libraryDependents(c), line = '';
+    if (deps.length) {
+      var gn = libraryGate(c).length, gd = libraryGateDone(c);
+      line = gd >= gn ? '✓ ' + deps[0].name + ' liberada' : (libraryHasGate(c) ? 'As ' + gn + ' primeiras liberam ' + deps[0].name : 'Concluir todas libera ' + deps[0].name) + ' · ' + gd + '/' + gn;
+    }
+    $('#library-gate').textContent = line; $('#library-gate').hidden = !line;
     renderPickGrid();
   }
   function renderLibraryCurrent() {
@@ -598,7 +626,7 @@
     if (!c.price || !libraryProgress.loaded) return;
     if (!libraryToken()) { toast('Entre na sua conta em Meu espaço para desbloquear com gemas.', 3800); return; }
     if (libraryProgress.gems < c.price) { toast('Você tem ' + libraryProgress.gems + ' gemas. Esta categoria custa ' + c.price + '.', 3800); return; }
-    askConfirm({ title: 'Desbloquear ' + c.name + '?', text: 'Usar ' + c.price + ' gemas para liberar permanentemente as 5 imagens? Saldo: ' + libraryProgress.gems + '.', ok: 'Desbloquear', cancel: 'Agora não' })
+    askConfirm({ title: 'Desbloquear ' + c.name + '?', text: 'Usar ' + c.price + ' gemas para liberar permanentemente as ' + c.images.length + ' imagens? Saldo: ' + libraryProgress.gems + '.', preview: libraryPreview(c), ok: 'Desbloquear', cancel: 'Agora não' })
       .then(function (yes) {
         if (!yes) return;
         var btn = $('#library-categories').querySelector('[data-category="' + c.id + '"]');
@@ -632,10 +660,13 @@
     }
     var items = libraryView === 'legacy' ? state.images.filter(function (item) { return !item.categoryId; }) :
       state.images.filter(function (item) { return item.categoryId === libraryCategory; });
-    items.forEach(function (item) {
+    var inCat = libraryView === 'category', cat = inCat ? libraryById(libraryCategory) : null, deps = cat ? libraryDependents(cat) : [];
+    var gateN = deps.length ? libraryGate(cat).length : 0;
+    var nextItem = inCat ? items.filter(function (it) { return !libraryDone(it.file); })[0] : null;
+    items.forEach(function (item, idx) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'pick-card' + (item.fresh ? ' new' : '');
+      b.className = 'pick-card' + (item.fresh ? ' new' : '') + (nextItem && item.file === nextItem.file ? ' next' : '') + (idx < gateN && !libraryDone(item.file) ? ' gate' : '');
       item.fresh = false;
       b.setAttribute('role', 'option');
       b.setAttribute('aria-selected', item.file === state.pickChoice ? 'true' : 'false');
@@ -643,15 +674,31 @@
       var thumb = document.createElement('span');
       thumb.className = 'thumb';
       var label = document.createElement('span');
-      label.textContent = item.label;
+      label.className = 'pick-label'; label.textContent = item.label; b.title = item.label;       // o texto inteiro fica no toque longo e nos leitores de tela
       b.appendChild(thumb);
       b.appendChild(label);
+      if (nextItem && item.file === nextItem.file) thumb.appendChild(libraryEl('span', 'pick-chip next-chip', '▶ Próxima'));
+      if (b.classList.contains('gate')) {
+        var key = libraryEl('span', 'pick-chip key-chip', '🔑'); key.setAttribute('aria-hidden', 'true'); thumb.appendChild(key);
+        b.appendChild(libraryEl('span', 'sr-only', ' Conta para liberar ' + deps[0].name));
+      }
       if (libraryDone(item.file)) b.appendChild(libraryEl('span', 'library-done', '★ Concluída'));
       grid.appendChild(b);
-      if (item.categoryId) thumb.appendChild(libraryImage(item.file, item.label));
+      if (item.categoryId) thumb.appendChild(libraryImage(item.file, item.label, true));
       else prepareThumb(item).then(function (url) { if (b.isConnected) thumb.style.backgroundImage = 'url("' + url + '")'; });
     });
+    // categorias grandes: atalho para a próxima imagem, que pode estar bem longe do topo
+    var cont = $('#library-continue'), nextIdx = nextItem ? items.indexOf(nextItem) : -1;
+    cont.hidden = !(inCat && nextIdx >= 6);
+    if (!cont.hidden) cont.textContent = '▶ Continuar: ' + nextItem.label;
+    if (libraryView === 'legacy') $('#library-gate').hidden = true;
   }
+  $('#library-continue').addEventListener('click', function () {
+    var card = document.querySelector('#pick-grid .pick-card.next'); if (!card) return;
+    card.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
+    card.classList.remove('ping'); void card.offsetWidth; card.classList.add('ping');
+    setTimeout(function () { card.classList.remove('ping'); }, 1500);
+  });
 
   // Cada escolha tem um número para respostas atrasadas não habilitarem outra imagem.
   var librarySelectionSeq = 0;
@@ -1592,6 +1639,65 @@
       $('#loading').hidden && $('#go-splash').hidden &&
       !document.querySelector('.modal:not([hidden])') && $('#lvup').hidden;
   }
+  /* ---------- celebração de nível em sequência: medalha, número que rola, anel, confete e gemas contando ---------- */
+  var lvAnim = { timers: [], raf: 0 };
+  function lvAfter(ms, fn) { var t = setTimeout(fn, ms); lvAnim.timers.push(t); return t; }
+  function lvClear() {
+    lvAnim.timers.forEach(clearTimeout); lvAnim.timers = [];
+    if (lvAnim.raf) { cancelAnimationFrame(lvAnim.raf); lvAnim.raf = 0; }
+    var box = $('#lvup'); box.classList.remove('lvup-go', 'lvup-land');
+    $('#lvup-confetti').textContent = ''; $('#lvup-tier').hidden = true;
+    var n = $('#lvup-n'); n.classList.remove('roll-in', 'roll-out');
+  }
+  function lvRollTo(value) {                      // o número antigo sai por cima e o novo entra por baixo
+    var n = $('#lvup-n'); n.classList.remove('roll-in'); n.classList.add('roll-out');
+    lvAfter(130, function () { n.textContent = String(value); n.classList.remove('roll-out'); void n.offsetWidth; n.classList.add('roll-in'); playSound('tick2'); });
+  }
+  function lvBurst(big) {                         // confete leve: só transform/opacity, sai do centro da medalha
+    var layer = $('#lvup-confetti'); layer.textContent = '';
+    var r = document.querySelector('#lvup .lvup-award').getBoundingClientRect();
+    layer.style.left = Math.round(r.left + r.width / 2) + 'px'; layer.style.top = Math.round(r.top + r.height / 2) + 'px';
+    var cols = ['#ffe08b', '#ff6791', '#5b8cff', '#2fd3a3', '#ffffff', '#a06bff'], count = big ? 34 : 24;
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('i'), ang = (Math.PI * 2 * i) / count + (Math.random() - .5) * .5, dist = 110 + Math.random() * (big ? 170 : 130);
+      p.style.setProperty('--dx', Math.round(Math.cos(ang) * dist) + 'px'); p.style.setProperty('--dy', Math.round(Math.sin(ang) * dist - 30) + 'px');
+      p.style.setProperty('--r', Math.round((Math.random() - .5) * 720) + 'deg'); p.style.setProperty('--c', cols[i % cols.length]);
+      p.style.animationDelay = Math.round(Math.random() * 90) + 'ms'; layer.appendChild(p);
+    }
+    lvAfter(1900, function () { layer.textContent = ''; });
+  }
+  function lvCountGems(total) {                   // as gemas de bônus "contam" até o valor final
+    var el = $('#lvup-gems-count'); total = Number(total) || 0; if (!(total > 0)) return;
+    var start = 0, dur = 650; el.textContent = '+0';
+    (function step(now) {
+      if (!start) start = now; var k = Math.min(1, (now - start) / dur);
+      el.textContent = '+' + (k >= 1 ? total : Math.round(total * k * (2 - k)));
+      if (k < 1) lvAnim.raf = requestAnimationFrame(step); else lvAnim.raf = 0;
+    })(performance.now());
+  }
+  function playLevelAnimation(from, to, gems) {
+    lvClear();
+    var box = $('#lvup'), tierUp = lvTier(to) > lvTier(from);
+    box.className = 'lvup t' + lvTier(to);           // a cor da medalha é a mesma faixa do selo "Nv N"
+    $('#lvup-n').textContent = String(to);          // o valor final já está no texto: leitores de tela e "movimento reduzido" veem o número certo
+    $('#lvup-gems-count').textContent = '+' + (Number(gems) || 0);
+    $('#lvup-tier').hidden = !tierUp;
+    if (reducedMotion()) { playSound(tierUp ? 'levelupTier' : 'levelup'); return; }     // sem movimento: tudo já na tela, só o som
+    var steps = []; for (var v = from + 1; v <= to; v++) steps.push(v);
+    if (steps.length > 5) steps = steps.slice(-5);                                    // muitas subidas de uma vez: rola só pelos últimos 5 níveis
+    $('#lvup-n').textContent = String(steps.length ? steps[0] - 1 : to);               // começa no nível anterior
+    $('#lvup-tier').hidden = true;
+    box.classList.add('lvup-go');
+    var t0 = 880;
+    lvAfter(780, function () { playSound('tick'); });                                // o "toc" da medalha batendo
+    steps.forEach(function (v, i) { lvAfter(t0 + i * 200, function () { lvRollTo(v); }); });
+    lvAfter(t0 + steps.length * 200 + 160, function () {
+      box.classList.add('lvup-land');
+      playSound(tierUp ? 'levelupTier' : 'levelup'); vibrate([25, 40, 70]);
+      lvBurst(tierUp); lvCountGems(gems);
+      if (tierUp) $('#lvup-tier').hidden = false;
+    });
+  }
   function tryLevelCelebration() {
     if (!levelCelebrationAllowed()) return;
     var pending = store.get(levelPendingKey(), null);
@@ -1607,14 +1713,14 @@
     $('#lvup-gems-count').textContent = '+' + (pending.gems || 0);
     box.hidden = false;
     try { $('#lvup-continue').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
-    playSound('win');
+    playLevelAnimation(pending.from, pending.to, pending.gems || 0);
     vibrate([30, 60, 45]);
     announce('Parabéns! Você chegou ao nível ' + pending.to + '.');
   }
   function dismissLevelCelebration() {
     var box = $('#lvup');
     if (box.hidden) return;
-    box.hidden = true;
+    box.hidden = true; lvClear();
     // Limpa só ao fechar: se o aplicativo for interrompido no meio, reaparece.
     if (levelAccountCode) store.set(levelPendingKey(), null);
     try { $('#btn-play').focus({ preventScroll: true }); } catch (e) { /* ignora */ }
@@ -1639,6 +1745,7 @@
         var pendingGems = store.get(levelPendingKey(), null);
         $('#lvup-gems').hidden = !(pendingGems && pendingGems.gems > 0);
         $('#lvup-gems-count').textContent = '+' + ((pendingGems && pendingGems.gems) || 0);
+        playLevelAnimation(from, to, (pendingGems && pendingGems.gems) || 0);        // a sequência recomeça com o novo total
       }
       scheduleLevelCelebration();              // só abre se a partida e todas as janelas terminaram
     }
@@ -2112,8 +2219,20 @@
     s.connect(f); f.connect(g); g.connect(ctx.destination); s.start(t0); s.stop(t0 + dur + 0.02);
   }
   function soundClack(c) { noiseBurst(c, 'bandpass', 3200, 2.5, 0.016, 0.6); tone(c, 1500, 0, .04, 'triangle', .22); tone(c, 620, 0, .06, 'sine', .22); }
+  // Subida de nível: escala que sobe e um acorde brilhante com cintilações (gerado no navegador, sem arquivo de som).
+  function soundLevelup(c) {
+    [392, 494, 587, 784].forEach(function (f, i) { tone(c, f, i * .085, .2, 'triangle', .13); });
+    [784, 988, 1175].forEach(function (f) { tone(c, f, .36, .85, 'triangle', .085); });
+    tone(c, 1568, .4, .6, 'sine', .07); tone(c, 2093, .52, .5, 'sine', .05); tone(c, 2637, .64, .45, 'sine', .035);
+  }
   var SOUNDS = {
     clack: soundClack,
+    levelup: soundLevelup,
+    levelupTier: function (c) {          // mudou de faixa de cor (10, 20, 30, 50): o mesmo começo, com um segundo acorde mais alto
+      soundLevelup(c);
+      [523, 659, 784, 1047].forEach(function (f) { tone(c, f, .95, 1.1, 'sine', .06); });
+      tone(c, 3136, 1.0, .6, 'sine', .035);
+    },
     tann: soundTann,
     gift: function (c) { tone(c, 330, 0, .07, 'triangle', .12); tone(c, 494, .05, .08, 'triangle', .12); tone(c, 740, .1, .16, 'sine', .12); },
     tick: function (c) { tone(c, 520, 0, .14, 'sine', .15); },
@@ -3561,6 +3680,9 @@
       cfm.resolve = resolve;
       $('#cfm-title').textContent = o.title || 'Confirmar';
       $('#cfm-text').textContent = o.text || '';
+      var pv = $('#cfm-preview'); pv.textContent = '';                       // prévia opcional (miniaturas); sempre limpa antes de cada confirmação
+      (o.preview || []).forEach(function (f) { var s = libraryEl('span', 'cfm-thumb'), im = libraryImage(f, '', true); im.alt = ''; s.appendChild(im); pv.appendChild(s); });
+      pv.hidden = !(o.preview && o.preview.length);
       var ok = $('#cfm-ok');
       ok.textContent = o.ok || 'Confirmar';
       ok.classList.toggle('me-danger', !!o.danger);

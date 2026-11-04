@@ -98,7 +98,7 @@ Na primeira vez que o jogador entra depois da atualização, o **histórico anti
 - **Ao lado do nome:** lista de amigos e pedidos, perfil do amigo, perfil próprio, chip da tela inicial, sala de espera e resultado do desafio, tela de vitória e bate-papo. O selo muda de cor por faixa (1–9, 10–19, 20–29, 30–49 e 50+).
 - **Perfil próprio:** barra com o XP atual e quanto falta para o próximo nível.
 - **Ao concluir:** quanto XP foi ganho, de onde veio (conclusão, amigo, vitória, participação, conquista) e, se o quebra-cabeça é repetido, o percentual pago.
-- **Subiu de nível:** animação curta (2,4 s) que **não bloqueia toques**; com "Movimento reduzido" ligado, vira um fade simples.
+- **Subiu de nível:** cartão com a **medalha na cor da faixa** do selo (1–9 azul, 10–19 verde, 20–29 roxo, 30–49 laranja, 50+ dourado). A medalha cai e bate (anel e clarão), o número **rola do nível anterior até o novo** (um passo por nível, até 5), e a "aterrissagem" (cerca de 1,3 s) solta confete, toca a fanfarra própria e conta as gemas de bônus. Ao cruzar uma faixa (10, 20, 30, 50) aparece "NOVA FAIXA!", com mais confete e um segundo acorde. O cartão **pede um toque em CONTINUAR** (ele cobre a tela até lá) e só abre na tela inicial, depois da partida. Com "Movimento reduzido" ligado, vem tudo já pronto, sem animação nem confete (só o som, se ligado).
 - O **nível dos outros jogadores** aparece na sala **no momento em que entram**; se alguém subir de nível no meio da partida, o selo dele atualiza na próxima vez que ele entrar numa sala.
 
 ## 9. Banco de dados (só acrescenta; nada existente é alterado)

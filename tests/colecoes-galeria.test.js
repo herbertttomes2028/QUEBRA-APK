@@ -46,12 +46,12 @@ test('ações amarelas, bloqueios informativos, preço de compra sem mudar saldo
   assert.doesNotMatch(js.slice(js.indexOf('function renderLibraryHome()'), js.indexOf('function renderLibraryCategory(')), /payMatch|xp_events|INSERT INTO/);
 });
 
-test('galeria de cinco imagens em duas colunas e um único Voltar amarelo', () => {
+test('galeria de categorias em duas colunas, imagens da categoria em três e um único Voltar amarelo', () => {
   assert.match(html, /id="library-detail" class="library-detail"/);
   assert.match(html, /id="btn-pick-back" class="btn btn-primary"/);
   assert.doesNotMatch(html, /id="library-back"/);
   assert.match(js, /grid\.classList\.toggle\('library-gallery', libraryView === 'category'\)/);
-  assert.match(css, /#screen-pick \.pick-grid\.library-gallery \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /#screen-pick \.pick-grid\.library-gallery \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /#screen-pick\.library-inside-category #pick-title, #screen-pick\.library-inside-category #pick-lead \{ display: none; \}/);
   assert.match(css, /\.library-heading \{[^}]*text-align: center/);
   assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
