@@ -249,17 +249,20 @@
   }
   function setTab(t) {
     acc.tab = t;
-    ['profile', 'friends', 'history'].forEach(function (n) { $('#tab-' + n).hidden = n !== t; });
+    ['profile', 'ach', 'col', 'friends', 'history'].forEach(function (n) { $('#tab-' + n).hidden = n !== t; });
     Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     $('#me-scroll').scrollTop = 0;
     if (t === 'profile') renderProfile();
     if (t === 'friends') renderFriends(); // openMe/afterAuth já atualizam a lista; sem pedido duplicado
     if (t === 'history') loadHistory();
+    if (t === 'ach') renderAch();
+    if (t === 'col') renderCol();
   }
   Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
   $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
   $('#btn-me').addEventListener('click', function () { openMe('profile'); });
   $('#link-friends').addEventListener('click', openFriends);
+  $('#me-ach-all').addEventListener('click', function () { setTab('ach'); });
 
   /* ---------- entrar / criar conta ---------- */
   function showAuthPanel(which) {            // 'main' | 'verify' | 'forgot'
@@ -442,7 +445,7 @@
     $('#sec-pw-open').hidden = !me.hasPassword;
     var st = me.stats;
     paintStats($('#me-stats'), [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']]);
-    paintAch($('#me-ach'), $('#me-ach-count'), me.achievements);
+    paintAchNext(me); updateAchBadge();
     paintContinue();
   }
   // Mantém os quatro cartões existentes: uma atualização do servidor só troca os números,
@@ -476,18 +479,139 @@
     $('#xp-txt').textContent = xp.max ? xp.total.toLocaleString('pt-BR') + ' XP' : xp.into.toLocaleString('pt-BR') + ' / ' + xp.need.toLocaleString('pt-BR') + ' XP';
     $('#xp-next').textContent = xp.max ? 'Nível máximo! 🏆' : 'Faltam ' + (xp.need - xp.into).toLocaleString('pt-BR') + ' XP para o nível ' + (xp.level + 1);
   }
-  function paintAch(box, countEl, list) {
-    var done = 0;
-    box.innerHTML = '';
-    list.forEach(function (a) {
-      if (a.done) done++;
-      var d = el('div', 'me-a' + (a.done ? '' : ' lock'));
-      d.setAttribute('aria-label', a.title + (a.done ? ' (conquistada)' : ' (bloqueada): ' + a.desc));
-      d.appendChild(el('i', '', a.icon));
-      var t = el('span'); t.appendChild(el('b', '', a.title)); t.appendChild(el('small', '', a.desc)); d.appendChild(t);
-      box.appendChild(d);
+  /* ---------- conquistas e coleções ---------- */
+  // Tudo o que o servidor decide (o que é conquista, o XP, a privacidade) vem pronto; aqui só desenhamos.
+  var TIER_NAME = { bronze: 'Bronze', prata: 'Prata', ouro: 'Ouro', diamante: 'Diamante' };
+  var TIER_ICON = { bronze: '🥉', prata: '🥈', ouro: '🥇', diamante: '💎' };
+  var TIER_ORDER = ['diamante', 'ouro', 'prata', 'bronze'];
+  function fmtMs(ms) { var s = Math.round(ms / 1000); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : ''); }
+  // "NOVA": o que foi ganho depois da última vez que você abriu a aba. Na primeira vez neste aparelho só fixamos a base (nada vira "NOVA" de uma vez).
+  function achSeenKey() { return 'achSeen.' + (acc.me ? acc.me.code : ''); }
+  function achNewIds(list) {
+    var seen = store.get(achSeenKey(), null), done = list.filter(function (a) { return a.done; }).map(function (a) { return a.id; });
+    if (seen === null) { store.set(achSeenKey(), done); return []; }
+    return done.filter(function (id) { return seen.indexOf(id) < 0; });
+  }
+  function achMarkSeen(list) { store.set(achSeenKey(), list.filter(function (a) { return a.done; }).map(function (a) { return a.id; })); }
+  function updateAchBadge() {
+    var b = $('#me-tab-ach-badge'); if (!b) return;
+    var n = acc.me && acc.me.achievements ? achNewIds(acc.me.achievements).length : 0;
+    b.hidden = !n; b.textContent = n > 9 ? '9+' : String(n); b.setAttribute('aria-label', n + (n === 1 ? ' conquista nova' : ' conquistas novas'));
+  }
+  function achProgress(a) {                       // só o dono vê (o servidor nunca manda progresso nem tempos ao perfil de amigo)
+    if (a.done || a.secret) return '';
+    if (a.lower) return a.now == null ? 'Ainda sem tempo registrado' : 'Seu melhor: ' + fmtMs(a.now);
+    return a.goal > 1 ? a.now + ' de ' + a.goal : '';
+  }
+  function achCard(a, isNew, compact) {
+    var d = el('article', 'ach-card t-' + a.tier + (a.done ? ' done' : ' todo') + (a.secret && !a.done ? ' secret' : '') + (isNew ? ' fresh' : '') + (compact ? ' compact' : ''));
+    var pr = achProgress(a);
+    d.setAttribute('aria-label', a.title + ', ' + TIER_NAME[a.tier] + (a.done ? ', conquistada' : ', ainda não conquistada. ' + a.desc + (pr ? '. ' + pr : '')) + (isNew ? ', nova' : ''));
+    var ico = el('i', 'ach-ico', a.icon); ico.setAttribute('aria-hidden', 'true'); d.appendChild(ico);
+    var body = el('div', 'ach-body'); body.appendChild(el('b', 'ach-title', a.title)); body.appendChild(el('small', 'ach-desc', a.desc));
+    var meta = el('span', 'ach-meta');
+    meta.appendChild(el('span', 'ach-tier t-' + a.tier, TIER_ICON[a.tier] + ' ' + TIER_NAME[a.tier]));
+    meta.appendChild(el('span', 'ach-xp', (a.done ? '✓ ' : '') + '+' + a.xp + ' XP'));
+    if (isNew) meta.appendChild(el('span', 'ach-new', 'NOVA'));
+    body.appendChild(meta);
+    if (pr) {
+      if (!a.lower && a.goal > 1) { var bar = el('span', 'ach-bar'), fill = el('i'); fill.style.width = Math.round(100 * a.now / a.goal) + '%'; bar.appendChild(fill); bar.setAttribute('aria-hidden', 'true'); body.appendChild(bar); }
+      body.appendChild(el('span', 'ach-prog', pr));
+    }
+    d.appendChild(body);
+    return d;
+  }
+  // Perfil: só as 3 conquistas mais perto de sair ("Quase lá!"). A lista completa fica na aba Conquistas.
+  function paintAchNext(me) {
+    var box = $('#me-ach'), list = me.achievements || [], s = me.achSummary || { done: 0, total: list.length };
+    box.innerHTML = ''; $('#me-ach-count').textContent = s.done + ' de ' + s.total;
+    var next = list.filter(function (a) { return !a.done && !a.secret && !a.lower && a.goal > 1; })
+      .sort(function (x, y) { return (y.now / y.goal) - (x.now / x.goal); }).slice(0, 3);
+    if (!next.length) { box.appendChild(el('p', 'ach-empty', s.done >= s.total && s.total ? 'Você ganhou todas as conquistas! 🎉' : 'Jogue mais para ver as próximas conquistas.')); return; }
+    box.appendChild(el('h4', 'ach-sub', 'Quase lá!'));
+    next.forEach(function (a) { box.appendChild(achCard(a, false, true)); });
+  }
+  function renderAch() {
+    var me = acc.me; if (!me || !me.achievements) return;
+    var list = me.achievements, meta = me.achMeta || { groups: [] }, s = me.achSummary;
+    var fresh = achNewIds(list), isFresh = {}; fresh.forEach(function (id) { isFresh[id] = true; });
+    var box = $('#ach-summary'); box.innerHTML = '';
+    var big = el('div', 'ach-big'); big.appendChild(el('b', '', String(s.done))); big.appendChild(el('span', '', ' de ' + s.total + ' conquistas')); box.appendChild(big);
+    var bar = el('span', 'ach-bar ach-bar-lg'), fill = el('i'); fill.style.width = Math.round(100 * s.done / Math.max(1, s.total)) + '%'; bar.appendChild(fill); bar.setAttribute('aria-hidden', 'true'); box.appendChild(bar);
+    var tiers = el('div', 'ach-tiers');
+    TIER_ORDER.slice().reverse().forEach(function (t) { var x = s.tiers[t], c = el('span', 'ach-tier t-' + t, TIER_ICON[t] + ' ' + x.done + '/' + x.total); c.setAttribute('aria-label', TIER_NAME[t] + ': ' + x.done + ' de ' + x.total); tiers.appendChild(c); });
+    box.appendChild(tiers);
+    box.appendChild(el('p', 'ach-xp-line', 'XP das conquistas: ' + s.xpDone.toLocaleString('pt-BR') + ' de ' + s.xpTotal.toLocaleString('pt-BR')));
+    var filter = acc.achFilter || 'all', group = acc.achGroup || 'all';
+    function chip(host, text, on, fn, label) { var b = el('button', 'ach-chip' + (on ? ' on' : ''), text); b.type = 'button'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if (label) b.setAttribute('aria-label', label); b.addEventListener('click', fn); host.appendChild(b); }
+    var fbox = $('#ach-filters'); fbox.innerHTML = '';
+    [['all', 'Todas'], ['done', 'Ganhas'], ['todo', 'Para ganhar']].forEach(function (f) { chip(fbox, f[1], filter === f[0], function () { acc.achFilter = f[0]; renderAch(); }); });
+    var gbox = $('#ach-groups'); gbox.innerHTML = '';
+    chip(gbox, 'Todos os grupos', group === 'all', function () { acc.achGroup = 'all'; renderAch(); });
+    meta.groups.forEach(function (g) {
+      var rows = list.filter(function (a) { return a.g === g.id; }), dn = rows.filter(function (a) { return a.done; }).length;
+      if (!rows.length) return;
+      chip(gbox, g.icon + ' ' + g.title + ' ' + dn + '/' + rows.length, group === g.id, function () { acc.achGroup = g.id; renderAch(); }, g.title + ': ' + dn + ' de ' + rows.length);
     });
-    countEl.textContent = done + ' de ' + list.length;
+    var out = $('#ach-list'); out.innerHTML = ''; var shown = 0;
+    // As novas vão para o topo (ninguém rola 120 cartões atrás delas); depois de vistas, voltam ao lugar normal.
+    var onTop = fresh.length > 0 && group === 'all' && filter !== 'todo';
+    if (onTop) {
+      var nh = el('h4', 'ach-sec ach-sec-new'); nh.appendChild(el('span', '', '✨ Novas conquistas!')); nh.appendChild(el('small', '', fresh.length + (fresh.length === 1 ? ' nova' : ' novas'))); out.appendChild(nh);
+      list.filter(function (a) { return isFresh[a.id]; }).forEach(function (a) { out.appendChild(achCard(a, true, false)); shown++; });
+    }
+    meta.groups.forEach(function (g) {
+      if (group !== 'all' && group !== g.id) return;
+      var rows = list.filter(function (a) { return a.g === g.id; });
+      var vis = rows.filter(function (a) { return (filter === 'all' || (filter === 'done' ? a.done : !a.done)) && !(onTop && isFresh[a.id]); });
+      if (!vis.length) return;
+      var h = el('h4', 'ach-sec'); h.appendChild(el('span', '', g.icon + ' ' + g.title));
+      h.appendChild(el('small', '', rows.filter(function (a) { return a.done; }).length + ' de ' + rows.length)); out.appendChild(h);
+      if (g.blurb) out.appendChild(el('p', 'ach-blurb', g.blurb));
+      vis.forEach(function (a) { out.appendChild(achCard(a, !!isFresh[a.id], false)); shown++; });
+    });
+    if (!shown) out.appendChild(el('p', 'ach-empty', filter === 'done' ? 'Nenhuma conquista ganha nesta lista ainda. Bora jogar! 🧩' : 'Você ganhou tudo desta lista! 🎉'));
+    achMarkSeen(list); updateAchBadge();
+  }
+  // Uma área para cada categoria: progresso da coleção e as conquistas dela.
+  function colCard(c, all) {
+    var pct = c.total ? Math.round(100 * c.done / c.total) : 0;
+    var d = el('article', 'col-card' + (c.open ? '' : ' locked') + (c.last ? ' full' : '')); d.setAttribute('data-cat', c.id);
+    var head = el('div', 'col-head'), ring = el('div', 'col-ring');
+    ring.style.setProperty('--p', String(pct)); ring.setAttribute('role', 'img'); ring.setAttribute('aria-label', c.done + ' de ' + c.total + ' imagens concluídas');
+    ring.appendChild(el('i', 'col-icon', c.icon)); head.appendChild(ring);
+    var t = el('div', 'col-title'); t.appendChild(el('b', '', c.name)); t.appendChild(el('small', '', c.subtitle)); head.appendChild(t); d.appendChild(head);
+    var state = c.last ? '👑 Coleção completa!' :
+      !c.open && c.unlock === 'gems' ? '💎 ' + c.price + ' gemas para desbloquear' :
+      !c.open ? '🔒 Conclua as primeiras de ' + c.needs + ' para abrir' :
+      c.done + ' de ' + c.total + ' imagens · ' + pct + '%';
+    d.appendChild(el('p', 'col-state', state));
+    var mine = (all || []).filter(function (a) { return a.cat === c.id; });
+    if (mine.length) {
+      d.appendChild(el('h5', 'col-sub', 'Conquistas da coleção ' + c.ach.done + '/' + c.ach.total));
+      mine.forEach(function (a) { d.appendChild(achCard(a, false, true)); });
+    }
+    return d;
+  }
+  function renderCol() {
+    var me = acc.me; if (!me) return;
+    var cols = me.collections || [], box = $('#col-list'); box.innerHTML = '';
+    var tot = 0, dn = 0, open = 0;
+    cols.forEach(function (c) { tot += c.total; dn += c.done; if (c.open) open++; });
+    $('#col-count').textContent = open + ' de ' + cols.length + ' abertas · ' + dn + ' de ' + tot + ' imagens';
+    cols.forEach(function (c) { box.appendChild(colCard(c, me.achievements)); });
+  }
+  // Perfil de amigo: uma prateleira só com o que ele ganhou (o servidor já mandou só o que é público).
+  function paintFriendAch(box, countEl, list, summary) {
+    box.innerHTML = '';
+    var got = (list || []).filter(function (a) { return a.done; }).sort(function (x, y) { return TIER_ORDER.indexOf(x.tier) - TIER_ORDER.indexOf(y.tier); });
+    countEl.textContent = summary ? summary.done + ' de ' + summary.total : got.length + ' de ' + (list || []).length;
+    if (!got.length) { box.appendChild(el('p', 'shelf-empty', 'Ainda sem conquistas.')); return; }
+    got.slice(0, 24).forEach(function (a) {
+      var b = el('span', 'shelf-badge t-' + a.tier, a.icon); b.setAttribute('role', 'img');
+      b.setAttribute('aria-label', a.title + ', ' + TIER_NAME[a.tier]); b.title = a.title + ' · ' + a.desc; box.appendChild(b);
+    });
+    if (got.length > 24) box.appendChild(el('span', 'shelf-more', '+' + (got.length - 24)));
   }
   function renderAvatarChoices() {
     var g = $('#me-avatar-grid');
@@ -834,7 +958,7 @@
     $('#fp-code').textContent = p.code;
     var st = p.stats;
     paintStats($('#fp-stats'), [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.challenges, 'c1'], ['Vitórias', st.wins, 'c2']]);
-    paintAch($('#fp-ach'), $('#fp-ach-count'), p.achievements);
+    paintFriendAch($('#fp-ach'), $('#fp-ach-count'), p.achievements, p.achSummary);
     $('#fp-body').hidden = false;
   }
   $('#fp-copy').addEventListener('click', function () { if (fpUser) copyText(fpUser.code, 'Código de ' + fpUser.name + ' copiado!'); });

@@ -80,8 +80,12 @@ Somam-se ao XP da conclusão:
 
 Quem perde o desafio e não conclui ganha só a **participação**. Vencer porque o adversário saiu **não paga vitória** (é preciso concluir).
 
-## 5. Conquistas que já existem (XP de uma única vez)
-Primeira partida 25 · Dez partidas 40 · Primeira vitória 40 · Campeão 100 · Montador 50 · Mestre dos 48 100 · Veloz 80 · Minha imagem 25 · Primeiro amigo 25 · Turma 60.
+## 5. Conquistas (XP de uma única vez)
+O catálogo completo (mais de 120 conquistas em 10 grupos, com nível, XP e quem pode vê-las) está em **`CONQUISTAS.md`**, gerado do próprio código (`achievements.js`).
+- **XP por nível:** Bronze 5 · Prata 15 · Ouro 40 · Diamante 100. As 10 conquistas antigas **mantêm o XP de antes**: Primeira partida 25 · Dez partidas 40 · Primeira vitória 40 · Campeão 100 · Montador 50 · Mestre dos 48 100 · Veloz 80 · Minha imagem 25 · Primeiro amigo 25 · Turma 60.
+- **Pagamento:** continua em `awardAchievements` (`accounts.js`), na transação do XP, uma vez cada (`ach:<id>` em `xp_events`), em até 6 passadas: o XP de uma conquista pode subir o nível e liberar a seguinte.
+- **Permanentes e retroativas:** quem ganhou nunca perde; quem já cumpre uma conquista nova recebe o XP dela na próxima partida. Como XP vira nível e nível vira gemas, os valores são pequenos de propósito (todas juntas somam cerca de 4.000 XP, menos que o nível 11).
+- **"Minha imagem"** foi aposentada (o envio de fotos foi removido): só aparece para quem já a ganhou.
 
 ## 6. Proteções contra ganho artificial
 - **Só o servidor paga.** O celular nunca envia XP; não existe rota para isso.

@@ -2307,3 +2307,72 @@ html[data-theme="dark"] .library-continue { background: #3a2c0c; color: #ffe8a3;
 html[data-motion="reduce"] .lvup-flash, html[data-motion="reduce"] .lvup-ring, html[data-motion="reduce"] .lvup-confetti { display: none; }
 @media (prefers-reduced-motion: reduce) { .lvup-flash, .lvup-ring, .lvup-confetti { display: none; } }
 @media (max-height: 630px) { .lvup-flash { width: 160px; height: 160px; } .lvup-ring { width: 128px; height: 128px; } }
+
+/* ===================== Conquistas e coleções (perfil) ===================== */
+/* Cores por nível. Texto sobre fundo claro (tema claro) e sobre fundo escuro (tema escuro), todos com contraste >= 4,5:1 (conferido em teste). */
+.t-bronze { --ring: #c97b3d; --chip-bg: #f8e3d0; --chip-ink: #6b3a10; }
+.t-prata { --ring: #8d9bb4; --chip-bg: #e6ebf4; --chip-ink: #364156; }
+.t-ouro { --ring: #f2b01e; --chip-bg: #fff0b8; --chip-ink: #5b3f00; }
+.t-diamante { --ring: #38bdf8; --chip-bg: #d6f1ff; --chip-ink: #0b4a6b; }
+html[data-theme="dark"] .t-bronze { --chip-bg: #4a2f18; --chip-ink: #ffd9b8; }
+html[data-theme="dark"] .t-prata { --chip-bg: #2c3445; --chip-ink: #d9e2f5; }
+html[data-theme="dark"] .t-ouro { --chip-bg: #59430e; --chip-ink: #ffe8a3; }
+html[data-theme="dark"] .t-diamante { --chip-bg: #0f3a52; --chip-ink: #bfe9ff; }
+.me-tabs .me-tab { font-size: .74rem; padding-inline: 2px; min-width: 0; }
+.ach-tier { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; background: var(--chip-bg); color: var(--chip-ink); font: 700 .7rem/1.3 "Fredoka", var(--font); }
+.ach-card { display: flex; gap: 11px; align-items: flex-start; background: var(--card); border-radius: 18px; padding: 11px 12px; box-shadow: 0 4px 0 var(--line-2); margin-bottom: 10px; border-left: 5px solid var(--ring, var(--line)); min-width: 0; }
+.ach-card.todo { border-left-color: var(--line); }
+.ach-card.fresh { box-shadow: 0 0 0 3px #ffbe36, 0 4px 0 var(--line-2); }
+.ach-card.compact { padding: 9px 10px; margin-bottom: 8px; }
+.ach-ico { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 1.5rem; background: var(--field); border: 3px solid var(--ring, var(--line)); }
+.ach-card.todo .ach-ico { filter: grayscale(1); opacity: .65; border-color: var(--line); }
+.ach-card.secret .ach-ico { filter: none; opacity: 1; }
+.ach-body { min-width: 0; flex: 1; }
+.ach-title { display: block; font: 600 1rem/1.15 "Fredoka", var(--font); color: var(--ink); overflow-wrap: anywhere; }
+.ach-sec-new span { color: #b3261e; }
+html[data-theme="dark"] .ach-sec-new span { color: #ffb4a8; }
+.ach-desc { display: block; margin-top: 2px; font-size: .76rem; line-height: 1.2; font-weight: 700; color: var(--ink-soft); overflow-wrap: anywhere; }
+.ach-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.ach-xp { font: 700 .72rem/1.2 "Fredoka", var(--font); color: var(--ink-soft); }
+.ach-new { padding: 2px 7px; border-radius: 999px; background: #d6204a; color: #fff; font: 800 .64rem/1.3 "Fredoka", var(--font); letter-spacing: .04em; }
+.ach-bar { display: block; height: 8px; margin-top: 7px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.ach-bar i { display: block; height: 100%; border-radius: 999px; background: #2fd3a3; }
+.ach-bar-lg { height: 12px; margin: 8px 0 10px; }
+.ach-prog { display: block; margin-top: 3px; font-size: .72rem; font-weight: 700; color: var(--ink-soft); }
+.ach-summary .ach-big { font: 700 1rem "Fredoka", var(--font); color: var(--ink-soft); }
+.ach-summary .ach-big b { font-size: 2rem; color: var(--ink); }
+.ach-tiers { display: flex; flex-wrap: wrap; gap: 6px; }
+.ach-xp-line { margin: 10px 0 0; font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
+.ach-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.ach-chips-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.ach-chip { flex: none; min-height: 44px; padding: 8px 14px; border: 2px solid var(--line); border-radius: 999px; background: var(--card); color: var(--ink); font: 700 .82rem/1.2 "Fredoka", var(--font); cursor: pointer; scroll-snap-align: start; }
+.ach-chip.on { background: var(--sel); border-color: var(--sel); color: #fff; }
+html[data-theme="dark"] .ach-chip.on { color: #1b1b1b; }
+.ach-chip:focus-visible, .col-card:focus-visible { outline: 3px solid var(--sel); outline-offset: 2px; }
+.ach-sec { display: flex; justify-content: space-between; align-items: baseline; margin: 14px 4px 2px; font: 700 1.05rem "Fredoka", var(--font); color: var(--ink); }
+.ach-sec small { color: var(--ink-soft); font-size: .8rem; }
+.ach-blurb, .ach-sub { margin: 0 4px 8px; font-size: .78rem; font-weight: 700; color: var(--ink-soft); }
+.ach-sub { font: 700 .95rem "Fredoka", var(--font); color: var(--ink); margin-bottom: 6px; }
+.ach-empty { margin: 8px 4px 14px; text-align: center; font-weight: 700; color: var(--ink-soft); }
+.ach-next { margin-bottom: 10px; }
+/* coleções */
+.col-list { display: grid; gap: 14px; margin-bottom: 14px; }
+.col-card { background: var(--card); border-radius: 22px; padding: 14px; box-shadow: 0 5px 0 var(--line-2); }
+.col-head { display: flex; align-items: center; gap: 14px; }
+.col-ring { --p: 0; position: relative; flex: none; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#2fd3a3 calc(var(--p) * 1%), var(--line) 0); }
+.col-ring::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--card); }
+.col-icon { position: relative; font-style: normal; font-size: 1.8rem; }
+.col-card.full .col-ring { background: conic-gradient(#f2b01e 0 100%); }
+.col-card.locked .col-ring { filter: grayscale(.85); }
+.col-title { min-width: 0; }
+.col-title b { display: block; font: 700 1.1rem "Fredoka", var(--font); color: var(--ink); overflow-wrap: anywhere; }
+.col-title small { display: block; margin-top: 2px; font-size: .78rem; font-weight: 700; color: var(--ink-soft); }
+.col-state { margin: 10px 0 8px; font: 700 .88rem "Fredoka", var(--font); color: var(--ink); }
+.col-card.full .col-state { color: #8a5b00; }
+html[data-theme="dark"] .col-card.full .col-state { color: #ffd66b; }
+.col-sub { margin: 10px 0 6px; font: 700 .86rem "Fredoka", var(--font); color: var(--ink-soft); }
+/* prateleira do perfil de amigo */
+.shelf { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.shelf-badge { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; background: var(--card); border: 3px solid var(--ring, var(--line)); }
+.shelf-more, .shelf-empty { align-self: center; font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
+@media (max-width: 340px) { .ach-card { padding: 9px 9px; gap: 8px; } .ach-ico { width: 40px; height: 40px; font-size: 1.3rem; } }

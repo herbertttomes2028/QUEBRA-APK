@@ -1601,7 +1601,7 @@
     setTimeout(function () { fill.style.width = (ev.max ? 100 : ev.pct) + '%'; }, 60);
     var bits = [];
     ['completion', 'friend', 'win', 'participation'].forEach(function (k) { if (ev.parts && ev.parts[k] > 0) bits.push(XP_LABEL[k] + ' +' + ev.parts[k]); });
-    (ev.ach || []).forEach(function (a) { bits.push(a.icon + ' ' + a.title + ' +' + a.xp); });
+    achBits(ev.ach).forEach(function (b) { bits.push(b); });
     if (ev.gemsMatch > 0) { var gems = document.createElement('div'); gems.className = 'xp-gems'; gems.textContent = '💎 +' + ev.gemsMatch + ' gemas por concluir'; box.appendChild(gems); }
     if (bits.length) { var d = document.createElement('small'); d.className = 'xp-det'; d.textContent = bits.join(' · '); box.appendChild(d); }
     if (ev.rep != null && ev.rep < 1 && ev.parts && ev.parts.completion > 0) { var r = document.createElement('small'); r.className = 'xp-rep'; r.textContent = 'Quebra-cabeça repetido: ' + Math.round(ev.rep * 100) + '% do XP'; box.appendChild(r); }
@@ -1698,6 +1698,13 @@
       if (tierUp) $('#lvup-tier').hidden = false;
     });
   }
+  // Muitas conquistas de uma vez (um veterano logo depois de uma atualização): mostra 2 e resume o resto, para a tela não estourar.
+  function achBits(list) {
+    list = list || [];
+    var bits = list.slice(0, 2).map(function (a) { return a.icon + ' ' + a.title + ' +' + a.xp; });
+    if (list.length > 2) bits.push('🏅 +' + (list.length - 2) + ' conquistas');
+    return bits;
+  }
   function tryLevelCelebration() {
     if (!levelCelebrationAllowed()) return;
     var pending = store.get(levelPendingKey(), null);
@@ -1731,7 +1738,7 @@
     var resultOpen = !$('#modal-win').hidden || !$('#modal-duel').hidden;
     state.xpLast = ev;
     if (resultOpen) refreshXp();
-    else if (currentScreen() !== 'game') toast('⭐ +' + ev.gained + ' XP' + (ev.ach && ev.ach.length ? ' · ' + ev.ach.map(function (a) { return a.icon + ' ' + a.title; }).join(', ') : ''), 3000);
+    else if (currentScreen() !== 'game') toast('⭐ +' + ev.gained + ' XP' + (ev.ach && ev.ach.length ? ' · ' + achBits(ev.ach).join(', ') : ''), 3000);
     if (levelAccountCode && ev.leveledUp && Number.isInteger(ev.level) && Number.isInteger(ev.prevLevel) && ev.level > ev.prevLevel) {
       var old = store.get(levelPendingKey(), null);
       var from = old && Number.isInteger(old.from) ? Math.min(old.from, ev.prevLevel) : ev.prevLevel;
