@@ -26,9 +26,11 @@ test('progresso usa 5 marcas acessíveis, sem alterar a regra de desbloqueio', (
   assert.match(js, /libraryDone\(im\.file\) \? ' is-done'/);
   assert.match(js, /progress\.setAttribute\('aria-label', n \+ ' de ' \+ c\.images\.length/);
   assert.match(css, /\.library-dot\.is-done \{[^}]*#ffcf33/);
-  assert.match(js, /if \(c\.order === 1\) return true;/);
-  assert.match(js, /if \(c\.price\) return libraryProgress\.purchases\.indexOf\(c\.id\) >= 0;/);
-  assert.match(js, /prev\.images\.every\(function \(x\) \{ return libraryDone\(x\.file\); \}\)/);
+  assert.match(js, /function libraryFree\(c\) \{ return c\.unlock \? c\.unlock === 'free' : c\.order === 1; \}/);
+  assert.match(js, /if \(libraryFree\(c\)\) return true;/);
+  assert.match(js, /if \(c\.unlock \? c\.unlock === 'gems' : c\.price\) return libraryProgress\.purchases\.indexOf\(c\.id\) >= 0;/);
+  assert.match(js, /libraryGate\(prev\)\.every\(function \(x\) \{ return libraryDone\(x\.file\); \}\)/);
+  assert.match(js, /function libraryGate\(c\) \{ return c\.gate \? c\.images\.slice\(0, c\.gate\) : c\.images; \}/);
   assert.match(js, /buyLibraryCategory\(c\)/);
   const lib = require('../library');
   assert.deepEqual(lib.CATEGORIES.map(c => c.price), [0,0,0,25,40]);
@@ -63,7 +65,8 @@ test('sem movimentos contínuos, imagens e jogo protegidos, cache v21', () => {
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\)/);
   assert.match(css, /html:not\(\[data-motion="reduce"\]\) \.library-celebration-banner/);
   assert.doesNotMatch(css.slice(css.indexOf('/* Galeria de coleções'), css.indexOf('/* Categoria concluída:')), /animation:/);
-  assert.match(js, /img\.src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\)/);
+  assert.match(js, /var src = i\.categoryId \? i\.url : \(i\.thumb \|\| i\.url\);/);
+  assert.match(js, /img\.src = src;/);
   assert.match(js, /var LIBRARY_MEDIA_VERSION = 'capas-20261031'/);
   assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v21'/);
   assert.match(js, /function localLibraryComplete\(file\)/);
