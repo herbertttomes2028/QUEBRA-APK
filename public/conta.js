@@ -486,6 +486,7 @@
   var TIER_NAME = { bronze: 'Bronze', prata: 'Prata', ouro: 'Ouro', diamante: 'Diamante' };
   var TIER_ICON = { bronze: '🥉', prata: '🥈', ouro: '🥇', diamante: '💎' };
   var TIER_ORDER = ['diamante', 'ouro', 'prata', 'bronze'];
+  var ACH_FIRST_BATCH = 4, ACH_BATCH = 10;        // cartões desenhados na hora (cabem na 1ª tela, abaixo do resumo) e a cada quadro depois
   function fmtMs(ms) { var s = Math.round(ms / 1000); return s < 60 ? s + ' s' : Math.floor(s / 60) + ' min' + (s % 60 ? ' ' + (s % 60) + ' s' : ''); }
   // "NOVA": o que foi ganho depois da última vez que você abriu a aba. Na primeira vez neste aparelho só fixamos a base (nada vira "NOVA" de uma vez).
   function achSeenKey() { return 'achSeen.' + (acc.me ? acc.me.code : ''); }
@@ -556,24 +557,36 @@
       if (!rows.length) return;
       chip(gbox, g.icon + ' ' + g.title + ' ' + dn + '/' + rows.length, group === g.id, function () { acc.achGroup = g.id; renderAch(); }, g.title + ': ' + dn + ' de ' + rows.length);
     });
-    var out = $('#ach-list'); out.innerHTML = ''; var shown = 0;
+    var out = $('#ach-list');
+    // Os cartões são montados em LOTES: a primeira tela sai na hora e o resto entra nos quadros seguintes (tocar na aba nunca trava o aparelho).
+    var plan = [], shown = 0;
     // As novas vão para o topo (ninguém rola 120 cartões atrás delas); depois de vistas, voltam ao lugar normal.
     var onTop = fresh.length > 0 && group === 'all' && filter !== 'todo';
     if (onTop) {
-      var nh = el('h4', 'ach-sec ach-sec-new'); nh.appendChild(el('span', '', '✨ Novas conquistas!')); nh.appendChild(el('small', '', fresh.length + (fresh.length === 1 ? ' nova' : ' novas'))); out.appendChild(nh);
-      list.filter(function (a) { return isFresh[a.id]; }).forEach(function (a) { out.appendChild(achCard(a, true, false)); shown++; });
+      plan.push(function () { var nh = el('h4', 'ach-sec ach-sec-new'); nh.appendChild(el('span', '', '✨ Novas conquistas!')); nh.appendChild(el('small', '', fresh.length + (fresh.length === 1 ? ' nova' : ' novas'))); return nh; });
+      list.filter(function (a) { return isFresh[a.id]; }).forEach(function (a) { plan.push(function () { return achCard(a, true, false); }); shown++; });
     }
     meta.groups.forEach(function (g) {
       if (group !== 'all' && group !== g.id) return;
       var rows = list.filter(function (a) { return a.g === g.id; });
       var vis = rows.filter(function (a) { return (filter === 'all' || (filter === 'done' ? a.done : !a.done)) && !(onTop && isFresh[a.id]); });
       if (!vis.length) return;
-      var h = el('h4', 'ach-sec'); h.appendChild(el('span', '', g.icon + ' ' + g.title));
-      h.appendChild(el('small', '', rows.filter(function (a) { return a.done; }).length + ' de ' + rows.length)); out.appendChild(h);
-      if (g.blurb) out.appendChild(el('p', 'ach-blurb', g.blurb));
-      vis.forEach(function (a) { out.appendChild(achCard(a, !!isFresh[a.id], false)); shown++; });
+      plan.push(function () {
+        var h = el('h4', 'ach-sec'); h.appendChild(el('span', '', g.icon + ' ' + g.title));
+        h.appendChild(el('small', '', rows.filter(function (a) { return a.done; }).length + ' de ' + rows.length)); return h;
+      });
+      if (g.blurb) plan.push(function () { return el('p', 'ach-blurb', g.blurb); });
+      vis.forEach(function (a) { plan.push(function () { return achCard(a, !!isFresh[a.id], false); }); shown++; });
     });
-    if (!shown) out.appendChild(el('p', 'ach-empty', filter === 'done' ? 'Nenhuma conquista concluída nesta lista ainda. Bora jogar! 🧩' : 'Você concluiu tudo desta lista! 🎉'));
+    if (!shown) plan.push(function () { return el('p', 'ach-empty', filter === 'done' ? 'Nenhuma conquista concluída nesta lista ainda. Bora jogar! 🧩' : 'Você concluiu tudo desta lista! 🎉'); });
+    // Nada mudou desde o último desenho (mesmos números, filtro e grupo)? Não refaz os 120 cartões.
+    var sig = [s.done, s.xpDone, list.reduce(function (n, a) { return n + (a.now || 0); }, 0), filter, group, fresh.join(',')].join('|');
+    if (out.childElementCount && acc.achSig === sig) { achMarkSeen(list); updateAchBadge(); return; }
+    acc.achSig = sig; out.innerHTML = '';
+    var token = acc.achToken = (acc.achToken || 0) + 1, next = 0;
+    function lote(n) { var frag = document.createDocumentFragment(); for (var k = 0; k < n && next < plan.length; k++, next++) frag.appendChild(plan[next]()); out.appendChild(frag); }
+    lote(ACH_FIRST_BATCH);
+    (function resto() { if (next >= plan.length) return; requestAnimationFrame(function () { if (token !== acc.achToken) return; lote(ACH_BATCH); resto(); }); })();
     achMarkSeen(list); updateAchBadge();
   }
   // Uma área para cada categoria: progresso da coleção e as conquistas dela.
