@@ -34,7 +34,7 @@ test('amigos não refazem DOM quando resposta é idêntica e seguem reagindo a m
   assert.match(js, /var changed = !acc\.friends \|\| JSON\.stringify\(acc\.friends\) !== JSON\.stringify\(j\);/);
   assert.match(js, /if \(changed && \$\('#screen-me'\)\.classList\.contains\('active'\) && acc\.view === 'friends'\) renderFriends\(\);/);
   assert.match(js, /if \(t === 'friends'\) renderFriends\(\);/);
-  assert.match(js, /if \(acc\.token\) \{ loadMe\(\); loadFriends\(\); \}/);
+  assert.match(js, /if \(acc\.token\) \{ if \(!meFresh\(\)\) loadMe\(\); loadFriends\(\); \}/);   // os amigos (com o "online") sempre; o /me só se mudou ou passou do prazo
   assert.match(js, /ev\.t === 'unfriend' \|\| ev\.t === 'presence'/);
 });
 
@@ -42,6 +42,8 @@ test('novo cache da interface sem alterar rotas do jogo nem dados', () => {
   assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v21'/);
   const source = read('public/conta.js');
   assert.match(source, /api\('GET', '\/friends'\)/);
-  assert.match(source, /api\('GET', '\/me'\)/);
+  assert.match(source, /api\('GET', '\/me\?lite=1'\)/);
+  assert.match(source, /api\('GET', '\/achievements'\)/);
+  assert.doesNotMatch(source, /api\('GET', '\/me'\)/, 'o /me completo (pesado) não é mais pedido pelo aplicativo novo');
   assert.doesNotMatch(source, /\/api\/acc\/.*(?:delete|reset)/i);
 });

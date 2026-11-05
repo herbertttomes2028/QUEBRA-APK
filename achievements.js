@@ -282,24 +282,27 @@ async function gatherStats(q, uid, lib) {
   const minParams = SIZES.map(xpm.minMs);
   const sizeSql = SIZES.map((p) => `count(*) FILTER (WHERE completed AND pieces = ${p})::int AS c${p}`).join(', ') + ', ' +
     SIZES.map((p, i) => `min(duration_ms) FILTER (WHERE completed AND pieces = ${p} AND duration_ms >= $${i + 2})::bigint AS f${p}`).join(', ');
-  const [m, days, duels, fx, pc, lc, lu, inv, ux] = await Promise.all([
-    q(`SELECT count(*) FILTER (WHERE mode = 'solo')::int AS solo, count(*) FILTER (WHERE mode IN ('comum', 'quebra'))::int AS duels,
+  // UMA ÚNICA ida ao banco (antes eram 9 consultas separadas): cada pedaço vira uma coluna JSON da mesma linha.
+  const res = await q(`SELECT
+      (SELECT row_to_json(t) FROM (SELECT count(*) FILTER (WHERE mode = 'solo')::int AS solo, count(*) FILTER (WHERE mode IN ('comum', 'quebra'))::int AS duels,
               count(*) FILTER (WHERE mode = 'coop' AND completed)::int AS "coopDone", ${sizeSql},
               coalesce(max(duration_ms) FILTER (WHERE completed AND pieces = 6), 0)::bigint AS slow6,
               coalesce(sum(pieces) FILTER (WHERE completed), 0)::int AS "piecesTotal"
-         FROM matches WHERE user_id = $1`, [uid].concat(minParams)),
-    q(`SELECT (created_at AT TIME ZONE ${TZ})::date::text AS d, count(*)::int AS n FROM matches WHERE user_id = $1 GROUP BY 1 ORDER BY 1`, [uid]),
-    q(`SELECT result FROM matches WHERE user_id = $1 AND mode IN ('comum', 'quebra') AND result IN ('win', 'loss') ORDER BY created_at, id`, [uid]),
-    q(`SELECT count(*) FILTER (WHERE kind = 'match' AND coalesce((meta->'parts'->>'friend')::int, 0) > 0)::int AS fm,
+         FROM matches WHERE user_id = $1) t) AS m,
+      (SELECT coalesce(json_agg(json_build_object('d', x.d, 'n', x.n) ORDER BY x.d), '[]'::json)
+         FROM (SELECT (created_at AT TIME ZONE ${TZ})::date::text AS d, count(*)::int AS n FROM matches WHERE user_id = $1 GROUP BY 1) x) AS days,
+      (SELECT coalesce(json_agg(result ORDER BY created_at, id), '[]'::json) FROM matches WHERE user_id = $1 AND mode IN ('comum', 'quebra') AND result IN ('win', 'loss')) AS duels,
+      (SELECT row_to_json(t) FROM (SELECT count(*) FILTER (WHERE kind = 'match' AND coalesce((meta->'parts'->>'friend')::int, 0) > 0)::int AS fm,
               count(DISTINCT meta->>'partner') FILTER (WHERE kind = 'match' AND meta->>'partner' IS NOT NULL AND meta->>'partner' <> 'guest')::int AS partners,
               coalesce(array_agg(substr(ref, 5)) FILTER (WHERE kind = 'ach'), '{}') AS earned
-         FROM xp_events WHERE user_id = $1`, [uid]),
-    q('SELECT coalesce(max(clears), 0)::int AS m FROM puzzle_clears WHERE user_id = $1', [uid]),
-    q(`SELECT image_id, (completed_at AT TIME ZONE ${TZ})::date::text AS d FROM library_clears WHERE user_id = $1`, [uid]),
-    q('SELECT category_id FROM library_unlocks WHERE user_id = $1', [uid]),
-    q("SELECT count(*)::int AS n FROM invites WHERE from_user = $1 AND status = 'accepted'", [uid]),
-    q('SELECT xp FROM users WHERE id = $1', [uid])
-  ]);
+         FROM xp_events WHERE user_id = $1) t) AS fx,
+      (SELECT coalesce(max(clears), 0)::int FROM puzzle_clears WHERE user_id = $1) AS pc,
+      (SELECT coalesce(json_agg(json_build_object('image_id', image_id, 'd', (completed_at AT TIME ZONE ${TZ})::date::text)), '[]'::json) FROM library_clears WHERE user_id = $1) AS lc,
+      (SELECT coalesce(json_agg(category_id), '[]'::json) FROM library_unlocks WHERE user_id = $1) AS lu,
+      (SELECT count(*)::int FROM invites WHERE from_user = $1 AND status = 'accepted') AS inv,
+      (SELECT xp FROM users WHERE id = $1) AS ux`, [uid].concat(minParams));
+  const R = res.rows[0], m = { rows: [R.m] }, days = { rows: R.days }, duels = { rows: R.duels.map((result) => ({ result })) }, fx = { rows: [R.fx] },
+    pc = { rows: [{ m: R.pc }] }, lc = { rows: R.lc }, lu = { rows: R.lu.map((category_id) => ({ category_id })) }, inv = { rows: [{ n: R.inv }] }, ux = { rows: [{ xp: R.ux == null ? 0 : R.ux }] };
   const r = m.rows[0], ev = fx.rows[0];
   const cat = {}, perDay = new Map(), imgs = new Set();
   for (const row of lc.rows) {

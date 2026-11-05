@@ -2637,7 +2637,7 @@
       cx.fillRect(0, H, W, F);
       cx.textBaseline = 'middle';
       cx.textAlign = 'left';
-      var fam = 'system-ui, "Segoe UI", Roboto, sans-serif';
+      var fam = 'system-ui, Roboto, sans-serif';
       cx.fillStyle = '#ffcf33';
       cx.font = '800 ' + Math.round(30 * u) + 'px ' + fam;
       cx.fillText('🧩 Quebra-Cabeça a Dois', 28 * u, H + F * 0.27);

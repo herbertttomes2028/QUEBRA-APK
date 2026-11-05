@@ -41,7 +41,10 @@ test('o servidor é dono das gemas, no mesmo commit do XP, nunca pelo cliente', 
   assert.match(acc,/const solo = room\.solo === true/);
   assert.match(acc,/await payMatch\(p\.uid, \{/);
   assert.doesNotMatch(read('public/game.js')+read('public/conta.js'),/fetch\([^\n]*\bgems\b|socket\.emit\([^\n]*\bgems\b/i);
-  assert.match(acc,/gems: Number\(\(await one\('SELECT gems FROM users WHERE id = \$1'/);
+  // O saldo mostrado no /me sai do BANCO (na consulta única do núcleo do /me), nunca de algo enviado pelo cliente.
+  assert.match(acc,/SELECT xp, xp_seeded, gems FROM users WHERE id = \$1/);
+  assert.match(acc,/gems: Number\(x\.gems \|\| 0\)/);
+  assert.doesNotMatch(acc,/gems: Number\((req|body|b)\b/);
 });
 // Exercita a função de crédito efetiva de accounts.js com um interpretador pequeno de consultas.
 // Não representa um banco PostgreSQL: é teste lógico de entradas, bônus e proteção idempotente.
