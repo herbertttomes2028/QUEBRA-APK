@@ -2376,3 +2376,36 @@ html[data-theme="dark"] .col-card.full .col-state { color: #ffd66b; }
 .shelf-badge { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; background: var(--card); border: 3px solid var(--ring, var(--line)); }
 .shelf-more, .shelf-empty { align-self: center; font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
 @media (max-width: 340px) { .ach-card { padding: 9px 9px; gap: 8px; } .ach-ico { width: 40px; height: 40px; font-size: 1.3rem; } }
+
+/* ===================== Conquista concluída: cartões, aviso no topo e selo nas listas ===================== */
+.ach-pop { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); border-left: 6px solid var(--ring, var(--line)); box-shadow: 0 3px 0 var(--line-2); text-align: left; color: var(--ink); }
+.ach-pop-ico { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 1.5rem; background: var(--field); border: 3px solid var(--ring, var(--line)); }
+.ach-pop-txt { min-width: 0; flex: 1; }
+.ach-pop-txt small { display: block; font: 800 .62rem/1.2 "Fredoka", var(--font); letter-spacing: .06em; white-space: nowrap; color: #0a5c44; }
+html[data-theme="dark"] .ach-pop-txt small { color: #8ff0c8; }
+.ach-pop-txt b { display: block; margin-top: 2px; font: 600 1rem/1.15 "Fredoka", var(--font); color: var(--ink); overflow-wrap: anywhere; }
+.ach-pop-xp { display: inline-block; margin-top: 5px; padding: 3px 9px; border-radius: 999px; background: var(--chip-bg, #e6ebf4); color: var(--chip-ink, #364156); font: 800 .78rem/1.2 "Fredoka", var(--font); }
+.ach-pop-check { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #0b7a5c; color: #fff; font: 900 1.05rem/1 "Fredoka", var(--font); }
+/* resultado da partida */
+.xp-ach { display: grid; gap: 8px; margin: 12px 0 4px; }
+.xp-ach-more { margin: 2px 0 0; text-align: center; font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
+/* aviso no topo (fora da partida) */
+.ach-banner { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 91; max-width: 460px; margin: 0 auto; display: flex; align-items: center; gap: 8px; opacity: 0; transform: translateY(-130%); pointer-events: none; }
+.ach-banner.in { opacity: 1; transform: none; pointer-events: auto; transition: transform .38s cubic-bezier(.2, 1.2, .4, 1), opacity .22s ease; }
+.ach-banner[hidden] { display: none; }
+.ach-banner-card { flex: 1; min-width: 0; min-height: 56px; padding: 0; border: 0; background: none; border-radius: 20px; cursor: pointer; font: inherit; text-align: left; }
+.ach-banner-card .ach-pop { box-shadow: 0 10px 26px rgba(27, 37, 89, .38); }
+.ach-banner-x { flex: none; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--deep, #1b2559); color: #fff; font: 700 1rem/1 "Fredoka", var(--font); cursor: pointer; box-shadow: 0 6px 16px rgba(27, 37, 89, .3); }
+.ach-banner-card:focus-visible, .ach-banner-x:focus-visible { outline: 3px solid var(--sel, #2a5ee8); outline-offset: 2px; }
+/* movimento: só transform e opacity, e nada disso com "movimento reduzido" */
+html:not([data-motion="reduce"]) .xp-ach .ach-pop { animation: ach-pop-in .45s cubic-bezier(.2, 1.4, .4, 1) both; }
+html:not([data-motion="reduce"]) .ach-pop-check { animation: ach-stamp .5s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes ach-pop-in { 0% { transform: translateY(14px) scale(.94); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes ach-stamp { 0% { transform: scale(2.3) rotate(-18deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .xp-ach .ach-pop, .ach-pop-check { animation: none; } .ach-banner.in { transition: none; } }
+html[data-motion="reduce"] .ach-banner.in { transition: none; }
+/* nas listas do perfil: "Concluída" bem visível, e um check no ícone */
+.ach-done-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: #d7f5ea; color: #0a5c44; font: 800 .7rem/1.3 "Fredoka", var(--font); }
+html[data-theme="dark"] .ach-done-tag { background: #123f33; color: #a8f0d4; }
+.ach-ico { position: relative; }
+.ach-card.done .ach-ico::after { content: "✓"; position: absolute; right: -6px; bottom: -6px; width: 22px; height: 22px; border-radius: 50%; background: #0b7a5c; color: #fff; border: 2px solid var(--card); font: 900 .72rem/18px "Fredoka", var(--font); text-align: center; }

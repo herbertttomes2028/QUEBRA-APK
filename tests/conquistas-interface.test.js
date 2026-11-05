@@ -7,7 +7,7 @@ const path = require('node:path');
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const html = read('public/index.html'), conta = read('public/conta.js'), css = read('public/style.css'), accounts = read('accounts.js'), game = read('public/game.js');
 const bloco = conta.slice(conta.indexOf('/* ---------- conquistas e coleções ---------- */'), conta.indexOf('function renderAvatarChoices()'));
-const cssNovo = css.slice(css.indexOf('/* ===================== Conquistas e coleções (perfil) ===================== */'));
+const cssNovo = css.slice(css.indexOf('/* ===================== Conquistas e coleções (perfil) ===================== */'), css.indexOf('/* ===================== Conquista concluída: cartões, aviso no topo e selo nas listas ===================== */'));   // só o bloco do perfil (o do aviso de conquista tem os próprios testes)
 
 test('abas do meu espaço: Perfil, Conquistas, Coleções e Partidas, cada uma com o seu painel', () => {
   for (const t of ['profile', 'ach', 'col', 'history']) assert.match(html, new RegExp('class="me-tab[^"]*" type="button" data-tab="' + t + '"'));
@@ -82,14 +82,4 @@ test('contraste mínimo 4,5:1 nos selos de nível, nos dois temas, e no selo "NO
   }
   assert.ok(ratio('#d6204a', '#ffffff') >= 4.5, 'selo NOVA: ' + ratio('#d6204a', '#ffffff').toFixed(2));
   assert.ok(ratio('#b3261e', '#ffffff') >= 4.5 && ratio('#ffb4a8', '#1b1b2f') >= 4.5, 'título "Novas conquistas!" nos dois temas');
-});
-
-test('muitas conquistas de uma vez: o aviso mostra 2 e resume o resto', () => {
-  const src = (game.match(/function achBits\(list\) \{[\s\S]*?\n  \}/) || [])[0];
-  assert.ok(src);
-  const achBits = new Function(src + '; return achBits;')();
-  const mk = (n) => Array.from({ length: n }, (_, i) => ({ icon: '🏅', title: 'C' + i, xp: 5 }));
-  assert.deepEqual(achBits([]), []); assert.equal(achBits(mk(2)).length, 2);
-  assert.deepEqual(achBits(mk(25)), ['🏅 C0 +5', '🏅 C1 +5', '🏅 +23 conquistas']);
-  assert.match(game, /achBits\(ev\.ach\)\.forEach\(function \(b\) \{ bits\.push\(b\); \}\)/);
 });
