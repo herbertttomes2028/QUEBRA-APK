@@ -16,7 +16,7 @@ test('abas do meu espaço: Perfil, Conquistas, Coleções e Partidas, cada uma c
   assert.match(html, /id="fp-ach" class="shelf"/);                                          // perfil de amigo: prateleira, não a grade do dono
   assert.match(conta, /\['profile', 'ach', 'col', 'friends', 'history'\]\.forEach/);
   assert.match(conta, /if \(t === 'ach'\) renderAch\(\);\s*\n\s*if \(t === 'col'\) renderCol\(\);/);
-  assert.match(conta, /paintAchNext\(me\); updateAchBadge\(\);/);
+  assert.match(conta, /if \(achData\(\)\) paintAchNext\(achData\(\)\); else paintAchLoading\(\);\s*\n\s*updateAchBadge\(\);/);
   assert.match(conta, /paintFriendAch\(\$\('#fp-ach'\), \$\('#fp-ach-count'\), p\.achievements, p\.achSummary\)/);
 });
 

@@ -39,7 +39,7 @@ test('memória: se nada mudou desde o último desenho, não refaz os cartões, m
 });
 
 test('a ordem dos cartões não mudou: as novas no topo, depois cada grupo com título, texto e cartões', () => {
-  const ordem = ['✨ Novas conquistas!', "el('h4', 'ach-sec')", "el('p', 'ach-blurb', g.blurb)", "'ach-empty'"].map((t) => renderAch.indexOf(t));
+  const ordem = ['✨ Novas conquistas!', "el('h4', 'ach-sec')", "el('p', 'ach-blurb', g.blurb)"].map((t) => renderAch.indexOf(t)).concat(renderAch.lastIndexOf("'ach-empty'"));   // o aviso "Carregando" também usa ach-empty: vale a última
   assert.ok(ordem.every((n) => n > 0) && ordem.slice().sort((a, b) => a - b).join() === ordem.join(), 'ordem de montagem: ' + ordem);
   assert.match(renderAch, /list\.filter\(function \(a\) \{ return isFresh\[a\.id\]; \}\)\.forEach\(function \(a\) \{ plan\.push\(function \(\) \{ return achCard\(a, true, false\); \}\); shown\+\+; \}\);/);
 });

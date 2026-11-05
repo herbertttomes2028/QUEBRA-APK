@@ -14,6 +14,14 @@
   var $ = QC.$, state = QC.state, socket = QC.socket, store = QC.store;
 
   var acc = { enabled: false, mailOn: false, ver: null, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', view: 'profile', after: null, mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
+  // Dados pesados (conquistas e coleções) ficam separados do /me: são pedidos só quando o perfil ou a aba abre (rota /achievements).
+  // O /me leve é pedido na volta ao início apenas se algo mudou (acc.dirty) ou passou do prazo: antes era a CADA volta.
+  acc.ach = null; acc.achAt = 0; acc.achStale = true; acc.achBusy = null; acc.meAt = 0; acc.dirty = false;
+  var ME_TTL_MS = 3 * 60 * 1000, ACH_TTL_MS = 5 * 60 * 1000;
+  function meFresh() { return !!acc.me && !acc.dirty && Date.now() - acc.meAt < ME_TTL_MS; }
+  function achData() { return acc.ach || (acc.me && acc.me.achievements ? acc.me : null); }       // (o /me completo, de um aplicativo antigo, também serve)
+  function achFresh() { return !!acc.ach && !acc.achStale && Date.now() - acc.achAt < ACH_TTL_MS; }
+  function storeAch(src) { acc.ach = { achievements: src.achievements, achSummary: src.achSummary, collections: src.collections, achMeta: src.achMeta }; acc.achAt = Date.now(); acc.achStale = false; }
 
   /* =========================================================
    * 1) SERVIÇOS
@@ -95,7 +103,7 @@
   function saveSession(token) { acc.token = token || ''; store.set('token', acc.token); }
   function logoutLocal(msg) {
     saveSession('');
-    acc.me = null; acc.friends = null; acc.pending = null;
+    acc.me = null; acc.friends = null; acc.pending = null; acc.ach = null; acc.achStale = true; acc.achAt = 0; acc.meAt = 0; acc.dirty = false;
     QC.setLevelAccount(null, 0);
     acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
     $('#auth-pass').value = ''; $('#auth-consent').checked = false; say('#auth-error', '');
@@ -107,7 +115,7 @@
     if (msg) QC.toast(msg, 3200);
   }
   function applyAccount(me) {          // a conta passa a ser a fonte do nome e do avatar neste aparelho
-    acc.me = me;
+    acc.me = me; if (me.achievements) storeAch(me);
     QC.setLevelAccount(me.code, me.xp && me.xp.level);
     QC.canBlock = true;
     QC.setUnlocked(me.phrases);
@@ -135,6 +143,7 @@
 
   socket.on('acc:ev', function (ev) {
     if (!ev || !acc.me) return;
+    if (ev.t !== 'presence') { acc.dirty = true; acc.achStale = true; }                 // partida, amigo, convite: o /me e as conquistas podem ter mudado
     var screenMe = $('#screen-me').classList.contains('active');
     if (ev.t === 'xp') {
       acc.me.xp = { total: ev.total, level: ev.level, into: ev.into, need: ev.need, pct: ev.pct, max: ev.max };
@@ -207,10 +216,29 @@
   }
   function loadMe() {
     if (!acc.token) return Promise.resolve(null);
-    return api('GET', '/me').then(function (j) {
-      if (j && j.ok) { applyAccount(j.me); if (socket.connected) authSocket(); if ($('#screen-me').classList.contains('active') && acc.view === 'profile') renderProfile(); }
+    return api('GET', '/me?lite=1').then(function (j) {
+      if (j && j.ok) { acc.meAt = Date.now(); acc.dirty = false; applyAccount(j.me); if (socket.connected) authSocket(); if ($('#screen-me').classList.contains('active') && acc.view === 'profile') renderProfile(); }
       return j;
     });
+  }
+  // Conquistas e coleções: só pede ao servidor se ainda não tem, ou se algo mudou (partida, amigo, compra) ou passou do prazo.
+  function loadAch(force) {
+    if (!acc.token) return Promise.resolve(null);
+    if (!force && achFresh()) return Promise.resolve(acc.ach);
+    if (acc.achBusy) return acc.achBusy;
+    var sent = acc.token;
+    acc.achBusy = api('GET', '/achievements').then(function (j) {
+      acc.achBusy = null;
+      if (j && j.ok && sent === acc.token) { storeAch(j); repaintAch(); }
+      return j;
+    });
+    return acc.achBusy;
+  }
+  function repaintAch() {                 // os dados chegaram: refaz só o que está na tela
+    if (!$('#screen-me').classList.contains('active')) return;
+    var d = achData(); if (!d) return;
+    if (acc.tab === 'profile') paintAchNext(d); else if (acc.tab === 'ach') renderAch(); else if (acc.tab === 'col') renderCol();
+    updateAchBadge();
   }
   function loadFriends() {
     if (!acc.token) return Promise.resolve();
@@ -230,7 +258,7 @@
     acc.view = view === 'friends' ? 'friends' : 'profile';
     QC.showScreen('me');
     renderMe();
-    if (acc.token) { loadMe(); loadFriends(); }
+    if (acc.token) { if (!meFresh()) loadMe(); loadFriends(); }
   }
   // botão "Amigos" da tela inicial: com conta abre a lista; sem conta pede para entrar e depois leva à lista
   function openFriends() {
@@ -257,6 +285,7 @@
     if (t === 'history') loadHistory();
     if (t === 'ach') renderAch();
     if (t === 'col') renderCol();
+    if (t === 'profile' || t === 'ach' || t === 'col') loadAch();                // em segundo plano; só pede se faltar ou estiver velho
   }
   Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
   $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
@@ -447,7 +476,8 @@
     $('#sec-pw-open').hidden = !me.hasPassword;
     var st = me.stats;
     paintStats($('#me-stats'), [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']]);
-    paintAchNext(me); updateAchBadge();
+    if (achData()) paintAchNext(achData()); else paintAchLoading();
+    updateAchBadge();
     paintContinue();
   }
   // Mantém os quatro cartões existentes: uma atualização do servidor só troca os números,
@@ -498,7 +528,7 @@
   function achMarkSeen(list) { store.set(achSeenKey(), list.filter(function (a) { return a.done; }).map(function (a) { return a.id; })); }
   function updateAchBadge() {
     var b = $('#me-tab-ach-badge'); if (!b) return;
-    var n = acc.me && acc.me.achievements ? achNewIds(acc.me.achievements).length : 0;
+    var d = achData(), n = d ? achNewIds(d.achievements).length : 0;
     b.hidden = !n; b.textContent = n > 9 ? '9+' : String(n); b.setAttribute('aria-label', n + (n === 1 ? ' conquista nova' : ' conquistas novas'));
   }
   function achProgress(a) {                       // só o dono vê (o servidor nunca manda progresso nem tempos ao perfil de amigo)
@@ -525,6 +555,7 @@
     d.appendChild(body);
     return d;
   }
+  function paintAchLoading() { var box = $('#me-ach'); box.innerHTML = ''; $('#me-ach-count').textContent = '…'; box.appendChild(el('p', 'ach-empty', 'Carregando suas conquistas…')); }
   // Perfil: só as 3 conquistas mais perto de sair ("Quase lá!"). A lista completa fica na aba Conquistas.
   function paintAchNext(me) {
     var box = $('#me-ach'), list = me.achievements || [], s = me.achSummary || { done: 0, total: list.length };
@@ -536,7 +567,8 @@
     next.forEach(function (a) { box.appendChild(achCard(a, false, true)); });
   }
   function renderAch() {
-    var me = acc.me; if (!me || !me.achievements) return;
+    var me = achData();
+    if (!me) { $('#ach-summary').innerHTML = ''; $('#ach-filters').innerHTML = ''; $('#ach-groups').innerHTML = ''; $('#ach-list').innerHTML = ''; acc.achSig = ''; $('#ach-summary').appendChild(el('p', 'ach-empty', 'Carregando suas conquistas…')); return; }
     var list = me.achievements, meta = me.achMeta || { groups: [] }, s = me.achSummary;
     var fresh = achNewIds(list), isFresh = {}; fresh.forEach(function (id) { isFresh[id] = true; });
     var box = $('#ach-summary'); box.innerHTML = '';
@@ -610,8 +642,9 @@
     return d;
   }
   function renderCol() {
-    var me = acc.me; if (!me) return;
-    var cols = me.collections || [], box = $('#col-list'); box.innerHTML = '';
+    var me = achData(), box = $('#col-list');
+    if (!me) { box.innerHTML = ''; $('#col-count').textContent = 'Carregando…'; return; }
+    var cols = me.collections || []; box.innerHTML = '';
     var tot = 0, dn = 0, open = 0;
     cols.forEach(function (c) { tot += c.total; dn += c.done; if (c.open) open++; });
     $('#col-count').textContent = open + ' de ' + cols.length + ' abertas · ' + dn + ' de ' + tot + ' imagens';
@@ -912,11 +945,12 @@
   };
   QC.libraryBalanceChanged = function (gems) {
     if (!acc.me || !Number.isSafeInteger(gems) || gems < 0) return;
-    acc.me.gems = gems; paintChip();
+    acc.me.gems = gems; paintChip(); acc.achStale = true;                                // comprar categoria conta para as conquistas
     if ($('#screen-me').classList.contains('active')) renderProfile();
   };
   QC.onScreen = function (name) {
-    if (name === 'home') { acc.pending = null; QC.goLabel = null; if (acc.me) loadMe(); }
+    if (name === 'home') { acc.pending = null; QC.goLabel = null; if (acc.me && !meFresh()) loadMe(); }
+    else if (name !== 'me') acc.dirty = true;                       // jogou ou mexeu em algo: a próxima volta ao início atualiza (uma consulta leve)
   };
 
   /* ---------- convites: receber ---------- */

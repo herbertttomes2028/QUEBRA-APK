@@ -35,7 +35,7 @@
   --p0: #2a5ee8;              /* jogador 1 (azul) */
   --p1: #d1245f;              /* jogador 2 (rosa) */
   --radius: 22px;
-  --font: "Avenir Next Rounded", "Nunito", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font: system-ui, -apple-system, Roboto, sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -812,6 +812,11 @@ html[data-motion="reduce"] .piece.locked .tile { animation: none; }
 .home-links { display: flex; justify-content: center; gap: 6px; margin-top: 10px; }
 
 /* ---------- Início: acabamento infantil, microinterações e fundo ---------- */
+/* FONTE DO TEXTO: só nomes que EXISTEM nos aparelhos. Cada nome de fonte inexistente obriga o sistema a procurá-lo de novo a cada tamanho/peso
+ * usado pela primeira vez: medido, ~230 ms por nome na abertura do "Meu espaço" (a pilha antiga tinha 4: Avenir Next Rounded, Nunito,
+ * Segoe UI Variable Display e Segoe UI). system-ui já é a Segoe UI no Windows e o Roboto no Android. Só nos aparelhos da Apple
+ * (a regra abaixo só vale lá) mantém-se a Avenir Next Rounded, que existe neles. */
+@supports (font: -apple-system-body) { :root { --font: "Avenir Next Rounded", system-ui, -apple-system, Roboto, sans-serif; } }
 @font-face {
   font-family: "Fredoka";
   src: url("/fonts/fredoka-latin-wght.woff2") format("woff2");
@@ -820,7 +825,7 @@ html[data-motion="reduce"] .piece.locked .tile { animation: none; }
   font-display: swap;
 }
 #screen-home {
-  --home-font: "Fredoka", "Avenir Next Rounded", "Nunito", var(--font);
+  --home-font: "Fredoka", var(--font);
   --focus: #2a5ee8;
   --focus-glow: rgba(42, 94, 232, .22);
   --home-pink: #d1245f;
@@ -1036,7 +1041,7 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
   overflow: hidden;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   background: radial-gradient(circle at 50% 40%, #4a3fb0 0%, #2a2a7a 46%, #141b4a 100%);
-  font-family: "Fredoka", "Avenir Next Rounded", "Nunito", var(--font);
+  font-family: "Fredoka", var(--font);
 }
 .go-rays {
   position: absolute;

@@ -174,24 +174,26 @@ function createAccounts(d) {
     return one('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1 AND s.expires_at > now()', [sha256(token)]);
   }
 
-  async function statsOf(uid) {
-    const s = await one(
-      `SELECT count(*)::int AS games,
+  // Colunas das estatísticas básicas: usadas por statsOf e também pelo núcleo do /me (uma ida só ao banco).
+  const STATS_COLS = `count(*)::int AS games,
               count(*) FILTER (WHERE result = 'win')::int AS wins,
               count(*) FILTER (WHERE result = 'loss')::int AS losses,
               count(*) FILTER (WHERE completed)::int AS completed,
               coalesce(max(pieces) FILTER (WHERE completed), 0)::int AS "maxPieces",
               min(duration_ms) FILTER (WHERE completed AND pieces >= 20)::bigint AS fastest20,
               count(*) FILTER (WHERE custom)::int AS "customGames",
-              coalesce(sum(duration_ms), 0)::bigint AS "totalMs"
-         FROM matches WHERE user_id = $1`, [uid]);
-    const f = await one("SELECT count(*)::int AS n FROM friendships WHERE status = 'accepted' AND (user_a = $1 OR user_b = $1)", [uid]);
-    return { games: s.games, wins: s.wins, losses: s.losses, completed: s.completed, maxPieces: s.maxPieces, fastest20: s.fastest20 == null ? null : Number(s.fastest20), customGames: s.customGames, totalMs: Number(s.totalMs), friends: f.n };
+              coalesce(sum(duration_ms), 0)::bigint AS "totalMs"`;
+  const FRIENDS_SQL = "SELECT count(*)::int FROM friendships WHERE status = 'accepted' AND (user_a = $1 OR user_b = $1)";
+  function mapStats(s, friends) {
+    return { games: s.games, wins: s.wins, losses: s.losses, completed: s.completed, maxPieces: s.maxPieces, fastest20: s.fastest20 == null ? null : Number(s.fastest20), customGames: s.customGames, totalMs: Number(s.totalMs), friends };
+  }
+  async function statsOf(uid) {
+    const r = await one(`SELECT ${STATS_COLS}, (${FRIENDS_SQL}) AS friends FROM matches WHERE user_id = $1`, [uid]);
+    return mapStats(r, r.friends);
   }
   // Estatísticas para as conquistas = básicas (statsOf) + extras (SQL em achievements.js) + as que dependem das duas.
   async function achStatsOf(uid, base) {
-    const b = base || await statsOf(uid);
-    const extra = await ach.gatherStats((sql, p) => db.q(sql, p), uid, library);
+    const [b, extra] = await Promise.all([base || statsOf(uid), ach.gatherStats((sql, p) => db.q(sql, p), uid, library)]);   // em paralelo: uma ida só ao banco
     return ach.complete(b, extra, ach.list(library));
   }
   // Linhas completas (para o dono) e o que fica visível para cada tipo de leitor.
@@ -215,23 +217,43 @@ function createAccounts(d) {
     return set;
   }
 
-  async function meOf(u) {
-    const xpTot = await xpTotal(u.id);                                   // converte o histórico antigo na primeira vez
-    const stats = await statsOf(u.id);
-    const { st: ast, rows: achRows } = await achRowsOf(u.id, stats);
-    const [save, pend, inv] = await Promise.all([
-      saveSummary(u.id),
-      one("SELECT count(*)::int AS n FROM friendships WHERE status = 'pending' AND requested_by <> $1 AND (user_a = $1 OR user_b = $1)", [u.id]),
-      one("SELECT count(*)::int AS n FROM invites WHERE to_user = $1 AND status = 'pending' AND expires_at > now()", [u.id])
-    ]);
+  // NÚCLEO do /me numa ÚNICA consulta: estatísticas, amigos, pendências, partida salva, XP e gemas (antes eram 8 idas ao banco em 4 etapas).
+  async function coreOf(uid) {
+    return one(`SELECT
+        (SELECT row_to_json(t) FROM (SELECT ${STATS_COLS} FROM matches WHERE user_id = $1) t) AS s,
+        (${FRIENDS_SQL}) AS friends,
+        (SELECT count(*)::int FROM friendships WHERE status = 'pending' AND requested_by <> $1 AND (user_a = $1 OR user_b = $1)) AS pend,
+        (SELECT count(*)::int FROM invites WHERE to_user = $1 AND status = 'pending' AND expires_at > now()) AS inv,
+        (SELECT row_to_json(v) FROM (SELECT image_label, pieces, jsonb_array_length(locked) AS n, elapsed_ms, partner_name, updated_at FROM saves WHERE user_id = $1) v) AS save,
+        (SELECT row_to_json(x) FROM (SELECT xp, xp_seeded, gems FROM users WHERE id = $1) x) AS u`, [uid]);
+  }
+  // /me LEVE: tudo o que a tela inicial e o perfil precisam, SEM as conquistas e coleções (essas vêm de /achievements, só quando alguém abre a aba).
+  async function meLite(u) {
+    const c = await coreOf(u.id), x = c.u || { xp: 0, xp_seeded: true, gems: 0 };
+    const xpTot = x.xp_seeded ? x.xp : await ensureSeeded(u.id);              // converte o histórico antigo na primeira vez
+    const stats = mapStats(c.s, c.friends);
+    const sv = c.save;
     return {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
-      createdAt: u.created_at, stats, achievements: ach.meView(achRows), achSummary: ach.summary(achRows),
-      collections: ach.collectionsOf(library, ast.clearsSet, ast.purchasesSet, library.unlocksFrom([...ast.clearsSet], [...ast.purchasesSet]), achRows),
-      achMeta: { groups: ach.GROUPS, tiers: ach.TIERS }, save,
-      xp: xpm.progress(xpTot), gems: Number((await one('SELECT gems FROM users WHERE id = $1', [u.id]) || {}).gems || 0), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
-      pending: { requests: pend.n, invites: inv.n }
+      createdAt: u.created_at, stats,
+      save: sv ? { imageLabel: sv.image_label, pieces: sv.pieces, locked: sv.n, elapsedMs: Number(sv.elapsed_ms), partner: sv.partner_name, updatedAt: new Date(sv.updated_at) } : null,
+      xp: xpm.progress(xpTot), gems: Number(x.gems || 0), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
+      pending: { requests: c.pend, invites: c.inv }
     };
+  }
+  // Conquistas e coleções do dono (a parte pesada, separada do /me).
+  async function achievementsOf(uid, base) {
+    const { st: ast, rows: achRows } = await achRowsOf(uid, base);
+    return {
+      achievements: ach.meView(achRows), achSummary: ach.summary(achRows),
+      collections: ach.collectionsOf(library, ast.clearsSet, ast.purchasesSet, library.unlocksFrom([...ast.clearsSet], [...ast.purchasesSet]), achRows),
+      achMeta: { groups: ach.GROUPS, tiers: ach.TIERS }
+    };
+  }
+  // /me COMPLETO (login, cadastro, /profile e aparelhos com o aplicativo antigo em cache): o leve + as conquistas, como antes.
+  async function meOf(u) {
+    const lite = await meLite(u);
+    return Object.assign(lite, await achievementsOf(u.id, lite.stats));
   }
 
   /* ----- amigos ----- */
@@ -515,7 +537,10 @@ function createAccounts(d) {
     res.json({ ok: true });
   }));
 
-  r.get('/me', needUser, guard(async (req, res) => res.json({ ok: true, me: await meOf(req.user) })));
+  // ?lite=1 (aplicativo novo): sem conquistas, numa consulta só. Sem o parâmetro: igual a antes (aplicativo antigo em cache).
+  r.get('/me', needUser, guard(async (req, res) => res.json({ ok: true, me: req.query.lite === '1' ? await meLite(req.user) : await meOf(req.user) })));
+  // Conquistas e coleções: pedidas só quando a pessoa abre a aba (ou o perfil), não a cada volta à tela inicial.
+  r.get('/achievements', needUser, guard(async (req, res) => res.json(Object.assign({ ok: true }, await achievementsOf(req.user.id)))));
 
   r.post('/profile', needUser, guard(async (req, res) => {
     const b = req.body || {};
