@@ -263,6 +263,8 @@
   $('#btn-me').addEventListener('click', function () { openMe('profile'); });
   $('#link-friends').addEventListener('click', openFriends);
   $('#me-ach-all').addEventListener('click', function () { setTab('ach'); });
+  // O aviso de "conquista concluída" abre direto a aba Conquistas (só com conta).
+  QC.showAchievements = function () { if (!acc.token) return; acc.tab = 'ach'; openMe('profile'); };
 
   /* ---------- entrar / criar conta ---------- */
   function showAuthPanel(which) {            // 'main' | 'verify' | 'forgot'
@@ -506,12 +508,13 @@
   function achCard(a, isNew, compact) {
     var d = el('article', 'ach-card t-' + a.tier + (a.done ? ' done' : ' todo') + (a.secret && !a.done ? ' secret' : '') + (isNew ? ' fresh' : '') + (compact ? ' compact' : ''));
     var pr = achProgress(a);
-    d.setAttribute('aria-label', a.title + ', ' + TIER_NAME[a.tier] + (a.done ? ', conquistada' : ', ainda não conquistada. ' + a.desc + (pr ? '. ' + pr : '')) + (isNew ? ', nova' : ''));
+    d.setAttribute('aria-label', a.title + ', ' + TIER_NAME[a.tier] + (a.done ? ', concluída' : ', ainda não concluída. ' + a.desc + (pr ? '. ' + pr : '')) + (isNew ? ', nova' : ''));
     var ico = el('i', 'ach-ico', a.icon); ico.setAttribute('aria-hidden', 'true'); d.appendChild(ico);
     var body = el('div', 'ach-body'); body.appendChild(el('b', 'ach-title', a.title)); body.appendChild(el('small', 'ach-desc', a.desc));
     var meta = el('span', 'ach-meta');
     meta.appendChild(el('span', 'ach-tier t-' + a.tier, TIER_ICON[a.tier] + ' ' + TIER_NAME[a.tier]));
-    meta.appendChild(el('span', 'ach-xp', (a.done ? '✓ ' : '') + '+' + a.xp + ' XP'));
+    if (a.done) meta.appendChild(el('span', 'ach-done-tag', '✓ Concluída'));
+    meta.appendChild(el('span', 'ach-xp', '+' + a.xp + ' XP'));
     if (isNew) meta.appendChild(el('span', 'ach-new', 'NOVA'));
     body.appendChild(meta);
     if (pr) {
@@ -527,7 +530,7 @@
     box.innerHTML = ''; $('#me-ach-count').textContent = s.done + ' de ' + s.total;
     var next = list.filter(function (a) { return !a.done && !a.secret && !a.lower && a.goal > 1; })
       .sort(function (x, y) { return (y.now / y.goal) - (x.now / x.goal); }).slice(0, 3);
-    if (!next.length) { box.appendChild(el('p', 'ach-empty', s.done >= s.total && s.total ? 'Você ganhou todas as conquistas! 🎉' : 'Jogue mais para ver as próximas conquistas.')); return; }
+    if (!next.length) { box.appendChild(el('p', 'ach-empty', s.done >= s.total && s.total ? 'Você concluiu todas as conquistas! 🎉' : 'Jogue mais para ver as próximas conquistas.')); return; }
     box.appendChild(el('h4', 'ach-sub', 'Quase lá!'));
     next.forEach(function (a) { box.appendChild(achCard(a, false, true)); });
   }
@@ -536,7 +539,7 @@
     var list = me.achievements, meta = me.achMeta || { groups: [] }, s = me.achSummary;
     var fresh = achNewIds(list), isFresh = {}; fresh.forEach(function (id) { isFresh[id] = true; });
     var box = $('#ach-summary'); box.innerHTML = '';
-    var big = el('div', 'ach-big'); big.appendChild(el('b', '', String(s.done))); big.appendChild(el('span', '', ' de ' + s.total + ' conquistas')); box.appendChild(big);
+    var big = el('div', 'ach-big'); big.appendChild(el('b', '', String(s.done))); big.appendChild(el('span', '', ' de ' + s.total + ' concluídas')); box.appendChild(big);
     var bar = el('span', 'ach-bar ach-bar-lg'), fill = el('i'); fill.style.width = Math.round(100 * s.done / Math.max(1, s.total)) + '%'; bar.appendChild(fill); bar.setAttribute('aria-hidden', 'true'); box.appendChild(bar);
     var tiers = el('div', 'ach-tiers');
     TIER_ORDER.slice().reverse().forEach(function (t) { var x = s.tiers[t], c = el('span', 'ach-tier t-' + t, TIER_ICON[t] + ' ' + x.done + '/' + x.total); c.setAttribute('aria-label', TIER_NAME[t] + ': ' + x.done + ' de ' + x.total); tiers.appendChild(c); });
@@ -545,7 +548,7 @@
     var filter = acc.achFilter || 'all', group = acc.achGroup || 'all';
     function chip(host, text, on, fn, label) { var b = el('button', 'ach-chip' + (on ? ' on' : ''), text); b.type = 'button'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if (label) b.setAttribute('aria-label', label); b.addEventListener('click', fn); host.appendChild(b); }
     var fbox = $('#ach-filters'); fbox.innerHTML = '';
-    [['all', 'Todas'], ['done', 'Ganhas'], ['todo', 'Para ganhar']].forEach(function (f) { chip(fbox, f[1], filter === f[0], function () { acc.achFilter = f[0]; renderAch(); }); });
+    [['all', 'Todas'], ['done', 'Concluídas'], ['todo', 'Faltam']].forEach(function (f) { chip(fbox, f[1], filter === f[0], function () { acc.achFilter = f[0]; renderAch(); }); });
     var gbox = $('#ach-groups'); gbox.innerHTML = '';
     chip(gbox, 'Todos os grupos', group === 'all', function () { acc.achGroup = 'all'; renderAch(); });
     meta.groups.forEach(function (g) {
@@ -570,7 +573,7 @@
       if (g.blurb) out.appendChild(el('p', 'ach-blurb', g.blurb));
       vis.forEach(function (a) { out.appendChild(achCard(a, !!isFresh[a.id], false)); shown++; });
     });
-    if (!shown) out.appendChild(el('p', 'ach-empty', filter === 'done' ? 'Nenhuma conquista ganha nesta lista ainda. Bora jogar! 🧩' : 'Você ganhou tudo desta lista! 🎉'));
+    if (!shown) out.appendChild(el('p', 'ach-empty', filter === 'done' ? 'Nenhuma conquista concluída nesta lista ainda. Bora jogar! 🧩' : 'Você concluiu tudo desta lista! 🎉'));
     achMarkSeen(list); updateAchBadge();
   }
   // Uma área para cada categoria: progresso da coleção e as conquistas dela.

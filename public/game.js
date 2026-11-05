@@ -1601,7 +1601,13 @@
     setTimeout(function () { fill.style.width = (ev.max ? 100 : ev.pct) + '%'; }, 60);
     var bits = [];
     ['completion', 'friend', 'win', 'participation'].forEach(function (k) { if (ev.parts && ev.parts[k] > 0) bits.push(XP_LABEL[k] + ' +' + ev.parts[k]); });
-    achBits(ev.ach).forEach(function (b) { bits.push(b); });
+    var aplan = achPlan(ev.ach);
+    if (aplan.total) {                                                // conquistas concluídas nesta partida: cartões em destaque (e não mais uma linha cinza)
+      var strip = document.createElement('div'); strip.className = 'xp-ach'; strip.setAttribute('role', 'list'); strip.setAttribute('aria-label', 'Conquistas concluídas nesta partida');
+      aplan.show.forEach(function (a, i) { var p = achPopEl(a); p.setAttribute('role', 'listitem'); p.style.animationDelay = (i * 170) + 'ms'; p.lastChild.style.animationDelay = (i * 170 + 280) + 'ms'; strip.appendChild(p); });
+      if (aplan.extra) { var more = document.createElement('p'); more.className = 'xp-ach-more'; more.textContent = '🏅 +' + aplan.extra + ' conquistas concluídas · veja todas em Meu espaço'; strip.appendChild(more); }
+      box.appendChild(strip);
+    }
     if (ev.gemsMatch > 0) { var gems = document.createElement('div'); gems.className = 'xp-gems'; gems.textContent = '💎 +' + ev.gemsMatch + ' gemas por concluir'; box.appendChild(gems); }
     if (bits.length) { var d = document.createElement('small'); d.className = 'xp-det'; d.textContent = bits.join(' · '); box.appendChild(d); }
     if (ev.rep != null && ev.rep < 1 && ev.parts && ev.parts.completion > 0) { var r = document.createElement('small'); r.className = 'xp-rep'; r.textContent = 'Quebra-cabeça repetido: ' + Math.round(ev.rep * 100) + '% do XP'; box.appendChild(r); }
@@ -1613,6 +1619,7 @@
     if (!ev || Date.now() - ev.at > 60000) return;
     xpBox($('#win-xp'), ev); xpBox($('#duel-xp'), ev);
     state.xpLast = null;
+    if (ev.ach && ev.ach.length) achSignal(ev.ach);                  // o som toca uma vez (e não uma por caixa de resultado)
   }
   // A comemoração é só apresentação: o servidor continua sendo o único a pagar XP.
   // O aviso pendente é local, separado por conta, para sobreviver ao recarregamento
@@ -1698,13 +1705,61 @@
       if (tierUp) $('#lvup-tier').hidden = false;
     });
   }
-  // Muitas conquistas de uma vez (um veterano logo depois de uma atualização): mostra 2 e resume o resto, para a tela não estourar.
-  function achBits(list) {
-    list = list || [];
-    var bits = list.slice(0, 2).map(function (a) { return a.icon + ' ' + a.title + ' +' + a.xp; });
-    if (list.length > 2) bits.push('🏅 +' + (list.length - 2) + ' conquistas');
-    return bits;
+  /* ---------- conquista concluída: como o jogo AVISA (cartões no resultado da partida e aviso no topo) ---------- */
+  // O servidor decide o que foi ganho (ev.ach); aqui só se mostra. Muitas de uma vez (um veterano depois de uma atualização):
+  // 3 em destaque (as mais valiosas) e o resto resumido, para a tela não estourar.
+  var ACH_RANK = { diamante: 0, ouro: 1, prata: 2, bronze: 3 };
+  function achPlan(list) {
+    var rank = function (a) { return ACH_RANK[a.tier] == null ? 9 : ACH_RANK[a.tier]; };
+    var l = (list || []).slice().sort(function (a, b) { return (rank(a) - rank(b)) || ((b.xp || 0) - (a.xp || 0)); });
+    return { show: l.slice(0, 3), extra: Math.max(0, l.length - 3), total: l.length };
   }
+  function achPopEl(a, tag, o) {                  // um cartão "CONQUISTA CONCLUÍDA" (texto sempre por textContent: o título nunca vira HTML)
+    o = o || {};
+    var d = document.createElement(tag || 'div'); d.className = 'ach-pop t-' + (ACH_RANK[a.tier] == null ? 'bronze' : a.tier);
+    var ico = document.createElement('i'); ico.className = 'ach-pop-ico'; ico.textContent = a.icon || '🏅'; ico.setAttribute('aria-hidden', 'true'); d.appendChild(ico);
+    var t = document.createElement('span'); t.className = 'ach-pop-txt';
+    var s = document.createElement('small'); s.textContent = o.small || 'CONQUISTA CONCLUÍDA'; var b = document.createElement('b'); b.textContent = a.title; t.appendChild(s); t.appendChild(b); d.appendChild(t);
+    if (a.xp) { var x = document.createElement('span'); x.className = 'ach-pop-xp'; x.textContent = '+' + a.xp + ' XP'; t.appendChild(x); }        // o XP fica embaixo do título: o texto ganha a largura toda
+    var c = document.createElement('span'); c.className = 'ach-pop-check'; c.textContent = '✓'; c.setAttribute('aria-hidden', 'true'); d.appendChild(c);
+    return d;
+  }
+  function achSignal(list) {                      // som próprio e leitor de tela, UMA vez por aviso (Ouro e Diamante tocam a versão grande)
+    var plan = achPlan(list); if (!plan.total) return;
+    playSound(plan.show[0].tier === 'ouro' || plan.show[0].tier === 'diamante' ? 'achBig' : 'ach');
+    announce('Conquista concluída: ' + plan.show[0].title + (plan.total > 1 ? ', e mais ' + (plan.total - 1) : '') + '.');
+  }
+  // Aviso no topo (fora da partida). Fila; espera a tela de partida, o resultado e o cartão de nível terminarem; tocar abre suas conquistas.
+  var achQ = [], achTimer = null, achTries = 0;
+  function achBannerBlocked() {
+    return currentScreen() === 'game' || !$('#lvup').hidden || !$('#modal-win').hidden || !$('#modal-duel').hidden || !!document.querySelector('.banner-wake:not([hidden])');
+  }
+  function achBannerShow(list) {
+    var plan = achPlan(list); if (!plan.total) return;
+    plan.show.forEach(function (a, i) { achQ.push({ a: a, sig: i === 0 ? list : null }); });
+    if (plan.extra) achQ.push({ more: plan.extra });
+    if (!achTimer) achBannerStep();
+  }
+  function achBannerStep() {
+    var box = $('#ach-banner'); clearTimeout(achTimer); achTimer = null;
+    if (!achQ.length) { box.classList.remove('in'); box.hidden = true; box.textContent = ''; return; }
+    if (achBannerBlocked()) {
+      if (++achTries > 25) { achQ.length = 0; achTries = 0; box.hidden = true; box.textContent = ''; return; }          // desiste depois de ~17 s: o resultado e o perfil ainda mostram
+      achTimer = setTimeout(achBannerStep, 700); return;
+    }
+    achTries = 0;
+    var it = achQ.shift(); box.textContent = '';
+    var card = document.createElement('button'); card.type = 'button'; card.className = 'ach-banner-card';
+    card.appendChild(it.more ? achPopEl({ icon: '🏅', title: '+' + it.more + ' conquistas', tier: 'prata' }, 'span', { small: 'CONQUISTAS CONCLUÍDAS' }) : achPopEl(it.a, 'span'));
+    card.setAttribute('aria-label', (it.more ? it.more + ' conquistas concluídas' : 'Conquista concluída: ' + it.a.title + ', mais ' + it.a.xp + ' XP') + '. Toque para ver suas conquistas.');
+    card.addEventListener('click', function () { achQ.length = 0; achBannerStep(); if (window.QC && QC.showAchievements) QC.showAchievements(); });
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'ach-banner-x'; x.textContent = '✕'; x.setAttribute('aria-label', 'Fechar aviso de conquista');
+    x.addEventListener('click', function () { achQ.length = 0; achBannerStep(); });
+    box.appendChild(card); box.appendChild(x); box.hidden = false; box.classList.remove('in'); void box.offsetWidth; box.classList.add('in');
+    if (it.sig) achSignal(it.sig);
+    achTimer = setTimeout(function () { box.classList.remove('in'); achTimer = setTimeout(achBannerStep, 280); }, 3800);
+  }
+
   function tryLevelCelebration() {
     if (!levelCelebrationAllowed()) return;
     var pending = store.get(levelPendingKey(), null);
@@ -1738,7 +1793,7 @@
     var resultOpen = !$('#modal-win').hidden || !$('#modal-duel').hidden;
     state.xpLast = ev;
     if (resultOpen) refreshXp();
-    else if (currentScreen() !== 'game') toast('⭐ +' + ev.gained + ' XP' + (ev.ach && ev.ach.length ? ' · ' + achBits(ev.ach).join(', ') : ''), 3000);
+    else if (currentScreen() !== 'game') { toast('⭐ +' + ev.gained + ' XP', 3000); if (ev.ach && ev.ach.length) achBannerShow(ev.ach); }
     if (levelAccountCode && ev.leveledUp && Number.isInteger(ev.level) && Number.isInteger(ev.prevLevel) && ev.level > ev.prevLevel) {
       var old = store.get(levelPendingKey(), null);
       var from = old && Number.isInteger(old.from) ? Math.min(old.from, ev.prevLevel) : ev.prevLevel;
@@ -2232,8 +2287,12 @@
     [784, 988, 1175].forEach(function (f) { tone(c, f, .36, .85, 'triangle', .085); });
     tone(c, 1568, .4, .6, 'sine', .07); tone(c, 2093, .52, .5, 'sine', .05); tone(c, 2637, .64, .45, 'sine', .035);
   }
+  // Conquista concluída: um "ding-ding" brilhante e curto; Ouro e Diamante ganham uma cintilação a mais (diferente da vitória e da subida de nível).
+  function soundAch(c) { [988, 1319].forEach(function (f, i) { tone(c, f, i * .09, .22, 'triangle', .12); }); tone(c, 1976, .18, .3, 'sine', .05); }
   var SOUNDS = {
     clack: soundClack,
+    ach: soundAch,
+    achBig: function (c) { soundAch(c); [1568, 2093, 2637].forEach(function (f, i) { tone(c, f, .3 + i * .1, .5, 'sine', .05); }); },
     levelup: soundLevelup,
     levelupTier: function (c) {          // mudou de faixa de cor (10, 20, 30, 50): o mesmo começo, com um segundo acorde mais alto
       soundLevelup(c);
