@@ -2419,3 +2419,19 @@ html[data-theme="dark"] .ach-done-tag { background: #123f33; color: #a8f0d4; }
  * (os outros ficam reservados com a altura estimada "auto", que ele guarda depois de ver cada um). Medido: 634 ms -> ver o teste de desempenho. */
 .ach-card, .col-card { content-visibility: auto; contain-intrinsic-size: auto 118px; }
 .col-card { contain-intrinsic-size: auto 420px; }
+
+/* ===================== Mascote da tela inicial ===================== */
+.mascot { --mh: clamp(104px, 18.5vh, 168px); position: relative; display: block; width: calc(var(--mh) * 1.333); max-width: 100%; height: var(--mh); margin: 0 auto 10px; padding: 0; border: 0; background: none; border-radius: 24px; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; font: inherit; }
+.mascot:focus-visible { outline: 3px solid var(--sel, #2a5ee8); outline-offset: 3px; }
+.mascot-canvas, .mascot-fallback { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.mascot-canvas { opacity: 0; }
+.mascot.is-3d .mascot-canvas { opacity: 1; transition: opacity .25s ease; }
+.mascot.is-3d .mascot-fallback { opacity: 0; animation: none; }
+.mascot-fallback { transform-origin: 50% 90%; animation: mascot-bob 3.2s ease-in-out infinite; }
+.mascot.bump .mascot-fallback { animation: mascot-bump .5s ease; }
+@keyframes mascot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes mascot-bump { 0% { transform: scale(1); } 35% { transform: scale(1.1, .92); } 70% { transform: scale(.97, 1.05); } 100% { transform: scale(1); } }
+html[data-motion="reduce"] .mascot-fallback, html[data-motion="reduce"] .mascot.bump .mascot-fallback { animation: none; }
+html[data-motion="reduce"] .mascot.is-3d .mascot-canvas { transition: none; }
+@media (prefers-reduced-motion: reduce) { .mascot-fallback, .mascot.bump .mascot-fallback { animation: none; } .mascot.is-3d .mascot-canvas { transition: none; } }
+@media (max-height: 700px) { .mascot { --mh: clamp(96px, 16vh, 118px); margin-bottom: 6px; } }
