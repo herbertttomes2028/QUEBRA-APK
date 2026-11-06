@@ -48,7 +48,24 @@
           <span class="lg c"></span><span class="lg d"></span>
         </div>
         <h1>Quebra‑cabeça<br><span class="h1-two">a dois</span></h1>
-        <p class="lead">Cada um no seu celular, montando a mesma imagem ao mesmo tempo.</p>
+        <!-- Mascote: 3D (WebGL) quando possível; o desenho abaixo aparece na hora, e fica se o aparelho não tiver WebGL ou o movimento estiver reduzido -->
+        <button id="mascot" class="mascot" type="button" aria-label="Mascote do jogo. Toque nele para brincar.">
+          <svg class="mascot-fallback" viewBox="0 0 200 150" aria-hidden="true" focusable="false">
+            <ellipse cx="78" cy="136" rx="21" ry="9" fill="#ffc933" stroke="#1b2559" stroke-width="3"/>
+            <ellipse cx="122" cy="136" rx="21" ry="9" fill="#ffc933" stroke="#1b2559" stroke-width="3"/>
+            <ellipse cx="112" cy="32" rx="16" ry="14" fill="#3b6bff" stroke="#1b2559" stroke-width="3.5"/>
+            <ellipse cx="46" cy="98" rx="9" ry="19" transform="rotate(14 46 98)" fill="#3b6bff" stroke="#1b2559" stroke-width="3"/>
+            <ellipse cx="154" cy="98" rx="9" ry="19" transform="rotate(-14 154 98)" fill="#3b6bff" stroke="#1b2559" stroke-width="3"/>
+            <circle cx="41" cy="116" r="10" fill="#fff" stroke="#1b2559" stroke-width="3"/>
+            <circle cx="159" cy="116" r="10" fill="#fff" stroke="#1b2559" stroke-width="3"/>
+            <rect x="46" y="36" width="108" height="96" rx="32" fill="#3b6bff" stroke="#1b2559" stroke-width="3.5"/>
+            <ellipse cx="80" cy="80" rx="12" ry="15" fill="#fff"/><circle cx="82" cy="82" r="7.5" fill="#1b2559"/><circle cx="85" cy="78" r="2.6" fill="#fff"/>
+            <ellipse cx="120" cy="80" rx="12" ry="15" fill="#fff"/><circle cx="122" cy="82" r="7.5" fill="#1b2559"/><circle cx="125" cy="78" r="2.6" fill="#fff"/>
+            <path d="M69 60Q79 55 90 60M110 60Q121 55 131 60" fill="none" stroke="#1b2559" stroke-width="4" stroke-linecap="round"/>
+            <ellipse cx="63" cy="102" rx="8" ry="5" fill="#ff7aa8"/><ellipse cx="137" cy="102" rx="8" ry="5" fill="#ff7aa8"/>
+            <path d="M88 106Q100 120 112 106" fill="none" stroke="#1b2559" stroke-width="4.5" stroke-linecap="round"/>
+          </svg>
+        </button>
 
         <p id="home-invite" class="invite" hidden></p>
 
@@ -737,5 +754,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
   <script src="conta.js"></script>
+  <script src="mascot-core.js"></script>
+  <script src="mascot.js"></script>
 </body>
 </html>

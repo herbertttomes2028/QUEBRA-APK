@@ -11,7 +11,7 @@
  */
 const CACHE = 'quebra-cabeca-v21';
 // (o cliente do Socket.IO é um arquivo estático que o index.html carrega ANTES do jogo: precisa vir do celular também, senão um servidor dormindo trava o início)
-const SHELL = ['/', '/style.css', '/boot.js', '/socket.io/socket.io.js', '/game.js', '/conta.js', '/manifest.webmanifest', '/privacidade.html', '/icons/icon-192.png'];
+const SHELL = ['/', '/style.css', '/boot.js', '/socket.io/socket.io.js', '/game.js', '/conta.js', '/mascot-core.js', '/mascot.js', '/manifest.webmanifest', '/privacidade.html', '/icons/icon-192.png'];
 const SHELL_SET = new Set(SHELL);
 const REFRESH_EVERY = 5 * 60 * 1000;
 let lastRefresh = 0;
