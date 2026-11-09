@@ -244,6 +244,7 @@ app.get('/diagnostico', (req, res) => {
       banco_configurado: !!DATABASE_URL,
       login_google: !!(accounts && accounts.config.google),
       confirmacao_por_email: !!mailer,
+      avisos_de_denuncia_por_email: accounts && accounts.reportMailInfo ? accounts.reportMailInfo() : { ligado: false },      // destino já mascarado (a***@dominio)
       dica: accounts ? 'Contas funcionando.' : (DATABASE_URL ? 'DATABASE_URL existe, mas o banco não respondeu: veja os registros (logs) do Render.' : 'Contas desligadas: crie um banco PostgreSQL e coloque o endereço na variável DATABASE_URL (veja o guia).')
     }
   });

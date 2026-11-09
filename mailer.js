@@ -81,4 +81,55 @@ function codeEmail(purpose, code, name) {
   return { subject, text, html };
 }
 
-module.exports = { createMailer, mailerStatus, codeEmail };
+/* ---------- aviso de denúncia para quem cuida do jogo ----------
+ * Segurança: o texto NUNCA traz o e-mail, o código nem o apelido de QUEM denunciou; só o que é preciso para agir contra a pessoa denunciada
+ * (apelido da hora, código de amigo, motivo, onde, nota). Apelido e nota são texto de jogador (não confiáveis): saem sem caracteres de controle,
+ * escapados no HTML, e NUNCA entram dentro dos comandos SQL (só o código de amigo, que é conferido contra o alfabeto do jogo). Sem links nem imagens. */
+const FRIEND_CODE_RE = /^[2-9A-HJKMNP-Z]{8}$/;                       // o mesmo alfabeto dos códigos de amigo (sem 0, 1, I, L, O)
+const REPORT_REASON_TXT = { apelido: 'Apelido ou avatar ofensivo', comportamento: 'Comportamento ruim (ofensa, assédio, trapaça)', outro: 'Outro motivo' };
+const REPORT_WHERE_TXT = { perfil: 'no perfil do amigo', amigos: 'na lista de amigos (menu ⋯)', sala: 'dentro de uma partida' };
+const okEmail = (s) => typeof s === 'string' && s.length <= 254 && /^[^\s@<>()"',;:\\]+@[^\s@<>()"',;:\\]+\.[^\s@<>()"',;:\\]+$/.test(s);
+
+// Para onde vai o aviso: REPORT_NOTIFY_EMAIL, ou (se não existir) o remetente confirmado no Brevo. Valor inválido DESLIGA (nunca envia a um endereço duvidoso).
+function reportTarget(env, mailer) {
+  const set = String((env && env.REPORT_NOTIFY_EMAIL) || '').trim();
+  if (set) return okEmail(set) ? { to: set, origem: 'REPORT_NOTIFY_EMAIL' } : { to: null, problema: 'REPORT_NOTIFY_EMAIL tem formato inválido' };
+  if (mailer && okEmail(mailer.from)) return { to: mailer.from, origem: 'remetente do Brevo' };
+  return { to: null, problema: mailer ? 'sem destino (defina REPORT_NOTIFY_EMAIL)' : 'e-mail do Brevo desligado' };
+}
+
+function reportEmail(r) {
+  const limpa = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const code = FRIEND_CODE_RE.test(String(r.code || '')) ? String(r.code) : '';
+  const id = Number.isSafeInteger(Number(r.id)) && Number(r.id) > 0 ? Number(r.id) : 0;
+  const motivo = REPORT_REASON_TXT[r.reason] || REPORT_REASON_TXT.outro, onde = REPORT_WHERE_TXT[r.context] || REPORT_WHERE_TXT.perfil;
+  const nome = limpa(r.name, 40) || '(sem apelido)', nota = limpa(r.note, 200);
+  const quando = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Fortaleza', dateStyle: 'short', timeStyle: 'short' }).format(r.at instanceof Date ? r.at : new Date());
+  const extra = Math.max(0, Math.floor(Number(r.skipped) || 0));
+  const codeFmt = code ? code.slice(0, 4) + '-' + code.slice(4) : '(indisponível)';
+  const sql = code
+    ? [`update users set name = 'Jogador', avatar = '' where friend_code = '${code}';`, `delete from users where friend_code = '${code}';`, `update reports set status = 'analisado' where id = ${id};`]
+    : [`select u.friend_code from reports r join users u on u.id = r.reported where r.id = ${id};`, `update reports set status = 'analisado' where id = ${id};`];
+  const passos = code
+    ? ['1) Trocar o apelido (e tirar o avatar):', '2) OU excluir a conta (apaga tudo dela):', '3) Marcar esta denúncia como analisada:']
+    : ['1) Descobrir o código da pessoa:', '2) Marcar esta denúncia como analisada:'];
+  const subject = `Denúncia nova (#${id}) — Quebra-cabeça a dois`;
+  const aviso = extra ? `\n\nATENÇÃO: mais ${extra} denúncia(s) nesta hora não vieram por e-mail (limite por hora). Veja todas no Neon: select * from reports where status = 'novo' order by created_at desc;` : '';
+  const text = [`Denúncia nova no Quebra-cabeça a dois (#${id})`, '',
+    `Motivo: ${motivo}`, `Onde: ${onde}`, `Quando: ${quando} (horário de Fortaleza)`, `Apelido da pessoa denunciada: "${nome}"`, `Código de amigo: ${codeFmt}` + (code ? `   (no banco: ${code})` : ''),
+    `Nota de quem denunciou: ${nota ? '"' + nota + '"' : '(nenhuma)'}`, '',
+    'O QUE FAZER (Neon › SQL Editor). Escolha UMA das ações e rode o comando:', '',
+    ...passos.flatMap((p, i) => [p, '    ' + sql[i], '']),
+    'Privacidade: este e-mail não traz o e-mail, o código nem o apelido de quem denunciou. Não encaminhe e apague depois de resolver.' + aviso].join('\n');
+  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;padding:20px;color:#1b2559"><h2 style="margin:0 0 8px">Denúncia nova 🚩 (#${id})</h2>`
+    + `<p><b>Motivo:</b> ${esc(motivo)}<br><b>Onde:</b> ${esc(onde)}<br><b>Quando:</b> ${esc(quando)} (horário de Fortaleza)<br><b>Apelido da pessoa denunciada:</b> “${esc(nome)}”<br>`
+    + `<b>Código de amigo:</b> <span style="font-size:1.25em;font-weight:bold;letter-spacing:.06em">${esc(codeFmt)}</span>${code ? ` <small>(no banco: ${esc(code)})</small>` : ''}<br>`
+    + `<b>Nota de quem denunciou:</b> ${nota ? '“' + esc(nota) + '”' : '(nenhuma)'}</p>`
+    + `<p><b>O que fazer</b> (Neon › SQL Editor). Escolha <b>uma</b> ação e rode o comando:</p>`
+    + passos.map((p, i) => `<p style="margin:10px 0 2px">${esc(p)}</p><pre style="background:#eef1ff;padding:10px;border-radius:8px;white-space:pre-wrap;word-break:break-all;margin:0">${esc(sql[i])}</pre>`).join('')
+    + `<p style="color:#55608f;font-size:.85em;margin-top:16px">Privacidade: este e-mail não traz o e-mail, o código nem o apelido de quem denunciou. Não encaminhe e apague depois de resolver.</p>`
+    + (extra ? `<p style="color:#b00020"><b>Atenção:</b> mais ${extra} denúncia(s) nesta hora não vieram por e-mail (limite por hora). Veja todas no Neon.</p>` : '') + '</div>';
+  return { subject, text, html };
+}
+
+module.exports = { createMailer, mailerStatus, codeEmail, reportEmail, reportTarget, FRIEND_CODE_RE };

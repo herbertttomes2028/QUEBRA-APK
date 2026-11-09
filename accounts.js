@@ -16,7 +16,7 @@ const xpm = require('./xp');
 const gemm = require('./gems');
 const library = require('./library');
 const ach = require('./achievements');
-const { codeEmail } = require('./mailer');
+const { codeEmail, reportEmail, reportTarget, FRIEND_CODE_RE } = require('./mailer');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
 const INVITE_MS = Number(process.env.INVITE_MS) || 3 * 60 * 1000;                 // convite vale 3 minutos
@@ -541,14 +541,33 @@ function createAccounts(d) {
 
   /* ----- denúncias: quem joga pode denunciar apelido, avatar ou comportamento. Só quem cuida do jogo lê (SQL Editor); a pessoa denunciada nunca é avisada. ----- */
   const REPORT_REASONS = new Set(['apelido', 'comportamento', 'outro']), REPORT_CONTEXTS = new Set(['perfil', 'amigos', 'sala']);
+  // Aviso por e-mail a quem cuida do jogo, a cada denúncia NOVA (a repetida em 24 h não conta). Nunca atrasa nem derruba a denúncia: ela já está salva.
+  // Teto por hora (REPORT_MAIL_MAX_PER_HOUR, padrão 20; 0 desliga) contra enchente de e-mails; o excedente é contado e avisado no próximo e-mail.
+  const reportMail = reportTarget(process.env, mailer);
+  const REPORT_MAIL_MAX = process.env.REPORT_MAIL_MAX_PER_HOUR === undefined ? 20 : Math.max(0, Math.floor(Number(process.env.REPORT_MAIL_MAX_PER_HOUR)) || 0);
+  const reportWin = { start: 0, n: 0, skipped: 0 };
+  async function mailReport(rep) {
+    if (!mailer || !reportMail.to || !REPORT_MAIL_MAX) return;
+    const now = Date.now();
+    if (now - reportWin.start > 3600 * 1000) { reportWin.start = now; reportWin.n = 0; }
+    if (reportWin.n >= REPORT_MAIL_MAX) { reportWin.skipped++; return; }
+    reportWin.n++;
+    const skipped = reportWin.skipped; reportWin.skipped = 0;
+    try { await mailer.send(Object.assign({ to: reportMail.to }, reportEmail(Object.assign({}, rep, { skipped })))); }
+    catch (e) { reportWin.skipped += skipped; console.error('[contas] aviso da denúncia #' + rep.id + ' não foi enviado: ' + String((e && e.message) || e).slice(0, 120)); }   // o texto do erro já vem sem chave, e-mails e IPs
+  }
   const cleanNote = (v) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
   async function fileReport(reporter, target, b, context) {
     const reason = typeof b.reason === 'string' ? b.reason : ''; if (!REPORT_REASONS.has(reason)) return { error: 'reason' };      // só texto (uma lista como ["apelido"] não vale)
     // a mesma pessoa denunciando a mesma outra pelo mesmo motivo de novo em 24 h conta uma vez só
-    await db.q(`INSERT INTO reports (reporter, reported, reason, context, note, reported_name)
+    const ctx = REPORT_CONTEXTS.has(context) ? context : 'perfil', note = cleanNote(b.note), nm = String(target.name || '').slice(0, 40);
+    const ins = await db.q(`INSERT INTO reports (reporter, reported, reason, context, note, reported_name)
                 SELECT $1, $2, $3, $4, $5, $6
-                WHERE NOT EXISTS (SELECT 1 FROM reports WHERE reporter = $1 AND reported = $2 AND reason = $3 AND created_at > now() - interval '24 hours')`,
-      [reporter, target.id, reason, REPORT_CONTEXTS.has(context) ? context : 'perfil', cleanNote(b.note), String(target.name || '').slice(0, 40)]);
+                WHERE NOT EXISTS (SELECT 1 FROM reports WHERE reporter = $1 AND reported = $2 AND reason = $3 AND created_at > now() - interval '24 hours')
+                RETURNING id, created_at`, [reporter, target.id, reason, ctx, note, nm]);
+    if (ins.rows[0] && FRIEND_CODE_RE.test(String(target.friend_code || ''))) {            // só denúncia NOVA vira e-mail; sem esperar (não atrasa a resposta)
+      mailReport({ id: ins.rows[0].id, reason, context: ctx, name: nm, code: target.friend_code, note, at: ins.rows[0].created_at }).catch(() => {});
+    } else if (ins.rows[0]) console.error('[contas] denúncia #' + ins.rows[0].id + ' sem código de amigo válido: o aviso por e-mail foi pulado');
     let blocked = false;
     if (b.alsoBlock === true) { await blockUser(reporter, target.id); blocked = true; }          // "denunciar e bloquear" num toque só
     return { ok: true, blocked };
@@ -1078,7 +1097,7 @@ function createAccounts(d) {
       const peer = peerOf ? peerOf(socket) : null;
       if (!peer) return { ok: false, error: 'no_peer' };
       if (!peer.uid) return { ok: false, error: 'guest' };
-      const t = await one('SELECT id, name FROM users WHERE id = $1', [peer.uid]);
+      const t = await one('SELECT id, name, friend_code FROM users WHERE id = $1', [peer.uid]);
       if (!t) return { ok: false, error: 'notfound' };
       const out = await fileReport(uid, t, b || {}, 'sala');
       return out.error ? { ok: false, error: out.error } : { ok: true, name: peer.name, blocked: out.blocked };
@@ -1089,6 +1108,7 @@ function createAccounts(d) {
   return {
     enabled: true,
     config: { google: googleClientId },
+    reportMailInfo: () => ({ ligado: !!(mailer && reportMail.to && REPORT_MAIL_MAX), destino: reportMail.to ? maskEmail(reportMail.to) : null, origem: reportMail.origem || null, problema: reportMail.problema || (REPORT_MAIL_MAX ? null : 'REPORT_MAIL_MAX_PER_HOUR=0 (desligado)'), maximo_por_hora: REPORT_MAIL_MAX }),
     noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
     verifyGoogleIdToken: (t) => verifyGoogleIdToken(t, googleClientId, getKeys),
     close: () => { clearInterval(sweeper); }

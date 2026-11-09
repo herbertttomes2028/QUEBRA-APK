@@ -169,6 +169,22 @@ delete from users where friend_code = 'XXXXXXXX';
 update reports set status = 'analisado' where id = 123;
 ```
 
+### Aviso por e-mail a cada denúncia nova
+
+Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). A mesma denúncia repetida em 24 h não gera outro e-mail. O e-mail traz o **código de amigo** da pessoa denunciada (já no formato certo para o SQL), o apelido, o motivo, onde foi feita, a nota e **os comandos prontos** para o Neon: trocar o apelido, excluir a conta ou marcar como analisada. É só abrir o **SQL Editor do Neon**, colar o comando e rodar.
+
+**Para quem vai:** por padrão, para o e-mail **remetente confirmado no Brevo** (`BREVO_SENDER_EMAIL`). Para mandar a outro endereço, crie no Render (Environment) a variável `REPORT_NOTIFY_EMAIL` com o seu e-mail. Um valor com formato estranho **desliga** o aviso (nunca envia a endereço duvidoso).
+
+**Conferir se ligou:** abra `/diagnostico` e veja `contas › avisos_de_denuncia_por_email`: deve mostrar `ligado: true` e o destino mascarado (por exemplo `h***@gmail.com`). Se mostrar `ligado: false`, o campo `problema` explica o motivo.
+
+**Limite contra enchente:** até 20 e-mails por hora (variável opcional `REPORT_MAIL_MAX_PER_HOUR`; `0` desliga os avisos). Passando disso, as denúncias **continuam salvas** no banco e o próximo e-mail diz quantas ficaram de fora. Se o Brevo estiver fora do ar, a denúncia também é salva normalmente.
+
+**Segurança do aviso:**
+- O e-mail **nunca** traz o e-mail, o código nem o apelido de **quem denunciou**, só o que é preciso para agir contra a pessoa denunciada.
+- Apelido e nota são texto de jogador: saem sem quebras de linha, escapados no HTML, sem links e **nunca dentro dos comandos SQL** (só o código de amigo, conferido contra o alfabeto do jogo).
+- Ative a **verificação em duas etapas** no e-mail que recebe os avisos, não encaminhe esses e-mails e apague-os depois de resolver. **Só rode comandos de e-mails que chegaram do próprio jogo** e confira o código antes de executar.
+- O Brevo (plano gratuito) tem limite diário de envios, dividido com os códigos de confirmação.
+
 - **Prazo que a política promete:** responder a pedidos em até 15 dias. Olhe `reports` pelo menos uma vez por semana.
 - **Risco imediato** (ameaça, conteúdo ilegal): exclua a conta primeiro, depois avalie se precisa avisar as autoridades.
 - Limites: 15 denúncias por hora por pessoa; a mesma denúncia repetida em 24 h conta uma vez. Cada denúncia aceita uma nota de até 200 letras.
