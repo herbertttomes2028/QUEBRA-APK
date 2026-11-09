@@ -5,4 +5,5 @@ try {
   var dark = s.theme === 'dark' || (s.theme !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
   d.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
+  if (s.mascot === false) d.setAttribute('data-mascot', 'off');
 } catch (e) { /* ignora */ }

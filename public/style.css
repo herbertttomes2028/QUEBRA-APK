@@ -2431,7 +2431,7 @@ html[data-theme="dark"] .ach-done-tag { background: #123f33; color: #a8f0d4; }
 .mascot.bump .mascot-fallback { animation: mascot-bump .5s ease; }
 @keyframes mascot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes mascot-bump { 0% { transform: scale(1); } 35% { transform: scale(1.1, .92); } 70% { transform: scale(.97, 1.05); } 100% { transform: scale(1); } }
-html[data-motion="reduce"] .mascot-fallback, html[data-motion="reduce"] .mascot.bump .mascot-fallback { animation: none; }
-html[data-motion="reduce"] .mascot.is-3d .mascot-canvas { transition: none; }
-@media (prefers-reduced-motion: reduce) { .mascot-fallback, .mascot.bump .mascot-fallback { animation: none; } .mascot.is-3d .mascot-canvas { transition: none; } }
+/* O mascote NÃO aparece com o movimento reduzido (nos Ajustes ou no celular) nem quando a pessoa o escondeu nos Ajustes. Só CSS: nada pisca na abertura. */
+.mascot[hidden], html[data-mascot="off"] .mascot, html[data-motion="reduce"] .mascot { display: none; }
+@media (prefers-reduced-motion: reduce) { .mascot { display: none; } }
 @media (max-height: 700px) { .mascot { --mh: clamp(96px, 16vh, 118px); margin-bottom: 6px; } }

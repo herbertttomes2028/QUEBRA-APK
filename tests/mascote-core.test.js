@@ -246,3 +246,46 @@ test('a pupila acompanha o olhar dentro do olho (nunca sai do branco)', () => {
   assert.ok(d[0] > c[0] + 0.03, 'olha para a direita'); C.computeParts(parts, P({ lookX: 1.2, lookY: 1.2 })); const e = pos('pupR'), w = pos('eyeWR');
   assert.ok(Math.abs(e[0] - w[0]) < 0.155 + 0.01 && Math.abs(e[1] - w[1]) < 0.2 + 0.01, 'a pupila fica dentro do olho mesmo com o olhar no limite');
 });
+
+/* ---------------- suavidade (pedido: "deixar o pet mais suave") ---------------- */
+const saltos = (fps, SPECfn) => {          // salto entre quadros consecutivos, em fração da faixa de cada parâmetro
+  const dt = 1 / fps, todos = [], picos = [], degraus = [];
+  for (const nome of Object.keys(C.REACTIONS)) {
+    const b = mk({ rng: seeded(7) }); b.react(nome, { dirX: 1 }); let prev = null, prev2 = null, pico = 0;
+    for (let t = 0; t < C.REACTIONS[nome].dur + 0.8; t += dt) {
+      const o = b.tick(dt);
+      if (prev) for (const k of C.PARAMS) {
+        if (k === 'knob') continue; const span = C.RANGE[k][1] - C.RANGE[k][0]; let d = Math.abs(o[k] - prev[k]);
+        if (k === 'yaw') { d %= 2 * Math.PI; d = Math.min(d, 2 * Math.PI - d); }                  // ângulo é circular: 360° = 0°
+        d /= span; todos.push(d); pico = Math.max(pico, d);
+        const dp = prev2 ? Math.abs(prev[k] - prev2[k]) / span : 0; if (d > 0.12 && d > 2.2 * dp) degraus.push(nome + '.' + k + ' ' + (100 * d).toFixed(1) + '%');
+      }
+      prev2 = prev ? Object.assign({}, prev) : null; prev = Object.assign({}, o);
+    }
+    picos.push(pico);
+  }
+  todos.sort((a, b) => a - b);
+  return { media: picos.reduce((a, b) => a + b, 0) / picos.length, max: Math.max(...picos), p95: todos[Math.floor(todos.length * 0.95)], degraus };
+};
+test('suavidade: a 60 quadros/s o movimento é macio (antes, a 20 quadros/s com molas rígidas: pico médio 30%, máximo 61%, típico 4,4%)', () => {
+  const s = saltos(60);
+  assert.ok(s.media <= 0.10, 'pico médio por reação ' + (100 * s.media).toFixed(1) + '% (limite 10%; antes 30%)');
+  assert.ok(s.max <= 0.20, 'maior salto entre quadros ' + (100 * s.max).toFixed(1) + '% (limite 20%; antes 61%)');
+  assert.ok(s.p95 <= 0.025, 'salto típico (p95) ' + (100 * s.p95).toFixed(2) + '% (limite 2,5%; antes 4,4%)');
+  assert.deepEqual(s.degraus, [], 'nenhum degrau escondido nas reações (efeito que liga/desliga de repente)');
+});
+test('suavidade: mesmo em aparelho mais fraco (30 quadros/s) continua bem melhor que o ritmo antigo', () => {
+  const s = saltos(30); assert.ok(s.media <= 0.18, 'pico médio a 30/s: ' + (100 * s.media).toFixed(1) + '% (antes, a 20/s: 30%)'); assert.ok(s.max <= 0.35, 'maior salto a 30/s: ' + (100 * s.max).toFixed(1) + '% (antes, a 20/s: 61%)');   // (os "degraus" só valem a 60/s: a 30/s o início natural das molas passa de 12%)
+});
+test('suavidade: o rosto tem molas macias (era 380 a 520 e "estalava"), a piscada é lenta e começa sem salto, e o pulo termina aos poucos', () => {
+  for (const k of ['eyeL', 'eyeR', 'lookX', 'lookY', 'pupil']) assert.ok(C.SPEC[k][1] <= 320, k + ' rigidez ' + C.SPEC[k][1]);
+  for (const k of ['browL', 'browR', 'tiltL', 'tiltR', 'mouthW', 'mouthOpen', 'mouthSmile']) assert.ok(C.SPEC[k][1] <= 280, k + ' rigidez ' + C.SPEC[k][1]);
+  for (const k of ['yaw', 'pitch', 'roll']) assert.ok(C.SPEC[k][1] <= 120, k + ' rigidez ' + C.SPEC[k][1]);
+  for (const k of ['armL', 'armR', 'armFL', 'armFR']) assert.ok(C.SPEC[k][1] <= 130, k + ' rigidez ' + C.SPEC[k][1]);
+  const b = mk({ rng: seeded(3) }); let prev = 1, maxd = 0, primeiro = null, piscou = false, dur = 0, t0 = null;
+  for (let t = 0; t < 12; t += 1 / 60) { const o = b.tick(1 / 60); const open = o.eyeL; if (open < 0.99 && !piscou) { piscou = true; primeiro = 1 - open; t0 = t; } if (piscou && open < 0.99) dur = t - t0; if (piscou && open >= 0.99 && dur > 0.1) break; maxd = Math.max(maxd, Math.abs(open - prev)); prev = open; }
+  assert.ok(piscou, 'piscou'); assert.ok(primeiro < 0.05, 'a piscada começa sem salto: ' + primeiro.toFixed(3) + ' no primeiro quadro (antes 0,25)'); assert.ok(maxd < 0.2, 'maior passo da abertura do olho por quadro: ' + maxd.toFixed(3)); assert.ok(dur >= 0.22, 'piscada dura ' + dur.toFixed(2) + ' s (≥ 0,22)');
+  for (const [nome, par, ua, ub, lim] of [['cheer', 'hop', 0.895, 0.905, 0.03], ['celebrate', 'hop', 0.845, 0.855, 0.03], ['cheer', 'hop', 0.5, 0.51, 0.03], ['goodPiece', 'pitch', 0.199, 0.201, 0.01], ['goodPiece', 'pitch', 0.699, 0.701, 0.01], ['tapDizzy', 'yaw', 0.849, 0.851, 0.03]]) {
+    const x = b.snapshot(nome, ua)[par], y = b.snapshot(nome, ub)[par]; assert.ok(Math.abs(x - y) < lim, nome + '.' + par + ': contínuo em u=' + ua + ' (' + x.toFixed(3) + ' → ' + y.toFixed(3) + ')');   // efeitos que ligam/desligam por janela entram e saem suavemente
+  }
+});
