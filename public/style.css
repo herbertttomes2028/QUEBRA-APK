@@ -1674,6 +1674,11 @@ html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-mo
   box-shadow: inset 0 0 0 2px var(--line); padding: 0 14px; font: 600 1.04rem var(--font); color: var(--ink);
 }
 .me-field input:focus, .me-add-row input:focus, #me-del-word:focus, #me-del-pass:focus { outline: none; box-shadow: inset 0 0 0 3px var(--sel); }
+.me-field textarea { width: 100%; box-sizing: border-box; min-height: 64px; resize: vertical; padding: 10px 14px; border: 0; border-radius: 14px; background: var(--field); box-shadow: inset 0 0 0 2px var(--line); color: var(--ink); font: 600 1rem var(--font); }
+.me-field textarea:focus { outline: none; box-shadow: inset 0 0 0 3px var(--sel); }
+.me-field textarea::placeholder { color: var(--placeholder); }
+.rp-reasons { margin: 2px 0 6px; }
+.set-about { margin-top: 4px; }
 .me-field input::placeholder, .me-add-row input::placeholder { color: var(--placeholder); }
 .me-pw { position: relative; display: block; }
 .me-pw input { padding-right: 52px; }
@@ -1915,7 +1920,7 @@ html[data-motion="reduce"] .res-chip { animation: none; }
 
 /* política de privacidade dentro do aplicativo */
 .priv-sheet h3 { margin: 0; font: 700 1.3rem "Fredoka", var(--font); color: var(--ink); text-align: center; }
-.priv-body { overflow-y: auto; max-height: 55vh; color: var(--ink-soft); font-weight: 600; line-height: 1.5; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+.priv-body { overflow-wrap: anywhere; overflow-y: auto; max-height: 55vh; color: var(--ink-soft); font-weight: 600; line-height: 1.5; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .priv-body h1 { display: none; }
 .priv-body h2 { margin: 16px 0 4px; font-size: 1.05rem; color: var(--ink); }
 .priv-body p, .priv-body li { color: var(--ink-soft); }

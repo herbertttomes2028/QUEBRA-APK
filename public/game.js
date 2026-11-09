@@ -3577,7 +3577,7 @@
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
   }
 
-  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = !(window.QC && window.QC.canBlock) || state.solo; openModal('#modal-menu', '#menu-close'); });
+  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = $('#menu-report').hidden = !(window.QC && window.QC.canBlock) || state.solo; openModal('#modal-menu', '#menu-close'); });
   // "Bloquear jogador": só para quem tem conta (a outra pessoa também precisa ter conta para poder ser bloqueada)
   $('#menu-block').addEventListener('click', function () {
     askConfirm({ title: 'Bloquear esta pessoa?', text: 'Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.', ok: 'Bloquear', danger: true }).then(function (ok) {
@@ -3590,6 +3590,20 @@
       else if (res && res.error === 'no_peer') toast('Não há ninguém na sala para bloquear.', 3200);
       else toast('Não foi possível bloquear agora. Tente de novo.', 3200);
     });
+    });
+  });
+  // "Denunciar jogador": mesma janela do perfil do amigo; quem tem conta pode denunciar a outra pessoa da sala (com a opção de bloquear junto)
+  $('#menu-report').addEventListener('click', function () {
+    closeModal('#modal-menu');
+    window.QC.reportPerson({
+      name: 'esta pessoa',
+      send: function (p) {
+        return new Promise(function (resolve) {
+          var done = false, t = setTimeout(function () { if (!done) { done = true; resolve({ ok: false, error: 'offline' }); } }, 8000);   // sem resposta: não deixa o botão preso
+          socket.emit('acc:reportPeer', p, function (res) { if (!done) { done = true; clearTimeout(t); resolve(res || { ok: false, error: 'server' }); } });
+        });
+      },
+      after: function (res) { if (res.blocked) { if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); } } }
     });
   });
   $('#menu-close').addEventListener('click', function () { closeModal('#modal-menu'); });

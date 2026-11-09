@@ -229,28 +229,23 @@ quebra-cabeca/
     ├── sw.js             deixa o jogo instalável como aplicativo
     ├── assetlinks.json   (só para o APK) verificação do Android; cole aqui o arquivo do PWABuilder
     ├── icons/            ícones do aplicativo (192, 512, recortável e iPhone)
-    └── imagens/
-        ├── angel.jpg
-        ├── batman.jpg
-        ├── jesus.jpg
-        ├── stitch-e-angel.jpg
-        └── stitch.jpg
+    └── imagens/          as 9 ilustrações originais da galeria (e a pasta mini/ com as miniaturas)
 ```
 
 ---
 
 ## Passo 1 — Suas imagens
 
-O projeto já vem com **17 imagens**: as **5 que você enviou**, convertidas para JPG (mais leves, de 100 a 190 KB cada), e **12 ilustrações originais** feitas para o jogo, de 65 a 145 KB cada, em 900 × 1200:
+A galeria padrão vem com **9 ilustrações originais** feitas para o jogo, de 65 a 145 KB cada, em 900 × 1200 (o restante das imagens vem do catálogo da biblioteca, no banco de dados):
 
-Princesa no Jardim · Princesa e o Dragãozinho · Unicórnio Arco-Íris · Super-Heroína · Super-Herói · Time de Heróis · Cavaleiro e Dragão · Fada da Floresta · Sereia do Mar · Mago das Estrelas · Astronauta e Robô · Castelo dos Sonhos.
+Princesa no Jardim · Princesa e o Dragãozinho · Unicórnio Arco-Íris · Cavaleiro e Dragão · Fada da Floresta · Sereia do Mar · Mago das Estrelas · Astronauta e Robô · Castelo dos Sonhos.
 
-As 12 ilustrações são **personagens originais**, sem ligação com nenhum filme, desenho ou quadrinho. Você pode usá-las e trocá-las à vontade no seu jogo. As cinco imagens que você enviou continuam sendo de sua responsabilidade quanto a direitos de uso.
+As ilustrações são **personagens originais**, sem ligação com nenhum filme, desenho ou quadrinho. **Para a Play Store, não coloque na pasta imagens de personagens de terceiros (filmes, desenhos, quadrinhos), de pessoas reais nem obras de autoria desconhecida**: a loja recusa por direitos autorais. Use só imagens suas, de domínio público ou com licença que permita o uso.
 
 Para trocar ou acrescentar imagens, mexa na pasta `public/imagens/`:
 
 - O jogo mostra **todas** as imagens `.jpg`, `.jpeg`, `.png` ou `.webp` da pasta (**sem limite**; se quiser limitar, crie no Render a variável `MAX_IMAGES` com o número desejado). Não precisa mudar nenhum código.
-- O nome do arquivo vira o rótulo na tela: `stitch-e-angel.jpg` → "Stitch e Angel". O nome do arquivo não pode ter acento nem espaço.
+- O nome do arquivo vira o rótulo na tela: `fada-da-floresta.jpg` → "Fada da Floresta". O nome do arquivo não pode ter acento nem espaço.
 - **Nomes bonitos e ordem (opcional):** o arquivo `public/imagens/nomes.json` diz, para cada imagem, o nome que aparece na tela (com acento) e a ordem da lista. Exemplo: `"unicornio-arco-iris.jpg": "Unicórnio Arco-Íris"`. Imagens que **não estão** no `nomes.json` aparecem primeiro, em ordem alfabética, com o nome tirado do arquivo. Se o arquivo tiver erro de digitação, o jogo ignora e usa os nomes dos arquivos. Cada nome tem até 30 letras.
 - **Para tirar uma imagem do jogo:** apague o arquivo dela em `public/imagens/` (e, se quiser, a linha dela no `nomes.json`).
 - **Salas já abertas** continuam com a imagem que escolheram; as imagens novas aparecem a partir da próxima escolha.
@@ -420,7 +415,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **Atualizações do jogo aparecem sozinhas:** quando você atualiza o GitHub e o Render publica, o aplicativo mostra a versão nova na próxima abertura, sem reinstalar o APK. Só é preciso gerar um APK novo se o endereço do Render mudar.
 - A primeira abertura pode demorar (plano gratuito do Render dorme depois de uns 15 minutos sem uso).
 - Se aparecer uma **barra de endereço no topo** do aplicativo, faltou o passo 6 ou o nome do pacote/impressão digital no `assetlinks.json` não bate com o do APK. Corrija, feche e abra o aplicativo (se persistir, desinstale e instale de novo).
-- Para publicar na **Play Store** é preciso uma conta de desenvolvedor paga e seguir as regras da loja. Atenção: as imagens de personagens (Stitch, Batman etc.) têm direitos autorais; para uso privado entre amigos tudo bem, mas uma publicação pública pode ser recusada. Use imagens suas ou liberadas se um dia for publicar.
+- Para publicar na **Play Store** é preciso uma conta de desenvolvedor paga e seguir as regras da loja. O jogo é para **13 anos ou mais** (veja `CONTAS.md` e a política em `public/privacidade.html`). As imagens de personagens de terceiros e de pessoas reais **já foram retiradas** da galeria; mantenha assim.
 
 ---
 
@@ -450,7 +445,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 
 ## Checklist antes de publicar
 
-- [ ] As imagens que quero estão em `public/imagens/` (as 17 que vêm no projeto, mais o `nomes.json`) e as de exemplo antigas (`imagem1.jpg` a `imagem4.jpg`) não estão mais lá.
+- [ ] As imagens que quero estão em `public/imagens/` (as 9 ilustrações que vêm no projeto, mais o `nomes.json`) e as de exemplo antigas (`imagem1.jpg` a `imagem4.jpg`) não estão mais lá.
 - [ ] As imagens são leves (de preferência abaixo de 500 KB) e abrem normalmente.
 - [ ] No GitHub, `server.js` e `package.json` aparecem na **primeira tela** do repositório (não dentro de outra pasta).
 - [ ] A pasta `public` subiu com `index.html`, `style.css`, `game.js` e a pasta `imagens`.

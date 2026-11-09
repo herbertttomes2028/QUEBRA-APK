@@ -127,6 +127,9 @@
                 <label id="auth-consent-wrap" class="me-check" hidden>
                   <input id="auth-consent" type="checkbox">
                   <span>Li a <a href="/privacidade.html" data-privacy>política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
+                <label id="auth-age-wrap" class="me-check" hidden>
+                  <input id="auth-age" type="checkbox">
+                  <span>Tenho 13 anos ou mais. (Este jogo é para quem tem 13 anos ou mais.)</span></label>
                 <p id="auth-error" class="error" role="alert" hidden></p>
                 <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
                 <button id="auth-forgot-link" class="me-link" type="button">Esqueci minha senha</button>
@@ -482,6 +485,7 @@
         <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
         <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
         <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
+        <button id="menu-report" class="btn btn-ghost btn-block" type="button" hidden>🚩 Denunciar jogador</button>
         <button id="menu-block" class="btn btn-ghost btn-block" type="button" hidden>⛔ Bloquear jogador</button>
         <button id="menu-leave" class="btn btn-ghost btn-block" type="button">Sair da partida</button>
         <button id="menu-close" data-back class="btn btn-primary btn-block" type="button">Continuar jogando</button>
@@ -585,6 +589,7 @@
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
         </div>
         <p id="push-note" class="set-note"></p>
+        <p class="set-note set-about">Jogo para 13 anos ou mais. <a href="/privacidade.html" data-privacy>Privacidade e exclusão de conta</a></p>
         <button id="set-close" data-back class="btn btn-primary btn-block" type="button">Pronto</button>
       </div>
     </div>
@@ -693,6 +698,7 @@
         <div class="fp-actions">
           <button id="fp-invite" class="btn btn-primary btn-block" type="button">🎮 Convidar para jogar</button>
           <button id="fp-remove" class="btn btn-secondary btn-block" type="button">Remover dos amigos</button>
+          <button id="fp-report" class="btn btn-ghost btn-block" type="button">🚩 Denunciar</button>
           <button id="fp-block" class="btn btn-ghost btn-block" type="button">⛔ Bloquear</button>
         </div>
       </div>
@@ -716,8 +722,30 @@
         <h2 id="fa-title">Amigo</h2>
         <div class="sheet-actions">
           <button id="fa-remove" class="btn btn-secondary" type="button">Remover dos amigos</button>
+          <button id="fa-report" class="btn btn-secondary" type="button">🚩 Denunciar</button>
           <button id="fa-block" class="btn me-danger" type="button">⛔ Bloquear</button>
           <button id="fa-cancel" data-back class="btn btn-ghost" type="button">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Denúncia de jogador (apelido, avatar ou comportamento): só quem cuida do jogo lê; a outra pessoa não é avisada. -->
+    <div id="modal-report" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="rp-title" aria-describedby="rp-help">
+      <div class="sheet">
+        <h2 id="rp-title">Denunciar</h2>
+        <p id="rp-help" class="set-note">Só quem cuida do jogo vê a denúncia: a outra pessoa não fica sabendo. Se alguém estiver em perigo, procure um adulto de confiança.</p>
+        <div class="rp-reasons" role="radiogroup" aria-labelledby="rp-title">
+          <label class="me-check"><input type="radio" name="rp-reason" value="apelido"><span>Apelido ou avatar ofensivo</span></label>
+          <label class="me-check"><input type="radio" name="rp-reason" value="comportamento"><span>Comportamento ruim (ofensa, assédio, trapaça)</span></label>
+          <label class="me-check"><input type="radio" name="rp-reason" value="outro"><span>Outro motivo</span></label>
+        </div>
+        <label class="me-field"><span>Quer contar mais? (opcional)</span>
+          <textarea id="rp-note" maxlength="200" rows="2" placeholder="Até 200 letras. Não escreva dados pessoais."></textarea></label>
+        <label class="me-check"><input id="rp-block" type="checkbox"><span>Também bloquear esta pessoa</span></label>
+        <p id="rp-error" class="error" role="alert" hidden></p>
+        <div class="sheet-actions">
+          <button id="rp-send" class="btn btn-primary" type="button">Enviar denúncia</button>
+          <button id="rp-cancel" data-back class="btn btn-ghost" type="button">Cancelar</button>
         </div>
       </div>
     </div>

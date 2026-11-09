@@ -101,13 +101,14 @@ select status, count(*) from invites group by status;                          -
 - "Continuar jogando" vale só para a **partida cooperativa** (a última inacabada). Recomeçar ou trocar a imagem apaga o progresso antigo.
 - Convites: **pendente → aceito / recusado / expirado** (3 minutos). Aceitar duas vezes devolve a mesma sala; se a sala acabou ou encheu, o convite vira "expirado".
 
-## Privacidade e crianças (leia)
+## Público: 13 anos ou mais, privacidade e denúncias (leia)
 
-- Guardamos o mínimo: e-mail (só para entrar), senha protegida, apelido, avatar, partidas, amigos e a última partida salva. Sem telefone, endereço, data de nascimento, localização ou bate-papo público.
-- No cadastro há uma caixa: "li a política de privacidade; se tenho menos de 18 anos, um responsável me autorizou".
-- **Faça agora:** edite `public/privacidade.html` e troque `[PREENCHER: ...]` pelo seu e-mail de contato.
-- Há **exclusão de conta** em *Perfil > Excluir minha conta* (apaga tudo).
-- Este material **não é aconselhamento jurídico**. Como o jogo é voltado ao público infantil, vale conferir com um profissional as obrigações da **LGPD (art. 14)** antes de divulgar amplamente.
+- **O jogo é para 13 anos ou mais.** Não é direcionado a menores de 13. No cadastro (e-mail ou Google) há duas caixas: a de privacidade ("se tenho menos de 18 anos, um responsável me autorizou") e a de idade (**"tenho 13 anos ou mais"**). O servidor recusa o cadastro sem as duas. O visitante (sem conta) não precisa confirmar nada, porque nada dele é guardado no servidor.
+- Guardamos o mínimo: e-mail (só para entrar), senha protegida, apelido, avatar, partidas, amigos e a última partida salva. Sem telefone, endereço, data de nascimento, localização ou bate-papo livre (só frases prontas).
+- **Política de privacidade:** `public/privacidade.html` (também abre dentro do app, em *Ajustes* e no cadastro). **Exclusão de conta:** no app (*Perfil > Excluir minha conta*) e na página pública `public/excluir-conta.html` (o endereço que a Play Store pede).
+- **Denúncia:** em *perfil do amigo*, *ações do amigo* e no *menu da partida* (quando a outra pessoa tem conta). Vai para a tabela `reports` (veja `SEGURANCA.md`, seção 12).
+- **Divulgação:** nada do jogo, do texto da loja ou das imagens deve parecer feito para crianças pequenas. Não escreva "para crianças", "infantil" ou "para a criançada" na loja.
+- **Cuidado jurídico (importante):** este material **não é aconselhamento jurídico**. O **ECA Digital** (Lei 15.211/2025, em vigor desde 17/03/2026) vale para serviços "de acesso provável" por menores de 18 anos, trata da aferição de idade e manda vincular a um responsável as contas de até 16 anos em redes sociais. Este jogo não é uma rede social, mas tem amigos, convites e apelidos: **confirme com um profissional** se isso exige algo a mais (por exemplo, supervisão de um responsável para 13 a 15 anos) antes de divulgar amplamente.
 
 ## O que ainda não existe
 

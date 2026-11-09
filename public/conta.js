@@ -30,6 +30,10 @@
     email: 'Confira o e-mail: ele precisa ter o formato nome@exemplo.com.',
     password: 'A senha precisa ter pelo menos 8 caracteres.',
     consent: 'Marque a caixa de privacidade para criar a conta.',
+    age13: 'Este jogo é para quem tem 13 anos ou mais. Marque a caixa para confirmar.',
+    reason: 'Escolha o motivo da denúncia.',
+    guest: 'Essa pessoa não tem conta, então não dá para denunciar por aqui. Você pode sair da partida pelo menu.',
+    no_peer: 'Não há ninguém na sala para denunciar.',
     email_taken: 'Já existe uma conta com este e-mail. Toque em "Entrar".',
     bad_login: 'E-mail ou senha incorretos. Confira se o e-mail está igual ao do cadastro e toque no olho 👁 para ver a senha que está digitando.',
     rate: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
@@ -106,7 +110,7 @@
     acc.me = null; acc.friends = null; acc.pending = null; acc.ach = null; acc.achStale = true; acc.achAt = 0; acc.meAt = 0; acc.dirty = false;
     QC.setLevelAccount(null, 0);
     acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
-    $('#auth-pass').value = ''; $('#auth-consent').checked = false; say('#auth-error', '');
+    $('#auth-pass').value = ''; $('#auth-consent').checked = false; $('#auth-age').checked = false; say('#auth-error', '');
     acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
     QC.canBlock = false; QC.setUnlocked(null);
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
@@ -313,7 +317,7 @@
     var up = m === 'up';
     $('#auth-tab-in').classList.toggle('on', !up); $('#auth-tab-up').classList.toggle('on', up);
     $('#auth-tab-in').setAttribute('aria-selected', String(!up)); $('#auth-tab-up').setAttribute('aria-selected', String(up));
-    show('#auth-name-wrap', up); show('#auth-consent-wrap', up);
+    show('#auth-name-wrap', up); show('#auth-consent-wrap', up); show('#auth-age-wrap', up);
     $('#auth-pass').autocomplete = up ? 'new-password' : 'current-password';
     $('#auth-go').textContent = up ? 'Criar minha conta' : 'Entrar';
     show('#auth-forgot-link', !up);                          // sempre na área de entrada (sem e-mail ligado, a tela explica o que fazer)
@@ -345,7 +349,7 @@
     var up = acc.mode === 'up', go = $('#auth-go');
     var body = { email: $('#auth-email').value, password: $('#auth-pass').value };
     if (!body.email.trim() || !body.password) { say('#auth-error', 'Preencha o e-mail e a senha.'); return; }
-    if (up) { body.name = $('#auth-name').value.trim() || state.name; body.avatar = state.avatar; body.consent = $('#auth-consent').checked; body.bests = state.bests; }
+    if (up) { body.name = $('#auth-name').value.trim() || state.name; body.avatar = state.avatar; body.consent = $('#auth-consent').checked; body.age13 = $('#auth-age').checked; body.bests = state.bests; }
     go.disabled = true; say('#auth-error', '');
     api('POST', up ? '/register' : '/login', body).then(function (j) {
       go.disabled = false;
@@ -452,9 +456,9 @@
     document.head.appendChild(s);
   }
   function onGoogle(resp) {
-    api('POST', '/google', { credential: resp.credential, consent: $('#auth-consent').checked, name: state.name, avatar: state.avatar, bests: state.bests }).then(function (j) {
+    api('POST', '/google', { credential: resp.credential, consent: $('#auth-consent').checked, age13: $('#auth-age').checked, name: state.name, avatar: state.avatar, bests: state.bests }).then(function (j) {
       if (!j || !j.ok) {
-        if (j && j.error === 'consent') { setAuthMode('up'); say('#auth-error', 'Primeira vez aqui? Marque a caixa de privacidade e toque no botão do Google de novo.'); }
+        if (j && (j.error === 'consent' || j.error === 'age13')) { setAuthMode('up'); say('#auth-error', 'Primeira vez aqui? Marque as caixas de privacidade e de idade (13 anos ou mais) e toque no botão do Google de novo.'); }
         else say('#auth-error', errText(j && j.error));
         return;
       }
@@ -729,12 +733,42 @@
       });
     });
   }
+  /* ----- denunciar (apelido, avatar ou comportamento): só quem cuida do jogo lê; a outra pessoa não é avisada ----- */
+  var rpCtx = null;
+  function openReport(opts) {                    // opts: { name, send(payload) -> Promise<{ok, error, blocked}>, after(res) }
+    rpCtx = opts;
+    $('#rp-title').textContent = 'Denunciar ' + (opts.name || 'jogador');
+    Array.prototype.forEach.call(document.querySelectorAll('input[name="rp-reason"]'), function (i) { i.checked = false; });
+    $('#rp-note').value = ''; $('#rp-block').checked = false; say('#rp-error', ''); $('#rp-send').disabled = false;
+    QC.openModal('#modal-report', '#rp-cancel');
+  }
+  $('#rp-cancel').addEventListener('click', function () { QC.closeModal('#modal-report'); rpCtx = null; });          // (data-back só serve ao botão voltar do Android: cada Cancelar fecha a sua janela)
+  $('#rp-send').addEventListener('click', function () {
+    var sel = document.querySelector('input[name="rp-reason"]:checked'), ctx = rpCtx, btn = this;
+    if (!ctx) return;
+    if (!sel) { say('#rp-error', MSG.reason); return; }
+    btn.disabled = true; say('#rp-error', '');
+    ctx.send({ reason: sel.value, note: $('#rp-note').value, alsoBlock: $('#rp-block').checked }).then(function (res) {
+      btn.disabled = false;
+      if (res && res.ok) { QC.closeModal('#modal-report'); QC.toast('Denúncia enviada. Obrigado por ajudar a manter o jogo legal.', 3600); if (ctx.after) ctx.after(res); }
+      else say('#rp-error', errText(res && res.error));
+    });
+  });
+  function reportPerson(u, where) {
+    openReport({
+      name: u.name,
+      send: function (p) { return api('POST', '/reports', { code: u.code, reason: p.reason, note: p.note, alsoBlock: p.alsoBlock, context: where }); },
+      after: function (res) { if (res.blocked) { QC.closeModal('#modal-fprofile'); loadFriends(); loadMe(); } }
+    });
+  }
+  QC.reportPerson = openReport;                  // o menu da sala (game.js) usa a mesma janela
   var faUser = null;
   function openFriendActions(u) { faUser = u; $('#fa-title').textContent = u.name; QC.openModal('#modal-friend', '#fa-cancel'); }
   $('#fa-cancel').addEventListener('click', function () { QC.closeModal('#modal-friend'); });
   function removeFriend(u) {
     QC.confirm({ title: 'Remover ' + u.name + '?', text: 'Vocês deixam de ser amigos. Dá para adicionar de novo depois.', ok: 'Remover', danger: true }).then(function (ok) { if (ok) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); QC.closeModal('#modal-fprofile'); loadFriends(); } }); });
   }
+  $('#fa-report').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) reportPerson(u, 'amigos'); });
   $('#fa-remove').addEventListener('click', function () {
     var u = faUser; QC.closeModal('#modal-friend'); if (u) removeFriend(u);
   });
@@ -1021,6 +1055,7 @@
   $('#fp-invite').addEventListener('click', function () { if (fpUser) openChallenge(fpUser); });
   $('#fp-remove').addEventListener('click', function () { if (fpUser) removeFriend(fpUser); });
   $('#fp-block').addEventListener('click', function () { if (fpUser) blockPerson(fpUser); });
+  $('#fp-report').addEventListener('click', function () { if (fpUser) reportPerson(fpUser, 'perfil'); });
 
   /* ---------- botão voltar do Android: reaproveita os botões "Voltar" que já existem ---------- */
   QC.nav.add(function () {                                   // convite recebido: voltar só DISPENSA a janela (não recusa o convite)

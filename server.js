@@ -251,7 +251,7 @@ app.get('/diagnostico', (req, res) => {
 
 app.set('trust proxy', 1);              // atrás do Render: pega o IP real (para limitar os envios de imagem e as tentativas de entrar em salas)
 
-// O jogo NÃO aceita mais imagens enviadas pelos jogadores (LGPD, art. 14: o público é infantil). As rotas antigas respondem 410 (Gone), para que
+// O jogo NÃO aceita mais imagens enviadas pelos jogadores (privacidade: ninguém guarda a foto de ninguém; o jogo é para 13 anos ou mais). As rotas antigas respondem 410 (Gone), para que
 // um aplicativo antigo, em cache, falhe com clareza em vez de guardar a foto de alguém.
 app.all('/api/upload', (req, res) => { res.set('Cache-Control', 'no-store'); res.status(410).json({ ok: false, error: 'gone' }); });
 app.all('/api/up/:token', (req, res) => { res.set('Cache-Control', 'no-store'); res.status(410).type('text').send('removido'); });
