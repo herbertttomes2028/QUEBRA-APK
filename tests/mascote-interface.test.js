@@ -62,7 +62,7 @@ test('não atrapalha o jogo: nenhum preventDefault (só o obrigatório da perda 
 /* ---------------- desempenho e ciclo de vida ---------------- */
 test('desempenho: só começa depois da abertura, para fora da tela inicial, devolve memória, e o laço não acorda a 60 Hz à toa', () => {
   assert.match(masCode, /document\.readyState !== 'complete'[\s\S]*setTimeout\(sync, 600\)/, 'espera a página carregar e mais 0,6 s');
-  assert.match(masCode, /function homeActive\(\) \{ return home\.classList\.contains\('active'\) && !document\.hidden; \}/);
+  assert.match(masCode, /function homeActive\(\) \{ return home\.classList\.contains\('active'\) && !document\.hidden && !hidden; \}/, 'só desenha com a tela inicial visível, a aba à vista e o mascote não escondido');
   assert.match(masCode, /function frame\(ts\) \{\s*\n\s*raf = 0;\s*\n\s*if \(!loopWanted\(\)\) return;/, 'o laço começa checando se ainda deve rodar');
   assert.match(masCode, /RELEASE_MS = 20000/); assert.match(masCode, /releaseTimer = setTimeout\(function \(\) \{[^}]*destroyGL\(\)/);
   assert.match(masCode, /function stopLoop\(\) \{ if \(raf\) \{ cancelAnimationFrame\(raf\); raf = 0; \} if \(timer\) \{ clearTimeout\(timer\); timer = 0; \} \}/, 'parar cancela o quadro E o temporizador');
@@ -74,14 +74,19 @@ test('desempenho: só começa depois da abertura, para fora da tela inicial, dev
   assert.match(masCode, /if \(changed && lastPose\) drawPose\(lastPose\)/, 'redesenha depois de redimensionar (senão o canvas fica em branco)');
 });
 
-test('desempenho: ritmo (12/20 quadros por segundo), qualidade adaptativa medida pelo trabalho real, e modo parado só redesenha quando muda', () => {
-  const caps = masCode.match(/var CAPS = \[\[(\d+), (\d+)\], \[(\d+), (\d+)\], \[(\d+), (\d+)\]\]/); assert.ok(caps);
-  const n = caps.slice(1).map(Number); assert.ok(n[0] >= 50 && n[1] >= 83, 'qualidade 0: no máximo 20 quadros com reação e 12 parado'); for (let i = 2; i < n.length; i++) assert.ok(n[i] >= n[i - 2], 'cada nível reduz o ritmo');
+test('suavidade e desempenho: ao reagir acompanha a tela (sem teto), parado 12 quadros/s, e cada nível de qualidade só reduz; qualidade adaptativa pelo trabalho real', () => {
+  const caps = masCode.match(/var CAPS = \[\[(\d+), (\d+)\], \[(\d+), (\d+)\], \[(\d+), (\d+)\]\]/); assert.ok(caps); const n = caps.slice(1).map(Number);
+  assert.equal(n[0], 0, 'qualidade 0, reagindo: sem teto, no ritmo da tela (suave)'); assert.ok(n[1] >= 83, 'parado: no máximo 12 quadros/s (medido: a 20/s o custo parado era 3x maior; ele só respira)');
+  assert.ok(n[2] >= 30 && n[4] >= n[2], 'qualidade 1 e 2: cada nível reduz o ritmo'); assert.ok(n[3] >= n[1] && n[5] >= n[3], 'e o ritmo parado também');
   const bud = Number(masCode.match(/WORK_BUDGET_MS = (\d+(?:\.\d+)?)/)[1]); assert.ok(bud >= 5 && bud <= 12, 'orçamento de trabalho por quadro: ' + bud + ' ms');
+  const duty = Number(masCode.match(/DUTY_MAX = (\d+(?:\.\d+)?)/)[1]); assert.ok(duty >= 0.2 && duty <= 0.4, 'fração máxima de CPU por quadro: ' + duty + ' (importa agora que ele pode rodar a 60 quadros/s)');
+  assert.match(masCode, /var duty = avg \/ Math\.max\(intervalMs, 16\.7\);/); assert.match(masCode, /avg > WORK_BUDGET_MS \* \(1 \+ quality \* 0\.4\) \|\| duty > DUTY_MAX \* \(1 \+ quality \* 0\.3\)/);
   assert.match(masCode, /var QUALITY_MAX = 3;/); assert.match(masCode, /workN >= 45/); assert.match(masCode, /warm > 0\) \{ warm--; \}/, 'o aquecimento (compilar shaders) não conta');
   assert.match(masCode, /if \(!isStatic\(\) \|\| brain\.consumeChanged\(\)\) drawPose\(pose\);/);
+  assert.match(masCode, /function isStatic\(\) \{ return quality >= 3; \}/, 'parado só em aparelho muito fraco: movimento reduzido ESCONDE o mascote, não o congela');
   assert.match(masCode, /function loopWanted\(\) \{ return !!gl && ready && !frozen && homeActive\(\) && inView && \(!isStatic\(\) \|\| brain\.busy\(\) \|\| brain\.hasChanged\(\)\); \}/);
-  assert.match(masCode, /quality >= 3/); assert.doesNotMatch(masCode, /kickUntil/, 'sem temporizador fixo que mantinha o laço vivo à toa no modo parado');
+  assert.doesNotMatch(masCode, /kickUntil/, 'sem temporizador fixo que mantinha o laço vivo à toa');
+  const wait = masCode.match(/var wait = t0 \+ cap - performance\.now\(\) - 8;[^\n]*\n\s*if \(wait > 6\) timer = setTimeout[^\n]*else raf = requestAnimationFrame\(frame\);/); assert.ok(wait, 'com teto dorme num temporizador; sem teto (cap 0) segue direto no rAF, a cada quadro da tela');
 });
 
 test('desempenho do WebGL: poucas chamadas por quadro (peças agrupadas por geometria, uniformes só quando mudam), sem sombra, sem transparência', () => {
@@ -106,19 +111,27 @@ test('falhas do WebGL nunca derrubam o jogo: sem suporte, shader com erro e cont
   assert.match(masCode, /try \{ finishGL\(\); \} catch \(e\) \{ failed = true; destroyGL\(\); setMode\('fallback'\); return; \}/);
 });
 
-test('movimento reduzido: vem do aparelho OU dos Ajustes, e muda ao vivo', () => {
-  assert.match(masCode, /getAttribute\('data-motion'\) === 'reduce'/); assert.match(masCode, /prefers-reduced-motion: reduce/);
-  assert.match(masCode, /attributeFilter: \['data-motion'\]/); assert.match(masCode, /brain\.setReduced\(reduced \|\| quality >= 3\)/);
+test('movimento reduzido ou Ajuste desligado: o mascote some por completo (sai da tela, do laço e do WebGL), e muda ao vivo', () => {
+  assert.match(masCode, /function motionNow\(\) \{ return document\.documentElement\.getAttribute\('data-motion'\) === 'reduce' \|\| !!\(window\.matchMedia && window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\); \}/);
+  assert.match(masCode, /function userOff\(\) \{ return document\.documentElement\.getAttribute\('data-mascot'\) === 'off'; \}/);
+  assert.match(masCode, /function hiddenNow\(\) \{ return userOff\(\) \|\| motionNow\(\); \}/);
+  assert.match(masCode, /attributeFilter: \['data-motion', 'data-mascot'\]/); assert.match(masCode, /mqm\.addEventListener\('change', onMqm\)/, 'e quando o celular muda "reduzir movimento"');
+  const sync = masCode.slice(masCode.indexOf('function sync() {'), masCode.indexOf('/* ---------------- entradas'));
+  assert.match(sync, /hidden = hiddenNow\(\); btn\.hidden = hidden;/); assert.match(sync, /if \(hidden\) \{ brain\.deactivate\(\); stopLoop\(\);[\s\S]{0,160}?if \(canvas \|\| gl\) destroyGL\(\); setMode\('fallback'\); return; \}/, 'escondido: para o laço e DEVOLVE o WebGL (na própria ramificação, não em outro lugar)');
+  assert.match(masCode, /brain\.setReduced\(quality >= 3\)/, 'o "cérebro" só vira parado em aparelho fraco'); assert.doesNotMatch(masCode, /\bvar reduced\b|\breduced = |\|\| reduced\b|\breduced \|\|/, 'não existe mais mascote "congelado" por movimento reduzido');
+  assert.match(masCode, /react: function \(name\) \{ if \(hidden\) return false;/, 'escondido não reage a nada');
+  assert.match(masCode, /hidden: hidden, userOff: userOff\(\), reducedMotion: motionNow\(\)/);
 });
 
 /* ---------------- CSS ---------------- */
-test('CSS do mascote: tamanho adaptado à altura da tela, alvo de toque grande, foco visível, sem filtro/sombra, e movimento reduzido', () => {
+test('CSS do mascote: tamanho adaptado, alvo de toque grande, foco visível, sem filtro/sombra, e ESCONDIDO só com CSS (nada pisca na abertura)', () => {
   assert.match(cssMas, /\.mascot \{ --mh: clamp\(104px, 18\.5vh, 168px\);/); assert.match(cssMas, /@media \(max-height: 700px\) \{ \.mascot \{ --mh: clamp\(96px, 16vh, 118px\);/);
   assert.match(cssMas, /width: calc\(var\(--mh\) \* 1\.333\)/); assert.match(cssMas, /\.mascot:focus-visible \{ outline: 3px solid/);
   assert.match(cssMas, /touch-action: manipulation/); assert.match(cssMas, /-webkit-tap-highlight-color: transparent/);
   assert.doesNotMatch(cssMas, /filter\s*:|box-shadow|drop-shadow|backdrop|text-shadow/, 'sem efeitos caros (decisão do projeto: sem sombras)');
   assert.match(cssMas, /\.mascot-canvas, \.mascot-fallback \{ position: absolute; inset: 0;[^}]*pointer-events: none;/, 'só o botão recebe o toque');
-  assert.match(cssMas, /html\[data-motion="reduce"\] \.mascot-fallback/); assert.match(cssMas, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(cssMas, /\.mascot\[hidden\], html\[data-mascot="off"\] \.mascot, html\[data-motion="reduce"\] \.mascot \{ display: none; \}/, 'escondido pelo atributo, pelo Ajuste ou pelo movimento reduzido dos Ajustes');
+  assert.match(cssMas, /@media \(prefers-reduced-motion: reduce\) \{ \.mascot \{ display: none; \} \}/, 'e pelo movimento reduzido do celular');
   assert.match(cssMas, /\.mascot\.is-3d \.mascot-fallback \{ opacity: 0; animation: none; \}/, 'com o 3D no ar, o desenho de reserva não gasta CPU');
   for (const k of ['mascot-bob', 'mascot-bump']) { const m = cssMas.match(new RegExp('@keyframes ' + k + ' \\{[^\\n]*\\}')); assert.ok(m, k); assert.deepEqual([...m[0].matchAll(/([a-z-]+)\s*:/g)].map((x) => x[1]).filter((p) => p !== 'transform'), [], k + ' só anima transform'); }
 });
@@ -130,4 +143,26 @@ test('escopo desta rodada: só um mascote, só na tela inicial, sem loja e sem m
   assert.match(masCode, /window\.QC\.onXp = function \(ev\)/, 'a única ligação com o jogo é ouvir o XP validado pelo servidor');
   assert.equal((core.match(/Math\.random/g) || []).length, 1, 'aleatoriedade só como padrão do cérebro (e injetável nos testes)');
   assert.match(core, /\(function \(root, factory\)/); assert.match(core, /module\.exports = api/);
+});
+
+/* ---------------- Ajustes: esconder o mascote e o aviso do movimento reduzido ---------------- */
+const game = read('public/game.js'), boot = read('public/boot.js');
+const settingsSec = html.slice(html.indexOf('id="modal-settings"'), html.indexOf('id="victory-flight"'));
+test('Ajustes: há um botão (interruptor) para esconder o mascote, acessível, e o aviso do movimento reduzido logo abaixo do Movimento', () => {
+  const sw = settingsSec.match(/<button type="button" class="switch"[^>]*data-setting="mascot"><i><\/i><\/button>/); assert.ok(sw, 'interruptor do mascote');
+  assert.match(sw[0], /role="switch"/); assert.match(sw[0], /aria-labelledby="lbl-mascot"/); assert.match(sw[0], /aria-describedby="mascot-note"/); assert.match(sw[0], /aria-checked="true"/, 'ligado por padrão');
+  assert.match(settingsSec, /<span id="lbl-mascot" class="set-label">Mascote na tela inicial<\/span>/); assert.match(settingsSec, /<p id="mascot-note" class="set-note"><\/p>/);
+  const ordem = ['data-setting="motion"', 'id="motion-note"', 'id="lbl-mascot"', 'id="mascot-note"', 'id="lbl-sound"'].map((x) => settingsSec.indexOf(x)); assert.ok(ordem.every((n) => n > 0) && ordem.slice().sort((a, b) => a - b).join() === ordem.join(), 'ordem: Movimento, aviso, Mascote, aviso do mascote, Sons: ' + ordem);
+  assert.match(settingsSec, /<p id="motion-note" class="set-note">Com o movimento reduzido, o mascote da tela inicial fica escondido\.<\/p>/, 'o aviso está SEMPRE visível junto do ajuste de Movimento');
+});
+test('Ajustes: o padrão é mostrar, a escolha é guardada, e o aviso muda com o movimento reduzido (do aparelho ou dos Ajustes)', () => {
+  assert.match(game, /var DEFAULT_SETTINGS = \{[^}]*mascot: true \};/); assert.match(game, /h\.setAttribute\('data-mascot', s\.mascot === false \? 'off' : 'on'\);/);
+  const f = game.slice(game.indexOf('function updateMascotNote() {'), game.indexOf('function saveSettings()'));
+  assert.match(f, /var reduced = reducedMotion\(\), off = state\.settings\.mascot === false;/); assert.match(f, /sw\.disabled = reduced;/, 'com movimento reduzido o interruptor fica desligado (não dá para ligar)');
+  assert.match(f, /sw\.setAttribute\('aria-checked', \(!reduced && !off\) \? 'true' : 'false'\);/, 'e mostra "desligado" para não enganar');
+  assert.match(f, /⚠️ Escondido agora: o movimento está reduzido \(nos Ajustes ou no seu celular\)\. O mascote precisa de animação para aparecer\./); assert.match(f, /O mascote está escondido\. Ligue para ele voltar à tela inicial\./);
+  assert.match(game, /var mqr = window\.matchMedia\('\(prefers-reduced-motion: reduce\)'\);/); assert.match(game, /mqr\.addEventListener\('change', function \(\) \{ updateMascotNote\(\); \}\)/, 'o aviso acompanha o celular mudando "reduzir movimento" (ouvinte de verdade)');
+  assert.match(game, /if \(sw && !sw\.disabled\) toggleSetting\(sw\.getAttribute\('data-setting'\)\);/, 'interruptor desligado não responde ao toque');
+  assert.match(boot, /if \(s\.mascot === false\) d\.setAttribute\('data-mascot', 'off'\);/, 'o atributo vai antes da primeira pintura (o mascote escondido não pisca)');
+  assert.doesNotMatch(game + masCode, /mascot[^\n]*(localStorage|store\.set)\([^)]*mascot/i, 'só a chave "mascot" dentro dos ajustes que já existem');
 });

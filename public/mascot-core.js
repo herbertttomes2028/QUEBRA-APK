@@ -120,12 +120,12 @@
 
   /* ===================== a pose (todos os números que descrevem o corpo e o rosto) ===================== */
   // [valor inicial, rigidez da mola, amortecimento (1 = crítico, menor = balança um pouco)]
-  var SPEC = {
-    yaw: [0, 150, 0.62], pitch: [0, 150, 0.62], roll: [0, 150, 0.55], hop: [0, 260, 0.5], sx: [1, 300, 0.45], sy: [1, 300, 0.45], knob: [0, 90, 0.28],
-    lookX: [0, 500, 0.8], lookY: [0, 500, 0.8],
-    eyeL: [1, 520, 0.85], eyeR: [1, 520, 0.85], browL: [0, 380, 0.8], browR: [0, 380, 0.8], tiltL: [0, 380, 0.8], tiltR: [0, 380, 0.8],
-    mouthW: [1, 420, 0.8], mouthOpen: [0.12, 420, 0.75], mouthSmile: [0.6, 420, 0.8], pupil: [1, 500, 0.9], blush: [0.1, 200, 0.9],
-    armL: [0.25, 170, 0.45], armR: [0.25, 170, 0.45], armFL: [0, 170, 0.5], armFR: [0, 170, 0.5], thumb: [0, 300, 0.8]
+  var SPEC = {   // MACIAS de propósito: o rosto antes "estalava" de um quadro para o outro (olhos 1,0 -> 0,2 em um quadro)
+    yaw: [0, 110, 0.62], pitch: [0, 110, 0.62], roll: [0, 110, 0.55], hop: [0, 220, 0.5], sx: [1, 240, 0.45], sy: [1, 240, 0.45], knob: [0, 90, 0.28],
+    lookX: [0, 300, 0.8], lookY: [0, 300, 0.8],
+    eyeL: [1, 300, 0.85], eyeR: [1, 300, 0.85], browL: [0, 240, 0.8], browR: [0, 240, 0.8], tiltL: [0, 240, 0.8], tiltR: [0, 240, 0.8],
+    mouthW: [1, 260, 0.8], mouthOpen: [0.12, 260, 0.75], mouthSmile: [0.6, 260, 0.8], pupil: [1, 300, 0.9], blush: [0.1, 150, 0.9],
+    armL: [0.25, 120, 0.45], armR: [0.25, 120, 0.45], armFL: [0, 120, 0.5], armFR: [0, 120, 0.5], thumb: [0, 200, 0.8]
   };
   var PARAMS = Object.keys(SPEC);
   var RANGE = {                                   // limites seguros: nada passa disso, venha de onde vier
@@ -157,24 +157,26 @@
   // T = alvos (as molas suavizam), A = somas diretas (para vaivéns rápidos), ctx.look = {x, y} para olhar para outro lado, ctx.expr = troca de expressão no meio.
   function sw(t, hz, amp) { return Math.sin(t * hz * 2 * PI) * amp; }
   function env(u) { return Math.max(0, 1 - u); }                       // some devagar no fim
+  function ramp(u, a, b) { return clamp((u - a) / (b - a), 0, 1); }        // sobe de 0 a 1 entre a e b (sem degrau)
+  function win(u, a, b, soft) { return ramp(u, a, a + soft) * (1 - ramp(u, b - soft, b)); }   // janela com entrada e saída suaves
   var REACTIONS = {
     tapHappy: { dur: 1.1, prio: 2, expr: 'happy', run: function (t, u, T, A) { A.hop = Math.abs(Math.sin(u * PI * 2)) * 0.13 * env(u); A.sy = -0.05 * Math.abs(Math.sin(u * PI * 2)); T.armR = 2.35; A.armR = sw(t, 2.6, 0.3); A.roll = sw(t, 1.6, 0.05) * env(u); } },
     tapGiggle: { dur: 1.3, prio: 2, expr: 'joy', run: function (t, u, T, A) { A.roll = sw(t, 6, 0.1) * env(u); A.sy = sw(t, 6, 0.03) * env(u); T.blush = 0.9; T.armL = 0.9; T.armR = 0.9; T.armFL = 0.5; T.armFR = 0.5; } },
     tapSurprise: { dur: 1.0, prio: 2, expr: 'wow', run: function (t, u, T, A) { A.hop = 0.2 * Math.sin(clamp(u * 2.5, 0, 1) * PI); T.armL = 1.95; T.armR = 1.95; A.sy = 0.05 * Math.sin(clamp(u * 2.5, 0, 1) * PI); } },
     tapShy: { dur: 1.4, prio: 2, expr: 'shy', run: function (t, u, T, A, ctx) { T.armL = 1.1; T.armR = 1.1; T.armFL = 1.0; T.armFR = 1.0; A.roll = sw(t, 1.2, 0.08); ctx.look = { x: -ctx.dirX * 0.8, y: 0.45 }; T.pitch = 0.1; } },
-    tapDizzy: { dur: 1.9, prio: 2, expr: 'dizzy', run: function (t, u, T, A, ctx) { A.yaw = sw(t, 1.7, 0.5) * (u < 0.85 ? 1 : 0.2); A.roll = sw(t, 2.2, 0.12); ctx.look = { x: Math.cos(t * 9) * 0.85, y: Math.sin(t * 9) * 0.85 }; if (u > 0.8) ctx.expr = 'sleepy'; } },
+    tapDizzy: { dur: 1.9, prio: 2, expr: 'dizzy', run: function (t, u, T, A, ctx) { A.yaw = sw(t, 1.7, 0.5) * (1 - 0.8 * ramp(u, 0.6, 0.9)); A.roll = sw(t, 2.2, 0.12); ctx.look = { x: Math.cos(t * 9) * 0.85, y: Math.sin(t * 9) * 0.85 }; if (u > 0.8) ctx.expr = 'sleepy'; } },
     goodPiece: { dur: 1.6, prio: 2, expr: 'proud', run: function (t, u, T, A, ctx) {            // olha para o botão, depois olha para o jogador: "boa escolha!"
         if (u > 0.2) ctx.look = { x: 0, y: -0.05 };
         if (u > 0.28 && u < 0.78) ctx.expr = 'wink';
-        T.armR = 0.95; T.armFR = 1.15; T.thumb = u > 0.22 ? 1 : 0; A.pitch = (u > 0.2 && u < 0.7) ? sw(t, 3.4, 0.11) : 0; A.hop = Math.max(0, Math.sin(clamp((u - 0.2) * 3, 0, 1) * PI)) * 0.05;
+        T.armR = 0.95; T.armFR = 1.15; T.thumb = u > 0.22 ? 1 : 0; A.pitch = sw(t, 3.4, 0.11) * win(u, 0.2, 0.7, 0.1); A.hop = Math.max(0, Math.sin(clamp((u - 0.2) * 3, 0, 1) * PI)) * 0.05;
       } },
     nod: { dur: 0.95, prio: 2, expr: 'happy', run: function (t, u, T, A) { A.pitch = sw(t, 3.4, 0.17) * env(u); } },
     nodSmall: { dur: 0.5, prio: 2, expr: 'happy', run: function (t, u, T, A) { A.pitch = sw(t, 3.6, 0.1) * env(u); A.hop = Math.sin(u * PI) * 0.025; } },
     shakeNo: { dur: 1.0, prio: 2, expr: 'worried', run: function (t, u, T, A) { A.yaw = sw(t, 3.6, 0.3) * env(u); } },
     wave: { dur: 1.7, prio: 2, expr: 'happy', run: function (t, u, T, A) { T.armR = 2.5; A.armR = sw(t, 2.3, 0.4); A.roll = sw(t, 1.1, 0.05); } },
-    cheer: { dur: 2.4, prio: 3, expr: 'excited', run: function (t, u, T, A) { T.armL = 2.85; T.armR = 2.85; A.armL = sw(t, 2.4, 0.2); A.armR = -sw(t, 2.4, 0.2); A.hop = Math.abs(Math.sin(u * PI * 4)) * 0.2 * (u < 0.9 ? 1 : 0.3); } },
+    cheer: { dur: 2.4, prio: 3, expr: 'excited', run: function (t, u, T, A) { T.armL = 2.85; T.armR = 2.85; A.armL = sw(t, 2.4, 0.2); A.armR = -sw(t, 2.4, 0.2); A.hop = Math.abs(Math.sin(u * PI * 4)) * 0.2 * (1 - 0.7 * ramp(u, 0.7, 1)); } },
     celebrate: { dur: 3.4, prio: 3, expr: 'joy', run: function (t, u, T, A, ctx) {                  // subir de nível: pulo, giro de 360° e braços para cima
-        A.hop = Math.abs(Math.sin(u * PI * 5)) * 0.24 * (u < 0.85 ? 1 : 0.3); T.armL = 2.9; T.armR = 2.9; A.armL = sw(t, 2.6, 0.18); A.armR = -sw(t, 2.6, 0.18);
+        A.hop = Math.abs(Math.sin(u * PI * 5)) * 0.24 * (1 - 0.7 * ramp(u, 0.65, 1)); T.armL = 2.9; T.armR = 2.9; A.armL = sw(t, 2.6, 0.18); A.armR = -sw(t, 2.6, 0.18);
         A.yaw = u < 0.34 ? (u / 0.34) * 2 * PI : 0; if (u > 0.4) ctx.expr = 'excited';
       } },
     proud: { dur: 1.7, prio: 2, expr: 'proud', run: function (t, u, T, A, ctx) { T.pitch = -0.1; T.armR = 0.95; T.armFR = 1.15; T.thumb = 1; if (u > 0.25 && u < 0.7) ctx.expr = 'wink'; A.pitch = sw(t, 3, 0.05); } },
@@ -304,9 +306,9 @@
         if (!reduced) {
           nextBlink -= dt;
           if (blinkT < 0 && nextBlink <= 0) { blinkT = 0; doubleBlink = rng() < 0.15; nextBlink = 2 + rng() * 3.2; }
-          if (blinkT >= 0) { blinkT += dt; if (blinkT > 0.17) { if (doubleBlink) { doubleBlink = false; blinkT = 0; } else blinkT = -1; } }
+          if (blinkT >= 0) { blinkT += dt; if (blinkT > 0.26) { if (doubleBlink) { doubleBlink = false; blinkT = 0; } else blinkT = -1; } }
         } else blinkT = -1;
-        var blink = blinkT >= 0 ? Math.sin(clamp(blinkT / 0.17, 0, 1) * PI) : 0;
+        var blink = blinkT >= 0 ? Math.pow(Math.sin(clamp(blinkT / 0.26, 0, 1) * PI), 2) : 0;
         // saída (limitada)
         PARAMS.forEach(function (n) { out[n] = clamp(P[n] + A[n], RANGE[n][0], RANGE[n][1]); });
         if (!reduced) { out.sy = clamp(out.sy + Math.sin(now * 2.2) * 0.012, RANGE.sy[0], RANGE.sy[1]); out.eyeL *= (1 - blink); out.eyeR *= (1 - blink); }

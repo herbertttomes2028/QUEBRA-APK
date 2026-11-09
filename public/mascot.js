@@ -7,7 +7,7 @@
   var Core = window.MascotCore, home = document.getElementById('screen-home'), btn = document.getElementById('mascot');
   if (!Core || !home || !btn) return;
 
-  var CAPS = [[50, 83], [66, 125], [83, 166]], WORK_BUDGET_MS = 8, RELEASE_MS = 20000, OUTLINE = 0.032, FOV = 28 * Math.PI / 180, CAM_Y = 0.15, CAM_D = 5.2, GAZE_R = 190;
+  var CAPS = [[0, 83], [33, 125], [50, 166]], WORK_BUDGET_MS = 8, DUTY_MAX = 0.3, RELEASE_MS = 20000, OUTLINE = 0.032, FOV = 28 * Math.PI / 180, CAM_Y = 0.15, CAM_D = 5.2, GAZE_R = 190;
   var QUALITY_MAX = 3;                                  // 0 normal; 1 resolução 1x e menos quadros; 2 sem contorno e ainda menos; 3 desenho parado
 
   var brain = Core.createBrain({});
@@ -15,7 +15,7 @@
   var canvas = null, gl = null, prog = null, loc = null, bufs = null, mouthPos = new Float32Array(Core.MOUTH_N * 6), tonguePos = new Float32Array(Core.MOUTH_N * 6), lashPosL = new Float32Array(Core.MOUTH_N * 6), lashPosR = new Float32Array(Core.MOUTH_N * 6);
   var vp = new Float32Array(16), proj = new Float32Array(16), view = new Float32Array(16);
   var raf = 0, timer = 0, lastTs = 0, lastDraw = 0, workAcc = 0, workN = 0, contEl = document.getElementById('btn-continue'), quality = 0, frames = 0, drawn = 0, inView = true, lastWork = 0, warm = 2, intervalMs = 0, lastNow = 0, ready = false, parallelExt = null, lost = false, released = false, releaseTimer = 0, failed = false, firstDrawn = false;
-  var reduced = false, mode = 'fallback', frozen = false, lastPose = null;
+  var hidden = false, mode = 'fallback', frozen = false, lastPose = null;
 
   /* ---------------- shaders ---------------- */
   var VS = 'precision mediump float; attribute vec3 aPos; attribute vec3 aNor; uniform mat4 uVP; uniform mat4 uM; uniform mat3 uN; uniform float uOut; varying vec3 vN;' +
@@ -122,13 +122,13 @@
       }
     }
     drawn++;
-    if (!firstDrawn) { firstDrawn = true; setMode(reduced || quality >= 3 ? 'static' : '3d'); }
+    if (!firstDrawn) { firstDrawn = true; setMode(quality >= 3 ? 'static' : '3d'); }
   }
 
   /* ---------------- ciclo de vida ---------------- */
   function setMode(m) { mode = m; btn.classList.toggle('is-3d', m === '3d' || m === 'static'); btn.setAttribute('data-mode', m); }
-  function homeActive() { return home.classList.contains('active') && !document.hidden; }
-  function isStatic() { return reduced || quality >= 3; }
+  function homeActive() { return home.classList.contains('active') && !document.hidden && !hidden; }
+  function isStatic() { return quality >= 3; }                                 // só em aparelho muito fraco (movimento reduzido ESCONDE o mascote, não o congela)
   function loopWanted() { return !!gl && ready && !frozen && homeActive() && inView && (!isStatic() || brain.busy() || brain.hasChanged()); }
   function startLoop() { if (!raf && !timer && loopWanted()) { lastTs = performance.now(); raf = requestAnimationFrame(frame); } }
   function stopLoop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } if (timer) { clearTimeout(timer); timer = 0; } }
@@ -147,7 +147,7 @@
     if (!isStatic() || brain.consumeChanged()) drawPose(pose);                 // no modo parado só redesenha quando a pose muda
     if (!isStatic()) {                                                          // mede o trabalho real de cada quadro; se for pesado demais, tira detalhe
       workAcc += performance.now() - t0; workN++;
-      if (workN >= 45) { var avg = workAcc / workN; workAcc = 0; workN = 0; if (warm > 0) { warm--; } else { lastWork = avg; } if (warm <= 0 && avg > WORK_BUDGET_MS * (1 + quality * 0.4) && quality < QUALITY_MAX) degrade(); }
+      if (workN >= 45) { var avg = workAcc / workN; workAcc = 0; workN = 0; if (warm > 0) { warm--; } else { lastWork = avg; } var duty = avg / Math.max(intervalMs, 16.7); if (warm <= 0 && (avg > WORK_BUDGET_MS * (1 + quality * 0.4) || duty > DUTY_MAX * (1 + quality * 0.3)) && quality < QUALITY_MAX) degrade(); }
     }
     if (!loopWanted()) return;
     var wait = t0 + cap - performance.now() - 8;                                // dorme até perto do próximo quadro (o rAF ainda alinha com a tela) em vez de acordar a 60 Hz só para pular
@@ -159,8 +159,10 @@
   }
 
   function sync() {
+    hidden = hiddenNow(); btn.hidden = hidden;                                  // escondido pelo Ajuste ou por movimento reduzido: sai da tela e do WebGL por completo
+    if (hidden) { brain.deactivate(); stopLoop(); if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = 0; } lost = false; if (canvas || gl) destroyGL(); setMode('fallback'); return; }
     var active = homeActive();
-    brain.setReduced(reduced || quality >= 3);
+    brain.setReduced(quality >= 3);
     if (active) {
       if (!brain.isActive()) brain.activate();
       if (releaseTimer) { clearTimeout(releaseTimer); releaseTimer = 0; }
@@ -219,9 +221,13 @@
   }
   new MutationObserver(function () { sync(); }).observe(home, { attributes: true, attributeFilter: ['class'] });
   document.addEventListener('visibilitychange', function () { sync(); });
+  // O mascote NÃO aparece com o movimento reduzido (nos Ajustes ou no celular) nem quando a pessoa o escondeu nos Ajustes. Os Ajustes avisam isso.
   function motionNow() { return document.documentElement.getAttribute('data-motion') === 'reduce' || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
-  reduced = motionNow();
-  new MutationObserver(function () { var r = motionNow(); if (r !== reduced) { reduced = r; sync(); kick(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion'] });
+  function userOff() { return document.documentElement.getAttribute('data-mascot') === 'off'; }
+  function hiddenNow() { return userOff() || motionNow(); }
+  hidden = hiddenNow(); btn.hidden = hidden;
+  new MutationObserver(function () { if (hiddenNow() !== hidden) { sync(); startLoop(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion', 'data-mascot'] });
+  if (window.matchMedia) { var mqm = window.matchMedia('(prefers-reduced-motion: reduce)'); var onMqm = function () { if (hiddenNow() !== hidden) sync(); }; if (mqm.addEventListener) mqm.addEventListener('change', onMqm); else if (mqm.addListener) mqm.addListener(onMqm); }
   if (window.IntersectionObserver) new IntersectionObserver(function (en) { inView = en[0].isIntersecting; if (inView) startLoop(); else stopLoop(); }).observe(btn);
   if (window.ResizeObserver) new ResizeObserver(function () { resize();  }).observe(btn);
   setMode('fallback');
@@ -231,10 +237,10 @@
   boot();
 
   window.Mascot = {
-    react: function (name) { frozen = false; var ok = brain.react(name, { dirX: 1 }); kick(); return ok; },
+    react: function (name) { if (hidden) return false; frozen = false; var ok = brain.react(name, { dirX: 1 }); kick(); return ok; },
     unfreeze: function () { frozen = false; startLoop(); },
     pose: function () { var o = {}; Core.PARAMS.forEach(function (n) { o[n] = brain.out[n]; }); return o; },
     preview: function (name, u) { frozen = true; stopLoop(); if (!gl) return false; resize(); drawPose(brain.snapshot(name, u == null ? 0.5 : u)); return true; },
-    status: function () { return { mode: mode, quality: quality, frames: frames, drawn: drawn, running: !!(raf || timer), released: released, failed: failed, hasContext: !!gl, reduced: reduced || quality >= 3, workMs: +lastWork.toFixed(2), capMs: capNow(), intervalMs: Math.round(intervalMs), busy: brain.busy(), sleeping: brain.isSleeping(), current: brain.current(), expression: brain.expression() }; }
+    status: function () { return { mode: mode, quality: quality, frames: frames, drawn: drawn, running: !!(raf || timer), released: released, failed: failed, hasContext: !!gl, hidden: hidden, userOff: userOff(), reducedMotion: motionNow(), static: quality >= 3, workMs: +lastWork.toFixed(2), capMs: capNow(), intervalMs: Math.round(intervalMs), busy: brain.busy(), sleeping: brain.isSleeping(), current: brain.current(), expression: brain.expression() }; }
   };
 })();

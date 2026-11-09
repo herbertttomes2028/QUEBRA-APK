@@ -99,7 +99,7 @@
     };
   })();
 
-  var DEFAULT_SETTINGS = { text: 'normal', theme: 'auto', motion: 'auto', sound: true, vibrate: true, push: false };
+  var DEFAULT_SETTINGS = { text: 'normal', theme: 'auto', motion: 'auto', sound: true, vibrate: true, push: false, mascot: true };
   state.settings = (function () {
     var saved = store.get('settings', {}) || {}, o = {};
     Object.keys(DEFAULT_SETTINGS).forEach(function (k) { o[k] = saved[k] !== undefined ? saved[k] : DEFAULT_SETTINGS[k]; });
@@ -2125,6 +2125,7 @@
     var dark = s.theme === 'dark' || (s.theme === 'auto' && prefersDark());
     h.setAttribute('data-theme', dark ? 'dark' : 'light');
     h.setAttribute('data-motion', s.motion === 'reduce' ? 'reduce' : 'auto');
+    h.setAttribute('data-mascot', s.mascot === false ? 'off' : 'on');
     var mt = document.querySelector('meta[name="theme-color"]');
     if (mt) mt.setAttribute('content', dark ? '#111733' : '#eaeeff');
     Array.prototype.forEach.call(document.querySelectorAll('#modal-settings [data-setting]'), function (el) {
@@ -2142,6 +2143,15 @@
     $('#menu-sound-icon').textContent = on ? '🔊' : '🔇';
     $('#menu-sound-text').textContent = on ? 'Som: ligado' : 'Som: desligado';
     updatePushNote();
+    updateMascotNote();
+  }
+  // O mascote não aparece com o movimento reduzido: o botão fica desligado e o aviso diz por quê (e o que fazer).
+  function updateMascotNote() {
+    var sw = document.querySelector('.switch[data-setting="mascot"]'), note = $('#mascot-note'); if (!sw || !note) return;
+    var reduced = reducedMotion(), off = state.settings.mascot === false;
+    sw.disabled = reduced;
+    sw.setAttribute('aria-checked', (!reduced && !off) ? 'true' : 'false');
+    note.textContent = reduced ? '⚠️ Escondido agora: o movimento está reduzido (nos Ajustes ou no seu celular). O mascote precisa de animação para aparecer.' : (off ? 'O mascote está escondido. Ligue para ele voltar à tela inicial.' : '');
   }
 
   function saveSettings() { store.set('settings', state.settings); applySettings(); }
@@ -3624,6 +3634,8 @@
     if (sw && !sw.disabled) toggleSetting(sw.getAttribute('data-setting'));
   });
   if (window.matchMedia) {
+    var mqr = window.matchMedia('(prefers-reduced-motion: reduce)');                       // o celular mudou "reduzir movimento": o aviso dos Ajustes acompanha
+    if (mqr.addEventListener) mqr.addEventListener('change', function () { updateMascotNote(); }); else if (mqr.addListener) mqr.addListener(function () { updateMascotNote(); });
     var mq = window.matchMedia('(prefers-color-scheme: dark)');
     var onMq = function () { if (state.settings.theme === 'auto') applySettings(); };
     if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
