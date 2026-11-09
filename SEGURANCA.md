@@ -143,3 +143,32 @@ Desbloquear: Perfil > Segurança > *Jogadores bloqueados*. Visitantes (sem conta
 ## 11. Fora desta etapa (para decidir depois)
 
 Confirmação de responsável para crianças (precisa de orientação jurídica, LGPD art. 14), análise automática de fotos enviadas, denúncia de jogadores e painel de moderação.
+
+## 12. Denúncias e moderação (exigência da Play Store para jogos com apelidos)
+
+Quem joga pode **denunciar** um apelido, avatar ou comportamento. A pessoa denunciada **nunca é avisada**. Só você lê, no **SQL Editor do Neon** (somente leitura para ver; as ações abaixo mudam dados, use com cuidado):
+
+```sql
+-- denúncias novas (mais recentes primeiro)
+select r.id, r.created_at, r.reason, r.context, r.reported_name, r.note, u.friend_code as codigo_denunciado
+from reports r join users u on u.id = r.reported
+where r.status = 'novo' order by r.created_at desc;
+
+-- quantas denúncias cada pessoa recebeu
+select u.friend_code, u.name, count(*) as denuncias from reports r join users u on u.id = r.reported group by 1, 2 order by 3 desc;
+```
+
+**Ações** (escolha uma por caso; depois marque como analisada):
+
+```sql
+-- 1) trocar um apelido ofensivo
+update users set name = 'Jogador', avatar = '' where friend_code = 'XXXXXXXX';
+-- 2) excluir a conta de quem desrespeita os outros (apaga tudo dela, inclusive as denúncias ligadas a ela)
+delete from users where friend_code = 'XXXXXXXX';
+-- 3) marcar como analisada
+update reports set status = 'analisado' where id = 123;
+```
+
+- **Prazo que a política promete:** responder a pedidos em até 15 dias. Olhe `reports` pelo menos uma vez por semana.
+- **Risco imediato** (ameaça, conteúdo ilegal): exclua a conta primeiro, depois avalie se precisa avisar as autoridades.
+- Limites: 15 denúncias por hora por pessoa; a mesma denúncia repetida em 24 h conta uma vez. Cada denúncia aceita uma nota de até 200 letras.

@@ -351,6 +351,7 @@ function createAccounts(d) {
     if (!email) return bad(res, 400, 'email');
     if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
     if (b.consent !== true) return bad(res, 400, 'consent');
+    if (b.age13 !== true) return bad(res, 400, 'age13');                          // o jogo é para 13 anos ou mais (a pessoa confirma ao criar a conta)
     const name = cleanName(b.name) || 'Jogador', avatar = cleanAvatar(b.avatar) || '';
     if (weakPassword(pw, email, name)) return bad(res, 400, 'password_weak');
     const old = await one('SELECT * FROM users WHERE email = $1', [email]);
@@ -474,6 +475,7 @@ function createAccounts(d) {
     }
     if (!u) {
       if (b.consent !== true) return bad(res, 400, 'consent');
+      if (b.age13 !== true) return bad(res, 400, 'age13');
       u = await createUser({ email: g.email, passHash: null, googleSub: g.sub, name: cleanName(b.name) || cleanName(g.name) || 'Jogador', avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests), emailVerified: true });
     }
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
@@ -535,6 +537,31 @@ function createAccounts(d) {
     blockSet.delete(req.user.id + ':' + t.id);
     notify(req.user.id, { t: 'blocks' });
     res.json({ ok: true });
+  }));
+
+  /* ----- denúncias: quem joga pode denunciar apelido, avatar ou comportamento. Só quem cuida do jogo lê (SQL Editor); a pessoa denunciada nunca é avisada. ----- */
+  const REPORT_REASONS = new Set(['apelido', 'comportamento', 'outro']), REPORT_CONTEXTS = new Set(['perfil', 'amigos', 'sala']);
+  const cleanNote = (v) => String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+  async function fileReport(reporter, target, b, context) {
+    const reason = typeof b.reason === 'string' ? b.reason : ''; if (!REPORT_REASONS.has(reason)) return { error: 'reason' };      // só texto (uma lista como ["apelido"] não vale)
+    // a mesma pessoa denunciando a mesma outra pelo mesmo motivo de novo em 24 h conta uma vez só
+    await db.q(`INSERT INTO reports (reporter, reported, reason, context, note, reported_name)
+                SELECT $1, $2, $3, $4, $5, $6
+                WHERE NOT EXISTS (SELECT 1 FROM reports WHERE reporter = $1 AND reported = $2 AND reason = $3 AND created_at > now() - interval '24 hours')`,
+      [reporter, target.id, reason, REPORT_CONTEXTS.has(context) ? context : 'perfil', cleanNote(b.note), String(target.name || '').slice(0, 40)]);
+    let blocked = false;
+    if (b.alsoBlock === true) { await blockUser(reporter, target.id); blocked = true; }          // "denunciar e bloquear" num toque só
+    return { ok: true, blocked };
+  }
+  r.post('/reports', needUser, guard(async (req, res) => {
+    if (!allow('report:' + req.user.id, 15, 3600 * 1000)) return bad(res, 429, 'rate');
+    const b = req.body || {};
+    const t = await userByCode(normCode(b.code));
+    if (!t) return bad(res, 404, 'notfound');
+    if (t.id === req.user.id) return bad(res, 400, 'self');
+    const out = await fileReport(req.user.id, t, b, b.context === 'amigos' ? 'amigos' : 'perfil');
+    if (out.error) return bad(res, 400, out.error);
+    res.json({ ok: true, blocked: out.blocked });
   }));
 
   // ?lite=1 (aplicativo novo): sem conquistas, numa consulta só. Sem o parâmetro: igual a antes (aplicativo antigo em cache).
@@ -1042,6 +1069,19 @@ function createAccounts(d) {
       if (!peer.uid) return { ok: false, error: 'guest' };
       await blockUser(uid, peer.uid);
       return { ok: true, name: peer.name };
+    }));
+    // dentro de uma sala: denuncia a outra pessoa (precisa ter conta); com alsoBlock também a bloqueia
+    socket.on('acc:reportPeer', wrap(async (b) => {
+      const uid = socket.data.uid;
+      if (!uid || !await socketSessionValid(socket)) return { ok: false, error: 'auth' };
+      if (!allow('report:' + uid, 15, 3600 * 1000)) return { ok: false, error: 'rate' };
+      const peer = peerOf ? peerOf(socket) : null;
+      if (!peer) return { ok: false, error: 'no_peer' };
+      if (!peer.uid) return { ok: false, error: 'guest' };
+      const t = await one('SELECT id, name FROM users WHERE id = $1', [peer.uid]);
+      if (!t) return { ok: false, error: 'notfound' };
+      const out = await fileReport(uid, t, b || {}, 'sala');
+      return out.error ? { ok: false, error: out.error } : { ok: true, name: peer.name, blocked: out.blocked };
     }));
     socket.on('disconnect', () => unbind());
   });
