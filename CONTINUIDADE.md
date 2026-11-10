@@ -70,6 +70,7 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
    - A galeria padrão (`public/imagens/`) contém **só** as 9 ilustrações originais. Teste proíbe personagens de terceiros, pessoas reais e origem desconhecida (a pasta já teve Batman, Stitch, Angel, Lula, Jesus e Aparecida; foram removidos para a loja).
    - A linguagem da loja, do app e da política **nunca** apresenta o jogo como infantil.
    - `public/assetlinks.json` mantém o pacote certo e as impressões digitais conhecidas (`tests/assetlinks.test.js`).
+   - **Nenhum segredo no repositório** (`tests/sem-segredos.test.js`, roda em todo Pull Request): sem chaves de API (Brevo, Google, GitHub, AWS, Slack), sem chave VAPID privada, sem endereço de banco com senha fora do computador local, sem senha ou token escritos como texto no código, e sem arquivo `.keystore/.jks/.p12/.pem/.key`, `.env`, `dados-da-chave.txt`, pasta `chave-de-envio/`, `.apk` ou `.aab`. Segredos vivem **só** no painel do Render (Environment) e no computador do proprietário. Valores de mentira em testes devem ser **gerados na hora** (`crypto.randomBytes`), nunca escritos fixos.
 
 ## 6. Variáveis de ambiente (painel do Render › Environment; nunca no GitHub)
 
@@ -107,7 +108,7 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 **Barra de endereço (defeito corrigido nesta rodada):** o Android só abre o app em tela cheia se o site declarar, em `/.well-known/assetlinks.json`, a impressão digital **da chave que assinou o app instalado**. Medido em 09/11/2026 com a API oficial `digitalassetlinks.googleapis.com/v1/assetlinks:check`: a chave do APK antigo (`99:50:38:B0:…:5A:53`) estava ligada (`linked: true`) e a chave de envio do APK de teste (`12:D9:5C:57:…:AD:1F`) **não**, por isso o APK de teste mostrava a barra. `public/assetlinks.json` agora lista as duas. Para quem instala **pela Play**, ainda falta a **terceira** impressão digital, a da **chave de assinatura do app** que a Play mostra em *Integridade do app › Assinatura de apps* (só existe depois do primeiro envio). Ela entra na variável `ASSETLINKS_JSON` do Render (com as três impressões) ou no arquivo. O Google guarda o resultado em cache por até cerca de 1 hora; depois de publicar, repita a consulta `assetlinks:check` até aparecer `linked: true`, desinstale o app e instale de novo.
 
 **Como refazer o AAB** (o que funcionou em 09/11/2026): JDK 17 (Temurin), `commandlinetools` do Android com licenças aceitas, `build-tools;36.1.0`; `npm i @bubblewrap/cli@1.27.0`; o Bubblewrap exige `bin` e `lib` direto na raiz do SDK (links para `cmdline-tools/latest`); `~/.bubblewrap/config.json` com `jdkPath` e `androidSdkPath`; `twa-manifest.json` (`packageId` `com.onrender.quebra_apk.twa`, `host` `quebra-apk.onrender.com`, `minSdkVersion 24` porque a biblioteca atual do TWA recusa menos, `fallbackType` `customtabs`, `enableNotifications true`, ícones `/icons/icon-512.png` e `/icons/icon-maskable-512.png`); `bubblewrap update --skipVersionUpgrade` e `bubblewrap build --skipPwaValidation`, com as senhas nas variáveis `BUBBLEWRAP_KEYSTORE_PASSWORD` e `BUBBLEWRAP_KEY_PASSWORD`. **O PWABuilder já foi reportado gerando `targetSdk 35`; a Play exige 36.**
-**Segredos:** a chave de envio (`android.keystore`) e a senha **ficam só com o proprietário, fora do GitHub**. Ela foi gerada no ambiente do assistente; se houver suspeita de vazamento, pedir a redefinição da chave de envio na Play Console.
+**Segredos:** a chave de envio (`android.keystore`), a senha e o arquivo `dados-da-chave.txt` **ficam só com o proprietário, fora do GitHub** (o CI barra o envio desses nomes). Ela foi gerada no ambiente do assistente; se houver suspeita de vazamento, pedir a redefinição da chave de envio na Play Console.
 
 **Ainda NÃO feito (depende do proprietário ou de terceiros):**
 1. Criar a conta de desenvolvedor na Play (taxa única) e concluir a verificação de identidade.
@@ -155,18 +156,20 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 | (só do teste) capturas com "Só amigos podem ver" | Códigos de teste com `L` e `O`, fora do alfabeto de códigos | Códigos válidos nos dados de teste |
 | (só do teste) cadastro barrado | Limite de 8 cadastros por IP em 10 min | IPs distintos nos testes |
 | Entrega do zip sem arquivo para baixar | Esqueci de apresentar o arquivo | Sempre apresentar o arquivo ao entregar |
+| Senha fixa de teste (`Quebra!Cabeca#2026`) e token de mentira (`segredo-123`) escritos nos testes | Valores inventados, mas literais num repositório público (viram ruído em varredores e mau exemplo) | Gerados na hora com `crypto.randomBytes`; `tests/sem-segredos.test.js` impede a volta |
 
 ## 12. Pendências e riscos abertos (em ordem)
 
 1. **Conta na Play e teste fechado de 14 dias** (caminho crítico; ninguém pode acelerar).
-2. **ECA Digital (Lei 15.211/2025, em vigor desde 17/03/2026):** vale para serviços "de acesso provável" por menores de 18 anos, trata de aferição de idade e de vínculo a um responsável para contas de até 16 anos **em redes sociais**. O jogo não é uma rede social, mas tem amigos, convites e apelidos, e o cadastro só pede **autodeclaração** de 13+. **Levar a um profissional**; uma possível evolução é um modo supervisionado para 13 a 15 anos.
-3. **Visual:** o mascote e as ilustrações são em desenho; a Play pode considerar que o app atrai crianças. Mitigado com 13+, textos sem linguagem infantil e capturas com fotos, não com a arte.
-4. Fazer uma **denúncia de teste** entre duas contas do proprietário para provar que o e-mail chega pelo Brevo de verdade (só foi testado contra um Brevo simulado). Confirmar a quem pertence o remetente do Brevo (padrão do destino) ou definir `REPORT_NOTIFY_EMAIL`.
-5. Conferir a **grafia do e-mail de contato** que aparece na política e na página de exclusão, e completar o nome do responsável pelos dados.
-6. A capa da coleção **Cultura brasileira** mostra uma pessoa: confirmar origem e licença da imagem no catálogo.
-7. Hospedagem gratuita que dorme; domínio `onrender.com` (trocar exige AAB novo); Neon gratuito.
-8. Contas criadas antes da fase 13+ não passaram pela caixa "Tenho 13 anos ou mais".
-9. O prazo de **15 dias** prometido na política e na página de exclusão precisa ser cumprido (ver `SEGURANCA.md`, seção 12, para revisar as denúncias).
+2. **Repositório hoje público, amanhã privado — segredos.** Varredura de 09/11/2026 em **todo o histórico** (305 commits, 54 ramificações, 57 referências de Pull Request) com gitleaks 8.30.1 e busca própria (Brevo, Neon, VAPID, Google, GitHub, chaves PEM, senhas): **nenhuma chave ou senha real**, nenhum arquivo de chave jamais enviado. Achados inofensivos e já corrigidos: duas senhas/tokens de mentira em testes. Credenciais `qc:qc@127.0.0.1` são do banco **temporário local do CI** (não são segredo). O e-mail de contato aparece nas páginas públicas **de propósito** (a Play exige). **Tornar o repositório privado não apaga o que já foi copiado**: clones e forks que existam, logs do GitHub Actions e comentários de PR ficam fora do alcance. Se um segredo algum dia entrar, **gire a chave no serviço de origem** (Brevo, Neon, Render) antes de qualquer outra coisa.
+3. **ECA Digital (Lei 15.211/2025, em vigor desde 17/03/2026):** vale para serviços "de acesso provável" por menores de 18 anos, trata de aferição de idade e de vínculo a um responsável para contas de até 16 anos **em redes sociais**. O jogo não é uma rede social, mas tem amigos, convites e apelidos, e o cadastro só pede **autodeclaração** de 13+. **Levar a um profissional**; uma possível evolução é um modo supervisionado para 13 a 15 anos.
+4. **Visual:** o mascote e as ilustrações são em desenho; a Play pode considerar que o app atrai crianças. Mitigado com 13+, textos sem linguagem infantil e capturas com fotos, não com a arte.
+5. Fazer uma **denúncia de teste** entre duas contas do proprietário para provar que o e-mail chega pelo Brevo de verdade (só foi testado contra um Brevo simulado). Confirmar a quem pertence o remetente do Brevo (padrão do destino) ou definir `REPORT_NOTIFY_EMAIL`.
+6. Conferir a **grafia do e-mail de contato** que aparece na política e na página de exclusão, e completar o nome do responsável pelos dados.
+7. A capa da coleção **Cultura brasileira** mostra uma pessoa: confirmar origem e licença da imagem no catálogo.
+8. Hospedagem gratuita que dorme; domínio `onrender.com` (trocar exige AAB novo); Neon gratuito.
+9. Contas criadas antes da fase 13+ não passaram pela caixa "Tenho 13 anos ou mais".
+10. O prazo de **15 dias** prometido na política e na página de exclusão precisa ser cumprido (ver `SEGURANCA.md`, seção 12, para revisar as denúncias).
 
 ## 13. O que NÃO foi verificado
 
