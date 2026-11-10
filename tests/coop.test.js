@@ -32,7 +32,7 @@ test('entrar: sala só comporta 2 e código errado dá "notfound"', async () => 
   assert.equal(code.length, 6);
   assert.equal(snap.pieces.length, 6);
   assert.ok(snap.pieces.every((p) => p.rot === 0), 'peças prontas para encaixar');
-  assert.equal(snap.cfg.SNAP, Math.round(snap.cfg.TILE * 0.33));
+  assert.equal(snap.cfg.SNAP, Math.round(snap.cfg.TILE * 0.5));
   const c = await client(srv.url);
   const r = await c.emitAck('join', { pid: 'pid-carla-0001', code, name: 'Carla' });
   assert.equal(r.ok, false);

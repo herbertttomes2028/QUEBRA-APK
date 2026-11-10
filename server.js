@@ -96,6 +96,11 @@ const PRESETS = [
   { pieces: 48, cols: 6, rows: 8, bw: 780, t: 110, label: 'Desafio' }
 ];
 const DEFAULT_PIECES = 12;
+// ÍMÃ DE ENCAIXE: a peça solta encaixa sozinha quando o CENTRO dela fica a até SNAP_FACTOR × (tamanho da casa) do centro da casa certa.
+// Padrão 0,5 (era 0,33 até 10/11/2026: o proprietário pediu um ímã mais forte). Ajustável no Render com SNAP_FACTOR (aceita de 0,25 a 0,75;
+// qualquer outro valor é ignorado e vale o padrão). A MESMA fórmula vale na Sala Desafio (challenge.js recebe este valor daqui).
+const SNAP_FACTOR_DEFAULT = 0.5;
+const SNAP_FACTOR = (() => { const v = Number(process.env.SNAP_FACTOR); return process.env.SNAP_FACTOR !== undefined && process.env.SNAP_FACTOR !== '' && Number.isFinite(v) && v >= 0.25 && v <= 0.75 ? v : SNAP_FACTOR_DEFAULT; })();
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
 // 6 caracteres = ~1,07 bilhão de códigos (com 4 eram ~1 milhão): junto do limite de tentativas, ninguém consegue adivinhar uma sala
 const CODE_LEN = Math.max(4, Math.min(8, Number(process.env.CODE_LEN) || 6));
@@ -135,7 +140,7 @@ function layoutFor(pieces) {
     BOARD_X: Math.round((FIELD_W - pr.bw) / 2),
     BOARD_Y,
     TRAY_LINE: BOARD_Y + boardH + 20,                   // abaixo desta linha a peça solta fica pequena
-    SNAP: Math.round(tile * 0.33),                      // distância (entre centros) para a peça encaixar
+    SNAP: Math.round(tile * SNAP_FACTOR),               // distância (entre centros) para a peça encaixar (ímã)
     MAX_ROT,
     HINTS,
     TRAY_TOP: trayTop,
@@ -231,6 +236,7 @@ app.get('/diagnostico', (req, res) => {
       pacotes
     },
     imagens: listImages().length,
+    encaixe: { raio_em_casas: SNAP_FACTOR, padrao: SNAP_FACTOR_DEFAULT, origem: SNAP_FACTOR === SNAP_FACTOR_DEFAULT ? 'padrão' : 'variável SNAP_FACTOR' },   // o ímã: a peça encaixa a até esta fração da casa
     seguranca: {
       cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
       email_estado: mailer ? mailer.stats : null,      // envios desde que o servidor ligou e o ÚLTIMO erro (já sem chave, e-mails e IPs)
@@ -722,7 +728,7 @@ const accHooks = { duelFinish: null, levelOf: null };
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
-  io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
+  io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
   levelOf: (uid) => (accHooks.levelOf && uid ? accHooks.levelOf(uid) : 0),                          // nível do jogador (0 = visitante)

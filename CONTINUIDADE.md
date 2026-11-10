@@ -1,6 +1,6 @@
 # CONTINUIDADE — ESTADO ATUAL DO PROJETO (LEIA ESTA SEÇÃO PRIMEIRO)
 
-**Atualizado em:** 10/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `163ab32` (Merge do PR #60, "teste-play-store"). O pacote da rodada **"colecao-bau-e-desafio"** parte dela e leva a suíte a **388 testes passando** (55 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
+**Atualizado em:** 10/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `9454c3c` (Merge da rodada "colecao-bau-e-desafio"). O pacote **"ima-mais-forte"** parte dela e leva a suíte a **395 testes passando** (56 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
 Esta seção substitui qualquer estado descrito mais abaixo. O que vem depois da linha **"HISTÓRICO ANTERIOR PRESERVADO"** são as notas das rodadas até 31/10/2026, mantidas sem alteração: servem de arquivo, **podem estar desatualizadas** e não descrevem o mascote, as conquistas novas, a preparação da Play Store nem as denúncias.
 
 > **Regra de ouro ao abrir uma sessão nova:** (1) rode `git ls-remote https://github.com/herbertttomes2028/QUEBRA-APK refs/heads/main` e compare com o commit acima; (2) se for diferente, **não parta deste arquivo**: clone a `main` e releia o que mudou; (3) nunca parta de pacote ou clone antigo; (4) uma saída de `git fetch` cortada **não prova** nada (já causou um pacote inteiro descartado em 02/11/2026).
@@ -61,7 +61,7 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 ## 5. Contratos que NÃO podem ser quebrados (todos têm teste)
 
 1. **Migrações 001–003 e todas as seguintes são imutáveis** (hash travado).
-2. **Regra de encaixe duplicada:** as duas cópias de `tryLock` (`server.js:549` e `challenge.js:329`) ficam iguais; `SNAP = round(TILE × 0,33)` nos dois layouts. A regra vive só no servidor.
+2. **Regra de encaixe duplicada:** as duas cópias de `tryLock` (`server.js:549` e `challenge.js:329`) ficam iguais; `SNAP = round(TILE × SNAP_FACTOR)` nos dois layouts, com o fator **definido uma única vez em `server.js`** (padrão **0,5**; era 0,33 até 10/11/2026) e repassado ao `challenge.js`. A regra vive só no servidor: soltar a peça com o **centro** a até `SNAP` do centro da casa certa, com giro 0, encaixa sozinha (o encaixe nunca acontece durante o arrasto, só ao soltar; e nunca em casa errada).
 3. **Eventos de socket** do cooperativo, do Desafio e de contas continuam existindo com os mesmos nomes.
 4. **XP só entra por `payMatch`**, e só `accounts.js` o usa, dentro de transação. **Nenhuma rota recebe XP do cliente.**
 5. Exports de `createAccounts` e das fábricas permanecem. Sessão: o token cru nunca é guardado (só `sha256`).
@@ -90,11 +90,13 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 | `GOOGLE_CLIENT_ID` | Liga o login com Google (hoje desligado; se ligar, refazer a política e o formulário "Segurança dos dados") |
 | `CHAT_ENABLED`, `PUSH_ENABLED`, `VAPID_*`, `CSP_MODE`, `MAX_IMAGES`, `CH_COUNTDOWN_MS`, `CH_GRACE_MS`, `REMATCH_MS`, `INVITE_MS`, `CODE_LEN`, `DB_POOL_MAX`, `ACC_RATE_MULT` | Ajustes opcionais (veja `README.md` e `SEGURANCA.md`) |
 | `CH_START_FIRST_MS` (700), `CH_AUTO_FIRST_MS` (240), `CH_AUTO_STEP_MS` (190) | Tempos da caixa mágica do Quebrando Cabeças: atraso da 1ª peça na largada, atraso da 1ª peça das rodadas seguintes e intervalo entre as peças |
+| `SNAP_FACTOR` (0,5) | O **ímã de encaixe**: fração do tamanho da casa. Aceita de 0,25 a 0,75; qualquer outro valor é ignorado e vale 0,5. O `/diagnostico` mostra o valor em uso (`encaixe.raio_em_casas`). Para deixar o jogo mais difícil, baixe (ex.: 0,4); para encaixar mais fácil, suba (ex.: 0,6) |
 
 ## 7. Histórico recente (mais novo primeiro)
 
 | PR | Quando | O que entrou |
 | --- | --- | --- |
+| (rodada `ima-mais-forte`) | 10/11 | **Ímã de encaixe mais forte**: `SNAP` de 0,33 para **0,5** da casa (Cooperativo, Solo e os dois modos da Sala Desafio), por pedido do proprietário. Só o raio mudou. Valor ajustável com `SNAP_FACTOR` |
 | (rodada `colecao-bau-e-desafio`) | 10/11 | **Baú das Maravilhas** (29 imagens, 6ª categoria, 30 gemas); **Sala Desafio sem giro**; **caixa mágica automática** no Quebrando Cabeças (cospe a 1ª rodada na largada e as seguintes sozinha); migração `013` (desbloqueio de categorias novas) e `014` (lote de imagens) |
 | #57 `aviso-denuncia-email` | 09/11 | Cada denúncia nova gera um e-mail ao responsável (código de amigo, motivo, onde, nota e comandos SQL prontos), sem identificar quem denunciou; teto por hora; `/diagnostico` mostra o estado (destino mascarado). Falha ou lentidão do Brevo **nunca** atrasa nem derruba a denúncia |
 | #56 e #55 `prepara-play-store` | 09/11 | 13+ no cadastro; política de privacidade reescrita; página `excluir-conta.html`; **denúncia** (perfil, ações do amigo e menu da sala), migração `012`; galeria sem imagens de risco |
@@ -132,10 +134,10 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 # banco temporário local (nunca Neon/Render): DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test
 export DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test GEMAS_TEST_DB=1 CI=true
 psql ... -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-npm ci && npm run migrate && npm test      # esperado hoje: 388 testes, 0 falhas
+npm ci && npm run migrate && npm test      # esperado hoje: 395 testes, 0 falhas
 npm audit --omit=dev                        # esperado: 0 vulnerabilidades
 ```
-Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se 379 passando e 9 pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
+Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se 386 passando e 9 pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
 
 ## 10. Fluxo com o proprietário (regras do projeto)
 
@@ -171,6 +173,8 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 | (só do teste) 8 testes de PostgreSQL falharam com `ECONNREFUSED` | O banco local do meu ambiente cai de vez em quando | Reiniciar o banco e repetir; não é defeito do código |
 | (só do teste) o 2º cenário reabria a sala do 1º | O app guarda a sala por até 3 h e volta sozinho para ela | Navegadores novos a cada cenário |
 | (só do teste) `ERR_UNSAFE_PORT` | O Chrome bloqueia as portas 5060 e 5061 | Usar outras portas nos roteiros |
+| Relato de "ímã fraco" na Sala Desafio | **Não era regressão**: o raio era 0,33 da casa desde o 1º commit (23/10) e as medições em navegador (versão de 31/10 e a atual, mouse e toque, Cooperativo e Desafio) deram o mesmo limite (encaixa até 0,31, recusa de 0,34). O encaixe nunca aconteceu durante o arrasto. Em 48 peças a folga era de só 16 px (em tela de 390 px). O que mudou em 31/10 foi visual (a peça fica pequena nas casas da borda até entrar inteira na grade) | O proprietário pediu um ímã mais forte: raio 0,5 (25 px em 48 peças, 61 px em 12). Reforço, não restauração: **não existe no histórico um valor anterior maior** |
+| (só do teste) `busy` ao criar muitas salas | Limite de 12 salas por 10 min por IP (`ROOM_CREATES_PER_10MIN`) | Os testes que criam muitas salas sobem o servidor com `ROOM_CREATES_PER_10MIN=100` (só no teste) |
 
 ## 12. Pendências e riscos abertos (em ordem)
 
@@ -186,6 +190,7 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 10. O prazo de **15 dias** prometido na política e na página de exclusão precisa ser cumprido (ver `SEGURANCA.md`, seção 12, para revisar as denúncias).
 11. **Estilo das imagens do Baú das Maravilhas:** desenho bem infantil (planetas, castelos de doces, dinossauros). Não há personagem de terceiros nem pessoa real, mas isso **pesa contra a declaração de 13+** na Play ("pode atrair crianças"). A autoria e os direitos são do proprietário (o catálogo registra a origem como "enviada pelo proprietário"). Nas capturas da loja, preferir as fotos da Fauna.
 12. **Congelamento de ~2 s ao abrir a partida em celular lento (CPU 1/4):** é a montagem do tabuleiro e **já existia** (medido nas duas versões em 10/11: tempo perdido de 3033 e 3166 ms na versão anterior contra 2833 e 2733 ms na nova). Candidata a otimização futura (preparar a imagem antes da largada).
+13. **Ímã mais forte = jogo um pouco mais fácil.** Com 0,5 a peça encaixa sempre que o centro dela estiver na metade interna da casa. Se os jogadores acharem fácil demais, baixe `SNAP_FACTOR` no Render (sem novo deploy de código). Valores medidos: encaixa até 0,49 e recusa a partir de 0,50 (12 peças); folga em tela de 390 px: 61 px (12 peças) e 25 px (48 peças).
 
 ## 13. O que NÃO foi verificado
 

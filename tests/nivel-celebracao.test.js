@@ -35,5 +35,5 @@ test('medalha e botão acessíveis, movimento reduzido, sem perturbar geometria 
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /html\[data-motion="reduce"\] \.lvup/);
   assert.match(game, /playLevelAnimation\(pending\.from, pending\.to, pending\.gems \|\| 0\)/);          // a celebração toca o som PRÓPRIO (levelup), não o da vitória
-  for (const file of ['server.js', 'challenge.js']) assert.match(read(file), /SNAP: Math\.round\(tile \* 0\.33\)/);
+  for (const file of ['server.js', 'challenge.js']) assert.match(read(file), /SNAP: Math\.round\(tile \* SNAP_FACTOR\)/);
 });

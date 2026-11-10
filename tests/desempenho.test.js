@@ -69,7 +69,7 @@ test('conclusão Solo, Cooperativo e Desafio remove confetes e desfoque pesados,
 test('o servidor mantém magnetismo e canais de comunicação', () => {
   for (const file of ['server.js', 'challenge.js']) {
     const s = read(file);
-    assert.match(s, /SNAP: Math\.round\(tile \* 0\.33\)/);
+    assert.match(s, /SNAP: Math\.round\(tile \* SNAP_FACTOR\)/);
     assert.match(s, /if \(p\.rot !== 0\) return false;/);
     assert.match(s, /if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/);
   }

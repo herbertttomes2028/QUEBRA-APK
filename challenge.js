@@ -23,7 +23,7 @@ const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem 
 
 module.exports = function createChallenge(d) {
   const {
-    io, PRESETS, DEFAULT_PIECES, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
+    io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
     phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
@@ -50,7 +50,7 @@ module.exports = function createChallenge(d) {
       FIELD_W, FIELD_H: Math.round(stripTop + stripH),
       BOARD_W: BW, BOARD_H: boardH, BOARD_X: Math.round((FIELD_W - BW) / 2), BOARD_Y,
       TRAY_LINE: BOARD_Y + boardH + 20,
-      SNAP: Math.round(tile * 0.33),
+      SNAP: Math.round(tile * SNAP_FACTOR),             // o mesmo ímã do cooperativo (valor vem do server.js)
       MAX_ROT, HINTS,
       TRAY_TOP: stripTop, PER_ROW: 3, TRAY_ROWS: 1, ROW_GAP: 10,
       GIFT: { x: Math.round(boxW / 2 + 8), y: cy, w: boxW, slots, max: BOX_MAX }
