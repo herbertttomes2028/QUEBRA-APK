@@ -24,7 +24,7 @@ function evaluateMethods(names, ctx) {
   for (const name of names) vm.runInNewContext(method(game, name), ctx, { filename: 'game.js:' + name });
 }
 
-test('peças normais nascem orientadas; a Sala Desafio continua recebendo giros', () => {
+test('peças normais nascem orientadas; a Sala Desafio também (o servidor da disputa zera o giro)', () => {
   const source = server.slice(server.indexOf('function buildPieces('), server.indexOf('\nfunction createRoom(', server.indexOf('function buildPieces(')));
   assert.ok(source.startsWith('function buildPieces('));
   const ctx = {
@@ -38,11 +38,11 @@ test('peças normais nascem orientadas; a Sala Desafio continua recebendo giros'
   const challenge = ctx.buildPieces(cfg);
   assert.equal(coop.length, 6);
   assert.ok(coop.every(p => p.rot === 0 && p.locked === false));
-  assert.ok(challenge.every(p => p.rot === 3), 'o desafio não perdeu giros aleatórios');
+  assert.ok(challenge.every(p => p.rot === 3), 'a função compartilhada não mudou; a Sala Desafio zera o giro depois (challenge.js)');
   assert.match(server, /pieces: buildPieces\(cfg, true\)/);
   assert.match(server, /room\.pieces = buildPieces\(room\.cfg, true\)/);
-  assert.match(duel, /buildPieces\(cfg\)\.map/, 'modo comum da Sala Desafio continua aleatório');
-  assert.match(duel, /rot: rnd\(0, 3\), out: false/, 'Quebrando Cabeças continua aleatório');
+  assert.match(duel, /buildPieces\(cfg\)\.map\(\(p\) => \(\{ id: p\.id, col: p\.col, row: p\.row, x: p\.x, y: p\.y, rot: 0, out: true \}\)\)/, 'modo comum da Sala Desafio: tudo orientado');
+  assert.match(duel, /rot: 0, out: false/, 'Quebrando Cabeças: peças orientadas');
 });
 
 test('servidor do Solo/Cooperativo não permite que cliente antigo mude a rotação', () => {
@@ -53,8 +53,8 @@ test('servidor do Solo/Cooperativo não permite que cliente antigo mude a rotaç
   assert.match(handler, /p\.rot = 0;/);
   assert.doesNotMatch(handler, /p\.rot = \(p\.rot \+ 1\) % 4/);
   assert.doesNotMatch(handler, /tryLock\(/, 'pacotes velhos não encaixam peça sem arrastar e soltar');
-  assert.match(duel, /socket\.on\('ch:rotate'/);
-  assert.match(duel, /p\.rot = \(p\.rot \+ 1\) % 4/);
+  assert.match(duel, /socket\.on\('ch:rotate', \(\) => \{\}\);/, 'a disputa aceita o evento antigo e o ignora');
+  assert.doesNotMatch(duel, /p\.rot = \(p\.rot \+ 1\) % 4/);
 });
 
 test('pacote Socket.IO rotate legado devolve rot=0, sem girar ou encaixar', () => {
@@ -81,9 +81,9 @@ test('pacote Socket.IO rotate legado devolve rot=0, sem girar ou encaixar', () =
   assert.equal(messages.some(m => m.name === 'locked'), false);
 });
 
-test('cliente só gira em Desafio e toque repetido solta peça no Solo/Cooperativo', () => {
+test('em nenhum modo o cliente gira: tocar de novo na peça escolhida apenas a solta (Solo, Cooperativo e Sala Desafio)', () => {
   const events = [];
-  const p = { id: 0, locked: false, rot: 2, rotUsed: 0, dirty: false };
+  const p = { id: 0, locked: false, rot: 0, rotUsed: 0, dirty: false };
   const state = { selectedId: 0, pieces: [p], duel: null, drag: null };
   const ctx = {
     state, setAngle: (piece, rot) => { piece.rot = rot; },
@@ -91,35 +91,27 @@ test('cliente só gira em Desafio e toque repetido solta peça no Solo/Cooperati
     vibrate: () => {}, resetIdle: () => {}, updateUi: () => {}, refreshLamp: () => {},
     dropSelected: () => events.push({ name: 'drop' }),
   };
-  evaluateMethods(['rotateSelected', 'endPointer'], ctx);
-  ctx.rotateSelected();
-  assert.equal(p.rot, 2, 'em modo normal não gira');
-  assert.equal(events.length, 0);
-  state.drag = { pointerId: 1, id: 0, wasSelected: true, moved: false };
-  ctx.endPointer({ pointerId: 1 }, false);
-  assert.equal(events[0].name, 'drop', 'segundo toque apenas solta');
-  events.length = 0;
-  state.duel = { mode: 'comum' };
-  state.drag = { pointerId: 1, id: 0, wasSelected: true, moved: false };
-  ctx.endPointer({ pointerId: 1 }, false);
-  assert.equal(p.rot, 3, 'em desafio o segundo toque gira');
-  assert.equal(events[0].name, 'rotate');
-  assert.match(game, /if \(state\.duel && \(e\.key === 'r' \|\| e\.key === 'R'\)\) rotateSelected\(\)/);
+  evaluateMethods(['endPointer'], ctx);
+  assert.equal(typeof ctx.rotateSelected, 'undefined', 'a função de girar não existe mais');
+  for (const duel of [null, { mode: 'comum' }, { mode: 'quebra' }]) {
+    events.length = 0; state.duel = duel;
+    state.drag = { pointerId: 1, id: 0, wasSelected: true, moved: false };
+    ctx.endPointer({ pointerId: 1 }, false);
+    assert.deepEqual(events.map((e) => e.name), ['drop'], 'segundo toque apenas solta (modo ' + (duel ? duel.mode : 'solo/coop') + ')');
+    assert.equal(p.rot, 0, 'a peça nunca muda de orientação');
+  }
 });
 
-test('rótulo de giro aparece somente na Sala Desafio', () => {
+test('sem etiqueta de giro e sem o ▲ de "lado de cima" em nenhum modo', () => {
   const p = { mine: true, theirs: false, heldBy: 0,
     tag: { textContent: '', classList: { toggle() {} } } };
   const state = { duel: null };
   const ctx = { state, displayName: () => 'Amigo' };
   evaluateMethods(['paintLabel'], ctx);
-  ctx.paintLabel(p);
-  assert.equal(p.tag.textContent, '');
-  state.duel = { mode: 'quebra' };
-  ctx.paintLabel(p);
-  assert.equal(p.tag.textContent, '↻');
+  for (const duel of [null, { mode: 'comum' }, { mode: 'quebra' }]) { state.duel = duel; p.tag.textContent = 'x'; ctx.paintLabel(p); assert.equal(p.tag.textContent, '', 'a peça escolhida não leva etiqueta de giro'); }
   assert.match(css, /\.piece\.mine \.tag:empty \{ display: none; \}/);
-  assert.match(game, /classList\.toggle\('rotation-enabled', !!state\.duel\)/);
+  assert.doesNotMatch(game, /classList\.toggle\('rotation-enabled'/, 'o ▲ não é mais ligado na Sala Desafio');
+  assert.match(game, /classList\.remove\('rotation-enabled'\)/);
   assert.match(css, /#screen-game:not\(\.rotation-enabled\) \.puzzle-orientation \{ display: none; \}/);
 });
 
@@ -164,16 +156,18 @@ test('ativação visual das duas ajudas não interfere na outra', () => {
   assert.match(css, /#screen-game\.done \.hud-hints\s*\{\s*display: none;/);
 });
 
-test('tutorial infantil pula cena de giro, mas explica ambas as ajudas; Desafio mostra giro', () => {
+test('tutorial sem o passo de girar em nenhum modo, e ainda explica as duas ajudas', () => {
   const state = { duel: null };
   const ctx = { state, tut: { i: 0 } };
   evaluateMethods(['tutSteps', 'nextTutStep'], ctx);
-  assert.deepEqual(Array.from(ctx.tutSteps()), [0, 2, 3]);
-  assert.equal(ctx.nextTutStep(1), 2);
-  state.duel = { mode: 'comum' };
-  assert.deepEqual(Array.from(ctx.tutSteps()), [0, 1, 2, 3]);
-  assert.equal(ctx.nextTutStep(1), 1);
-  assert.match(game, /b\.hidden = !state\.duel && Number\(b\.getAttribute\('data-i'\)\) === 1/);
+  for (const duel of [null, { mode: 'comum' }, { mode: 'quebra' }]) {
+    state.duel = duel;
+    assert.deepEqual(Array.from(ctx.tutSteps()), [0, 2, 3], 'arrastar, zoom e ajudas');
+    ctx.tut.i = 0; assert.equal(ctx.nextTutStep(1), 2, 'do primeiro passo vai direto ao zoom');
+  }
+  assert.match(game, /b\.hidden = Number\(b\.getAttribute\('data-i'\)\) === 1/);
+  assert.doesNotMatch(game, /toque nela de novo para girar/);
+  assert.ok(!html.includes('data-scene="1"') && !html.includes('data-i="1"'), 'a cena e a bolinha do passo de girar saíram do HTML');
   assert.match(game, /Os dois botões ficam lado a lado/);
 });
 
