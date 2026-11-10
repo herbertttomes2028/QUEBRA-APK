@@ -31,7 +31,7 @@ test('sem giro em nenhum modo: Solo, Cooperativo e Sala Desafio (o evento antigo
 
 test('distância magnética e condição de orientação preservadas nos dois modos', () => {
   for (const src of [read('server.js'), read('challenge.js')]) {
-    assert.match(src, /SNAP: Math\.round\(tile \* 0\.33\)/);
+    assert.match(src, /SNAP: Math\.round\(tile \* SNAP_FACTOR\)/);
     assert.match(src, /if \(p\.rot !== 0\) return false;/);
     assert.match(src, /if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/);
   }
