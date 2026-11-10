@@ -22,11 +22,11 @@ function linhas() {
 }
 const rows = linhas();
 
-test('as migrações trazem as 25 imagens originais e as dos lotes (128), sem repetição', () => {
-  assert.equal(rows.length, 128);
-  assert.equal(new Set(rows.map((r) => r.file)).size, 128);
+test('as migrações trazem as 25 imagens originais e as dos lotes (157), sem repetição', () => {
+  assert.equal(rows.length, 157);
+  assert.equal(new Set(rows.map((r) => r.file)).size, 157);
   const porCat = {}; for (const r of rows) (porCat[r.cat] = porCat[r.cat] || []).push(r);
-  assert.deepEqual(Object.fromEntries(Object.entries(porCat).map(([c, l]) => [c, l.length])), { fauna: 19, biomas: 20, espaco: 11, cultura: 15, fantasia: 63 });
+  assert.deepEqual(Object.fromEntries(Object.entries(porCat).map(([c, l]) => [c, l.length])), { fauna: 19, biomas: 20, espaco: 11, cultura: 15, fantasia: 63, 'bau-maravilhas': 29 });
   for (const [c, l] of Object.entries(porCat)) assert.deepEqual(l.map((r) => r.ordem).sort((a, b) => a - b), l.map((_, i) => i + 1), 'ordem 1..N sem buracos em ' + c);
 });
 
@@ -51,12 +51,21 @@ test('nenhum arquivo sobrando na pasta e nenhum arquivo do lote sem linha na mig
   }
 });
 
-test('proveniência: TODA imagem nova tem fonte (com endereço da página) e licença de domínio público; rótulos únicos por categoria', () => {
+test('proveniência: toda imagem nova tem origem rastreável (Wikimedia em domínio público, ou as do proprietário na coleção própria); rótulos únicos por categoria', () => {
   const novas = rows.filter((r) => !r.mig.startsWith('008'));
-  assert.equal(novas.length, 103);
-  for (const r of novas) {
+  assert.equal(novas.length, 132);
+  // 1) as 103 imagens da Wikimedia: fonte com o endereço da página e licença de domínio público (regra original, sem exceção)
+  const wiki = novas.filter((r) => r.cat !== 'bau-maravilhas'); assert.equal(wiki.length, 103);
+  for (const r of wiki) {
     assert.match(r.fonte, /^Wikimedia Commons: .+ commons\.wikimedia\.org\/wiki\/File:/, r.file + ': fonte sem a página de origem');
     assert.match(r.lic, /^Domínio público/, r.file);
+    assert.ok(r.label.length >= 3 && r.label.length <= 60, r.file);
+  }
+  // 2) as 29 do "Baú das Maravilhas": enviadas pelo proprietário, com texto exato (não vira brecha para outra origem)
+  const donas = novas.filter((r) => r.cat === 'bau-maravilhas'); assert.equal(donas.length, 29);
+  for (const r of donas) {
+    assert.match(r.fonte, /^Enviada pelo proprietário do jogo \(arquivo original: [0-9A-Za-z_]+_3x4_HD\.png\)$/, r.file);
+    assert.equal(r.lic, 'Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso', r.file);
     assert.ok(r.label.length >= 3 && r.label.length <= 60, r.file);
   }
   const rot = new Set(); for (const r of rows) { const k = r.cat + '|' + r.label; assert.ok(!rot.has(k), 'rótulo repetido: ' + k); rot.add(k); }

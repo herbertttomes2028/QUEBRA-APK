@@ -5,10 +5,9 @@
  * o tempo, o progresso e o vencedor (o celular só mostra e envia gestos).
  *
  * Modos:
- *   comum  — a bandeja de sempre; os dois recebem as peças nas MESMAS posições e giros.
- *   quebra — "Quebrando Cabeças": grade maior, sem bandeja; uma caixa de presentes libera uma
- *            peça por toque (até 3 por rodada). A rodada só recomeça quando todas as peças
- *            pedidas nela forem encaixadas.
+ *   comum  — a bandeja de sempre; os dois recebem as peças nas MESMAS posições, todas já na orientação certa (não há giro).
+ *   quebra — "Quebrando Cabeças": grade maior, sem bandeja; uma caixa mágica cospe as peças SOZINHA: já na largada
+ *            (1ª rodada de até 3) e, depois, as próximas 3 sempre que as que saíram forem encaixadas. Ninguém toca na caixa.
  *
  * Este módulo é independente do modo cooperativo (server.js): salas, eventos (prefixo "ch:") e
  * tabuleiros próprios. Só reaproveita as ferramentas do servidor (layout, peças, push, nomes...).
@@ -19,6 +18,7 @@ const GRACE_MS = Number(process.env.CH_GRACE_MS) || 45000;           // tempo pa
 const BOX_MAX = 3;                                                   // peças que a caixa libera por rodada
 const AUTO_FIRST_MS = Number(process.env.CH_AUTO_FIRST_MS) || 240;   // depois de encaixar a 3ª peça, a caixa espera um instante e cospe a 1ª
 const AUTO_STEP_MS = Number(process.env.CH_AUTO_STEP_MS) || 190;    // intervalo entre as peças cuspidas
+const START_FIRST_MS = Number(process.env.CH_START_FIRST_MS) || 700; // na largada: a caixa sacode um instante e cospe a 1ª peça
 const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem (vence a habilidade, não a sorte)
 
 module.exports = function createChallenge(d) {
@@ -82,10 +82,10 @@ module.exports = function createChallenge(d) {
     let template;
     if (room.mode === 'quebra') {
       template = Array.from({ length: total }, (_, id) => ({
-        id, col: id % cfg.COLS, row: Math.floor(id / cfg.COLS), x: cfg.GIFT.x, y: cfg.GIFT.y, rot: rnd(0, 3), out: false
+        id, col: id % cfg.COLS, row: Math.floor(id / cfg.COLS), x: cfg.GIFT.x, y: cfg.GIFT.y, rot: 0, out: false
       }));
     } else {
-      template = buildPieces(cfg).map((p) => ({ id: p.id, col: p.col, row: p.row, x: p.x, y: p.y, rot: p.rot, out: true }));
+      template = buildPieces(cfg).map((p) => ({ id: p.id, col: p.col, row: p.row, x: p.x, y: p.y, rot: 0, out: true }));      // sem giro: todas já na orientação certa
     }
     const baseOrder = shuffle(Array.from({ length: total }, (_, i) => i));
     room.boards = [0, 1].map(() => ({
@@ -276,6 +276,19 @@ module.exports = function createChallenge(d) {
     room.rematch = [false, false];
     room.players.forEach((p) => { if (p) p.ready = false; });
     for (let i = 0; i < 2; i++) emitTo(room, i, 'ch:start', { snapshot: boardSnapshot(room, i), lobby: lobbyInfo(room) });
+    if (room.mode === 'quebra') spitFirstRound(room);
+  }
+
+  // Quebrando Cabeças: na largada a caixa mágica cospe sozinha a 1ª rodada (até 3 peças) em cada tabuleiro, sem ninguém tocar.
+  // O estado já muda aqui (quem voltar depois da queda de internet recebe as peças no lugar); o cliente só anima, depois de montar o tabuleiro.
+  function spitFirstRound(room) {
+    for (let i = 0; i < 2; i++) {
+      const board = room.boards[i];
+      for (let k = 0; k < BOX_MAX && board.next < board.order.length; k++) {
+        const g = releaseNext(room, i, board);
+        emitTo(room, i, 'ch:gift', Object.assign(g, { auto: true, start: true, k, delay: START_FIRST_MS + k * AUTO_STEP_MS }));
+      }
+    }
   }
 
   function finish(room, winner, reason) {
@@ -339,9 +352,8 @@ module.exports = function createChallenge(d) {
 
     let autoSpit = false;
     if (room.mode === 'quebra' && board.round.length && board.round.every((id) => board.pieces[id].locked)) {
-      const full = board.round.length >= BOX_MAX;       // uma rodada COMPLETA (3 peças) foi encaixada
-      board.round = [];                                  // todas as peças pedidas foram encaixadas: nova rodada
-      if (full && board.next < board.order.length && room.status === 'playing') {
+      board.round = [];                                  // todas as peças que saíram foram encaixadas: nova rodada
+      if (board.next < board.order.length && room.status === 'playing') {
         // a caixa "cospe" sozinha as próximas peças (até 3), uma depois da outra, sem precisar tocar
         for (let k = 0; k < BOX_MAX && board.next < board.order.length; k++) {
           const g = releaseNext(room, idx, board);
@@ -478,16 +490,9 @@ module.exports = function createChallenge(d) {
       p.y = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
     });
 
-    socket.on('ch:rotate', (data) => {
-      const c = ctx(socket);
-      if (!c || !data || c.room.status !== 'playing') return;
-      const p = pieceOf(c.board, data.id);
-      if (!p || p.heldBy !== c.idx || p.locked) return;
-      p.rot = (p.rot + 1) % 4;
-      p.rotUsed = 0; // rotação ilimitada
-      socket.emit('rotated', { id: p.id, rot: p.rot, rotUsed: p.rotUsed });
-      tryLock(c.room, c.idx, c.board, p, socket);
-    });
+    // Sem giro na Sala Desafio: as peças já nascem na orientação certa (rot 0). O evento continua aceito só para clientes antigos
+    // (guardados no celular), mas é ignorado: nenhuma peça muda de orientação e nada é respondido.
+    socket.on('ch:rotate', () => {});
 
     socket.on('ch:drop', (data) => {
       const c = ctx(socket);
@@ -503,18 +508,12 @@ module.exports = function createChallenge(d) {
       socket.emit('released', { id: p.id, by: c.idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
     });
 
-    // 🎁 a caixa libera UMA peça surpresa por toque; até BOX_MAX por rodada
+    // 🎁 a caixa agora é automática (largada e a cada rodada completa): pedir peça por toque não existe mais.
+    // O evento continua aceito só para clientes antigos, que recebem "auto" e não ganham peça extra.
     socket.on('ch:gift', (data, cb) => {
       const c = ctx(socket);
       if (!c) return reply(cb, { ok: false, error: 'room' });
-      const { room, idx, board } = c;
-      if (room.mode !== 'quebra') return reply(cb, { ok: false, error: 'mode' });
-      if (room.status !== 'playing') return reply(cb, { ok: false, error: 'state' });
-      if (board.round.length >= BOX_MAX) return reply(cb, Object.assign({ ok: false, error: 'blocked' }, boxInfo(room, idx)));
-      if (board.next >= board.order.length) return reply(cb, Object.assign({ ok: false, error: 'empty' }, boxInfo(room, idx)));
-      const g = releaseNext(room, idx, board);
-      reply(cb, Object.assign({ ok: true }, g.box));
-      socket.emit('ch:gift', g);
+      reply(cb, Object.assign({ ok: false, error: 'auto' }, boxInfo(c.room, c.idx) || {}));
     });
 
     socket.on('ch:hint', (data, cb) => {

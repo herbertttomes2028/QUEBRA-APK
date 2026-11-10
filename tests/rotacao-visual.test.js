@@ -7,7 +7,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const read = (name) => fs.readFileSync(path.join(ROOT, name), 'utf8');
 
-test('rotação preservada só na Sala Desafio; Solo e Cooperativo sem giro', () => {
+test('sem giro em nenhum modo: Solo, Cooperativo e Sala Desafio (o evento antigo continua aceito, mas ignorado)', () => {
   const server = read('server.js');
   const challenge = read('challenge.js');
   const game = read('public/game.js');
@@ -15,15 +15,18 @@ test('rotação preservada só na Sala Desafio; Solo e Cooperativo sem giro', ()
   assert.ok(!/if\s*\(p\.rotUsed\s*>=\s*MAX_ROT\)/.test(server + challenge));
   assert.ok(!/if\s*\(p\.rotUsed\s*>=\s*state\.cfg\.MAX_ROT\)/.test(game));
   assert.ok(/socket\.on\('rotate'/.test(server));
-  assert.ok(/socket\.on\('ch:rotate'/.test(challenge));
+  assert.ok(/socket\.on\('ch:rotate'/.test(challenge), 'o evento continua existindo para clientes antigos');
+  assert.match(challenge, /socket\.on\('ch:rotate', \(\) => \{\}\);/, 'e não faz nada');
   assert.ok(!/p\.rot = \(p\.rot \+ 1\) % 4/.test(server), 'cooperativo não gira');
+  assert.ok(!/p\.rot = \(p\.rot \+ 1\) % 4/.test(challenge), 'a Sala Desafio também não gira');
+  assert.doesNotMatch(challenge, /emit\('rotated'/, 'o servidor da disputa nunca anuncia giro');
   assert.match(server, /rot: readyToFit \? 0 : rnd\(0, 3\)/);
   assert.match(server, /pieces: buildPieces\(cfg, true\)/);
   assert.match(server, /room\.pieces = buildPieces\(room\.cfg, true\)/);
-  assert.ok(/p\.rot = \(p\.rot \+ 1\) % 4/.test(challenge));
-  assert.ok(/setAngle\(p, \(p\.rot \+ 1\) % 4\)/.test(game));
-  assert.match(game, /if \(!state\.duel \|\| state\.selectedId === null\) return;/);
-  assert.match(game, /if \(state\.duel\) rotateSelected\(\)/);
+  assert.doesNotMatch(game, /rotateSelected/);
+  assert.ok(!/setAngle\(p, \(p\.rot \+ 1\) % 4\)/.test(game), 'o cliente não gira peça por conta própria');
+  assert.doesNotMatch(game, /gameEmit\('rotate'/);
+  assert.doesNotMatch(game, /e\.key === 'r'/, 'a tecla R não gira mais');
 });
 
 test('distância magnética e condição de orientação preservadas nos dois modos', () => {

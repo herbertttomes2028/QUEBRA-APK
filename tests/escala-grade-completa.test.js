@@ -271,15 +271,16 @@ test('geometria é pura: baseScale não lê layout nem toca DOM, desenha apenas 
   assert.equal(ctx.baseScale(p), 1);
 });
 
-test('orientação correta no Solo/Coop e giros no Desafio não mudaram', () => {
+test('orientação correta nos três modos: Solo/Coop como antes e Sala Desafio sem giro', () => {
   const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const challenge = fs.readFileSync(path.join(root, 'challenge.js'), 'utf8');
   assert.match(server, /rot: readyToFit \? 0 : rnd\(0, 3\)/);
   assert.match(server, /pieces: buildPieces\(cfg, true\)/);
   assert.match(server, /room\.pieces = buildPieces\(room\.cfg, true\)/);
   assert.match(challenge, /buildPieces\(cfg\)\.map/);
-  assert.match(challenge, /rot: rnd\(0, 3\), out: false/);
-  assert.match(game, /if \(state\.duel\) rotateSelected\(\)/);
+  assert.match(challenge, /rot: 0, out: false/, 'Quebrando Cabeças: peças nascem orientadas');
+  assert.match(challenge, /rot: 0, out: true \}\)\);/, 'Comum: peças da bandeja nascem orientadas');
+  assert.doesNotMatch(game, /rotateSelected/);
   assert.match(game, /function setZoom\(/);
   assert.match(game, /Ela só cresce quando entra completamente na grade/);
   assert.match(game, /socket\.volatile\.emit\(state\.duel \? 'ch:move' : 'move'/);

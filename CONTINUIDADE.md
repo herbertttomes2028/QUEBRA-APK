@@ -1,6 +1,6 @@
 # CONTINUIDADE — ESTADO ATUAL DO PROJETO (LEIA ESTA SEÇÃO PRIMEIRO)
 
-**Atualizado em:** 09/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `9321010` (Merge do PR #57, "aviso-denuncia-email"), com 282 commits e **370 testes passando** (51 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
+**Atualizado em:** 10/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `163ab32` (Merge do PR #60, "teste-play-store"). O pacote da rodada **"colecao-bau-e-desafio"** parte dela e leva a suíte a **388 testes passando** (55 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
 Esta seção substitui qualquer estado descrito mais abaixo. O que vem depois da linha **"HISTÓRICO ANTERIOR PRESERVADO"** são as notas das rodadas até 31/10/2026, mantidas sem alteração: servem de arquivo, **podem estar desatualizadas** e não descrevem o mascote, as conquistas novas, a preparação da Play Store nem as denúncias.
 
 > **Regra de ouro ao abrir uma sessão nova:** (1) rode `git ls-remote https://github.com/herbertttomes2028/QUEBRA-APK refs/heads/main` e compare com o commit acima; (2) se for diferente, **não parta deste arquivo**: clone a `main` e releia o que mudou; (3) nunca parta de pacote ou clone antigo; (4) uma saída de `git fetch` cortada **não prova** nada (já causou um pacote inteiro descartado em 02/11/2026).
@@ -34,7 +34,8 @@ Jogo de quebra-cabeça online para dois jogadores (cooperativo, Solo e **Sala De
 | `public/sw.js`, `boot.js`, `manifest.webmanifest` | 166, 9, 20 | Service worker (`quebra-cabeca-v21`), abertura sem piscar, manifesto |
 | `public/privacidade.html`, `excluir-conta.html` | 103, 49 | Política (13+) e página pública de exclusão de conta (URL pedida pela Play) |
 | `public/assetlinks.json` | 13 | Vínculo site–aplicativo (veja a seção 8) |
-| `public/imagens/` | 9 + `mini/` | **Só** as 9 ilustrações originais do jogo (o resto vem da biblioteca no banco) |
+| `public/imagens/` | 9 + `mini/` | **Só** as 9 ilustrações originais do jogo |
+| `public/biblioteca/` | 157 + `mini/` | Imagens da biblioteca (catálogo no banco): 128 de domínio público (Wikimedia) + as 29 do **Baú das Maravilhas** (enviadas pelo proprietário) |
 | `migrations/` | 12 | `001` a `012` (veja a seção 3) |
 | `tests/` | 51 | Suíte completa; `tests/LEIA-ME.md` explica como rodar |
 | `.github/workflows/` | 2 | `gemas-postgres.yml` (Node 22 + PostgreSQL 16 + suíte completa), `seguranca-dependencias.yml` |
@@ -42,7 +43,9 @@ Jogo de quebra-cabeça online para dois jogadores (cooperativo, Solo e **Sala De
 
 ## 3. Banco de dados
 
-Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_seguranca`, `003_xp`, `004_modo_solo`, `005_gemas`, `006_biblioteca`, `007_remover_fotos_enviadas`, `008_catalogo_biblioteca`, `009`, `010`, `011` (lotes de imagens), **`012_denuncias`**.
+Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_seguranca`, `003_xp`, `004_modo_solo`, `005_gemas`, `006_biblioteca`, `007_remover_fotos_enviadas`, `008_catalogo_biblioteca`, `009`, `010`, `011` (lotes de imagens), **`012_denuncias`**. Depois: **`013_desbloqueio_categorias_novas`** e **`014_imagens_2026-11-d`** (veja abaixo).
+- **`013_desbloqueio_categorias_novas`:** a `006` só deixava desbloquear `cultura` e `fantasia` (`CHECK`); qualquer categoria paga nova dava **erro 500** na compra. A `013` troca essa trava por uma chave estrangeira com `library_categories` (as compras antigas continuam). **Lição:** toda categoria `gems` nova depende disso; o teste `tests/desbloqueio-categoria-nova-postgres.test.js` cobre.
+- **`014_imagens_2026-11-d`:** o **Baú das Maravilhas** (`bau-maravilhas`, ordem 6, **30 gemas**, 29 imagens `lib-bau-01..29`, fonte "Enviada pelo proprietário"). Gerada por `scripts/gerar-lote-imagens.js` a partir de `scripts/lotes/2026-11-d.json`. Para mudar o preço depois, só com uma migração nova (`UPDATE library_categories SET price = …`); as existentes são imutáveis.
 - **Migrações existentes são imutáveis.** Há trava por hash em `tests/migrations.sha256.json`. Uma migração nova entra com o próximo número, o hash dela é acrescentado a esse arquivo **e** a lista esperada em `tests/gemas-postgres.test.js` é atualizada (esquecer isso derruba o CI).
 - **Excluir uma conta apaga tudo em cascata** (toda tabela ligada a `users` usa `ON DELETE CASCADE`; um teste confere isso). A página `excluir-conta.html` promete exatamente isso.
 - Tabela `reports` (denúncias): `reporter`, `reported`, `reason` (`apelido|comportamento|outro`), `context` (`perfil|amigos|sala`), `note` (até 200), `reported_name` (o apelido da hora), `status` (`novo|analisado|resolvido`).
@@ -52,6 +55,7 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 - **HTTP do servidor:** `GET /.well-known/assetlinks.json`, `/api/config`, `/diagnostico`, `/health`; `POST /api/csp-report`.
 - **Contas (`/api/acc`):** `status`, `register`, `login`, `verify`, `verify/resend`, `password/forgot|reset|change`, `google`, `logout`, `logout-all`, `blocks` (GET/POST/remove), **`reports`**, `me`, `achievements`, `profile`, `import`, `delete`, `friends` (+ `search`, `request`, `respond`, `remove`, `profile`), `matches`, `library` (+ `unlock`), `save` (+ `discard`).
 - **Socket (cliente→servidor):** cooperativo `create join grab move drop rotate hint spot chat imgready restart rematch:answer rematch:cancel push:subscribe push:unsubscribe`; Desafio `ch:create ch:join ch:ready ch:grab ch:move ch:drop ch:rotate ch:gift ch:hint ch:spot ch:chat ch:imgready ch:leave ch:rematch ch:push:*`; contas `acc:auth acc:logout acc:continue acc:blockPeer` e **`acc:reportPeer`**; convites `inv:send inv:respond`.
+- **Sala Desafio (mudança de 10/11):** `ch:rotate` e `ch:gift` **continuam existindo só para clientes antigos**: o primeiro é ignorado (nada gira) e o segundo responde `{ok:false, error:'auto'}`. A caixa agora cospe sozinha: `ch:gift` chega do servidor com `auto:true`, `k` (0 a 2), `delay` e, na largada, `start:true`.
 - **Servidor→cliente:** `state meta grabbed moved released locked rotated won deny chat rematch`, `ch:lobby ch:countdown ch:progress ch:box ch:gift ch:end ch:cancel ch:rematch`, `acc:ev`.
 
 ## 5. Contratos que NÃO podem ser quebrados (todos têm teste)
@@ -70,6 +74,8 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
    - A galeria padrão (`public/imagens/`) contém **só** as 9 ilustrações originais. Teste proíbe personagens de terceiros, pessoas reais e origem desconhecida (a pasta já teve Batman, Stitch, Angel, Lula, Jesus e Aparecida; foram removidos para a loja).
    - A linguagem da loja, do app e da política **nunca** apresenta o jogo como infantil.
    - `public/assetlinks.json` mantém o pacote certo e as impressões digitais conhecidas (`tests/assetlinks.test.js`).
+   - **Sala Desafio sem giro (10/11/2026):** as peças **nascem com `rot 0`** nos dois modos e nos dois tabuleiros (a regra de encaixe `tryLock` não mudou); o cliente **não gira, não mostra ▲ nem ↻** e o tutorial não tem o passo "Girar". O Solo e o Cooperativo já eram assim.
+   - **Quebrando Cabeças: caixa automática.** Na largada o servidor cospe a 1ª rodada (3 peças) em **cada** tabuleiro, **na mesma ordem** (`spitFirstRound`, só depois do `ch:start`); a cada rodada encaixada cospe as 3 seguintes. **Ninguém toca na caixa** (ela é um `div`, não botão). O cliente **guarda numa fila** (`giftQ`) as peças que chegam antes de o tabuleiro estar montado (a montagem é assíncrona) e as anima ao ficar pronto; quem volta de uma queda recebe as peças no lugar pelo snapshot, sem repetir a animação.
    - **Nenhum segredo no repositório** (`tests/sem-segredos.test.js`, roda em todo Pull Request): sem chaves de API (Brevo, Google, GitHub, AWS, Slack), sem chave VAPID privada, sem endereço de banco com senha fora do computador local, sem senha ou token escritos como texto no código, e sem arquivo `.keystore/.jks/.p12/.pem/.key`, `.env`, `dados-da-chave.txt`, pasta `chave-de-envio/`, `.apk` ou `.aab`. Segredos vivem **só** no painel do Render (Environment) e no computador do proprietário. Valores de mentira em testes devem ser **gerados na hora** (`crypto.randomBytes`), nunca escritos fixos.
 
 ## 6. Variáveis de ambiente (painel do Render › Environment; nunca no GitHub)
@@ -83,11 +89,13 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 | `ASSETLINKS_JSON` | Conteúdo do vínculo Android; **vence** o arquivo `public/assetlinks.json` |
 | `GOOGLE_CLIENT_ID` | Liga o login com Google (hoje desligado; se ligar, refazer a política e o formulário "Segurança dos dados") |
 | `CHAT_ENABLED`, `PUSH_ENABLED`, `VAPID_*`, `CSP_MODE`, `MAX_IMAGES`, `CH_COUNTDOWN_MS`, `CH_GRACE_MS`, `REMATCH_MS`, `INVITE_MS`, `CODE_LEN`, `DB_POOL_MAX`, `ACC_RATE_MULT` | Ajustes opcionais (veja `README.md` e `SEGURANCA.md`) |
+| `CH_START_FIRST_MS` (700), `CH_AUTO_FIRST_MS` (240), `CH_AUTO_STEP_MS` (190) | Tempos da caixa mágica do Quebrando Cabeças: atraso da 1ª peça na largada, atraso da 1ª peça das rodadas seguintes e intervalo entre as peças |
 
 ## 7. Histórico recente (mais novo primeiro)
 
 | PR | Quando | O que entrou |
 | --- | --- | --- |
+| (rodada `colecao-bau-e-desafio`) | 10/11 | **Baú das Maravilhas** (29 imagens, 6ª categoria, 30 gemas); **Sala Desafio sem giro**; **caixa mágica automática** no Quebrando Cabeças (cospe a 1ª rodada na largada e as seguintes sozinha); migração `013` (desbloqueio de categorias novas) e `014` (lote de imagens) |
 | #57 `aviso-denuncia-email` | 09/11 | Cada denúncia nova gera um e-mail ao responsável (código de amigo, motivo, onde, nota e comandos SQL prontos), sem identificar quem denunciou; teto por hora; `/diagnostico` mostra o estado (destino mascarado). Falha ou lentidão do Brevo **nunca** atrasa nem derruba a denúncia |
 | #56 e #55 `prepara-play-store` | 09/11 | 13+ no cadastro; política de privacidade reescrita; página `excluir-conta.html`; **denúncia** (perfil, ações do amigo e menu da sala), migração `012`; galeria sem imagens de risco |
 | #54 `mascote-ajustes` | 08/11 | Chave "Mascote na tela inicial" em Ajustes; com movimento reduzido o mascote **some**; animações mais suaves |
@@ -124,10 +132,10 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 # banco temporário local (nunca Neon/Render): DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test
 export DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test GEMAS_TEST_DB=1 CI=true
 psql ... -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-npm ci && npm run migrate && npm test      # esperado hoje: 370 testes, 0 falhas
+npm ci && npm run migrate && npm test      # esperado hoje: 388 testes, 0 falhas
 npm audit --omit=dev                        # esperado: 0 vulnerabilidades
 ```
-Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se cerca de 8 testes pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
+Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se 379 passando e 9 pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
 
 ## 10. Fluxo com o proprietário (regras do projeto)
 
@@ -158,6 +166,11 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 | Entrega do zip sem arquivo para baixar | Esqueci de apresentar o arquivo | Sempre apresentar o arquivo ao entregar |
 | CI vermelho no PR #59: `tests/seguranca-repositorio.test.js` (já existia na `main`) acusou "endereço de banco com senha" em `tests/sem-segredos.test.js` | Um exemplo inofensivo do meu vigia (um modelo de endereço de banco só com variáveis `${USER}`, `${PASS}` e `${HOST}`) casou com o padrão. **Nunca escreva, nem em documentação, um endereço de banco com usuário, senha e servidor seguidos, mesmo de mentira: monte o texto na hora.** **Não apareceu na verificação local porque eu aplicava o zip num clone sem registrar os arquivos no git, e esse teste só lê arquivos acompanhados (`git ls-files`)** | Exemplo montado na hora, em dois pedaços. Método corrigido: ver seção 9 |
 | Senha fixa de teste (`Quebra!Cabeca#2026`) e token de mentira (`segredo-123`) escritos nos testes | Valores inventados, mas literais num repositório público (viram ruído em varredores e mau exemplo) | Gerados na hora com `crypto.randomBytes`; `tests/sem-segredos.test.js` impede a volta |
+| Desbloquear a categoria paga **nova** dava erro 500 (só apareceu no teste em navegador real) | `006` fixou `CHECK (category_id IN ('cultura','fantasia'))` | Migração `013` + `tests/desbloqueio-categoria-nova-postgres.test.js` (compra, cobrança única sob cliques simultâneos, saldo curto, antigas e migração segura) |
+| A própria `013` pulava a criação da chave estrangeira em um esquema temporário | `pg_constraint` é **global**: o nome já existia em outro esquema | Verificação restrita à tabela (`conrelid = 'library_unlocks'::regclass`) |
+| (só do teste) 8 testes de PostgreSQL falharam com `ECONNREFUSED` | O banco local do meu ambiente cai de vez em quando | Reiniciar o banco e repetir; não é defeito do código |
+| (só do teste) o 2º cenário reabria a sala do 1º | O app guarda a sala por até 3 h e volta sozinho para ela | Navegadores novos a cada cenário |
+| (só do teste) `ERR_UNSAFE_PORT` | O Chrome bloqueia as portas 5060 e 5061 | Usar outras portas nos roteiros |
 
 ## 12. Pendências e riscos abertos (em ordem)
 
@@ -171,6 +184,8 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 8. Hospedagem gratuita que dorme; domínio `onrender.com` (trocar exige AAB novo); Neon gratuito.
 9. Contas criadas antes da fase 13+ não passaram pela caixa "Tenho 13 anos ou mais".
 10. O prazo de **15 dias** prometido na política e na página de exclusão precisa ser cumprido (ver `SEGURANCA.md`, seção 12, para revisar as denúncias).
+11. **Estilo das imagens do Baú das Maravilhas:** desenho bem infantil (planetas, castelos de doces, dinossauros). Não há personagem de terceiros nem pessoa real, mas isso **pesa contra a declaração de 13+** na Play ("pode atrair crianças"). A autoria e os direitos são do proprietário (o catálogo registra a origem como "enviada pelo proprietário"). Nas capturas da loja, preferir as fotos da Fauna.
+12. **Congelamento de ~2 s ao abrir a partida em celular lento (CPU 1/4):** é a montagem do tabuleiro e **já existia** (medido nas duas versões em 10/11: tempo perdido de 3033 e 3166 ms na versão anterior contra 2833 e 2733 ms na nova). Candidata a otimização futura (preparar a imagem antes da largada).
 
 ## 13. O que NÃO foi verificado
 
