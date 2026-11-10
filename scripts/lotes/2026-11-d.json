@@ -1,0 +1,248 @@
+{
+  "lote": "2026-11-d",
+  "categorias": [
+    {
+      "id": "bau-maravilhas",
+      "nome": "Baú das Maravilhas",
+      "subtitulo": "Mundos coloridos para montar e se divertir",
+      "icone": "🌈",
+      "ordem": 6,
+      "liberacao": "gems",
+      "preco": 30
+    }
+  ],
+  "imagens": [
+    {
+      "arquivo": "lib-bau-01.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Reino Planetário Encantado",
+      "ordem": 1,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 01_Reino_Planetario_Encantado_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-02.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Aventura na Base Lunar Colorida",
+      "ordem": 2,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 02_Aventura_na_Base_Lunar_Colorida_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-03.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Observatório Estelar em Vila Fantástica",
+      "ordem": 3,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 03_Observatorio_Estelar_em_Vila_Fantastica_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-04.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Jardim Químico Encantado de Cristais",
+      "ordem": 4,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 04_Jardim_Quimico_Encantado_de_Cristais_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-05.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Cidade dos Robôs Cientistas",
+      "ordem": 5,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 05_Cidade_dos_Robos_Cientistas_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-06.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Mundo Submarino da Ciência Fantástica",
+      "ordem": 6,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 06_Mundo_Submarino_da_Ciencia_Fantastica_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-07.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Vale da Descoberta dos Dinossauros",
+      "ordem": 7,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 07_Vale_da_Descoberta_dos_Dinossauros_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-08.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Floresta Microscópica Encantada",
+      "ordem": 8,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 08_Floresta_Microscopica_Encantada_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-09.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "Castelo da Feira de Ciências Fantástica",
+      "ordem": 9,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 09_Castelo_da_Feira_de_Ciencias_Fantastica_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-10.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Reino dos Doces Encantados",
+      "ordem": 10,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 01_O_Reino_dos_Doces_Encantados_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-11.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Cidade Flutuante das Nuvens",
+      "ordem": 11,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 02_A_Cidade_Flutuante_das_Nuvens_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-12.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Floresta dos Cogumelos Gigantes",
+      "ordem": 12,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 03_A_Floresta_dos_Cogumelos_Gigantes_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-13.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Reino Submarino das Cores",
+      "ordem": 13,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 04_O_Reino_Submarino_das_Cores_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-14.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Parque de Diversões Espacial",
+      "ordem": 14,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 05_O_Parque_de_Diversoes_Espacial_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-15.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Castelo dos Arco-Íris",
+      "ordem": 15,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 06_O_Castelo_dos_Arco_Iris_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-16.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Vale dos Dragões Amigáveis",
+      "ordem": 16,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 07_O_Vale_dos_Dragoes_Amigaveis_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-17.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Cidade dos Brinquedos Vivos",
+      "ordem": 17,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 08_A_Cidade_dos_Brinquedos_Vivos_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-18.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Jardim das Flores Gigantes",
+      "ordem": 18,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 09_O_Jardim_das_Flores_Gigantes_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-19.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Ilha dos Dinossauros Divertidos",
+      "ordem": 19,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 10_A_Ilha_dos_Dinossauros_Divertidos_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-20.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Reino do Gelo Colorido",
+      "ordem": 20,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 11_O_Reino_do_Gelo_Colorido_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-21.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Terra das Cachoeiras Flutuantes",
+      "ordem": 21,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 12_A_Terra_das_Cachoeiras_Flutuantes_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-22.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Cidade dos Relógios Mágicos",
+      "ordem": 22,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 13_A_Cidade_dos_Relogios_Magicos_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-23.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Deserto dos Oásis Encantados",
+      "ordem": 23,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 14_O_Deserto_dos_Oasis_Encantados_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-24.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Floresta das Árvores Luminosas",
+      "ordem": 24,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 15_A_Floresta_das_Arvores_Luminosas_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-25.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Planeta dos Robôs Amigáveis",
+      "ordem": 25,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 16_O_Planeta_dos_Robos_Amigaveis_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-26.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Reino das Borboletas Gigantes",
+      "ordem": 26,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 17_O_Reino_das_Borboletas_Gigantes_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-27.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "A Cidade dos Balões Voadores",
+      "ordem": 27,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 18_A_Cidade_dos_Baloes_Voadores_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-28.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Reino Musical Encantado",
+      "ordem": 28,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 19_O_Reino_Musical_Encantado_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-bau-29.webp",
+      "categoria": "bau-maravilhas",
+      "rotulo": "O Labirinto dos Espelhos Mágicos",
+      "ordem": 29,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: 20_O_Labirinto_dos_Espelhos_Magicos_3x4_HD.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    }
+  ]
+}
