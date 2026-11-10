@@ -1,3 +1,183 @@
+# CONTINUIDADE — ESTADO ATUAL DO PROJETO (LEIA ESTA SEÇÃO PRIMEIRO)
+
+**Atualizado em:** 09/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `9321010` (Merge do PR #57, "aviso-denuncia-email"), com 282 commits e **370 testes passando** (51 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
+Esta seção substitui qualquer estado descrito mais abaixo. O que vem depois da linha **"HISTÓRICO ANTERIOR PRESERVADO"** são as notas das rodadas até 31/10/2026, mantidas sem alteração: servem de arquivo, **podem estar desatualizadas** e não descrevem o mascote, as conquistas novas, a preparação da Play Store nem as denúncias.
+
+> **Regra de ouro ao abrir uma sessão nova:** (1) rode `git ls-remote https://github.com/herbertttomes2028/QUEBRA-APK refs/heads/main` e compare com o commit acima; (2) se for diferente, **não parta deste arquivo**: clone a `main` e releia o que mudou; (3) nunca parta de pacote ou clone antigo; (4) uma saída de `git fetch` cortada **não prova** nada (já causou um pacote inteiro descartado em 02/11/2026).
+
+## 1. O que é o projeto
+
+Jogo de quebra-cabeça online para dois jogadores (cooperativo, Solo e **Sala Desafio** com dois modos: Comum e Quebrando Cabeças), em Node + Express + Socket.IO, jogado no celular. Contas opcionais (e-mail e senha), amigos por código, convites, XP e níveis, gemas, conquistas, coleções de imagens, mascote 3D na tela inicial, denúncia e bloqueio de jogadores.
+
+| Item | Valor |
+| --- | --- |
+| Proprietário | Herbert (estudante de Pedagogia, Brasil). Escreve em português e pede respostas diretas e detalhadas |
+| Repositório | `herbertttomes2028/QUEBRA-APK` (público; **nunca** pôr segredos nele) |
+| Hospedagem | Render, plano gratuito (dorme sem uso: primeira resposta leva de 11 a 22 s e **derruba salas abertas**). Endereço: `https://quebra-apk.onrender.com` (o serviço no painel se chama `quebra-apk`; o `render.yaml` usa `quebra-cabeca-a-dois`) |
+| Banco | PostgreSQL no Neon (plano gratuito), ligado só se existir `DATABASE_URL`. Sem ela o jogo funciona como visitante |
+| E-mail | Brevo (API web), para códigos de confirmação e avisos de denúncia |
+| Aplicativo Android | TWA (Trusted Web Activity): uma moldura do site. Pacote `com.onrender.quebra_apk.twa` (**permanente** na Play) |
+| Público | **13 anos ou mais**, definido pelo proprietário. Não é direcionado a menores de 13 |
+
+## 2. Mapa de arquivos
+
+| Arquivo | Linhas | Papel |
+| --- | ---: | --- |
+| `server.js` | 1115 | Express, Socket.IO, salas cooperativas, `tryLock`/`SNAP`, `/api/config`, `/diagnostico`, assetlinks, CSP |
+| `challenge.js` | 639 | Sala Desafio (corrida, contagem, modos, desconexão, revanche) |
+| `accounts.js` | 1118 | Contas, login, amigos, convites, partida salva, histórico, XP (`payMatch`), bloqueio, **denúncia**, exclusão |
+| `mailer.js` | 135 | Envio pelo Brevo, e-mail de código e **e-mail de aviso de denúncia** |
+| `db.js`, `security.js`, `resource-guard.js` | 76, 139, 116 | Banco e migrações automáticas; limites, cabeçalhos e CSP; proteção de recursos |
+| `xp.js`, `gems.js`, `achievements.js`, `library.js`, `phrases.js`, `media.js` | 70, 34, 337, 199, 55, 29 | XP/níveis, gemas, conquistas, biblioteca de coleções, frases prontas, mídia |
+| `public/index.html`, `game.js`, `conta.js`, `style.css` | 794, 3970, 1084, 2442 | Telas, jogo, contas/amigos/denúncia, visual |
+| `public/mascot.js`, `mascot-core.js` | 246, 397 | Mascote 3D (WebGL próprio, sem biblioteca) |
+| `public/sw.js`, `boot.js`, `manifest.webmanifest` | 166, 9, 20 | Service worker (`quebra-cabeca-v21`), abertura sem piscar, manifesto |
+| `public/privacidade.html`, `excluir-conta.html` | 103, 49 | Política (13+) e página pública de exclusão de conta (URL pedida pela Play) |
+| `public/assetlinks.json` | 13 | Vínculo site–aplicativo (veja a seção 8) |
+| `public/imagens/` | 9 + `mini/` | **Só** as 9 ilustrações originais do jogo (o resto vem da biblioteca no banco) |
+| `migrations/` | 12 | `001` a `012` (veja a seção 3) |
+| `tests/` | 51 | Suíte completa; `tests/LEIA-ME.md` explica como rodar |
+| `.github/workflows/` | 2 | `gemas-postgres.yml` (Node 22 + PostgreSQL 16 + suíte completa), `seguranca-dependencias.yml` |
+| Documentos | | `README.md`, `CONTAS.md`, `SEGURANCA.md` (a seção 12 trata de denúncias e moderação), `XP.md`, `ANDROID.md`, `PERFIL-AMIGO.md`, `CONQUISTAS.md`, `AUDITORIA-SEGURANCA-2026-10-31.md` |
+
+## 3. Banco de dados
+
+Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_seguranca`, `003_xp`, `004_modo_solo`, `005_gemas`, `006_biblioteca`, `007_remover_fotos_enviadas`, `008_catalogo_biblioteca`, `009`, `010`, `011` (lotes de imagens), **`012_denuncias`**.
+- **Migrações existentes são imutáveis.** Há trava por hash em `tests/migrations.sha256.json`. Uma migração nova entra com o próximo número, o hash dela é acrescentado a esse arquivo **e** a lista esperada em `tests/gemas-postgres.test.js` é atualizada (esquecer isso derruba o CI).
+- **Excluir uma conta apaga tudo em cascata** (toda tabela ligada a `users` usa `ON DELETE CASCADE`; um teste confere isso). A página `excluir-conta.html` promete exatamente isso.
+- Tabela `reports` (denúncias): `reporter`, `reported`, `reason` (`apelido|comportamento|outro`), `context` (`perfil|amigos|sala`), `note` (até 200), `reported_name` (o apelido da hora), `status` (`novo|analisado|resolvido`).
+
+## 4. Rotas e eventos
+
+- **HTTP do servidor:** `GET /.well-known/assetlinks.json`, `/api/config`, `/diagnostico`, `/health`; `POST /api/csp-report`.
+- **Contas (`/api/acc`):** `status`, `register`, `login`, `verify`, `verify/resend`, `password/forgot|reset|change`, `google`, `logout`, `logout-all`, `blocks` (GET/POST/remove), **`reports`**, `me`, `achievements`, `profile`, `import`, `delete`, `friends` (+ `search`, `request`, `respond`, `remove`, `profile`), `matches`, `library` (+ `unlock`), `save` (+ `discard`).
+- **Socket (cliente→servidor):** cooperativo `create join grab move drop rotate hint spot chat imgready restart rematch:answer rematch:cancel push:subscribe push:unsubscribe`; Desafio `ch:create ch:join ch:ready ch:grab ch:move ch:drop ch:rotate ch:gift ch:hint ch:spot ch:chat ch:imgready ch:leave ch:rematch ch:push:*`; contas `acc:auth acc:logout acc:continue acc:blockPeer` e **`acc:reportPeer`**; convites `inv:send inv:respond`.
+- **Servidor→cliente:** `state meta grabbed moved released locked rotated won deny chat rematch`, `ch:lobby ch:countdown ch:progress ch:box ch:gift ch:end ch:cancel ch:rematch`, `acc:ev`.
+
+## 5. Contratos que NÃO podem ser quebrados (todos têm teste)
+
+1. **Migrações 001–003 e todas as seguintes são imutáveis** (hash travado).
+2. **Regra de encaixe duplicada:** as duas cópias de `tryLock` (`server.js:549` e `challenge.js:329`) ficam iguais; `SNAP = round(TILE × 0,33)` nos dois layouts. A regra vive só no servidor.
+3. **Eventos de socket** do cooperativo, do Desafio e de contas continuam existindo com os mesmos nomes.
+4. **XP só entra por `payMatch`**, e só `accounts.js` o usa, dentro de transação. **Nenhuma rota recebe XP do cliente.**
+5. Exports de `createAccounts` e das fábricas permanecem. Sessão: o token cru nunca é guardado (só `sha256`).
+6. **Bate-papo só com frases prontas** (`phrases.js`): nunca texto livre. Nenhuma foto ou imagem enviada por jogador (as rotas antigas respondem 410).
+7. **CSP** com `script-src` estrito, sem script embutido, `frame-ancestors none` sempre. Chaves do aparelho `qc.*` usadas pelo cliente são fixas. `package.json` com `start` e Node `>= 18`. `render.yaml` sem chaves duplicadas e com variáveis só no painel (`sync: false`).
+8. **Privacidade de outros jogadores:** nunca expor e-mail nem XP bruto. "Código inexistente", "não é seu amigo", "pedido pendente" e "bloqueado" dão a **mesma resposta**.
+9. **Novos nesta fase (Play Store):**
+   - O cadastro (e-mail e Google) exige `consent === true` **e** `age13 === true` (só o booleano `true`). Visitante não precisa.
+   - **A pessoa denunciada nunca é avisada**, e o **e-mail de aviso nunca traz e-mail, código, apelido nem identificador de quem denunciou**. Apelido e nota de jogador saem escapados, sem quebras de linha e **nunca dentro de comandos SQL** (só o código de amigo, conferido contra o alfabeto `23456789ABCDEFGHJKMNPQRSTUVWXYZ`).
+   - A galeria padrão (`public/imagens/`) contém **só** as 9 ilustrações originais. Teste proíbe personagens de terceiros, pessoas reais e origem desconhecida (a pasta já teve Batman, Stitch, Angel, Lula, Jesus e Aparecida; foram removidos para a loja).
+   - A linguagem da loja, do app e da política **nunca** apresenta o jogo como infantil.
+   - `public/assetlinks.json` mantém o pacote certo e as impressões digitais conhecidas (`tests/assetlinks.test.js`).
+
+## 6. Variáveis de ambiente (painel do Render › Environment; nunca no GitHub)
+
+| Variável | Efeito |
+| --- | --- |
+| `DATABASE_URL` | Liga contas, amigos, XP, histórico. Sem ela, só visitante |
+| `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME` | E-mail transacional. O remetente precisa estar confirmado no Brevo |
+| `REPORT_NOTIFY_EMAIL` | Destino do aviso de denúncia. Se ausente, usa o remetente do Brevo. Valor inválido **desliga** o aviso |
+| `REPORT_MAIL_MAX_PER_HOUR` | Teto de e-mails de denúncia por hora (padrão 20; `0` desliga). As denúncias continuam salvas no banco |
+| `ASSETLINKS_JSON` | Conteúdo do vínculo Android; **vence** o arquivo `public/assetlinks.json` |
+| `GOOGLE_CLIENT_ID` | Liga o login com Google (hoje desligado; se ligar, refazer a política e o formulário "Segurança dos dados") |
+| `CHAT_ENABLED`, `PUSH_ENABLED`, `VAPID_*`, `CSP_MODE`, `MAX_IMAGES`, `CH_COUNTDOWN_MS`, `CH_GRACE_MS`, `REMATCH_MS`, `INVITE_MS`, `CODE_LEN`, `DB_POOL_MAX`, `ACC_RATE_MULT` | Ajustes opcionais (veja `README.md` e `SEGURANCA.md`) |
+
+## 7. Histórico recente (mais novo primeiro)
+
+| PR | Quando | O que entrou |
+| --- | --- | --- |
+| #57 `aviso-denuncia-email` | 09/11 | Cada denúncia nova gera um e-mail ao responsável (código de amigo, motivo, onde, nota e comandos SQL prontos), sem identificar quem denunciou; teto por hora; `/diagnostico` mostra o estado (destino mascarado). Falha ou lentidão do Brevo **nunca** atrasa nem derruba a denúncia |
+| #56 e #55 `prepara-play-store` | 09/11 | 13+ no cadastro; política de privacidade reescrita; página `excluir-conta.html`; **denúncia** (perfil, ações do amigo e menu da sala), migração `012`; galeria sem imagens de risco |
+| #54 `mascote-ajustes` | 08/11 | Chave "Mascote na tela inicial" em Ajustes; com movimento reduzido o mascote **some**; animações mais suaves |
+| #53 `mascote-inicial` | 06/11 | Mascote 3D na tela inicial (21 reações, WebGL próprio, qualidade adaptativa, fallback SVG) |
+| #52 `otimiza-perfil` | 05/11 | `/me?lite=1` e `/achievements` separados; perfil de 700 ms para cerca de 150 ms |
+| #51 `corrige-demora-conquistas` | 04/11 | Lista de conquistas em lotes, `content-visibility`; aba de 634 ms para cerca de 190 ms |
+| #50 `conquista-concluida` | 04/11 | Cartões "CONQUISTA CONCLUÍDA" no resultado e faixa no topo; filtros Todas/Concluídas/Faltam |
+| #46–#49 | 04/11 | `catalogo-banco-limpo`, `imagens-lote-1`, `rodada-a-categorias-nivel`, `conquistas-e-colecoes` (detalhes no histórico abaixo) |
+
+## 8. Publicação na Google Play: onde estamos
+
+**Pronto (conferido):**
+- Textos da loja, respostas de público-alvo, "Segurança dos dados", classificação de conteúdo e "Acesso ao app": estão em `PLAY-STORE.md` (neste repositório) e foram preenchidos no documento "Quebra-Cabeça a Dois — ficha da Play Store e respostas dos formulários".
+- 6 capturas 1080×1920, gráfico 1024×500 e ícone 512, sem personagens de terceiros nem pessoas reais.
+- **AAB** gerado com Bubblewrap 1.27.0 e validado com o `bundletool` 1.18.3 (código de saída 0): pacote `com.onrender.quebra_apk.twa`, `versionCode 2`, `versionName 2`, `minSdk 24`, **`targetSdk 36`**, só a permissão de notificações, assinatura por chave de envio nova (`appVersionCode` **precisa subir** a cada envio).
+- Política de privacidade e página de exclusão no ar.
+
+**Barra de endereço (defeito corrigido nesta rodada):** o Android só abre o app em tela cheia se o site declarar, em `/.well-known/assetlinks.json`, a impressão digital **da chave que assinou o app instalado**. Medido em 09/11/2026 com a API oficial `digitalassetlinks.googleapis.com/v1/assetlinks:check`: a chave do APK antigo (`99:50:38:B0:…:5A:53`) estava ligada (`linked: true`) e a chave de envio do APK de teste (`12:D9:5C:57:…:AD:1F`) **não**, por isso o APK de teste mostrava a barra. `public/assetlinks.json` agora lista as duas. Para quem instala **pela Play**, ainda falta a **terceira** impressão digital, a da **chave de assinatura do app** que a Play mostra em *Integridade do app › Assinatura de apps* (só existe depois do primeiro envio). Ela entra na variável `ASSETLINKS_JSON` do Render (com as três impressões) ou no arquivo. O Google guarda o resultado em cache por até cerca de 1 hora; depois de publicar, repita a consulta `assetlinks:check` até aparecer `linked: true`, desinstale o app e instale de novo.
+
+**Como refazer o AAB** (o que funcionou em 09/11/2026): JDK 17 (Temurin), `commandlinetools` do Android com licenças aceitas, `build-tools;36.1.0`; `npm i @bubblewrap/cli@1.27.0`; o Bubblewrap exige `bin` e `lib` direto na raiz do SDK (links para `cmdline-tools/latest`); `~/.bubblewrap/config.json` com `jdkPath` e `androidSdkPath`; `twa-manifest.json` (`packageId` `com.onrender.quebra_apk.twa`, `host` `quebra-apk.onrender.com`, `minSdkVersion 24` porque a biblioteca atual do TWA recusa menos, `fallbackType` `customtabs`, `enableNotifications true`, ícones `/icons/icon-512.png` e `/icons/icon-maskable-512.png`); `bubblewrap update --skipVersionUpgrade` e `bubblewrap build --skipPwaValidation`, com as senhas nas variáveis `BUBBLEWRAP_KEYSTORE_PASSWORD` e `BUBBLEWRAP_KEY_PASSWORD`. **O PWABuilder já foi reportado gerando `targetSdk 35`; a Play exige 36.**
+**Segredos:** a chave de envio (`android.keystore`) e a senha **ficam só com o proprietário, fora do GitHub**. Ela foi gerada no ambiente do assistente; se houver suspeita de vazamento, pedir a redefinição da chave de envio na Play Console.
+
+**Ainda NÃO feito (depende do proprietário ou de terceiros):**
+1. Criar a conta de desenvolvedor na Play (taxa única) e concluir a verificação de identidade.
+2. **Teste fechado com 12 ou mais testadores por 14 dias seguidos** (contas pessoais novas), depois pedir produção (análise de até cerca de 7 dias).
+3. Criar duas contas de teste confirmadas para os revisores ("Acesso ao app").
+4. Acrescentar a impressão digital da chave de assinatura da Play ao vínculo (parágrafo acima).
+5. **Testar o AAB/APK em um Android real** (nunca foi instalado em aparelho de verdade).
+6. Hospedagem que não durma (plano pago do Render) e, depois, domínio próprio (exige AAB novo).
+
+## 9. Como verificar (CI-sim local)
+
+```
+# banco temporário local (nunca Neon/Render): DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test
+export DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test GEMAS_TEST_DB=1 CI=true
+psql ... -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+npm ci && npm run migrate && npm test      # esperado hoje: 370 testes, 0 falhas
+npm audit --omit=dev                        # esperado: 0 vulnerabilidades
+```
+Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
+
+## 10. Fluxo com o proprietário (regras do projeto)
+
+1. Responder em português, direto e detalhado, com passo a passo no chat para publicar.
+2. Antes de qualquer tarefa, ler este arquivo e **confirmar o commit atual da `main`**.
+3. Não mexer no que já funciona; alterar só os arquivos necessários.
+4. Rodada: o assistente implementa e testa e entrega um `.zip` com a lista exata de arquivos e a pasta de cada um → o proprietário sobe **numa ramificação nova (nunca na `main`)**, abre o Pull Request, faz o Merge, o Render faz o deploy, ele testa no celular e aprova → só então começa a próxima rodada.
+5. **O assistente não tem escrita no GitHub: nunca dizer que publicou ou fez deploy.**
+6. Afirmar só testes realmente executados; teste em Android real só vale se o proprietário fizer; dizer sempre o que **não** foi testado.
+7. Comparar com a `main` atual antes de montar o pacote.
+8. Respeitar os contratos da seção 5.
+9. Proteger crianças e adolescentes: sem texto livre, sem e-mail nem XP bruto de outros jogadores.
+
+**Como subir arquivos (o que já deu errado):** o upload do GitHub **não apaga** arquivos: o que deve sumir precisa ser apagado à mão (⋯ › Delete file) na mesma ramificação, e a lista de arquivos do Pull Request deve bater com a do pacote (adicionados + apagados). Se um Pull Request já foi mesclado, commits novos da ramificação **não têm botão de merge**: abra um Pull Request novo. Teste vermelho no CI costuma ser o aviso certo (ex.: o de galeria acusou o `stitch.jpg` esquecido). O GitHub no celular não aceita pastas no upload: subir uma pasta de cada vez, entrando nela antes. Mudança em `public/` chega ao app instalado sozinha (cópia guardada atualizada por trás); só o AAB exige nova versão da Play.
+
+## 11. Erros encontrados e corrigidos nesta fase (09/11/2026)
+
+| Erro | Causa | Correção |
+| --- | --- | --- |
+| APK de teste mostrava a barra de endereço | `assetlinks.json` só tinha a chave do APK antigo; a chave nova não estava ligada (provado pela API do Google) | `assetlinks.json` com as duas chaves + `tests/assetlinks.test.js` (5 mutações pegas) |
+| "Cancelar" da janela de denúncia não fechava | `data-back` só serve ao botão voltar do Android | Fechamento explícito + teste estático |
+| Denúncia aceitava `reason` em lista | `String(['apelido'])` virava `"apelido"` | Só aceita texto |
+| Rolagem lateral em 390 px nas páginas de privacidade e exclusão | E-mail longo sem quebra de linha | `overflow-wrap: anywhere` |
+| CI vermelho no PR #55 | Faltou apagar `stitch.jpg` e a miniatura órfã (upload não apaga) | Apagados à mão; PR #56 |
+| Teste de gemas falhou ao entrar a `012` | Lista fixa de migrações | Lista atualizada |
+| (só do teste) capturas com "Só amigos podem ver" | Códigos de teste com `L` e `O`, fora do alfabeto de códigos | Códigos válidos nos dados de teste |
+| (só do teste) cadastro barrado | Limite de 8 cadastros por IP em 10 min | IPs distintos nos testes |
+| Entrega do zip sem arquivo para baixar | Esqueci de apresentar o arquivo | Sempre apresentar o arquivo ao entregar |
+
+## 12. Pendências e riscos abertos (em ordem)
+
+1. **Conta na Play e teste fechado de 14 dias** (caminho crítico; ninguém pode acelerar).
+2. **ECA Digital (Lei 15.211/2025, em vigor desde 17/03/2026):** vale para serviços "de acesso provável" por menores de 18 anos, trata de aferição de idade e de vínculo a um responsável para contas de até 16 anos **em redes sociais**. O jogo não é uma rede social, mas tem amigos, convites e apelidos, e o cadastro só pede **autodeclaração** de 13+. **Levar a um profissional**; uma possível evolução é um modo supervisionado para 13 a 15 anos.
+3. **Visual:** o mascote e as ilustrações são em desenho; a Play pode considerar que o app atrai crianças. Mitigado com 13+, textos sem linguagem infantil e capturas com fotos, não com a arte.
+4. Fazer uma **denúncia de teste** entre duas contas do proprietário para provar que o e-mail chega pelo Brevo de verdade (só foi testado contra um Brevo simulado). Confirmar a quem pertence o remetente do Brevo (padrão do destino) ou definir `REPORT_NOTIFY_EMAIL`.
+5. Conferir a **grafia do e-mail de contato** que aparece na política e na página de exclusão, e completar o nome do responsável pelos dados.
+6. A capa da coleção **Cultura brasileira** mostra uma pessoa: confirmar origem e licença da imagem no catálogo.
+7. Hospedagem gratuita que dorme; domínio `onrender.com` (trocar exige AAB novo); Neon gratuito.
+8. Contas criadas antes da fase 13+ não passaram pela caixa "Tenho 13 anos ou mais".
+9. O prazo de **15 dias** prometido na política e na página de exclusão precisa ser cumprido (ver `SEGURANCA.md`, seção 12, para revisar as denúncias).
+
+## 13. O que NÃO foi verificado
+
+Nenhum teste em Android real (nem do APK, nem do AAB); o primeiro envio à Play; os nomes exatos das telas do Play Console; o comportamento do Chrome após a mudança do vínculo (cache de até 1 hora); o e-mail de denúncia com o Brevo de verdade; a região dos servidores do Render e do Neon (a política diz "em geral nos Estados Unidos"); o parecer jurídico sobre o ECA Digital.
+
+---
+
+# HISTÓRICO ANTERIOR PRESERVADO
+
+(Notas das rodadas até 31/10/2026, mantidas exatamente como estavam. Podem estar desatualizadas; em caso de conflito, vale a seção acima.)
+
 # CONTINUIDADE — CORREÇÃO DO ENCAIXE COM ANIMAÇÕES REDUZIDAS
 
 **Data:** 31/10/2026 (America/Fortaleza). **Base oficial da `main` confirmada:** `6e02e45606419cbb6198d0abeceaddc9553fd0de` (Merge do PR #37, "Corrigir zoom estável"). Verificados no GitHub os blobs de `public/game.js`, `public/style.css` e `CONTINUIDADE.md` antes de alterar. A implementação parte da árvore atual, sem substituir por cópias de PRs antigos. O assistente não escreve no GitHub nem faz deploy.
