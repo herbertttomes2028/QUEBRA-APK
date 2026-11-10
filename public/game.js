@@ -1076,7 +1076,7 @@
   function paintLabel(p) {
     if (!p.tag) return;
     if (p.theirs) p.tag.textContent = displayName(p.heldBy) || 'Amigo';
-    else if (p.mine) p.tag.textContent = state.duel ? '↻' : ''; // só a Sala Desafio tem giro
+    else if (p.mine) p.tag.textContent = '';                      // não há giro em nenhum modo: a peça escolhida não leva etiqueta
     p.tag.classList.toggle('mine-tag', !!p.mine);
   }
 
@@ -1319,7 +1319,6 @@
   /* ---------------------------------------------------------
    * Gestos nas peças
    *  - arrastar: segurar a peça com o dedo e arrastar
-   *  - girar: apenas na Sala Desafio, tocar na peça já escolhida
    *  - zoom: com a peça escolhida, movimento de pinça com dois dedos (roda do mouse no computador)
    *  - soltar: tocar num espaço vazio, ou arrastar e soltar
    * --------------------------------------------------------- */
@@ -1422,8 +1421,7 @@
     if (!d || e.pointerId !== d.pointerId) return;
     if (!d.moved) {
       // No Solo/Coop, 5px bastam para começar a arrastar no celular.
-      // No Desafio mantemos o limiar original de 8px (exceto nas 6 peças):
-      // o segundo toque na peça selecionada continua sendo o gesto de girar.
+      // No Desafio mantemos o limiar original de 8px (exceto nas 6 peças).
       var dragThreshold = (state.cfg.PIECES === 6 || !state.duel) && e.pointerType === 'touch' ? 5 : 8;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < dragThreshold) return;
       d.moved = true;
@@ -1462,8 +1460,7 @@
     if (d.moved) {
       dropSelected();                         // arrastou e soltou: tenta encaixar
     } else if (d.wasSelected && !cancelled) {
-      if (state.duel) rotateSelected();        // Sala Desafio: tocar novamente gira
-      else dropSelected();                     // Solo/Coop: tocar novamente apenas solta
+      dropSelected();                          // tocar novamente na peça escolhida apenas a solta (não há giro em nenhum modo)
     } else {
       resetIdle();                            // tocou numa peça nova: fica escolhida
     }
@@ -1479,21 +1476,6 @@
     e.preventDefault();
     setZoom(p, (p.zoomAbs || baseScale(p)) * (e.deltaY < 0 ? 1.15 : 1 / 1.15));
     resetIdle();
-  }
-
-  /* ---------------------------------------------------------
-   * Girar
-   * --------------------------------------------------------- */
-  function rotateSelected() {
-    if (!state.duel || state.selectedId === null) return;
-    var p = state.pieces[state.selectedId];
-    if (!p || p.locked) return;
-    p.rotUsed = 0; // rotação ilimitada; contador legado não é usado
-    setAngle(p, (p.rot + 1) % 4);
-    gameEmit('rotate', { id: p.id });
-    vibrate(10);
-    resetIdle();
-    updateUi();
   }
 
   /* ---------------------------------------------------------
@@ -1537,11 +1519,11 @@
   var EMOJI_ONLY = null;
   try { EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}|\\u200d|\\ufe0f|\\s){1,8}$', 'u'); } catch (e) { /* navegador antigo: sem destaque */ }
 
-  // Solo: sem tela de código, sem amigo e sem bate-papo; giro só existe na Sala Desafio.
+  // Solo: sem tela de código, sem amigo e sem bate-papo.
   function setSolo(on) {
     state.solo = !!on;
     $('#screen-game').classList.toggle('solo', state.solo);
-    $('#screen-game').classList.toggle('rotation-enabled', !!state.duel);
+    $('#screen-game').classList.remove('rotation-enabled');              // não há giro em nenhum modo: o ▲ de "lado de cima" fica sempre escondido
   }
   function setChatAvailability(on) {
     state.chatOn = !!on && !state.solo;
@@ -1926,11 +1908,11 @@
   socket.on('chat', onChatMessage);
 
   /* ---------------------------------------------------------
-   * Interface: HUD, dica e botão de girar
+   * Interface: HUD e dicas
    * --------------------------------------------------------- */
   function updateUi() {
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    if (sel) paintLabel(sel);                // "↻" aparece só na Sala Desafio
+    if (sel) paintLabel(sel);
     refreshLamp();
     updateHud();
   }
@@ -2371,13 +2353,13 @@
    * --------------------------------------------------------- */
   var TUT = [
     { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela só cresce quando entra completamente na grade.' },
-    { h: 'Girar', t: 'Toque na peça para escolhê-la e toque nela de novo para girar quantas vezes quiser. O ▲ mostra qual lado é o de cima.' },
+    null,                                                    // (passo "Girar" removido: as peças já vêm na orientação certa)
     { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
     { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos e 📍 indica o lugar da peça escolhida. Os dois botões ficam lado a lado. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
   ];
   var tut = { i: 0, timer: null };
 
-  function tutSteps() { return state.duel ? [0, 1, 2, 3] : [0, 2, 3]; }
+  function tutSteps() { return [0, 2, 3]; }
   function nextTutStep(delta) {
     var steps = tutSteps(), pos = Math.max(0, steps.indexOf(tut.i));
     return steps[Math.max(0, Math.min(steps.length - 1, pos + delta))];
@@ -2389,7 +2371,7 @@
     $('#tut-head').textContent = TUT[tut.i].h;
     $('#tut-text').textContent = TUT[tut.i].t;
     Array.prototype.forEach.call(document.querySelectorAll('#tut-dots button'), function (b) {
-      b.hidden = !state.duel && Number(b.getAttribute('data-i')) === 1;
+      b.hidden = Number(b.getAttribute('data-i')) === 1;           // o passo 2 (girar) não existe mais
       if (Number(b.getAttribute('data-i')) === tut.i) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
     });
     var last = tut.i === TUT.length - 1;
@@ -2902,7 +2884,7 @@
     state.duel = {
       code: l.code, mode: l.mode, imageId: l.imageId, total: l.pieces, lobby: l, phase: 'lobby',
       prog: [{ idx: 0, locked: 0, total: l.pieces, pct: 0 }, { idx: 1, locked: 0, total: l.pieces, pct: 0 }],
-      lead: 'tie', alerted: false, oppOnline: true, graceTimer: null, giftTimer: null, box: null, giftSeen: false, result: null, imgReady: false
+      lead: 'tie', alerted: false, oppOnline: true, graceTimer: null, giftTimer: null, box: null, giftQ: [], result: null, imgReady: false
     };
     state.code = l.code;
     state.imageId = l.imageId;
@@ -3073,6 +3055,7 @@
       d.phase = 'game';
       d.mode = snap.mode;
       d.box = snap.box;
+      if (resume) d.giftQ = [];                          // quem volta de uma queda já recebe as peças no lugar (snapshot)
       d.prog = snap.progress;
       d.lead = 'tie';
       d.alerted = false;
@@ -3118,6 +3101,7 @@
       setLoading(false);
       if (!resume) { hideCountdown(true); setTimeout(function () { playSound('tann'); }, 40); announce('Valendo! Monte a imagem o mais rápido que puder.'); }
       else hideCountdown(false);
+      if (!resume) flushGifts();                         // Quebrando Cabeças: a caixa já cuspiu a 1ª rodada; anima agora que o tabuleiro existe
     });
   }
 
@@ -3217,29 +3201,16 @@
       sl.style.cssText = 'left:' + (s.x - cfg.TRAY / 2) + 'px;top:' + (s.y - cfg.TRAY / 2) + 'px;width:' + cfg.TRAY + 'px;height:' + cfg.TRAY + 'px';
       field.appendChild(sl);
     });
-    var gift = document.createElement('button');
+    var gift = document.createElement('div');                  // a caixa mágica é automática: não é botão
     gift.id = 'gift';
-    gift.type = 'button';
+    gift.setAttribute('role', 'img');
     gift.className = 'gift';
     var gh = Math.round(g0.w * 1.09);
     gift.style.cssText = 'left:' + Math.round(g0.x - g0.w / 2) + 'px;top:' + Math.round(g0.y - gh / 2) + 'px;width:' + g0.w + 'px;height:' + gh + 'px';
     gift.innerHTML = GIFT_SVG;
-    if (!state.duel.giftSeen) {
-      var hint = document.createElement('span');
-      hint.className = 'g-hint';
-      hint.textContent = 'Toque!';
-      gift.appendChild(hint);
-    }
     gift.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
-    gift.addEventListener('click', onGiftTap);
     field.appendChild(gift);
     clearInterval(state.duel.giftTimer);
-    state.duel.giftTimer = setInterval(function () {      // de vez em quando a caixa chama a atenção (só se estiver livre)
-      var d = state.duel, b = d && d.box;
-      if (!d || d.phase !== 'game' || !b || b.blocked || b.left <= 0 || state.drag || reducedMotion()) return;
-      var pending = state.pieces.some(function (p) { return p.out && !p.locked; });
-      if (!pending) popEl($('#gift'), 'wiggle');
-    }, 5000);
   }
 
   function updateGift() {
@@ -3249,29 +3220,11 @@
     g.classList.toggle('blocked', !!b.blocked);
     g.classList.toggle('empty', b.left <= 0 && !b.blocked);
     for (var i = 1; i <= 3; i++) g.querySelector('.gd' + i).classList.toggle('on', i <= b.n);
-    g.setAttribute('aria-label', b.blocked ? 'Caixa de presentes bloqueada. Encaixe as peças que já saíram.' :
-      (b.left <= 0 ? 'Caixa de presentes vazia.' : 'Caixa de presentes: toque para liberar uma peça. Peças pedidas nesta rodada: ' + b.n + ' de ' + b.max + '. Faltam ' + b.left + ' surpresas.'));
+    g.setAttribute('aria-label', b.blocked ? 'Caixa mágica esperando: encaixe as peças que já saíram para ela cuspir as próximas.' :
+      (b.left <= 0 ? 'Caixa mágica vazia: todas as peças já saíram.' : 'Caixa mágica: ela cospe as peças sozinha. Peças fora nesta rodada: ' + b.n + ' de ' + b.max + '. Faltam ' + b.left + ' na caixa.'));
   }
 
-  function onGiftTap() {
-    var d = state.duel, g = $('#gift');
-    if (!d || !g || d.phase !== 'game' || state.status !== 'playing') return;
-    d.giftSeen = true;
-    var hint = g.querySelector('.g-hint');
-    if (hint) hint.remove();
-    if (d.autoUntil && Date.now() < d.autoUntil) return;       // a caixa está cuspindo as próximas peças sozinha
-    var b = d.box || {};
-    if (b.blocked) { popEl(g, 'nope'); toast('Encaixe as peças que já saíram para abrir a caixa de novo!'); vibrate(20); return; }
-    if (b.left <= 0) { popEl(g, 'nope'); toast('A caixa está vazia!'); return; }
-    popEl(g, 'tap');
-    gameEmit('gift', null, function (res) {
-      if (!state.duel || !res) return;
-      if (res.ok) { state.duel.box = { n: res.n, max: res.max, blocked: res.blocked, left: res.left }; updateGift(); return; }
-      if (res.error === 'blocked' || res.error === 'empty') { state.duel.box = { n: res.n, max: res.max, blocked: res.blocked, left: res.left }; updateGift(); popEl(g, 'nope'); }
-    });
-  }
-
-  // gira a peça (ela cai na posição certa de giro depois de algumas voltas)
+  // anima a saída: a peça gira algumas voltas no ar e pousa já na orientação certa
   function spinPiece(p, rot) {
     p.rot = rot;
     p.ang = rot * 90 - 720;
@@ -3285,7 +3238,10 @@
   }
 
   function applyGift(g) {
-    var d = state.duel, p = d && d.phase === 'game' && state.pieces[g.id];
+    var d = state.duel;
+    if (!d) return;
+    if (d.phase !== 'game') { (d.giftQ = d.giftQ || []).push(g); return; }      // o tabuleiro ainda está sendo montado: guarda e anima quando ficar pronto
+    var p = state.pieces[g.id];
     if (!p) return;
     d.box = g.box;
     updateGift();
@@ -3310,31 +3266,33 @@
     updateUi();
   }
 
-  // peça que sai da caixa: ao toque (na hora) ou sozinha, quando a rodada de 3 é completada (uma depois da outra)
+  // peças que saem da caixa mágica, SEMPRE sozinhas: na largada (1ª rodada) e quando a rodada de 3 é encaixada (uma depois da outra)
+  function scheduleGift(g) {
+    if (g.k === 0) {
+      if (g.start) toast('🎁 A caixa mágica cospe as peças sozinha!', 2400);
+      else { toast('🎁 A caixa soltou as próximas peças!', 2000); playSound('chime'); }
+    }
+    setTimeout(function () { applyGift(g); }, g.delay || 0);
+  }
   socket.on('ch:gift', function (g) {
     var d = state.duel;
-    if (!d || !state.pieces[g.id]) return;
-    if (g.auto) {
-      d.autoUntil = Date.now() + (g.delay || 0) + 900;          // enquanto a caixa cospe, toques extras são ignorados
-      if (g.k === 0) { toast('🎁 A caixa soltou as próximas peças!', 2000); playSound('chime'); }
-      setTimeout(function () { applyGift(g); }, g.delay || 0);
-      return;
-    }
-    applyGift(g);
+    if (!d || !g || typeof g.id !== 'number') return;
+    if (d.phase !== 'game') { (d.giftQ = d.giftQ || []).push(g); return; }       // chegou junto com a largada: espera o tabuleiro
+    scheduleGift(g);
   });
+  // chamado quando o tabuleiro da largada fica pronto: anima as peças que a caixa já cuspiu
+  function flushGifts() {
+    var d = state.duel;
+    if (!d || !d.giftQ || !d.giftQ.length) return;
+    var q = d.giftQ; d.giftQ = [];
+    q.forEach(scheduleGift);
+  }
 
   socket.on('ch:box', function (b) {
     var d = state.duel;
     if (!d || !b) return;
-    var was = d.box;
     d.box = b;
     updateGift();
-    if (was && was.n > 0 && b.n === 0 && b.left > 0) {            // rodada completa: a caixa comemora
-      var g = $('#gift');
-      if (g) popEl(g, 'wiggle');
-      toast('🎁 Caixa liberada! Peça mais!', 1800);
-      playSound('chime');
-    }
   });
 
   /* ----- resultado e revanche ----- */
@@ -3709,7 +3667,6 @@
       if (!$('#modal-menu').hidden) { closeModal('#modal-menu'); return; }
     }
     if (!state.inGame || e.target.tagName === 'INPUT') return;
-    if (state.duel && (e.key === 'r' || e.key === 'R')) rotateSelected();
     if (e.key === 'Escape') dropSelected();
   });
 
