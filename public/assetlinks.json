@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.onrender.quebra_apk.twa",
-      "sha256_cert_fingerprints": ["99:50:38:B0:CE:4F:27:B7:61:52:C1:C3:54:12:61:BA:36:77:2A:8E:B6:49:36:CC:EF:F8:A5:98:85:4E:5A:53"]
+      "sha256_cert_fingerprints": [
+        "99:50:38:B0:CE:4F:27:B7:61:52:C1:C3:54:12:61:BA:36:77:2A:8E:B6:49:36:CC:EF:F8:A5:98:85:4E:5A:53",
+        "12:D9:5C:57:7A:58:76:0A:A1:65:68:6A:DC:C1:F7:41:BB:0D:A4:3E:A9:AB:94:29:A1:5C:D2:EF:7F:59:AD:1F"
+      ]
     }
   }
 ]
