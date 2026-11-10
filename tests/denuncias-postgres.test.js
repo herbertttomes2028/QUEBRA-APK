@@ -49,7 +49,7 @@ test('PostgreSQL: cadastro 13+ e denúncias (HTTP e sala), com limites, sigilo e
 
     /* ================= 1) cadastro: só com a confirmação de 13+ ================= */
     let ipN = 0; const reg = (b) => post('/register', null, b, '10.0.0.' + (++ipN));       // cada tentativa de outro IP (o limite de cadastros por IP já existe)
-    const senha = 'Quebra!Cabeca#2026';
+    const senha = 'Aa1!' + crypto.randomBytes(12).toString('hex');                      // gerada a cada execução: nenhuma senha escrita no código
     const base = { email: 'novo1@t.test', password: senha, name: 'Nina', consent: true };
     assert.equal((await reg(Object.assign({}, base, { consent: false, age13: true }))).body.error, 'consent', 'sem a caixa de privacidade: recusa');
     let r = await reg(base); assert.deepEqual([r.status, r.body.error], [400, 'age13'], 'sem confirmar 13+: recusa');

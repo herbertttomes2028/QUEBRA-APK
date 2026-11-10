@@ -10,6 +10,7 @@ const { EventEmitter } = require('node:events');
 const { reportEmail, reportTarget, FRIEND_CODE_RE } = require('../mailer');
 const root = path.join(__dirname, '..'); const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const enabled = process.env.GEMAS_TEST_DB === '1'; const connection = process.env.DATABASE_URL || '';
+const TOKEN_FALSO = 'tk' + crypto.randomBytes(8).toString('hex');         // valor inventado na hora: prova que nada de quem denunciou vaza
 const base = { id: 42, reason: 'apelido', context: 'perfil', name: 'Beto-Alvo', code: 'KBBBBBB2', note: 'apelido ofensivo', at: new Date('2026-11-09T17:32:00Z') };
 
 /* ================= A) a mensagem ================= */
@@ -24,8 +25,8 @@ test('e-mail: traz o que é preciso para agir (código de amigo, motivo, onde, a
   assert.match(reportEmail(Object.assign({}, base, { reason: 'comportamento' })).text, /Comportamento ruim/); assert.match(reportEmail(Object.assign({}, base, { note: '' })).text, /Nota de quem denunciou: \(nenhuma\)/);
 });
 test('e-mail: NUNCA revela quem denunciou (nem se o objeto trouxer esses dados por engano)', () => {
-  const m = reportEmail(Object.assign({}, base, { reporter: 'uuid-do-denunciante', reporterName: 'Zelador-Rep', reporterEmail: 'zelador@t.test', reporterCode: 'RRRRRRR2', email: 'quem@t.test', token: 'segredo-123' }));
-  for (const k of ['uuid-do-denunciante', 'Zelador-Rep', 'zelador@t.test', 'RRRRRRR2', 'quem@t.test', 'segredo-123']) assert.ok(!m.text.includes(k) && !m.html.includes(k) && !m.subject.includes(k), 'vazou: ' + k);
+  const m = reportEmail(Object.assign({}, base, { reporter: 'uuid-do-denunciante', reporterName: 'Zelador-Rep', reporterEmail: 'zelador@t.test', reporterCode: 'RRRRRRR2', email: 'quem@t.test', token: TOKEN_FALSO }));
+  for (const k of ['uuid-do-denunciante', 'Zelador-Rep', 'zelador@t.test', 'RRRRRRR2', 'quem@t.test', TOKEN_FALSO]) assert.ok(!m.text.includes(k) && !m.html.includes(k) && !m.subject.includes(k), 'vazou: ' + k);
   assert.match(m.text, /não traz o e-mail, o código nem o apelido de quem denunciou/);
 });
 test('e-mail: apelido e nota (texto de jogador) são escapados no HTML, sem quebras de linha, sem links e nunca entram nos comandos SQL', () => {
