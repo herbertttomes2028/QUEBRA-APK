@@ -1367,7 +1367,6 @@
       p.z = ++state.zMax;
       classify(p);
       gameEmit('grab', { id: p.id });
-      if (typeof QC !== 'undefined' && QC.tray) QC.tray.fx('select', p.x, p.y);       // brilho/efeito da bandeja ao escolher a peça (só visual)
     }
 
     var lx = (e.clientX - rect.left) / state.scale;
@@ -1467,6 +1466,7 @@
       dropSelected();                          // tocar novamente na peça escolhida apenas a solta (não há giro em nenhum modo)
     } else {
       resetIdle();                            // tocou numa peça nova: fica escolhida
+      if (p && !cancelled && typeof QC !== 'undefined' && QC.tray) QC.tray.fx('select', p.x, p.y);       // brilho da bandeja ao ESCOLHER (só visual; ao arrastar, quem toca é o de "retirada")
     }
     if (p && !p.locked) p.dirty = true;
     refreshLamp(); // evita redesenho do HUD ao terminar toque/arrasto

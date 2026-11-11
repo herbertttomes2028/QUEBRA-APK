@@ -1,6 +1,6 @@
-/* ===== Bandejas decorativas (só a bandeja de peças; a grade de encaixe não muda) =====
- * A camada fica ATRÁS das peças e NUNCA recebe toque. Só se animam transform e opacity (leves, sem recalcular layout).
- * As animações param: durante o arrasto, com "Animações das bandejas" desligado, com movimento reduzido no jogo ou no aparelho. */
+/* ===== Bandejas decorativas (só a bandeja de peças; a grade de encaixe não muda de tamanho nem de lugar) =====
+ * A camada fica ATRÁS das peças e NUNCA recebe toque. Só se animam transform e opacity, e só em POUCOS grupos (cada elemento animado vira uma camada
+ * de GPU: dezenas deixavam o jogo pesado). As animações param: durante o arrasto, rolando a loja, com "Animações das bandejas" desligado e com movimento reduzido. */
 .tray-skin { position: absolute; z-index: 0; pointer-events: none; contain: layout paint; animation: trayRise .55s ease both; }
 .tray-skin, .tray-skin * { pointer-events: none; }
 .tray-wob { position: absolute; inset: 0; transform-origin: 50% 55%; }
@@ -11,10 +11,16 @@
 .tray-rim { fill: none; stroke: var(--tg); stroke-width: 2.5; opacity: .55; stroke-linejoin: round; }
 .tray-decor { position: absolute; inset: 0; }
 .tray-decor > span, .tray-decor > div { position: absolute; }
-.tray-fx { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at var(--fx-x, 50%) var(--fx-y, 50%), var(--fxc, rgba(255, 255, 255, .6)) 0, transparent 46%); }
+.tray-decor svg { display: block; overflow: visible; }
+/* brilho de "peça retirada/escolhida": um círculo PEQUENO no lugar da peça (não a bandeja inteira) */
+.tray-fx { position: absolute; left: var(--fx-x, 50%); top: var(--fx-y, 50%); width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; opacity: .01; will-change: transform, opacity; background: radial-gradient(circle, var(--fxc, rgba(255, 255, 255, .6)) 0, transparent 68%); }
+/* o brilho já existe como camada (quase invisível) antes do toque: tocar a peça só dispara a animação, sem criar nem pintar camada nova nesse instante */
 @keyframes trayRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-@keyframes trayFx { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
-.tray-skin.fx-select .tray-fx, .tray-skin.fx-pick .tray-fx { animation: trayFx .6s ease-out; }
+@keyframes trayFxA { 0% { opacity: 0; transform: scale(.4); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15); } }
+@keyframes trayFxB { 0% { opacity: 0; transform: scale(.4); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15); } }
+/* A e B são idênticas de propósito: trocar de nome reinicia o efeito sem precisar forçar o layout no toque */
+.tray-skin.fx-a .tray-fx { animation: trayFxA .45s ease-out; }
+.tray-skin.fx-b .tray-fx { animation: trayFxB .45s ease-out; }
 
 /* 1) Clássica: retangular, discreta; as peças aparecem suavemente */
 .tray-classica { --fxc: rgba(255, 255, 255, .35); }
@@ -22,51 +28,51 @@
 @keyframes trayPieceIn { from { opacity: 0; } to { opacity: 1; } }
 html:not([data-tray-anim="off"]):not([data-motion="reduce"]) #field.tray-enter.tray-classica .piece:not(.locked) { animation: trayPieceIn .5s ease both; }
 
-/* 2) Nuvem: bordas de nuvem, flutua devagar; suave ao escolher a peça */
+/* 2) Nuvem: bordas de nuvem, flutua devagar (3 nuvens, cada uma UMA camada) */
 .tray-nuvem { --fxc: rgba(255, 255, 255, .8); }
 .tray-nuvem .tray-wob { animation: nBob 6s ease-in-out infinite alternate; }
 @keyframes nBob { from { transform: translateY(-3px); } to { transform: translateY(3px); } }
-.tray-puff { background: rgba(255, 255, 255, .6); border-radius: 999px; opacity: .55; animation: pFloat var(--d, 6s) ease-in-out infinite alternate; }
-.tray-puff::before, .tray-puff::after { content: ""; position: absolute; background: inherit; border-radius: 50%; }
-.tray-puff::before { width: 55%; height: 120%; left: 12%; top: -55%; }
-.tray-puff::after { width: 42%; height: 95%; right: 14%; top: -38%; }
+.tray-puffg { opacity: .6; animation: pFloat var(--d, 6s) ease-in-out infinite alternate; }
+.tray-puffg circle { fill: rgba(255, 255, 255, .85); }
 @keyframes pFloat { from { transform: translateY(-5px); } to { transform: translateY(6px); } }
 
-/* 3) Estrela: contorno de estrela, brilhos nas bordas, ilumina ao retirar a peça */
+/* 3) Estrela: contorno de estrela, brilhos nas bordas (3 grupos que piscam), ilumina ao retirar a peça */
 .tray-estrela { --fxc: rgba(255, 233, 130, .95); }
 .tray-estrela .tray-rim { stroke: #fff; opacity: .7; }
-.tray-spark { background: var(--tg); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: .9; animation: sTwinkle var(--d, 2s) ease-in-out infinite; }
-.tray-spark.in { background: #fff; opacity: .55; }
-@keyframes sTwinkle { 0%, 100% { opacity: .25; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.15); } }
+.tray-sp { fill: var(--tg); opacity: .9; }
+.tray-sp.in { fill: #fff; opacity: .6; }
+.tray-twk { animation: twk var(--d, 2.4s) ease-in-out infinite; }
+@keyframes twk { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
 
 /* 4) Gelatina: ondulada, balança; elástica ao interagir */
 .tray-gelatina { --fxc: rgba(255, 255, 255, .5); }
 .tray-gelatina .tray-wob { animation: gSway 4.6s ease-in-out infinite; }
 @keyframes gSway { 0%, 100% { transform: scale(1, 1); } 25% { transform: scale(1.012, .99); } 50% { transform: scale(.99, 1.012); } 75% { transform: scale(1.008, .994); } }
-.tray-gelatina.fx-select .tray-wob, .tray-gelatina.fx-pick .tray-wob { animation: gJelly .65s cubic-bezier(.3, 1.6, .5, 1); }
-@keyframes gJelly { 0% { transform: scale(1); } 30% { transform: scale(1.04, .95); } 60% { transform: scale(.98, 1.03); } 100% { transform: scale(1); } }
-.tray-gloss { background: rgba(255, 255, 255, .5); border-radius: 999px; }
-.tray-gloss.s3 { border-radius: 50%; }
+.tray-gelatina.fx-a .tray-wob { animation: gJellyA .65s cubic-bezier(.3, 1.6, .5, 1); }
+.tray-gelatina.fx-b .tray-wob { animation: gJellyB .65s cubic-bezier(.3, 1.6, .5, 1); }
+@keyframes gJellyA { 0% { transform: scale(1); } 30% { transform: scale(1.04, .95); } 60% { transform: scale(.98, 1.03); } 100% { transform: scale(1); } }
+@keyframes gJellyB { 0% { transform: scale(1); } 30% { transform: scale(1.04, .95); } 60% { transform: scale(.98, 1.03); } 100% { transform: scale(1); } }
+.tray-gl { fill: rgba(255, 255, 255, .5); }
 
-/* 5) Galáxia: bordas futuristas com luz, partículas e iluminação contínua; anel de luz ao escolher a peça */
+/* 5) Galáxia: bordas futuristas, nebulosa e estrelas (poucas camadas), anel de luz ao escolher a peça */
 .tray-galaxia { --fxc: rgba(160, 200, 255, .8); }
 .tray-galaxia .tray-rim { stroke-width: 3; opacity: .9; }
-.tray-neb { border-radius: 50%; }
-.tray-neb.a { background: radial-gradient(closest-side, var(--tg), transparent); opacity: .35; animation: nebPulse 7s ease-in-out infinite alternate; }
-.tray-neb.b { background: radial-gradient(closest-side, rgba(255, 130, 225, .6), transparent); opacity: .22; animation: nebPulse 9s ease-in-out infinite alternate -3s; }
-@keyframes nebPulse { from { opacity: .15; } to { opacity: .45; } }
-.tray-star { background: #fff; border-radius: 50%; opacity: .8; animation: stTw var(--d, 2s) ease-in-out infinite; }
-@keyframes stTw { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+.tray-neb { border-radius: 50%; background: radial-gradient(closest-side at 30% 50%, var(--tg), transparent), radial-gradient(closest-side at 70% 50%, rgba(255, 130, 225, .6), transparent); opacity: .3; animation: nebPulse 8s ease-in-out infinite alternate; }
+@keyframes nebPulse { from { opacity: .15; } to { opacity: .42; } }
+.tray-galaxia .tray-decor circle { fill: #fff; opacity: .85; }
 .tray-orb { background: radial-gradient(circle, rgba(255, 255, 255, .9), var(--tg) 40%, transparent 70%); border-radius: 50%; opacity: .5; animation: orbDrift var(--d, 10s) ease-in-out infinite alternate; }
 @keyframes orbDrift { from { transform: translate(0, 0); } to { transform: translate(40px, 10px); } }
-.tray-galaxia .tray-fx::after { content: ""; position: absolute; left: var(--fx-x, 50%); top: var(--fx-y, 50%); width: 60px; height: 60px; margin: -30px; border: 3px solid var(--tg); border-radius: 50%; opacity: 0; }
-.tray-galaxia.fx-select .tray-fx::after, .tray-galaxia.fx-pick .tray-fx::after { animation: ringOut .65s ease-out; }
-@keyframes ringOut { 0% { opacity: .95; transform: scale(.3); } 100% { opacity: 0; transform: scale(5); } }
+.tray-galaxia .tray-fx::after { content: ""; position: absolute; inset: 40px; border: 3px solid var(--tg); border-radius: 50%; opacity: 0; }
+.tray-galaxia.fx-a .tray-fx::after { animation: ringOutA .5s ease-out; }
+.tray-galaxia.fx-b .tray-fx::after { animation: ringOutB .5s ease-out; }
+@keyframes ringOutA { 0% { opacity: .95; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.6); } }
+@keyframes ringOutB { 0% { opacity: .95; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.6); } }
 
-/* fluidez e acessibilidade: nada se mexe durante o arrasto, desligado nos Ajustes, ou com movimento reduzido */
-/* durante o arrasto só as animações de AMBIENTE param (fluidez); os efeitos de "peça retirada" (.fx-*) tocam normalmente */
-#field.dragging .tray-skin .tray-puff, #field.dragging .tray-skin .tray-spark, #field.dragging .tray-skin .tray-star, #field.dragging .tray-skin .tray-orb, #field.dragging .tray-skin .tray-neb,
-#field.dragging .tray-skin:not(.fx-select):not(.fx-pick) .tray-wob { animation-play-state: paused !important; }
+/* fluidez e acessibilidade: nada se mexe durante o arrasto (só os efeitos de "peça retirada"), rolando a loja, desligado nos Ajustes, ou com movimento reduzido */
+#field.dragging .tray-skin .tray-puffg, #field.dragging .tray-skin .tray-twk, #field.dragging .tray-skin .tray-orb, #field.dragging .tray-skin .tray-neb,
+#field.dragging .tray-skin:not(.fx-a):not(.fx-b) .tray-wob { animation-play-state: paused !important; }
+.scrolling .tray-skin, .scrolling .tray-skin * { animation-play-state: paused !important; }
+.tray-static, .tray-static * { animation: none !important; }
 html[data-tray-anim="off"] .tray-skin, html[data-tray-anim="off"] .tray-skin *,
 html[data-motion="reduce"] .tray-skin, html[data-motion="reduce"] .tray-skin * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .tray-skin, .tray-skin *, #field.tray-enter .piece { animation: none !important; } }
@@ -90,7 +96,7 @@ html[data-motion="reduce"] .tray-skin, html[data-motion="reduce"] .tray-skin * {
 .shop-cat.on { background: var(--sun); color: var(--on-sun); box-shadow: 0 3px 0 var(--sun-deep); }
 .shop-note { margin: 0; color: var(--ink-soft); font-weight: 600; font-size: .95rem; }
 .shop-list { display: flex; flex-direction: column; gap: 14px; }
-.shop-card { background: var(--card); border-radius: 22px; box-shadow: 0 0 0 2px var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.shop-card { background: var(--card); border-radius: 22px; box-shadow: 0 0 0 2px var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; content-visibility: auto; contain-intrinsic-size: auto 400px; }
 .shop-card.on { box-shadow: 0 0 0 3px var(--sel); }
 .shop-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .shop-name { margin: 0; font-size: 1.1rem; }
@@ -106,8 +112,10 @@ html[data-theme="dark"] .shop-miss { color: #ff9a93; }
 .shop-hint { margin: 0; color: var(--ink-soft); font-weight: 600; font-size: .88rem; }
 .shop-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .shop-acts .btn { flex: 1 1 130px; min-height: 48px; }
-.tray-preview { position: relative; width: 100%; overflow: hidden; border-radius: 16px; background: var(--field-bg); box-shadow: inset 0 0 0 2px var(--line); }
-.tray-stage { position: absolute; left: 0; top: 0; width: 1000px; height: 392px; transform-origin: 0 0; }
+/* sem overflow:hidden + border-radius (recorte arredondado custa caro na primeira pintura): o conteúdo já cabe exatamente na caixa */
+.tray-preview { position: relative; width: 100%; aspect-ratio: 1000 / 392; border-radius: 16px; background: var(--field-bg); box-shadow: inset 0 0 0 2px var(--line); }
+.tray-img { display: block; width: 100%; height: 100%; border-radius: 16px; }
+.tray-stage { position: absolute; left: 0; top: 0; width: 1000px; height: 392px; transform-origin: 0 0; transform: scale(var(--k, .33)); }
 .tray-sample { position: absolute; z-index: 1; border-radius: 26px; border: 4px solid rgba(27, 37, 89, .3); box-shadow: 0 6px 0 rgba(27, 37, 89, .12); }
 .mine-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
 .mine-item { flex: none; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; font: 700 .95rem var(--font); color: var(--ink); background: var(--field-bg); box-shadow: inset 0 0 0 2px var(--line); cursor: pointer; }

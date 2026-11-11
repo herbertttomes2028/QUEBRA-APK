@@ -60,6 +60,40 @@
     };
   }
 
+  /* ============================== a cor da PARTIDA inteira ==============================
+   * A cor escolhida para a bandeja também pinta toda a tela da partida: fundo, campo, tabuleiro e a GRADE de encaixe. Isso é só troca de variáveis de cor
+   * na tela do jogo (--paper, --field, --grid, --board-ring...): tamanhos, posições e encaixe não mudam. O matiz e a saturação vêm da cor escolhida; a claridade
+   * é fixa por tema (claro/escuro), então texto, peças e botões continuam sempre legíveis. A Clássica de fábrica mantém o visual de sempre. */
+  function themeVars(hex, dark) {
+    var p = safeTray(hex), rgb = hexToRgb(p.fill), hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]), h = Math.round(hsl[0] * 360), s = hsl[1], gray = s < 0.06;
+    function sat(k, lo, hi) { return gray ? 0 : Math.round(Math.max(lo, Math.min(hi, s * k)) * 100); }
+    function c(sp, l, a) { return (a === undefined ? 'hsl(' : 'hsla(') + h + ',' + sp + '%,' + l + '%' + (a === undefined ? ')' : ',' + a + ')'); }
+    function hx(sp, l) { return hslToHex(h / 360, sp / 100, l / 100); }
+    var sa = sat(0.85, 0.1, 0.6), sf = sat(0.7, 0.1, 0.5), sr = sat(1, 0.2, 0.8), v;
+    if (!dark) {
+      v = { '--paper': c(sa, 93), '--paper-2': c(sa, 96), '--paper-3': c(sa, 87), '--field': c(sf, 90), '--field-bg': c(sa, 97, 0.55), '--field-ring': c(sa, 99, 0.85), '--board-ring': c(sr, 24), '--grid': c(sr, 24, 0.26), '--track': c(sa, 83), '--line': c(sa, 80) };
+      return { vars: v, paper: hx(sa, 93), field: hx(sf, 90), ring: hx(sr, 24), grid: hx(sr, 24), dark: false };
+    }
+    sa = sat(0.5, 0.1, 0.4); sf = sat(0.5, 0.1, 0.4); sr = sat(1, 0.2, 0.7);
+    v = { '--paper': c(sa, 11), '--paper-2': c(sa, 15), '--paper-3': c(sa, 8), '--field': c(sf, 19), '--field-bg': c(sa, 85, 0.07), '--field-ring': c(sa, 88, 0.15), '--board-ring': c(sr, 68), '--grid': c(sr, 85, 0.22), '--track': c(sa, 20), '--line': c(sa, 28) };
+    return { vars: v, paper: hx(sa, 11), field: hx(sf, 19), ring: hx(sr, 68), grid: hx(sr, 85), dark: true };
+  }
+  var themed = false, metaOrig = null;
+  function themeOn() { return S.equipped !== 'classica' || !!S.colors.classica; }
+  function paintTheme(screenName) {
+    var sg = $('#screen-game'); if (!sg) return;
+    var on = themeOn() && screenName === 'game', mt = document.querySelector('meta[name="theme-color"]'), keys = Object.keys(themeVars('#dbe2ff', false).vars), i;
+    if (!on) {
+      if (themed) { for (i = 0; i < keys.length; i++) sg.style.removeProperty(keys[i]); if (mt && metaOrig !== null) mt.setAttribute('content', metaOrig); themed = false; }
+      return;
+    }
+    var t = themeVars(current().hex, document.documentElement.getAttribute('data-theme') === 'dark');
+    for (i = 0; i < keys.length; i++) sg.style.setProperty(keys[i], t.vars[keys[i]]);
+    if (mt) { if (!themed) metaOrig = mt.getAttribute('content'); mt.setAttribute('content', t.paper); }
+    themed = true;
+  }
+  function gameScreen() { var sg = $('#screen-game'); return sg && sg.classList.contains('active') ? 'game' : 'outra'; }
+
   /* ============================== desenho da bandeja ============================== */
   var NS = 'http://www.w3.org/2000/svg', uid = 0;
   function el(tag, cls, css) { var e = document.createElement(tag); if (cls) e.className = cls; if (css) e.style.cssText = css; return e; }
@@ -116,43 +150,59 @@
     return { x: 8, y: top, W: W, H: H, T: T, B: B };
   }
 
-  function decor(model, g, pal) {
-    var box = el('div', 'tray-decor'), r = rng(model.length * 7919 + Math.round(g.W)), i, e, s;
-    function put(cls, x, y, w, h, css) { var d = el('span', cls, 'left:' + n(x) + 'px;top:' + n(y) + 'px;width:' + n(w) + 'px;height:' + n(h) + 'px;' + (css || '')); box.appendChild(d); return d; }
+  /* Decoração: o que pesa na GPU é o NÚMERO de elementos animados (cada um vira uma camada). Por isso as partículas ficam desenhadas
+   * dentro de poucos "grupos" (um <svg> por grupo) e só o grupo inteiro pisca/flutua: 3 a 6 camadas animadas por bandeja, não dezenas. */
+  function layer(cls, x, y, w, h, css, fill) {
+    var d = el('div', cls, 'left:' + n(x) + 'px;top:' + n(y) + 'px;width:' + n(w) + 'px;height:' + n(h) + 'px;' + (css || '')), s = sv('svg', { viewBox: '0 0 ' + n(w) + ' ' + n(h), width: n(w), height: n(h), 'aria-hidden': 'true', focusable: 'false' });
+    fill(s); d.appendChild(s); return d;
+  }
+  function circ(s, x, y, r) { s.appendChild(sv('circle', { cx: n(x), cy: n(y), r: n(r) })); }
+  function star4(s, cx, cy, r, cls) {
+    var X = n(cx), Y = n(cy);
+    s.appendChild(sv('path', { 'class': cls || '', d: 'M' + X + ',' + n(cy - r) + ' Q' + X + ',' + Y + ' ' + n(cx + r) + ',' + Y + ' Q' + X + ',' + Y + ' ' + X + ',' + n(cy + r) + ' Q' + X + ',' + Y + ' ' + n(cx - r) + ',' + Y + ' Q' + X + ',' + Y + ' ' + X + ',' + n(cy - r) + 'Z' }));
+  }
+  function decor(model, g, simple) {
+    var box = el('div', 'tray-decor'), r = rng(model.length * 7919 + Math.round(g.W)), i, k, bh = Math.max(40, g.B - g.T);
+    var dly = function () { return 'animation-delay:-' + n(r() * 6) + 's;'; };
     if (model === 'nuvem') {
-      for (i = 0; i < 5; i++) { s = 80 + r() * 60; e = put('tray-puff', 40 + r() * (g.W - 200), g.T + 20 + r() * Math.max(10, g.B - g.T - 90), s, s * 0.5, '--d:' + n(5 + r() * 4) + 's;animation-delay:-' + n(r() * 6) + 's'); }
+      for (i = 0; i < 3; i++) box.appendChild(layer('tray-grp tray-puffg', 30 + i * ((g.W - 260) / 2) + r() * 40, g.T + 12 + r() * Math.max(10, bh - 110), 200, 90, '--d:' + n(5 + r() * 4) + 's;' + dly(), function (s) { circ(s, 62, 56, 26); circ(s, 98, 42, 34); circ(s, 140, 56, 27); circ(s, 100, 62, 28); }));
     } else if (model === 'estrela') {
-      for (i = 0; i < 14; i++) { s = 14 + r() * 18; e = put('tray-spark', 20 + r() * (g.W - 60), (i % 2 ? g.T - 14 : g.B - 8) + (r() * 16 - 8), s, s, '--d:' + n(1.6 + r() * 2) + 's;animation-delay:-' + n(r() * 3) + 's'); }
-      for (i = 0; i < 6; i++) { s = 18 + r() * 14; put('tray-spark in', 40 + r() * (g.W - 100), g.T + 30 + r() * Math.max(10, g.B - g.T - 80), s, s, '--d:' + n(2 + r() * 2) + 's;animation-delay:-' + n(r() * 3) + 's'); }
+      box.appendChild(layer('tray-stat', 0, 0, g.W, g.H, '', function (s) { var q; for (q = 0; q < 16; q++) star4(s, 14 + r() * (g.W - 28), (q % 2 ? g.T - 6 : g.B + 4) + (r() * 18 - 9), 7 + r() * 8, 'tray-sp'); }));
+      if (!simple) for (k = 0; k < 3; k++) (function (kk) { var w3 = g.W / 3; box.appendChild(layer('tray-grp tray-twk', kk * w3, 0, w3, g.H, '--d:' + n(1.8 + r() * 1.6) + 's;' + dly(), function (s) { var q; for (q = 0; q < 6; q++) star4(s, 12 + r() * (w3 - 24), q < 3 ? g.T + (r() * 30 - 22) : g.T + 24 + r() * Math.max(10, bh - 40), 9 + r() * 9, q < 3 ? 'tray-sp' : 'tray-sp in'); })); })(k);
     } else if (model === 'gelatina') {
-      put('tray-gloss', 30, g.T - 6, g.W * 0.38, 26, ''); put('tray-gloss s2', g.W * 0.46, g.T - 4, g.W * 0.1, 16, ''); put('tray-gloss s3', g.W - 60, g.T + 18, 18, 18, '');
+      box.appendChild(layer('tray-stat', 0, 0, g.W, g.H, '', function (s) {
+        s.appendChild(sv('ellipse', { 'class': 'tray-gl', cx: n(30 + g.W * 0.19), cy: n(g.T + 4), rx: n(g.W * 0.19), ry: 11 })); s.appendChild(sv('ellipse', { 'class': 'tray-gl', cx: n(g.W * 0.51), cy: n(g.T + 6), rx: n(g.W * 0.05), ry: 7 })); s.appendChild(sv('circle', { 'class': 'tray-gl', cx: n(g.W - 52), cy: n(g.T + 26), r: 9 }));
+      }));
     } else if (model === 'galaxia') {
-      put('tray-neb a', -40, g.T - 40, g.W * 0.7, g.B - g.T + 80, ''); put('tray-neb b', g.W * 0.4, g.T - 30, g.W * 0.7, g.B - g.T + 60, '');
-      for (i = 0; i < 28; i++) { s = 2 + r() * 4; put('tray-star', 10 + r() * (g.W - 20), g.T - 12 + r() * (g.B - g.T + 24), s, s, '--d:' + n(1.5 + r() * 3) + 's;animation-delay:-' + n(r() * 4) + 's'); }
-      for (i = 0; i < 4; i++) { s = 26 + r() * 26; put('tray-orb', 30 + r() * (g.W - 100), g.T + r() * Math.max(10, g.B - g.T - 40), s, s, '--d:' + n(9 + r() * 6) + 's;animation-delay:-' + n(r() * 8) + 's'); }
+      if (!simple) box.appendChild(el('div', 'tray-neb', 'left:-40px;top:' + n(g.T - 40) + 'px;width:' + n(g.W + 80) + 'px;height:' + n(bh + 80) + 'px'));
+      box.appendChild(layer('tray-stat', 0, 0, g.W, g.H, '', function (s) { var q; for (q = 0; q < 22; q++) { circ(s, 10 + r() * (g.W - 20), g.T - 12 + r() * (bh + 24), 1 + r() * 2); } }));
+      if (!simple) for (k = 0; k < 2; k++) (function (kk) { var w2 = g.W / 2; box.appendChild(layer('tray-grp tray-twk', kk * w2, 0, w2, g.H, '--d:' + n(1.8 + r() * 2) + 's;' + dly(), function (s) { var q; for (q = 0; q < 10; q++) circ(s, 8 + r() * (w2 - 16), g.T - 10 + r() * (bh + 20), 1.2 + r() * 2.4); })); })(k);
+      if (!simple) for (i = 0; i < 2; i++) { var sz = 30 + r() * 24; box.appendChild(el('span', 'tray-orb', 'left:' + n(60 + r() * (g.W - 160)) + 'px;top:' + n(g.T + r() * Math.max(10, bh - 50)) + 'px;width:' + n(sz) + 'px;height:' + n(sz) + 'px;--d:' + n(9 + r() * 6) + 's;' + dly())); }
     }
     return box;
   }
 
   /* Monta a bandeja. Devolve a camada pronta (para o campo do jogo ou para a pré-visualização). */
-  function buildSkin(model, hex, g) {
+  function buildSkin(model, hex, g, live) {
     if (!SHAPES[model]) model = 'classica';
-    var pal = safeTray(hex), id = 'tg' + (++uid), skin = el('div', 'tray-skin tray-' + model, 'left:' + g.x + 'px;top:' + g.y + 'px;width:' + g.W + 'px;height:' + g.H + 'px');
+    var pal = safeTray(hex), id = 'tg' + (++uid), skin = el('div', 'tray-skin tray-' + model + (live === false ? ' tray-static' : ''), 'left:' + g.x + 'px;top:' + g.y + 'px;width:' + g.W + 'px;height:' + g.H + 'px');
     skin.style.setProperty('--tf', pal.fill); skin.style.setProperty('--te', pal.edge); skin.style.setProperty('--tg', pal.glow); skin.style.setProperty('--tm', pal.mat);
     var wob = el('div', 'tray-wob'), svg = sv('svg', { viewBox: '0 0 ' + g.W + ' ' + g.H, width: g.W, height: g.H, 'class': 'tray-svg', 'aria-hidden': 'true', focusable: 'false' }), d = SHAPES[model](g.W, g.H, g.T, g.B);
-    var defs = sv('defs'), lg = sv('linearGradient', { id: id, x1: '0', y1: '0', x2: '0', y2: '1' });
-    lg.appendChild(sv('stop', { offset: '0', 'stop-color': '#ffffff', 'stop-opacity': '0.32' })); lg.appendChild(sv('stop', { offset: '0.6', 'stop-color': '#ffffff', 'stop-opacity': '0' }));
-    defs.appendChild(lg); svg.appendChild(defs);
-    svg.appendChild(sv('path', { 'class': 'tray-shadow', d: d, transform: 'translate(0,7)' }));
-    svg.appendChild(sv('path', { 'class': 'tray-body', d: d }));
-    svg.appendChild(sv('path', { 'class': 'tray-mat', d: d }));
-    svg.appendChild(sv('path', { 'class': 'tray-sheen', d: d, fill: 'url(#' + id + ')' }));
-    svg.appendChild(sv('path', { 'class': 'tray-rim', d: d }));
+    if (live !== false) {                          // bandeja de jogo / prévia com movimento: acabamento completo (sombra, brilho, borda de luz)
+      var defs = sv('defs'), lg = sv('linearGradient', { id: id, x1: '0', y1: '0', x2: '0', y2: '1' });
+      lg.appendChild(sv('stop', { offset: '0', 'stop-color': '#ffffff', 'stop-opacity': '0.32' })); lg.appendChild(sv('stop', { offset: '0.6', 'stop-color': '#ffffff', 'stop-opacity': '0' }));
+      defs.appendChild(lg); svg.appendChild(defs);
+      svg.appendChild(sv('path', { 'class': 'tray-shadow', d: d, transform: 'translate(0,7)' }));
+      svg.appendChild(sv('path', { 'class': 'tray-body', d: d }));
+      svg.appendChild(sv('path', { 'class': 'tray-mat', d: d }));
+      svg.appendChild(sv('path', { 'class': 'tray-sheen', d: d, fill: 'url(#' + id + ')' }));
+      svg.appendChild(sv('path', { 'class': 'tray-rim', d: d }));
+    } else svg.appendChild(sv('path', { 'class': 'tray-body', d: d }));                 // lista da loja: só o corpo e o contorno (leve de pintar)
     wob.appendChild(svg); skin.appendChild(wob);
-    var dec = decor(model, g, pal);
+    var dec = decor(model, g, live === false);
     if (model !== 'estrela') { dec.style.clipPath = "path('" + d + "')"; dec.style.webkitClipPath = dec.style.clipPath; }     // decoração só dentro do contorno (os brilhos da Estrela passam das pontas de propósito)
     skin.appendChild(dec);
-    skin.appendChild(el('div', 'tray-fx'));
+    if (live !== false) skin.appendChild(el('div', 'tray-fx'));                    // o brilho de "peça retirada" só existe onde há jogo (a prévia estática não precisa)
     skin._d = d;
     return skin;
   }
@@ -199,7 +249,7 @@
   function api(method, path, body) { return QC.api ? QC.api(method, path, body, true) : Promise.resolve({ ok: false, error: 'offline' }); }
   function refresh() {
     if (!S.logged) return Promise.resolve();
-    return api('GET', '/shop').then(function (j) { if (takeServer(j)) { QC.tray.refresh(); renderIfOpen(); paintGems(); } });
+    return api('GET', '/shop').then(function (j) { if (takeServer(j)) { S.at = Date.now(); QC.tray.refresh(); renderIfOpen(); paintGems(); } });
   }
   function loadCatalog() {                       // visitante: o catálogo (nomes e preços) vem do /api/config
     if (S.loaded || S.logged) return Promise.resolve();
@@ -234,6 +284,7 @@
       if (board && board.nextSibling) field.insertBefore(skin, board.nextSibling); else field.appendChild(skin);   // logo depois do tabuleiro: as peças ficam POR CIMA
       field.classList.add('has-tray'); field.classList.remove('tray-classica', 'tray-nuvem', 'tray-estrela', 'tray-gelatina', 'tray-galaxia'); field.classList.add('tray-' + c.model);
       cur = { field: field, cfg: cfg, skin: skin, model: c.model };
+      paintTheme('game');                                           // a cor escolhida também pinta a tela da partida e a grade
       if (c.model === 'classica') { field.classList.add('tray-enter'); setTimeout(function () { field.classList.remove('tray-enter'); }, 900); }
     },
     refresh: function () {                        // trocou de modelo ou de cor (ex.: pela loja aberta durante a partida)
@@ -242,22 +293,24 @@
       skin.style.animation = 'none';             // troca instantânea, sem repetir a entrada
       cur.skin.parentNode.replaceChild(skin, cur.skin); cur.skin = skin; cur.model = c.model;
       cur.field.classList.remove('tray-classica', 'tray-nuvem', 'tray-estrela', 'tray-gelatina', 'tray-galaxia'); cur.field.classList.add('tray-' + c.model);
+      paintTheme(gameScreen());
     },
-    fx: function (kind, x, y) {                   // efeito ao escolher/retirar uma peça (só visual, nunca mexe nas peças)
-      if (!cur || !cur.skin || !animOn()) return;
-      var s = cur.skin, cfg = cur.cfg, g = geom(cfg), px = Math.max(0, Math.min(100, ((x - g.x) / g.W) * 100)), py = Math.max(0, Math.min(100, ((y - g.y) / g.H) * 100));
-      s.style.setProperty('--fx-x', n(px) + '%'); s.style.setProperty('--fx-y', n(py) + '%');
-      s.classList.remove('fx-select', 'fx-pick'); void s.offsetWidth; s.classList.add('fx-' + kind);
-      clearTimeout(fxT); fxT = setTimeout(function () { s.classList.remove('fx-select', 'fx-pick'); }, 750);
+    fx: function (kind, x, y) {                   // brilho ao escolher/retirar a peça (só visual): UM por toque; nunca mexe nas peças
+      if (!cur || !cur.skin || !cur.skin.isConnected || !animOn()) return;
+      var s = cur.skin, g = geom(cur.cfg), px = Math.max(0, Math.min(g.W, x - g.x)), py = Math.max(0, Math.min(g.H, y - g.y));
+      s.style.setProperty('--fx-x', n(px) + 'px'); s.style.setProperty('--fx-y', n(py) + 'px');
+      s._f = !s._f; s.classList.remove('fx-a', 'fx-b'); s.classList.add(s._f ? 'fx-a' : 'fx-b');       // alterna A/B: reinicia o efeito sem forçar layout
+      clearTimeout(fxT); fxT = setTimeout(function () { s.classList.remove('fx-a', 'fx-b'); }, 700);
     },
     drag: function (on) { if (cur && cur.field) cur.field.classList.toggle('dragging', !!on); },   // pausa as animações durante o arrasto (fluidez)
-    safeTray: safeTray, buildSkin: buildSkin, shapes: SHAPES, geom: geom, palette: PALETTE, defaults: DEFAULT_COLOR, fallback: FALLBACK, current: current
+    theme: themeVars, themeOn: themeOn, previewImage: previewImage, safeTray: safeTray, buildSkin: buildSkin, shapes: SHAPES, geom: geom, palette: PALETTE, defaults: DEFAULT_COLOR, fallback: FALLBACK, current: current
   };
 
   /* ============================== a loja (interface) ============================== */
-  var ui = { tab: 'loja', mine: null, open: false, previewer: null };
+  var ui = { tab: 'loja', mine: null, open: false, pvs: [], sig: '' };
   function paintGems() { var g = $('#shop-gems'); if (g) g.textContent = S.logged ? '💎 ' + (S.gems == null ? '…' : S.gems) : '💎 —'; }
-  function renderIfOpen() { if (ui.open) render(); }
+  function sig() { return JSON.stringify([S.logged, S.gems, S.owned, S.equipped, S.colors, S.items.map(function (i) { return i.id + ':' + i.price; }), ui.tab, ui.mine, animOn()]); }
+  function renderIfOpen() { if (ui.open && sig() !== ui.sig) render(); else if (!ui.open) ui.sig = ''; }          // dados iguais: não refaz a tela (evita piscar e trabalho à toa)
   function btn(txt, cls, fn, label) { var b = el('button', 'btn ' + (cls || 'btn-secondary')); b.type = 'button'; b.textContent = txt; if (label) b.setAttribute('aria-label', label); if (fn) b.addEventListener('click', fn); return b; }
 
   // pré-visualização: a MESMA bandeja do jogo, em escala, com algumas peças de exemplo (e espaços vazios para as decorações aparecerem)
@@ -271,13 +324,45 @@
     }
     return box;
   }
-  function previewBox(model, hex) {
+  /* Prévia ESTÁTICA da lista da loja: uma imagem SVG autocontida (corpo, contorno, enfeites e peças de exemplo) desenhada UMA vez num canvas, em segundo plano.
+   * Na tela vira um bitmap pronto (barato de mostrar): repintar vetores aninhados e escalados a cada quadro era o que travava ao abrir e ao rolar. */
+  function previewImage(model, hex, g) {
+    var pal = safeTray(hex), d = SHAPES[model](g.W, g.H, g.T, g.B), r = rng(model.length * 7919 + Math.round(g.W)), o = [], q, bh = Math.max(40, g.B - g.T);
+    function star(cx, cy, rr, fill, op) { var X = n(cx), Y = n(cy); return '<path fill="' + fill + '" opacity="' + op + '" d="M' + X + ',' + n(cy - rr) + ' Q' + X + ',' + Y + ' ' + n(cx + rr) + ',' + Y + ' Q' + X + ',' + Y + ' ' + X + ',' + n(cy + rr) + ' Q' + X + ',' + Y + ' ' + n(cx - rr) + ',' + Y + ' Q' + X + ',' + Y + ' ' + X + ',' + n(cy - rr) + 'Z"/>'; }
+    function dot(cx, cy, rr, op) { return '<circle cx="' + n(cx) + '" cy="' + n(cy) + '" r="' + n(rr) + '" fill="#fff" opacity="' + op + '"/>'; }
+    o.push('<path d="' + d + '" fill="' + pal.fill + '" stroke="' + pal.edge + '" stroke-width="5" stroke-linejoin="round"/>');
+    if (model === 'nuvem') { for (q = 0; q < 3; q++) { var cx = 130 + q * ((g.W - 260) / 2) + r() * 40, cy = g.T + 55 + r() * Math.max(10, bh - 120); o.push('<g fill="#fff" opacity=".5"><circle cx="' + n(cx) + '" cy="' + n(cy + 14) + '" r="26"/><circle cx="' + n(cx + 36) + '" cy="' + n(cy) + '" r="34"/><circle cx="' + n(cx + 78) + '" cy="' + n(cy + 14) + '" r="27"/></g>'); } }
+    else if (model === 'estrela') { for (q = 0; q < 16; q++) o.push(star(14 + r() * (g.W - 28), (q % 2 ? g.T - 6 : g.B + 4) + (r() * 18 - 9), 7 + r() * 8, pal.glow, '.9')); for (q = 0; q < 8; q++) o.push(star(20 + r() * (g.W - 40), g.T + 24 + r() * Math.max(10, bh - 40), 9 + r() * 9, '#fff', '.5')); }
+    else if (model === 'gelatina') { o.push('<ellipse cx="' + n(30 + g.W * 0.19) + '" cy="' + n(g.T + 4) + '" rx="' + n(g.W * 0.19) + '" ry="11" fill="#fff" opacity=".5"/><ellipse cx="' + n(g.W * 0.51) + '" cy="' + n(g.T + 6) + '" rx="' + n(g.W * 0.05) + '" ry="7" fill="#fff" opacity=".5"/><circle cx="' + n(g.W - 52) + '" cy="' + n(g.T + 26) + '" r="9" fill="#fff" opacity=".5"/>'); }
+    else if (model === 'galaxia') { o.push('<ellipse cx="' + n(g.W * 0.3) + '" cy="' + n(g.T + bh / 2) + '" rx="' + n(g.W * 0.3) + '" ry="' + n(bh / 2) + '" fill="' + pal.glow + '" opacity=".2"/><ellipse cx="' + n(g.W * 0.72) + '" cy="' + n(g.T + bh / 2) + '" rx="' + n(g.W * 0.28) + '" ry="' + n(bh / 2) + '" fill="#ff82e1" opacity=".14"/>'); for (q = 0; q < 24; q++) o.push(dot(10 + r() * (g.W - 20), g.T - 12 + r() * (bh + 24), 1 + r() * 2.2, '.85')); }
+    var cols = 6, t = 140, gap = (g.W - cols * t) / (cols + 1), rs = rng(11), i, hue;
+    for (i = 0; i < 12; i++) { if (i === 3 || i === 8) continue; hue = Math.round(rs() * 360); o.push('<rect x="' + n(g.x + gap + (i % cols) * (t + gap)) + '" y="' + n(g.y + g.T + 14 + Math.floor(i / cols) * (t + 14)) + '" width="' + t + '" height="' + t + '" rx="26" fill="hsl(' + hue + ',72%,68%)" stroke="rgba(27,37,89,.3)" stroke-width="4"/>'); }
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 392" width="1000" height="392">' + o.join('') + '</svg>');
+  }
+  /* Prévia: a MESMA bandeja do jogo em escala. Na lista da loja é ESTÁTICA (imagem) e montada aos poucos; as prévias com movimento (Visualizar e
+   * Minhas Bandejas) são uma só por vez, com o desenho vivo. A escala do desenho vivo vem da variável --k (calculada uma vez por tela). */
+  function previewBox(model, hex, live) {
     var wrap = el('div', 'tray-preview'), stage = el('div', 'tray-stage'), g = { x: 8, y: 0, W: 984, H: 392, T: 28, B: 352 };
-    stage.appendChild(buildSkin(model, hex, g)); stage.appendChild(samples(g, 12)); wrap.appendChild(stage);
-    wrap._scale = function () { var w = wrap.clientWidth || 300; stage.style.transform = 'scale(' + (w / 1000) + ')'; wrap.style.height = Math.round(392 * (w / 1000)) + 'px'; };
     wrap._stage = stage; wrap._model = model;
-    setTimeout(wrap._scale, 0); setTimeout(wrap._scale, 120);
+    wrap._build = function () {
+      if (wrap._built) return; wrap._built = true;
+      if (live) { wrap.appendChild(stage); stage.appendChild(buildSkin(model, hex, g, true)); stage.appendChild(samples(g, 12)); }       // com movimento: o desenho vivo
+      else {                                                                                  // lista: um canvas desenhado UMA vez em segundo plano (bitmap pronto, barato de mostrar)
+        var cv = el('canvas', 'tray-img'), im = new Image(); cv.width = 900; cv.height = 353; cv.setAttribute('role', 'presentation'); wrap.appendChild(cv);
+        im.onload = function () { try { cv.getContext('2d').drawImage(im, 0, 0, 900, 353); } catch (e) { /* ignora */ } };
+        im.src = previewImage(model, hex, g);
+      }
+    };
+    if (live) wrap._build();
     return wrap;
+  }
+  function setScale(root) {                       // uma única leitura de largura por tela (nada de ler o layout a cada cartão)
+    var pv = root && root.querySelector('.tray-preview'); if (!pv) return;
+    var w = pv.clientWidth; if (w > 0) root.style.setProperty('--k', String(Math.round((w / 1000) * 1000) / 1000));
+  }
+  function buildStaged(wraps) {                   // uma prévia por quadro, as que aparecem primeiro vêm primeiro
+    var q = wraps.slice();
+    (function step() { var w = q.shift(); if (!w) return; if (w.isConnected) w._build(); requestAnimationFrame(step); })();
   }
   function recolor(wrap, hex) {               // prévia em tempo real (sem salvar)
     var skin = wrap._stage.querySelector('.tray-skin'), pal = safeTray(hex);
@@ -288,7 +373,7 @@
   function card(it) {
     var c = el('article', 'shop-card' + (S.equipped === it.id ? ' on' : '')), own = owns(it.id), using = own && S.equipped === it.id;
     c.setAttribute('data-item', it.id);
-    var pv = previewBox(it.id, colorOf(it.id)); c.appendChild(pv);
+    var pv = previewBox(it.id, colorOf(it.id), false); c.appendChild(pv); ui.pvs.push(pv);
     var head = el('div', 'shop-card-head'), h = el('h3', 'shop-name'); h.textContent = it.name; head.appendChild(h);
     var badge = el('span', 'shop-badge' + (using ? ' use' : own ? ' own' : ' price'));
     badge.textContent = using ? 'Em uso' : own ? (it.price ? 'Adquirida ✓' : 'Sua ✓') : '💎 ' + it.price; head.appendChild(badge); c.appendChild(head);
@@ -308,8 +393,8 @@
     var chip = el('button', 'shop-cat on'); chip.type = 'button'; chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', 'true'); chip.textContent = '🧺 BANDEJAS'; cats.appendChild(chip);   // outras categorias entram aqui no futuro
     body.appendChild(cats);
     if (!S.logged) { var n1 = el('p', 'shop-note'); n1.textContent = 'Dá para ver tudo e mudar a cor da Clássica. Para comprar com gemas, entre na sua conta.'; body.appendChild(n1); }
-    var list = el('div', 'shop-list'); S.items.forEach(function (it) { list.appendChild(card(it)); }); body.appendChild(list);
-    setTimeout(function () { Array.prototype.forEach.call(list.querySelectorAll('.tray-preview'), function (w) { if (w._scale) w._scale(); }); }, 30);
+    var list = el('div', 'shop-list'); ui.pvs = []; S.items.forEach(function (it) { list.appendChild(card(it)); }); body.appendChild(list);
+    setScale(body); buildStaged(ui.pvs);
   }
 
   function renderMine(body) {
@@ -325,7 +410,7 @@
       list.appendChild(b);
     });
     body.appendChild(list);
-    var id = ui.mine, it = itemById(id) || FALLBACK[0], ed = el('section', 'mine-editor'), pv = previewBox(id, colorOf(id)); ed.appendChild(pv);
+    var id = ui.mine, it = itemById(id) || FALLBACK[0], ed = el('section', 'mine-editor'), pv = previewBox(id, colorOf(id), true); ed.appendChild(pv);
     var tt = el('h3', 'shop-name'); tt.textContent = it.name; ed.appendChild(tt);
     var lb = el('p', 'shop-desc'); lb.textContent = 'Escolha uma cor (é de graça!). Você vê a prévia na hora e ela fica salva sozinha.'; ed.appendChild(lb);
     var pal = el('div', 'swatches'); pal.setAttribute('role', 'group'); pal.setAttribute('aria-label', 'Paleta de cores');
@@ -351,7 +436,7 @@
     arow.appendChild(sw); ed.appendChild(arow);
     var nt = el('p', 'set-note'); nt.textContent = 'Com o movimento reduzido no aparelho, as animações ficam paradas.'; ed.appendChild(nt);
     body.appendChild(ed);
-    setTimeout(function () { if (pv._scale) pv._scale(); }, 30);
+    setScale(body);
   }
 
   function render() {
@@ -359,7 +444,7 @@
     var scroll = body.scrollTop; body.textContent = '';
     Array.prototype.forEach.call(document.querySelectorAll('#modal-shop .shop-tab'), function (t) { var on = t.getAttribute('data-tab') === ui.tab; t.classList.toggle('on', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
     if (ui.tab === 'minhas') renderMine(body); else renderLoja(body);
-    paintGems(); body.scrollTop = scroll;
+    paintGems(); body.scrollTop = scroll; ui.sig = sig();
   }
 
   /* ---------- ações ---------- */
@@ -402,22 +487,29 @@
   function openPreview(id) {
     var it = itemById(id) || FALLBACK[0], body = $('#tp-body'); if (!body) return;
     body.textContent = ''; $('#tp-title').textContent = it.name;
-    var pv = previewBox(id, colorOf(id)); body.appendChild(pv);
+    var pv = previewBox(id, colorOf(id), true); body.appendChild(pv);
     var d = el('p', 'shop-desc'); d.textContent = it.desc + (owns(id) ? '' : ' Preço: 💎 ' + it.price + '.'); body.appendChild(d);
     var acts = $('#tp-actions'); acts.textContent = '';
     if (!owns(id)) acts.appendChild(btn(S.logged ? 'Comprar 💎 ' + it.price : 'Entrar para comprar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); buy(it); }));
     else if (S.equipped !== id) acts.appendChild(btn('Equipar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); equip(id); }));
     var close = btn('Fechar', 'btn-ghost', function () { QC.closeModal('#modal-tray-preview'); }); close.id = 'tp-close'; close.setAttribute('data-back', ''); acts.appendChild(close);
     QC.openModal('#modal-tray-preview', '#tp-close');
-    setTimeout(function () { if (pv._scale) pv._scale(); }, 30);
+    setScale(body);
   }
 
   function openShop(tab) {
     if (tab) ui.tab = tab;
-    ui.open = true; loadCatalog(); if (S.logged) refresh();
-    QC.openModal('#modal-shop', '#shop-close'); render();
+    ui.open = true; loadCatalog();
+    QC.openModal('#modal-shop', '#shop-close');
+    if (sig() !== ui.sig || !$('#shop-body').firstChild) render(); else setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar
+    if (S.logged && (!S.at || Date.now() - S.at > 20000)) refresh();                 // o servidor só é consultado se os dados têm mais de 20 s
   }
   function closeShop() { ui.open = false; QC.closeModal('#modal-shop'); }
+  // monta a loja (escondida) quando o app fica ocioso: na hora do toque não sobra trabalho de montar nada
+  function prewarm() {
+    if (ui.open || ui.warm) return; ui.warm = true;
+    var tab = ui.tab; ui.tab = 'loja'; render(); ui.pvs.forEach(function (w) { w._build(); }); ui.tab = tab;
+  }
   QC.openShop = openShop;
 
   function wire() {
@@ -427,14 +519,21 @@
     on('#shop-close', closeShop);
     Array.prototype.forEach.call(document.querySelectorAll('#modal-shop .shop-tab'), function (t) { t.addEventListener('click', function () { ui.tab = t.getAttribute('data-tab'); render(); }); });
     var m = $('#modal-shop'); if (m) m.addEventListener('click', function (e) { if (e.target === m) closeShop(); });
-    window.addEventListener('resize', function () { if (ui.open) Array.prototype.forEach.call(document.querySelectorAll('#modal-shop .tray-preview, #modal-tray-preview .tray-preview'), function (w) { if (w._scale) w._scale(); }); });
+    window.addEventListener('resize', function () { if (ui.open) { setScale($('#shop-body')); setScale($('#tp-body')); } });
+    // enquanto a lista rola, as animações param (rolagem sempre fluida)
+    var scT = 0; var sb = $('#shop-body');
+    if (sb) sb.addEventListener('scroll', function () { if (!sb.classList.contains('scrolling')) sb.classList.add('scrolling'); clearTimeout(scT); scT = setTimeout(function () { sb.classList.remove('scrolling'); }, 140); }, { passive: true });
     // a preferência de animação mudou em Ajustes: grava na conta também
     try {
       new MutationObserver(function () { var on2 = animOn(); if (S.anim !== on2) { S.anim = on2; if (S.logged) queue = queue.then(function () { return api('POST', '/shop/prefs', { anim: on2 }); }); } })
         .observe(document.documentElement, { attributes: true, attributeFilter: ['data-tray-anim'] });
+      new MutationObserver(function () { paintTheme(gameScreen()); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     } catch (e) { /* ignora */ }
     // o botão voltar do Android fecha a janela do topo clicando no botão marcado com data-back (como todas as outras janelas)
   }
+  (window.requestIdleCallback || function (f) { return setTimeout(f, 1500); })(function () { try { prewarm(); } catch (e) { /* ignora: abrir a loja monta na hora */ } }, { timeout: 5000 });
+  var prevScreen = QC.onScreen;                  // sair da partida limpa a cor da tela (a tela inicial e os menus seguem iguais)
+  QC.onScreen = function (name) { if (prevScreen) prevScreen(name); paintTheme(name); };
   loadLocal();
   var already = QC.account && QC.account(); if (already) QC.onAccount(already);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
