@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const phrases = require('./phrases');
 const library = require('./library');
 const shopCatalog = require('./shop');
+const magnet = require('./magnet');
 // Origem externa das imagens da biblioteca (opcional). Valor inválido é IGNORADO e o jogo segue com os arquivos locais (falha fechada).
 { const m = library.configureMedia(process.env.MEDIA_BASE_URL); if (process.env.MEDIA_BASE_URL) console.log(m ? '[biblioteca] imagens externas em ' + m.origin : '[biblioteca] MEDIA_BASE_URL inválida: usando os arquivos locais'); }
 const security = require('./security');
@@ -237,7 +238,7 @@ app.get('/diagnostico', (req, res) => {
       pacotes
     },
     imagens: listImages().length,
-    encaixe: { raio_em_casas: SNAP_FACTOR, padrao: SNAP_FACTOR_DEFAULT, origem: SNAP_FACTOR === SNAP_FACTOR_DEFAULT ? 'padrão' : 'variável SNAP_FACTOR' },   // o ímã: a peça encaixa a até esta fração da casa
+    encaixe: { raio_em_casas: SNAP_FACTOR, padrao: SNAP_FACTOR_DEFAULT, origem: SNAP_FACTOR === SNAP_FACTOR_DEFAULT ? 'padrão' : 'variável SNAP_FACTOR', puxa_ao_arrastar: magnet.ENABLED },   // o ímã: a peça encaixa a até esta fração da casa
     seguranca: {
       cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
       email_estado: mailer ? mailer.stats : null,      // envios desde que o servidor ligou e o ÚLTIMO erro (já sem chave, e-mails e IPs)
@@ -902,9 +903,12 @@ io.on('connection', (socket) => {
     socket.data.lastMove = now;
     const p = pieceFrom(c.room, data.id);
     if (!p || p.heldBy !== c.idx) return;
-    const hh = Math.ceil(c.room.cfg.TRAY / 2);
-    p.x = clamp(data.x, hh, c.room.cfg.FIELD_W - hh);
-    p.y = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
+    const hh = Math.ceil(c.room.cfg.TRAY / 2), px = p.x, py = p.y;
+    const nx = clamp(data.x, hh, c.room.cfg.FIELD_W - hh), ny = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
+    const q = magnet.ENABLED ? magnet.pullPoint(c.room.cfg, p, px, py, nx, ny) : { x: nx, y: ny };       // ímã ao ARRASTAR: se o dedo passou pela zona do ímã da casa certa, a peça é puxada na hora
+    p.x = q.x; p.y = q.y;
+    if (magnet.ENABLED && tryLock(c.room, p, c.idx)) return;
+    p.x = nx; p.y = ny;
     socket.to(c.room.code).volatile.emit('moved', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
   });
 
