@@ -31,7 +31,8 @@ test('o mascote só existe na tela inicial e é um botão acessível, com desenh
 test('scripts: o núcleo e o desenho vêm depois do jogo e da conta, locais e sem inline', () => {
   const tags = [...html.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
   const i = (n) => tags.findIndex((t) => t.includes(n)); assert.ok(i('conta.js') > 0 && i('mascot-core.js') > i('conta.js') && i('mascot.js') > i('mascot-core.js'));
-  for (const t of tags.filter((t) => /mascot/.test(t))) { assert.doesNotMatch(t, /https?:|async|type="module"/); assert.match(t, /src="mascot(-core)?\.js"/); }
+  assert.ok(i('mascot-looks.js') > i('mascot-core.js') && i('mascot-looks.js') < i('mascot.js'), 'as aparências (skins e roupas) vêm entre o núcleo e o desenho'); assert.ok(i('pet.js') > i('mascot.js'), 'a janela "Meu pet" vem depois do desenho');
+  for (const t of tags.filter((t) => /mascot|pet\.js/.test(t))) { assert.doesNotMatch(t, /https?:|async|type="module"/); assert.match(t, /src="(mascot(-core|-looks)?|pet)\.js"/); }
   assert.doesNotMatch(html, /<script>[^<]/, 'sem script inline');
 });
 
@@ -90,7 +91,8 @@ test('suavidade e desempenho: ao reagir acompanha a tela (sem teto), parado 12 q
 });
 
 test('desempenho do WebGL: poucas chamadas por quadro (peças agrupadas por geometria, uniformes só quando mudam), sem sombra, sem transparência', () => {
-  assert.match(masCode, /var GROUPS = \['body', 'sph', 'mouth', 'tongue', 'lashL', 'lashR'\]/);
+  assert.match(masCode, /var GROUPS_BASE = \['body', 'sph', 'mouth', 'tongue', 'lashL', 'lashR'\], GROUPS = GROUPS_BASE\.slice\(\)/, 'os 6 grupos de sempre; as malhas da roupa entram como grupos extras');
+  assert.equal((masCode.match(/GROUPS = GROUPS_BASE\.concat\(names\)/g) || []).length, 1, 'os grupos extras só são montados em um lugar (uploadLook)');
   assert.match(masCode, /if \(!b\) \{ bindGeo\(bufs\[GROUPS\[g\]\]\); b = true; \}/, 'liga os buffers UMA vez por grupo');
   assert.match(masCode, /if \(p\.color !== lastColor\)/); assert.match(masCode, /if \(f !== lastFlat\)/);
   assert.equal((masCode.match(/bindGeo\(/g) || []).length, 3, 'definição + contorno + desenho principal');
