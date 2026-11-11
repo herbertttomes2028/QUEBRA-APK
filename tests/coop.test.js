@@ -79,7 +79,7 @@ test('pacotes rotate antigos não giram peças cooperativas nem fazem encaixe', 
   const p = snap.pieces[0], t = alvo(snap.cfg, p);
   a.emit('grab', { id: p.id });
   await b.once_('grabbed', (d) => d.id === p.id);
-  a.emit('move', { id: p.id, x: t.x, y: t.y });
+  a.emit('move', { id: p.id, x: t.x + Math.round(snap.cfg.TILE * 1.2), y: t.y });      // perto, mas FORA da zona do ímã (o ímã também puxa ao arrastar)
   await new Promise((r) => setTimeout(r, 80));
   let lockedByRotation = false;
   a.on('locked', () => { lockedByRotation = true; });

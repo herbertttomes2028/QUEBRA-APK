@@ -183,7 +183,7 @@ test('animações leves e desligáveis: só transform e opacity; param no arrast
 
 test('integração mínima com o jogo: a bandeja entra logo depois do tabuleiro; a grade e a regra de encaixe não foram tocadas', () => {
   assert.match(game, /field\.appendChild\(board\);\n    if \(typeof QC !== 'undefined' && QC\.tray\) QC\.tray\.build\(field, cfg\);/);
-  assert.equal((game.match(/QC\.tray\./g) || []).length, 5, 'só 5 chamadas ao módulo da loja dentro do jogo');
+  assert.equal((game.match(/QC\.tray\./g) || []).length, 6, 'só 6 chamadas ao módulo da loja dentro do jogo (construir, 2 brilhos, marcar/desmarcar arrasto ao pegar e ao soltar, e desmarcar quando o ímã puxa a peça)');
   assert.doesNotMatch(game, /window\.QC && QC\.tray/, 'os ganchos funcionam mesmo onde não existe window (testes do cliente em vm)');
   assert.match(game, /QC\.tray\.fx\('select', p\.x, p\.y\)/);
   const pd = game.slice(game.indexOf('function onPointerDown'), game.indexOf('function onPointerMove')); assert.doesNotMatch(pd, /QC\.tray/, 'nada da loja roda no instante do toque (o jogo já faz o trabalho mais pesado ali)');
