@@ -21,7 +21,7 @@ test('PostgreSQL: categoria paga nova ("Baú das Maravilhas") pode ser comprada;
   try {
     const dir = path.join(root, 'migrations'); const arqs = fs.readdirSync(dir).filter((n) => n.endsWith('.sql')).sort();
     const ate012 = arqs.filter((n) => n < '013'); const depois = arqs.filter((n) => n >= '013');
-    assert.deepEqual(depois, ['013_desbloqueio_categorias_novas.sql', '014_imagens_2026-11-d.sql']);
+    assert.deepEqual(depois.slice(0, 2), ['013_desbloqueio_categorias_novas.sql', '014_imagens_2026-11-d.sql'], 'as duas migrações desta correção, na ordem (as seguintes podem existir)');
     for (const f of ate012) await q(fs.readFileSync(path.join(dir, f), 'utf8'));
 
     /* ---- quem já tinha comprado "Cultura" ANTES da migração: nada se perde, nada quebra ---- */
