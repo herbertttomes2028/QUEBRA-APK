@@ -17,6 +17,15 @@
     { id: 'galaxia',  name: 'Bandeja Galáxia',  price: 500, desc: 'Bordas futuristas, partículas e luz suave.' }
   ];
   var MODELS = ['classica', 'nuvem', 'estrela', 'gelatina', 'galaxia'];
+  // Skins e roupas do pet (a lógica de desenho está em mascot-looks.js). Só o que é GRÁTIS existe sem internet; o catálogo de verdade (preços e raridade) vem do servidor.
+  var PET_CATS = ['skins', 'roupas'], PET_NOUN = { skins: 'skin', roupas: 'roupa' }, RARITY = { comum: 'Comum', rara: 'Rara', epica: 'Épica', lendaria: 'Lendária' };
+  function petFallback() {
+    var L = window.MascotLooks, out = { skins: [], roupas: [] };
+    if (!L) return out;
+    L.SKINS.forEach(function (x) { if (x.free) out.skins.push({ id: 'skin-' + x.id, look: x.id, name: x.name, price: 0, desc: '', cat: 'skins' }); });
+    L.OUTFITS.forEach(function (x) { if (x.free) out.roupas.push({ id: 'roupa-' + x.id, look: x.id, name: x.name, price: 0, desc: '', cat: 'roupas' }); });
+    return out;
+  }
   var DEFAULT_COLOR = { classica: '#dbe2ff', nuvem: '#bfe4ff', estrela: '#ffe08a', gelatina: '#ff9fc8', galaxia: '#2d2a6e' };
   var PALETTE = ['#dbe2ff', '#bfe4ff', '#c8f2e0', '#ffe08a', '#ffc9a3', '#ff9fc8', '#e0c3ff', '#a9b8ff', '#7fd1b9', '#f2a65a', '#4a5bd6', '#2d2a6e'];
   var HEX = /^#[0-9a-f]{6}$/;
@@ -208,7 +217,7 @@
   }
 
   /* ============================== estado, preferências e servidor ============================== */
-  var S = { items: FALLBACK.slice(), owned: ['classica'], equipped: 'classica', colors: {}, gems: null, logged: false, uid: null, history: [], loaded: false, anim: null };
+  var S = { items: FALLBACK.slice(), owned: ['classica'], equipped: 'classica', colors: {}, gems: null, logged: false, uid: null, history: [], loaded: false, anim: null, petItems: { skins: [], roupas: [] }, pet: { skin: '', outfit: '' } };
   var queue = Promise.resolve();
   function itemById(id) { for (var i = 0; i < S.items.length; i++) if (S.items[i].id === id) return S.items[i]; return null; }
   function owns(id) { return S.owned.indexOf(id) >= 0; }
@@ -220,23 +229,70 @@
     var p = { equipped: S.equipped, colors: S.colors };
     if (S.logged) { p.u = S.uid; store.set('shopc', p); } else store.set('shopg', p);
   }
-  function loadLocal() {
+  function loadLocalTrays() {
     var p = S.logged ? store.get('shopc', null) : store.get('shopg', null);
     if (!p || (S.logged && p.u !== S.uid)) { S.equipped = 'classica'; S.colors = {}; return; }
     S.equipped = MODELS.indexOf(p.equipped) >= 0 ? p.equipped : 'classica';
     S.colors = {}; MODELS.forEach(function (m) { if (p.colors && HEX.test(p.colors[m] || '')) S.colors[m] = p.colors[m]; });
     if (!S.logged) S.owned = ['classica'];
   }
+  function loadLocal() { loadLocalTrays(); petLoadLocal(); }
+
+  /* ---------- skins e roupas do pet ---------- */
+  function petList(cat) { var l = S.petItems[cat]; if (l && l.length) return l; var fb = petFallback(); S.petItems[cat] = fb[cat]; return fb[cat]; }
+  function petById(id) { var all = petList('skins').concat(petList('roupas')); for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
+  function petByLook(cat, look) { var l = petList(cat); for (var i = 0; i < l.length; i++) if (l[i].look === look) return l[i]; return null; }
+  function petUsable(it) { return !!it && (it.price <= 0 || S.owned.indexOf(it.id) >= 0); }          // grátis (para todos, até visitantes) ou já desbloqueado na conta
+  function petClean(sel, trust) {                                                                      // só ids conhecidos e só o que dá para usar
+    var L = window.MascotLooks, c = L ? L.sanitize(sel) : { skin: '', outfit: '' }, a = c.skin && petByLook('skins', c.skin), b = c.outfit && petByLook('roupas', c.outfit);
+    return { skin: a && (trust || petUsable(a)) ? c.skin : '', outfit: b && (trust || petUsable(b)) ? c.outfit : '' };
+  }
+  var petListeners = [];
+  function petNotify() { var cur = { skin: S.pet.skin, outfit: S.pet.outfit }; petListeners.forEach(function (f) { try { f(cur); } catch (e) { /* um ouvinte nunca derruba a loja */ } }); }
+  function petSave() { if (S.logged) store.set('petc', { u: S.uid, skin: S.pet.skin, outfit: S.pet.outfit }); else store.set('pet', { skin: S.pet.skin, outfit: S.pet.outfit }); }
+  function petLoadLocal() {                                                                            // visitante: o que ele guardou (só grátis vale); conta: o que a conta tinha neste aparelho, até o servidor responder
+    var p = S.logged ? store.get('petc', null) : store.get('pet', null);
+    S.pet = !p || (S.logged && p.u !== S.uid) ? { skin: '', outfit: '' } : petClean(p, S.logged);
+    petNotify();
+  }
+  function petFromServer(p) {
+    var look = function (id) { var it = typeof id === 'string' ? petById(id) : null; return it ? it.look : ''; };
+    S.pet = { skin: look(p && p.skin), outfit: look(p && p.outfit) }; petSave(); petNotify();
+  }
+  function petPick(kind, look) {                                                                        // kind: 'skin' | 'outfit'; look '' = o pet de fábrica
+    var cat = kind === 'skin' ? 'skins' : 'roupas', it = look ? petByLook(cat, look) : null;
+    if (look && !petUsable(it)) return false;
+    var next = { skin: S.pet.skin, outfit: S.pet.outfit }; next[kind] = look || ''; S.pet = next; petSave(); petNotify(); renderIfOpen();
+    if (S.logged) queue = queue.then(function () { return api('POST', '/shop/equip', it ? { itemId: it.id } : { category: cat, itemId: null }); }).then(function (j) {
+      if (j && !j.ok && j.error !== 'offline') { refresh(); QC.toast('Não deu para trocar o pet agora.', 2600); }
+    });
+    return true;
+  }
+  function petState() {
+    var entry = function (it) { return { id: it.id, look: it.look, name: it.name, price: it.price, rarity: it.rarity || null, usable: petUsable(it), cat: it.cat }; };
+    return { logged: S.logged, sel: { skin: S.pet.skin, outfit: S.pet.outfit }, skins: petList('skins').map(entry), outfits: petList('roupas').map(entry) };
+  }
+  // loja.js carrega ANTES de mascot-looks.js: nesse momento ainda não dá para validar ids de skin/roupa. O pet.js (último a carregar) chama ready() para reler o que estava guardado.
+  function petReady() { if (S.loaded) petNotify(); else petLoadLocal(); }
+  QC.shopPet = { state: petState, pick: petPick, ready: petReady, on: function (fn) { if (typeof fn === 'function') petListeners.push(fn); } };
+
+  function takeCatalog(cats) {                       // bandejas (as do jogo de antes) e as categorias do pet, cada uma pelo seu id
+    (cats || []).forEach(function (c) {
+      if (!c || !Array.isArray(c.items)) return;
+      if (c.id === 'bandejas') S.items = c.items.slice();
+      else if (PET_CATS.indexOf(c.id) >= 0) S.petItems[c.id] = c.items.map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { o[k] = i[k]; }); o.cat = c.id; return o; });
+    });
+  }
   function takeServer(j) {
     if (!j || !j.ok) return false;
-    if (j.categories && j.categories[0]) S.items = j.categories[0].items.slice();
+    takeCatalog(j.categories);
     if (typeof j.gems === 'number') S.gems = j.gems;
-    S.owned = (j.owned || ['classica']).filter(function (x) { return MODELS.indexOf(x) >= 0; });
+    S.owned = (j.owned || ['classica']).filter(function (x) { return MODELS.indexOf(x) >= 0 || !!petById(x); });
     S.equipped = j.equipped && MODELS.indexOf(j.equipped) >= 0 ? j.equipped : 'classica';
     S.colors = {}; MODELS.forEach(function (m) { if (j.colors && HEX.test(j.colors[m] || '')) S.colors[m] = j.colors[m]; });
     S.history = j.history || [];
     if (typeof j.anim === 'boolean') { S.anim = j.anim; applyAnim(j.anim); }
-    S.loaded = true; saveLocal(); return true;
+    S.loaded = true; saveLocal(); if (j.pet) petFromServer(j.pet); return true;
   }
   function applyAnim(on) {                       // a conta manda: mesma preferência em todos os aparelhos
     var cur = animOn();
@@ -254,7 +310,7 @@
   function loadCatalog() {                       // visitante: o catálogo (nomes e preços) vem do /api/config
     if (S.loaded || S.logged) return Promise.resolve();
     return fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) {
-      if (c && c.shop && c.shop.categories && c.shop.categories[0]) { S.items = c.shop.categories[0].items.slice(); renderIfOpen(); }
+      if (c && c.shop && c.shop.categories) { takeCatalog(c.shop.categories); petNotify(); renderIfOpen(); }
     }).catch(function () { /* sem internet: fica o catálogo reserva */ });
   }
   // preferências gravadas em ordem (uma depois da outra), sem travar a tela
@@ -307,9 +363,9 @@
   };
 
   /* ============================== a loja (interface) ============================== */
-  var ui = { tab: 'loja', mine: null, open: false, pvs: [], sig: '' };
+  var ui = { tab: 'loja', cat: 'bandejas', mine: null, open: false, pvs: [], sig: '' };
   function paintGems() { var g = $('#shop-gems'); if (g) g.textContent = S.logged ? '💎 ' + (S.gems == null ? '…' : S.gems) : '💎 —'; }
-  function sig() { return JSON.stringify([S.logged, S.gems, S.owned, S.equipped, S.colors, S.items.map(function (i) { return i.id + ':' + i.price; }), ui.tab, ui.mine, animOn()]); }
+  function sig() { return JSON.stringify([ui.cat, S.pet, S.petItems.skins.length, S.petItems.roupas.length, S.logged, S.gems, S.owned, S.equipped, S.colors, S.items.map(function (i) { return i.id + ':' + i.price; }), ui.tab, ui.mine, animOn()]); }
   function renderIfOpen() { if (ui.open && sig() !== ui.sig) render(); else if (!ui.open) ui.sig = ''; }          // dados iguais: não refaz a tela (evita piscar e trabalho à toa)
   function btn(txt, cls, fn, label) { var b = el('button', 'btn ' + (cls || 'btn-secondary')); b.type = 'button'; b.textContent = txt; if (label) b.setAttribute('aria-label', label); if (fn) b.addEventListener('click', fn); return b; }
 
@@ -388,13 +444,37 @@
     return c;
   }
 
+  function petCard(it) {
+    var use = petUsable(it), cur = it.cat === 'skins' ? S.pet.skin : S.pet.outfit, using = use && cur === it.look;
+    var c = el('article', 'shop-card pet-card' + (using ? ' on' : '') + (it.rarity ? ' r-' + it.rarity : '')); c.setAttribute('data-item', it.id);
+    var pv = el('div', 'pet-thumb'), img = el('img'); img.src = '/pet/' + it.id + '.webp'; img.alt = ''; img.width = 240; img.height = 180; img.loading = 'lazy'; img.decoding = 'async';
+    img.addEventListener('error', function () { pv.classList.add('nofoto'); img.hidden = true; }); pv.appendChild(img); c.appendChild(pv);
+    var head = el('div', 'shop-card-head'), h = el('h3', 'shop-name'); h.textContent = it.name; head.appendChild(h);
+    var badge = el('span', 'shop-badge' + (using ? ' use' : use ? ' own' : ' price')); badge.textContent = using ? 'Em uso' : use ? (it.price ? 'Adquirido ✓' : 'Grátis ✓') : '💎 ' + it.price; head.appendChild(badge); c.appendChild(head);
+    if (it.rarity) { var rt = el('span', 'shop-rar r-' + it.rarity); rt.textContent = RARITY[it.rarity] || ''; c.appendChild(rt); }
+    if (it.desc) { var p = el('p', 'shop-desc'); p.textContent = it.desc; c.appendChild(p); }
+    if (!use && S.logged) { var m = missing(it); if (m > 0) { var f = el('p', 'shop-miss'); f.textContent = 'Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para comprar.'; f.setAttribute('role', 'status'); c.appendChild(f); } }
+    var acts = el('div', 'shop-acts'), kind = it.cat === 'skins' ? 'skin' : 'outfit';
+    if (!use) acts.appendChild(btn(S.logged ? 'Comprar 💎 ' + it.price : 'Entrar para comprar', 'btn-primary', function () { buy(it); }, (S.logged ? 'Comprar ' : 'Entrar para comprar ') + it.name + ' por ' + it.price + ' gemas'));
+    else if (using) { var u = btn('Em uso', 'btn-secondary', null); u.disabled = true; acts.appendChild(u); acts.appendChild(btn('Tirar', 'btn-ghost', function () { petPick(kind, ''); }, 'Tirar ' + it.name)); }
+    else acts.appendChild(btn('Equipar', 'btn-primary', function () { petPick(kind, it.look); QC.toast('✓ ' + it.name + ' em uso!', 2200); }, 'Equipar ' + it.name));
+    c.appendChild(acts);
+    return c;
+  }
+
   function renderLoja(body) {
     var cats = el('div', 'shop-cats'); cats.setAttribute('role', 'tablist'); cats.setAttribute('aria-label', 'Categorias da loja');
-    var chip = el('button', 'shop-cat on'); chip.type = 'button'; chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', 'true'); chip.textContent = '🧺 BANDEJAS'; cats.appendChild(chip);   // outras categorias entram aqui no futuro
+    [['bandejas', '🧺 BANDEJAS'], ['skins', '🎨 SKINS'], ['roupas', '👕 ROUPAS']].forEach(function (c) {
+      var chip = el('button', 'shop-cat' + (ui.cat === c[0] ? ' on' : '')); chip.type = 'button'; chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', ui.cat === c[0] ? 'true' : 'false'); chip.setAttribute('data-cat', c[0]); chip.textContent = c[1];
+      chip.addEventListener('click', function () { ui.cat = c[0]; render(); }); cats.appendChild(chip);
+    });
     body.appendChild(cats);
-    if (!S.logged) { var n1 = el('p', 'shop-note'); n1.textContent = 'Dá para ver tudo e mudar a cor da Clássica. Para comprar com gemas, entre na sua conta.'; body.appendChild(n1); }
-    var list = el('div', 'shop-list'); ui.pvs = []; S.items.forEach(function (it) { list.appendChild(card(it)); }); body.appendChild(list);
-    setScale(body); buildStaged(ui.pvs);
+    var pet = ui.cat !== 'bandejas';
+    if (!S.logged) { var n1 = el('p', 'shop-note'); n1.textContent = pet ? 'Os itens grátis já são seus. Para desbloquear os outros com gemas, entre na sua conta.' : 'Dá para ver tudo e mudar a cor da Clássica. Para comprar com gemas, entre na sua conta.'; body.appendChild(n1); }
+    var list = el('div', 'shop-list' + (pet ? ' pet-list' : '')); ui.pvs = [];
+    if (pet) petList(ui.cat).forEach(function (it) { list.appendChild(petCard(it)); }); else S.items.forEach(function (it) { list.appendChild(card(it)); });
+    body.appendChild(list);
+    if (!pet) { setScale(body); buildStaged(ui.pvs); }
   }
 
   function renderMine(body) {
@@ -466,18 +546,19 @@
     if (S.logged) { queue = queue.then(function () { return api('POST', '/shop/prefs', { anim: on }); }); }
   }
   function buy(it) {
+    var what = it.cat ? PET_NOUN[it.cat] : 'bandeja', fem = 'esta ';
     if (!S.logged) { closeShop(); var me = $('#btn-me'); if (me) me.click(); QC.toast('Entre na sua conta para comprar com gemas.', 3200); return; }
     var m = missing(it);
-    if (m > 0) { QC.toast('Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para a ' + it.name.toLowerCase() + '. Jogue para ganhar mais!', 3600); return; }
-    QC.confirm({ title: 'Comprar ' + it.name + '?', text: 'Usar ' + it.price + ' gemas para ter esta bandeja para sempre. Seu saldo: ' + S.gems + ' gemas (ficam ' + (S.gems - it.price) + ').', ok: 'Comprar 💎 ' + it.price, cancel: 'Agora não' }).then(function (yes) {
+    if (m > 0) { QC.toast('Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para ' + (it.cat ? it.name : 'a ' + it.name.toLowerCase()) + '. Jogue para ganhar mais!', 3600); return; }
+    QC.confirm({ title: 'Comprar ' + it.name + '?', text: 'Usar ' + it.price + ' gemas para ter ' + fem + what + ' para sempre. Seu saldo: ' + S.gems + ' gemas (ficam ' + (S.gems - it.price) + ').', ok: 'Comprar 💎 ' + it.price, cancel: 'Agora não' }).then(function (yes) {
       if (!yes) return;
       api('POST', '/shop/buy', { itemId: it.id }).then(function (j) {
         if (j && j.ok) {
-          S.gems = j.gems; if (j.owned) S.owned = j.owned.filter(function (x) { return MODELS.indexOf(x) >= 0; });
+          S.gems = j.gems; if (j.owned) S.owned = j.owned.filter(function (x) { return MODELS.indexOf(x) >= 0 || !!petById(x); });
           if (QC.libraryBalanceChanged) QC.libraryBalanceChanged(j.gems);
           paintGems(); render(); refresh();
-          QC.toast(j.already ? 'Você já tem esta bandeja.' : '🎉 ' + it.name + ' desbloqueada! Toque em Equipar para usar.', 3800); QC.playSound && QC.playSound('chime');
-        } else if (j && j.error === 'gems') { S.gems = j.gems; paintGems(); render(); QC.toast('Faltam ' + j.missing + ' gemas para esta bandeja.', 3600); }
+          QC.toast(j.already ? 'Você já tem ' + fem + what + '.' : '🎉 ' + it.name + ' desbloqueada! Toque em Equipar para usar.', 3800); QC.playSound && QC.playSound('chime');
+        } else if (j && j.error === 'gems') { S.gems = j.gems; paintGems(); render(); QC.toast('Faltam ' + j.missing + ' gemas para ' + fem + what + '.', 3600); }
         else if (j && j.error === 'auth') QC.toast('Sua sessão terminou. Entre de novo.', 3200);
         else QC.toast(j && j.error === 'offline' ? 'Sem internet. Tente de novo.' : 'Não foi possível comprar agora. Nada foi cobrado.', 3400);
       });
@@ -497,8 +578,9 @@
     setScale(body);
   }
 
-  function openShop(tab) {
+  function openShop(tab, cat) {
     if (tab) ui.tab = tab;
+    if (cat === 'bandejas' || cat === 'skins' || cat === 'roupas') ui.cat = cat;
     ui.open = true; loadCatalog();
     QC.openModal('#modal-shop', '#shop-close');
     if (sig() !== ui.sig || !$('#shop-body').firstChild) render(); else setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar
