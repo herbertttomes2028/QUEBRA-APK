@@ -11,6 +11,7 @@
   var QUALITY_MAX = 3;                                  // 0 normal; 1 resolução 1x e menos quadros; 2 sem contorno e ainda menos; 3 desenho parado
 
   var brain = Core.createBrain({});
+  var Looks = window.MascotLooks || null;                 // skins e roupas (opcional: sem ele o mascote é o de sempre)
   var parts = Core.makeParts(), geoms = Core.makeGeometries();
   var canvas = null, gl = null, prog = null, loc = null, bufs = null, mouthPos = new Float32Array(Core.MOUTH_N * 6), tonguePos = new Float32Array(Core.MOUTH_N * 6), lashPosL = new Float32Array(Core.MOUTH_N * 6), lashPosR = new Float32Array(Core.MOUTH_N * 6);
   var vp = new Float32Array(16), proj = new Float32Array(16), view = new Float32Array(16);
@@ -58,6 +59,7 @@
     bufs.tongue.idx = bufs.mouth.idx; bufs.lashL.idx = bufs.mouth.idx; bufs.lashR.idx = bufs.mouth.idx;
     gl.enableVertexAttribArray(0); gl.enableVertexAttribArray(1);
     gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.clearColor(0, 0, 0, 0);
+    uploadLook();                                                               // as malhas da roupa escolhida (se houver)
     ready = true; resize();
   }
   function bufsNor(a) { return makeBuf(gl.ARRAY_BUFFER, a); }
@@ -85,7 +87,7 @@
   }
   // Menos chamadas ao WebGL (cada uma custa uma comunicação com a GPU): as peças são agrupadas por geometria (liga os buffers UMA vez por grupo)
   // e a cor e o "achatado" só são enviados quando mudam.
-  var GROUPS = ['body', 'sph', 'mouth', 'tongue', 'lashL', 'lashR'], byGeo = null, lastColor = null, lastFlat = -1;
+  var GROUPS_BASE = ['body', 'sph', 'mouth', 'tongue', 'lashL', 'lashR'], GROUPS = GROUPS_BASE.slice(), byGeo = null, lastColor = null, lastFlat = -1;   // GROUPS ganha uma entrada por malha de roupa (ver uploadLook)
   function groupParts() { byGeo = {}; GROUPS.forEach(function (g) { byGeo[g] = parts.filter(function (p) { return p.geom === g; }); }); }
   function setMat(p) { gl.uniformMatrix4fv(loc.m, false, p.M); gl.uniformMatrix3fv(loc.n, false, p.N); }
   function drawPose(pose) {
@@ -93,6 +95,7 @@
     lastPose = pose;
     if (!byGeo) groupParts();
     Core.computeParts(parts, pose);
+    if (Looks) Looks.place(Core, parts, pose);                                  // peças da roupa e pintas da skin, no referencial do corpo
     var tongue = Core.buildMouth(mouthPos, tonguePos, pose);
     gl.bindBuffer(gl.ARRAY_BUFFER, bufs.mouth.pos); gl.bufferSubData(gl.ARRAY_BUFFER, 0, mouthPos);
     gl.bindBuffer(gl.ARRAY_BUFFER, bufs.tongue.pos); gl.bufferSubData(gl.ARRAY_BUFFER, 0, tonguePos);
@@ -183,14 +186,14 @@
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function gazeOf(x, y) { var r = btn.getBoundingClientRect(); return { x: clamp((x - (r.left + r.width / 2)) / GAZE_R, -1, 1), y: clamp((y - (r.top + r.height * 0.45)) / GAZE_R, -1, 1) }; }
   function gazeOfEl(el) { var r = el.getBoundingClientRect(); return gazeOf(r.left + r.width / 2, r.top + r.height / 2); }
-  var IDS = { 'btn-play': 'play', 'btn-duel': 'duel', 'btn-continue': 'continue', 'btn-join': 'join', 'link-friends': 'friends', 'link-settings': 'settings', 'link-help': 'help', 'btn-me': 'me' };
+  var IDS = { 'btn-play': 'play', 'btn-duel': 'duel', 'btn-continue': 'continue', 'btn-join': 'join', 'link-friends': 'friends', 'link-settings': 'settings', 'link-help': 'help', 'btn-me': 'me', 'link-shop': 'shop' };
   function fallbackBump() { btn.classList.remove('bump'); void btn.offsetWidth; btn.classList.add('bump'); }
 
   home.addEventListener('pointerdown', function (e) {
     if (!homeActive()) return;
     frozen = false;
     var el = e.target && e.target.closest ? e.target.closest('button, input') : null, g = gazeOf(e.clientX, e.clientY);
-    if (el === btn) { brain.tapMascot(g.x, g.y); if (!gl || mode === 'fallback') fallbackBump(); kick(); return; }
+    if (el === btn) { brain.tapMascot(g.x, g.y); if (!gl || mode === 'fallback') fallbackBump(); kick(); startHold(); return; }
     if (el && IDS[el.id]) {
       var inp = document.getElementById('input-code'), g2 = gazeOfEl(el);
       brain.press(IDS[el.id], g2.x, g2.y, { codeReady: !!inp && inp.value.length >= inp.maxLength });
@@ -201,8 +204,13 @@
   home.addEventListener('pointermove', function (e) {
     if (!homeActive() || !gl) return;
     if (e.pointerType === 'mouse' || e.buttons) { var g = gazeOf(e.clientX, e.clientY); brain.pointer(g.x, g.y, e.buttons > 0); startLoop(); }
+    if (holdTimer && !btn.contains(e.target)) clearHold();                       // o dedo saiu de cima do mascote
   }, { passive: true });
-  function pointerUp() { brain.pointerEnd(); }
+  // Segurar o dedo no mascote (um pouco mais que um toque): ele se aninha ("cuddle"). Soltar antes, ou arrastar o dedo para longe, cancela.
+  var holdTimer = 0, holdX = 0, holdY = 0, HOLD_MS = 650;
+  function clearHold() { if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; } }
+  function startHold() { clearHold(); holdTimer = setTimeout(function () { holdTimer = 0; if (!homeActive()) return; brain.react('cuddle', { dirX: 1 }); if (!gl || mode === 'fallback') fallbackBump(); kick(); }, HOLD_MS); }
+  function pointerUp() { brain.pointerEnd(); clearHold(); }
   home.addEventListener('pointerup', pointerUp, true); home.addEventListener('pointercancel', pointerUp, true);
   btn.addEventListener('click', function (e) { if (e.detail === 0) { brain.tapMascot(0, 0); if (!gl || mode === 'fallback') fallbackBump(); kick(); } });   // teclado: Enter ou Espaço
   var code = document.getElementById('input-code');
@@ -236,6 +244,35 @@
   function boot() { if (document.readyState !== 'complete') { window.addEventListener('load', function () { setTimeout(sync, 600); }); } else setTimeout(sync, 600); }
   boot();
 
+  /* ---------------- aparência: skin e roupa (a lógica está em mascot-looks.js; a escolha e a janela "Meu pet" estão em pet.js) ---------------- */
+  var selection = { skin: '', outfit: '' }, FB_ORIG = null;
+  function uploadLook() {                                                       // envia à GPU as malhas da roupa e libera as da anterior
+    if (!gl || !bufs) return;
+    Object.keys(bufs).forEach(function (k) { if (k.indexOf('lk') === 0) { var b = bufs[k]; gl.deleteBuffer(b.pos); gl.deleteBuffer(b.nor); gl.deleteBuffer(b.idx); delete bufs[k]; } });
+    var geo = parts.looks ? parts.looks.geoms : {}, names = Object.keys(geo);
+    names.forEach(function (k) { var g = geo[k]; bufs[k] = { pos: makeBuf(gl.ARRAY_BUFFER, g.pos), nor: makeBuf(gl.ARRAY_BUFFER, g.nor), idx: makeBuf(gl.ELEMENT_ARRAY_BUFFER, g.idx), count: g.count }; });
+    GROUPS = GROUPS_BASE.concat(names); byGeo = null;
+  }
+  function tintFallback() {                                                     // o desenho de reserva (sem WebGL) só ganha as cores da skin; roupas só aparecem no 3D
+    var svg = btn.querySelector('.mascot-fallback'); if (!svg) return;
+    if (!FB_ORIG) { FB_ORIG = []; Array.prototype.forEach.call(svg.querySelectorAll('[fill]'), function (el) { FB_ORIG.push([el, el.getAttribute('fill')]); }); }
+    var sk = Looks.byId(Looks.SKINS, selection.skin);
+    FB_ORIG.forEach(function (p) {
+      var el = p[0], f = p[1], to = f;
+      if (sk) { if (f === '#3b6bff') to = sk.body; else if (f === '#ffc933') to = sk.feet; else if (f === '#ff7aa8') to = sk.cheek; else if (f === '#fff' && el.tagName === 'circle' && el.getAttribute('r') === '10') to = sk.hands; }
+      el.setAttribute('fill', to);
+    });
+  }
+  function setLook(sel) {
+    if (!Looks) return false;
+    selection = Looks.sanitize(sel);
+    Looks.apply(Core, parts, Looks.build(Core, selection)); byGeo = null;
+    if (gl && ready) uploadLook();
+    tintFallback();
+    if (gl && ready && lastPose) drawPose(lastPose);                            // aparece na hora, mesmo com o desenho parado
+    kick(); return true;
+  }
+
   window.Mascot = {
     react: function (name) { if (hidden) return false; frozen = false; var ok = brain.react(name, { dirX: 1 }); kick(); return ok; },
     unfreeze: function () { frozen = false; startLoop(); },
@@ -243,4 +280,8 @@
     preview: function (name, u) { frozen = true; stopLoop(); if (!gl) return false; resize(); drawPose(brain.snapshot(name, u == null ? 0.5 : u)); return true; },
     status: function () { return { mode: mode, quality: quality, frames: frames, drawn: drawn, running: !!(raf || timer), released: released, failed: failed, hasContext: !!gl, hidden: hidden, userOff: userOff(), reducedMotion: motionNow(), static: quality >= 3, workMs: +lastWork.toFixed(2), capMs: capNow(), intervalMs: Math.round(intervalMs), busy: brain.busy(), sleeping: brain.isSleeping(), current: brain.current(), expression: brain.expression() }; }
   };
+
+  window.Mascot.note = function (ev) { if (hidden) return false; var ok = brain.note(ev); if (homeActive()) kick(); return ok; };      // eventos do jogo (ex.: 'friend'); fora da tela inicial ficam guardados por até 90 s
+  window.Mascot.setLook = function (sel) { return setLook(sel); };
+  window.Mascot.look = function () { return { skin: selection.skin, outfit: selection.outfit }; };
 })();

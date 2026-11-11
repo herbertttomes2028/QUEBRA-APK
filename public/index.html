@@ -17,6 +17,7 @@
   <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="loja.css">
+  <link rel="stylesheet" href="pet.css">
 </head>
 <body>
   <div id="app">
@@ -540,6 +541,22 @@
     </div>
 
     <!-- ========== AJUSTES ========== -->
+    <div id="modal-pet" class="modal pet-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pet-title">
+      <div class="sheet pet-sheet">
+        <h3 id="pet-title">Meu pet</h3>
+        <p id="pet-note" class="set-note" hidden></p>
+        <div class="pet-group">
+          <div class="pet-head"><span id="lbl-pet-skin" class="set-label">Skin</span><b id="pet-skin-name" class="pet-name"></b></div>
+          <div id="pet-skins" class="pet-opts" role="radiogroup" aria-labelledby="lbl-pet-skin"></div>
+        </div>
+        <div class="pet-group">
+          <div class="pet-head"><span id="lbl-pet-outfit" class="set-label">Roupa</span><b id="pet-outfit-name" class="pet-name"></b></div>
+          <div id="pet-outfits" class="pet-opts" role="radiogroup" aria-labelledby="lbl-pet-outfit"></div>
+        </div>
+        <button id="pet-close" type="button" class="btn btn-primary btn-small">Pronto</button>
+      </div>
+    </div>
+
     <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
       <div class="sheet set-sheet">
         <h3 id="set-title">Ajustes</h3>
@@ -578,6 +595,11 @@
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-trayanim" aria-describedby="trayanim-note" aria-checked="true" data-setting="trayAnim"><i></i></button>
         </div>
         <p id="trayanim-note" class="set-note">Os brilhos e movimentos das bandejas da loja. Com o movimento reduzido no aparelho, ficam sempre parados.</p>
+        <div class="set-row">
+          <span id="lbl-pet" class="set-label">Meu pet: skin e roupa</span>
+          <button type="button" id="btn-pet" class="btn btn-secondary btn-small" aria-describedby="lbl-pet pet-set-note">🐾 Escolher</button>
+        </div>
+        <p id="pet-set-note" class="set-note">A escolha vale na hora e fica guardada só neste aparelho.</p>
         <div class="set-row">
           <span id="lbl-sound" class="set-label">Sons</span>
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
@@ -815,6 +837,8 @@
   <script src="conta.js"></script>
   <script src="loja.js"></script>
   <script src="mascot-core.js"></script>
+  <script src="mascot-looks.js"></script>
   <script src="mascot.js"></script>
+  <script src="pet.js"></script>
 </body>
 </html>
