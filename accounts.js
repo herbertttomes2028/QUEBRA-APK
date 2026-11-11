@@ -15,6 +15,7 @@ const phrases = require('./phrases');
 const xpm = require('./xp');
 const gemm = require('./gems');
 const library = require('./library');
+const shop = require('./shop');
 const ach = require('./achievements');
 const { codeEmail, reportEmail, reportTarget, FRIEND_CODE_RE } = require('./mailer');
 
@@ -102,6 +103,7 @@ const ACHIEVEMENTS = ach.STATIC;
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
+  const shopService = shop.makeService(db);
   const googleClientId = d.googleClientId || null;
   const getKeys = d.googleKeys || googleKeys;
 
@@ -725,6 +727,35 @@ function createAccounts(d) {
     const result = await libraryService.buy(req.user.id, (req.body || {}).categoryId);
     if (!result.ok) return bad(res, result.error === 'gems' ? 409 : 400, result.error);
     res.json(result);
+  }));
+
+  /* Loja (bandejas): compra com as gemas já existentes, atômica e só no servidor. O catálogo/preços vêm de shop.js (e do /api/config para visitantes). */
+  const shopGate = (req, res, max) => allow('shop:' + req.user.id, max, 60 * 1000) ? true : (bad(res, 429, 'rate'), false);
+  r.get('/shop', needUser, guard(async (req, res) => {
+    if (!shopGate(req, res, 60)) return;
+    const st = await shopService.status(req.user.id); if (!st) return bad(res, 401, 'auth');
+    res.json(Object.assign({ ok: true }, shop.catalog(), st));
+  }));
+  r.post('/shop/buy', needUser, guard(async (req, res) => {
+    if (!shopGate(req, res, 15)) return;
+    const out = await shopService.buy(req.user.id, (req.body || {}).itemId);
+    if (!out.ok) return res.status(out.error === 'gems' ? 409 : out.error === 'auth' ? 401 : 400).json(out);       // devolve saldo, preço e quantas gemas FALTAM
+    res.json(out);
+  }));
+  r.post('/shop/equip', needUser, guard(async (req, res) => {
+    if (!shopGate(req, res, 30)) return;
+    const out = await shopService.equip(req.user.id, (req.body || {}).itemId);
+    if (!out.ok) return bad(res, out.error === 'locked' ? 403 : out.error === 'auth' ? 401 : 400, out.error);
+    res.json(out);
+  }));
+  r.post('/shop/prefs', needUser, guard(async (req, res) => {
+    if (!shopGate(req, res, 60)) return;
+    const b = req.body || {}, p = {};
+    if (Object.prototype.hasOwnProperty.call(b, 'color')) { p.itemId = b.itemId; p.color = b.color; }
+    if (Object.prototype.hasOwnProperty.call(b, 'anim')) p.anim = b.anim;
+    const out = await shopService.setPrefs(req.user.id, p);
+    if (!out.ok) return bad(res, out.error === 'locked' ? 403 : out.error === 'auth' ? 401 : 400, out.error);
+    res.json(out);
   }));
 
   r.get('/save', needUser, guard(async (req, res) => res.json({ ok: true, save: await saveSummary(req.user.id) })));

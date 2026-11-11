@@ -35,7 +35,7 @@ IMAGENS E DIFICULDADE
 PROGRESSO
 • Níveis e XP a cada quebra-cabeça concluído.
 • Mais de 100 conquistas para completar.
-• Gemas ganhas jogando, usadas para liberar coleções. Não há compras com dinheiro real.
+• Gemas ganhas jogando, usadas para liberar coleções e bandejas decorativas na loja. Não há compras com dinheiro real.
 • Seus melhores tempos ficam guardados.
 
 AMIGOS
@@ -114,7 +114,7 @@ Para todos: **Coletado = Sim**, **Compartilhado = Não**, **Processamento tempor
 | Informações pessoais | Endereço de e-mail | E-mail da conta | Gerenciamento de contas |
 | Informações pessoais | Nome | Apelido de jogador | Funcionalidade do app; Gerenciamento de contas |
 | Informações pessoais | IDs de usuário | Identificador da conta e código de amigo | Funcionalidade do app; Gerenciamento de contas |
-| Atividade no app | Interações no app | Partidas, tempos, XP, gemas, conquistas, amigos e convites | Funcionalidade do app |
+| Atividade no app | Interações no app | Partidas, tempos, XP, gemas, conquistas, amigos, convites e itens da loja (bandejas desbloqueadas com gemas, bandeja em uso e cores) | Funcionalidade do app |
 | Atividade no app | Outro conteúdo gerado pelo usuário | Nota opcional de até 200 letras numa denúncia | Funcionalidade do app; Prevenção de fraudes, segurança e conformidade |
 | Mensagens | Outras mensagens no app | Frases prontas trocadas na partida (ficam só na memória da sala) | Funcionalidade do app |
 | IDs do dispositivo ou outros | IDs do dispositivo ou outros | Endereço de notificação do aparelho, só se a pessoa ligar os avisos (fica só na memória da sala) | Funcionalidade do app |
@@ -147,7 +147,7 @@ O questionário deve resultar numa classificação baixa com o aviso de interaç
 | Tem itens aleatórios pagos (caixas de recompensa)? | Não |
 
 - A caixa surpresa do modo Quebrando Cabeças só solta as peças do próprio quebra-cabeça. Não é comprada nem dá prêmio, então não é caixa de recompensa.
-- As gemas são ganhas jogando e não podem ser compradas.
+- As gemas são ganhas jogando e não podem ser compradas. A loja do jogo (bandejas) aceita só essas gemas: **não há compras no app com dinheiro real** (na Play, responder "não" a compras no app).
 - Se a tela perguntar sobre moderação, a resposta é: há bloqueio e denúncia de jogadores, e as denúncias chegam ao responsável pelo jogo.
 
 ## 6. Acesso ao app e demais declarações
