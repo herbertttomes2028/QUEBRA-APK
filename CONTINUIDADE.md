@@ -1,6 +1,6 @@
 # CONTINUIDADE — ESTADO ATUAL DO PROJETO (LEIA ESTA SEÇÃO PRIMEIRO)
 
-**Atualizado em:** 10/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `8bdbea8` (Merge do PR #63, "bandejas-e-loja"). O pacote **"loja-fluida"** parte dela e leva a suíte a **406 testes passando** (58 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
+**Atualizado em:** 10/11/2026 (America/Fortaleza). **`main` confirmada no GitHub:** `3453b8b` (Merge do PR da rodada "loja-fluida"). O pacote **"ima-ao-arrastar"** parte dela e leva a suíte a **415 testes passando** (59 arquivos, PostgreSQL 16 real, Node 22 e Node 18, `npm audit --omit=dev` sem vulnerabilidades).
 Esta seção substitui qualquer estado descrito mais abaixo. O que vem depois da linha **"HISTÓRICO ANTERIOR PRESERVADO"** são as notas das rodadas até 31/10/2026, mantidas sem alteração: servem de arquivo, **podem estar desatualizadas** e não descrevem o mascote, as conquistas novas, a preparação da Play Store nem as denúncias.
 
 > **Regra de ouro ao abrir uma sessão nova:** (1) rode `git ls-remote https://github.com/herbertttomes2028/QUEBRA-APK refs/heads/main` e compare com o commit acima; (2) se for diferente, **não parta deste arquivo**: clone a `main` e releia o que mudou; (3) nunca parta de pacote ou clone antigo; (4) uma saída de `git fetch` cortada **não prova** nada (já causou um pacote inteiro descartado em 02/11/2026).
@@ -62,7 +62,8 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 ## 5. Contratos que NÃO podem ser quebrados (todos têm teste)
 
 1. **Migrações 001–003 e todas as seguintes são imutáveis** (hash travado).
-2. **Regra de encaixe duplicada:** as duas cópias de `tryLock` (`server.js:549` e `challenge.js:329`) ficam iguais; `SNAP = round(TILE × SNAP_FACTOR)` nos dois layouts, com o fator **definido uma única vez em `server.js`** (padrão **0,5**; era 0,33 até 10/11/2026) e repassado ao `challenge.js`. A regra vive só no servidor: soltar a peça com o **centro** a até `SNAP` do centro da casa certa, com giro 0, encaixa sozinha (o encaixe nunca acontece durante o arrasto, só ao soltar; e nunca em casa errada).
+2. **Regra de encaixe duplicada:** as duas cópias de `tryLock` (`server.js:549` e `challenge.js:329`) ficam iguais; `SNAP = round(TILE × SNAP_FACTOR)` nos dois layouts, com o fator **definido uma única vez em `server.js`** (padrão **0,5**; era 0,33 até 10/11/2026) e repassado ao `challenge.js`. A regra vive só no servidor: soltar a peça com o **centro** a até `SNAP` do centro da casa certa, com giro 0, encaixa sozinha (o encaixe nunca acontece durante o arrasto, só ao soltar; e nunca em casa errada). **Desde 11/11/2026 o encaixe também é conferido ENQUANTO se arrasta** (ver o próximo item); antes só acontecia ao soltar.
+   - **Ímã ao ARRASTAR (11/11/2026).** O servidor chama o mesmo `tryLock` também no `move` (cooperativo/Solo) e no `ch:move` (Sala Desafio): segurando a peça (dedo ainda na tela) e passando pela zona do ímã da PRÓPRIA casa, ela é puxada na hora (`locked`, progresso, vitória e a caixa mágica seguem as mesmas regras). `magnet.js` (função pura) usa o **trecho** entre a posição anterior e a nova (as posições chegam a cada ~50 ms: um arrasto rápido pode atravessar a zona entre duas amostras): vale se o trecho tem até 2,5 casas (salto de rede ou peça saindo da bandeja nunca conta como "passou por cima"). Nada de `SNAP`/`magnet` no cliente: o celular só obedece ao `locked` (e, se a peça travou enquanto era segurada, encerra o arrasto e desmarca `dragging` da bandeja). As duas `tryLock` NÃO mudaram. **Chave de segurança:** `DRAG_MAGNET=0` no Render volta ao "só ao soltar" (aparece em `/diagnostico` → `encaixe.puxa_ao_arrastar`).
 3. **Eventos de socket** do cooperativo, do Desafio e de contas continuam existindo com os mesmos nomes.
 4. **XP só entra por `payMatch`**, e só `accounts.js` o usa, dentro de transação. **Nenhuma rota recebe XP do cliente.**
 5. Exports de `createAccounts` e das fábricas permanecem. Sessão: o token cru nunca é guardado (só `sha256`).
@@ -98,11 +99,13 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 | `CHAT_ENABLED`, `PUSH_ENABLED`, `VAPID_*`, `CSP_MODE`, `MAX_IMAGES`, `CH_COUNTDOWN_MS`, `CH_GRACE_MS`, `REMATCH_MS`, `INVITE_MS`, `CODE_LEN`, `DB_POOL_MAX`, `ACC_RATE_MULT` | Ajustes opcionais (veja `README.md` e `SEGURANCA.md`) |
 | `CH_START_FIRST_MS` (700), `CH_AUTO_FIRST_MS` (240), `CH_AUTO_STEP_MS` (190) | Tempos da caixa mágica do Quebrando Cabeças: atraso da 1ª peça na largada, atraso da 1ª peça das rodadas seguintes e intervalo entre as peças |
 | `SNAP_FACTOR` (0,5) | O **ímã de encaixe**: fração do tamanho da casa. Aceita de 0,25 a 0,75; qualquer outro valor é ignorado e vale 0,5. O `/diagnostico` mostra o valor em uso (`encaixe.raio_em_casas`). Para deixar o jogo mais difícil, baixe (ex.: 0,4); para encaixar mais fácil, suba (ex.: 0,6) |
+| `DRAG_MAGNET` (ligado) | `0` desliga só o puxão ao ARRASTAR e volta ao comportamento antigo (encaixe só ao soltar). Qualquer outro valor mantém ligado. O raio continua o do `SNAP_FACTOR` |
 
 ## 7. Histórico recente (mais novo primeiro)
 
 | PR | Quando | O que entrou |
 | --- | --- | --- |
+| (rodada `ima-ao-arrastar`) | 11/11 | **O ímã puxa a peça ENQUANTO ela é arrastada** (antes só ao soltar): passou pela zona do ímã da casa certa com o dedo ainda segurando, ela trava na hora. Cooperativo, Solo e os dois modos da Sala Desafio. Novo `magnet.js`; chave `DRAG_MAGNET` |
 | (rodada `loja-fluida`) | 11/11 | **Loja sem travar** (abrir e rolar), bandejas com 28 camadas em vez de 55 (12 peças), brilho de "peça escolhida" mais leve, **cor da partida inteira** (fundo, tabuleiro e grade) com a cor da bandeja. Só cliente (`loja.js`, `loja.css`, 1 linha do `game.js`); sem servidor nem banco |
 | (rodada `bandejas-e-loja`) | 10/11 | **Loja** (primeira categoria: BANDEJAS) e **bandejas personalizáveis**: Clássica (grátis), Nuvem 150, Estrela 250, Gelatina 350, Galáxia 500 gemas; cor livre e grátis por modelo; "Minhas Bandejas"; "Animações das bandejas" nos Ajustes; migração `015`; arquivos novos `shop.js`, `public/loja.js`, `public/loja.css` |
 | (rodada `ima-mais-forte`) | 10/11 | **Ímã de encaixe mais forte**: `SNAP` de 0,33 para **0,5** da casa (Cooperativo, Solo e os dois modos da Sala Desafio), por pedido do proprietário. Só o raio mudou. Valor ajustável com `SNAP_FACTOR` |
@@ -143,10 +146,10 @@ Migrações aplicadas sozinhas quando o servidor liga: `001_contas`, `002_segura
 # banco temporário local (nunca Neon/Render): DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test
 export DATABASE_URL=postgresql://qc:qc@127.0.0.1:5432/qc_test GEMAS_TEST_DB=1 CI=true
 psql ... -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-npm ci && npm run migrate && npm test      # esperado hoje: 406 testes, 0 falhas
+npm ci && npm run migrate && npm test      # esperado hoje: 415 testes, 0 falhas
 npm audit --omit=dev                        # esperado: 0 vulnerabilidades
 ```
-Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se 396 passando e 10 pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
+Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone limpo da `main` real** com o zip aplicado, comparando a árvore com a do branch de trabalho. **Depois de aplicar o zip, rode `git add -A` e `git commit` ANTES de `npm test`**: os testes de segurança (`seguranca-repositorio`, `sem-segredos`) só leem arquivos acompanhados pelo git, e arquivos novos não registrados passam despercebidos (foi assim que o PR #59 chegou ao CI com um falso positivo). Confira também a árvore ao vivo em `gemas-postgres.yml` e `seguranca-dependencias.yml` (este roda sem banco: espera-se 405 passando e 10 pulados). Mutações deliberadas (estragar o código de propósito) devem ser pegas pelos testes novos.
 
 ## 10. Fluxo com o proprietário (regras do projeto)
 
@@ -193,6 +196,7 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 | Arrasto pesado | **Não era a bandeja**: 2 engasgos (~200 ms a CPU 4x) são do jogo: ao pegar a peça e ao ela entrar no tabuleiro e crescer (redesenho nativo do SVG recortado ao mudar a escala). Perfil JS: só 33 ms no JS | Reduzido o que era da loja (brilho 1 por toque, fora do toque, camada pré-criada, menos camadas): tempo perdido 339→239 ms (−30%). Os 2 engasgos do jogo ficam como pendência (ver riscos) |
 | (só do teste) o brilho "adiado 160 ms" não ajudou | Só mudou o engasgo de lugar (dois em vez de um) | Revertido |
 | (só do ambiente) o ambiente de trabalho foi reiniciado e apagou o trabalho não enviado | Sandbox reiniciada: sumiram `/home/claude`, o PostgreSQL e o navegador de teste | Commitar cedo e guardar um patch em `/mnt/user-data/outputs`; reinstalar com `apt-get update && apt-get install -y postgresql` (criar usuário `qc`/senha `qc` e banco `qc_test`) |
+| (só do teste) testes do ímã ao arrastar instáveis ou falsos | **Armadilhas de geometria**: (1) peça na coluna da borda: "andar 1,2 casa para trás" é limitado pela borda do campo (`clamp`) e cai DENTRO da zona; (2) a ordem do Quebrando Cabeças é sorteada; (3) o trecho em linha reta da vaga/bandeja até o ponto de teste pode roçar a zona (o que o ímã faz por desenho) | Testar peças da coluna do meio, escolher o lado com espaço e aproximar na vertical até o ponto exato; rodar o arquivo 8x seguidas antes de aceitar |
 
 ## 12. Pendências e riscos abertos (em ordem)
 
@@ -214,6 +218,8 @@ Rode também em Node 18 (`engines >= 18`). Todo pacote é conferido em **clone l
 16. **Play Store:** a loja usa só moeda do jogo ganha jogando; não há compras no app. Manter assim (vender gemas exigiria o faturamento da Play e nova política).
 17. **Os 2 engasgos do arrasto são do jogo (pendente, decisão do proprietário):** ao pegar a peça (~200 ms a CPU 4x) e ao entrar no tabuleiro e crescer (`targetScale`/`p.vs` mudam a cada quadro e o SVG de cada peça é redesenhado). Nenhum ajuste de CSS testado ajudou (transition, `will-change`, `contain`, `shape-rendering`, pré-promover camadas). A saída é mudar o crescimento (crescer de uma vez ou manter um tamanho no arrasto), o que altera uma sensação já aprovada: só com teste no celular. Medir sempre com `Performance.getMetrics` e quadros >40 ms, **alternando** as versões (o ruído é grande).
 18. **Medições com navegador sem GPU:** o navegador de teste desenha por software; os números absolutos são mais pessimistas que um celular real. Valem para **comparar** versões. A primeira abertura da loja ainda tem um primeiro desenho mais pesado; confirmar no aparelho.
+19. **Ímã ao arrastar deixa o jogo mais fácil e pode puxar uma peça que o jogador só queria passar por cima da casa.** A zona é a do `SNAP_FACTOR` (0,5 da casa). Se os jogadores reclamarem: `SNAP_FACTOR` menor (ex.: 0,4) ou `DRAG_MAGNET=0`. A peça só é puxada pela PRÓPRIA casa (nunca por outra) e só se o giro for 0 (sempre é).
+20. **Atraso do puxão:** quem decide é o servidor: a posição sai do celular a cada ~50 ms e a resposta volta pela rede (Render: ~100–200 ms), então a peça pode andar um pouco mais com o dedo antes de ser puxada; a animação até o centro usa o laço de quadros do cliente. No navegador de teste (rede local) a peça foi puxada na borda da zona (0,48 da casa). Confirmar a sensação no celular.
 
 ## 13. O que NÃO foi verificado
 
