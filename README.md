@@ -495,6 +495,11 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil/nome fica no canto oposto (só existe com contas ligadas).
 - **Amigos** (ao lado de **Ajustes**): abre "Meus amigos" (busca por código, pedidos, convites, desafiar). Fica fora do perfil; o perfil tem só as abas Perfil e Partidas.
 
+## Mascote: reações, skins e roupas
+- **24 reações** na tela inicial. As 3 mais novas: **admire** (ao tocar no botão **Loja**: olhos brilhando e mãos juntas), **cuddle** (**segurar o dedo** no mascote por meio segundo: ele se abraça, fecha os olhos e ronrona) e **heart** (quando alguém **vira seu amigo**: abre os braços e cora).
+- **Meu pet** (Ajustes > Meu pet): **5 skins** (Menta, Pôr do sol, Uva, Algodão-doce e Luar, além do Azul clássico) e **5 roupas** (capa de herói, cachecol de inverno, chapéu de mago, saia de bailarina e macacão de jardineiro, além de "sem roupa"). A escolha vale na hora e fica guardada **só neste aparelho**. Sem WebGL, o desenho de reserva só ganha as cores da skin.
+- Código: `public/mascot-core.js` (reações), `public/mascot-looks.js` (skins e roupas), `public/mascot.js` (desenho), `public/pet.js` e `pet.css` (janela "Meu pet").
+
 ## Segurança (resumo; detalhes e passo a passo em `SEGURANCA.md`)
 - **Frases prontas** no lugar da conversa livre (10 básicas + reações; outras são liberadas jogando, para quem tem conta).
 - **Código da sala com 6 caracteres** e **limite de tentativas** por endereço (6 erros = 15 min de bloqueio, com aumento a cada reincidência).
