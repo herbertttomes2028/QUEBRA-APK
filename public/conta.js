@@ -113,6 +113,7 @@
     $('#auth-pass').value = ''; $('#auth-consent').checked = false; $('#auth-age').checked = false; say('#auth-error', '');
     acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
     QC.canBlock = false; QC.setUnlocked(null);
+    if (QC.onAccount) QC.onAccount(null);                   // a loja volta ao modo visitante
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
     paintChip(); paintContinue();
     if ($('#screen-me').classList.contains('active')) renderMe();
@@ -122,6 +123,7 @@
     acc.me = me; if (me.achievements) storeAch(me);
     QC.setLevelAccount(me.code, me.xp && me.xp.level);
     QC.canBlock = true;
+    if (QC.onAccount) QC.onAccount(me);                     // a loja carrega as bandejas e o saldo desta conta
     QC.setUnlocked(me.phrases);
     var key = 'seen.' + me.code, seen = store.get(key, null);        // frases que a pessoa já conhece: avisa quando liberar uma nova
     if (!seen) store.set(key, me.phrases);
@@ -977,6 +979,8 @@
       else QC.toast('Sala criada, mas não deu para convidar: ' + errText(res && res.error), 4200);
     });
   };
+  QC.api = api;                                  // a loja usa a mesma chamada (com o crachá da sessão)
+  QC.account = function () { return acc.me; };   // a loja pergunta quem está logado (caso a conta carregue antes dela)
   QC.libraryBalanceChanged = function (gems) {
     if (!acc.me || !Number.isSafeInteger(gems) || gems < 0) return;
     acc.me.gems = gems; paintChip(); acc.achStale = true;                                // comprar categoria conta para as conquistas
