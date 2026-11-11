@@ -29,7 +29,7 @@ test('PostgreSQL: loja de bandejas (serviço e rotas)', { skip: !enabled }, asyn
     const svc = shop.makeService(db);
 
     /* ================= catálogo ================= */
-    const cat = shop.catalog(); assert.equal(cat.categories.length, 1); assert.equal(cat.categories[0].id, 'bandejas'); assert.equal(cat.categories[0].name, 'Bandejas');
+    const cat = shop.catalog(); assert.deepEqual(cat.categories.map((c) => c.id), ['bandejas', 'skins', 'roupas'], 'bandejas continua em primeiro; skins e roupas do pet vêm depois (ver tests/pet-loja.test.js)'); assert.equal(cat.categories[0].id, 'bandejas'); assert.equal(cat.categories[0].name, 'Bandejas');
     assert.deepEqual(cat.categories[0].items.map((i) => [i.id, i.price]), [['classica', 0], ['nuvem', 150], ['estrela', 250], ['gelatina', 350], ['galaxia', 500]], 'cinco bandejas, preços do pedido');
     assert.ok(cat.categories[0].items.every((i) => i.name && i.desc), 'nome e descrição');
 

@@ -72,14 +72,15 @@ test('o cérebro nunca produz número inválido com as reações novas, com qual
 const lum = (c) => { const f = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 const DARK = C.PART_DEFS.find((d) => d[0] === 'mouth')[2], WHITE = [1, 1, 1], ORIG = C.PART_DEFS[0][2];
-test('são exatamente 5 skins, cada uma com id, nome em português e cores válidas', () => {
-  assert.equal(L.SKINS.length, 5); assert.equal(new Set(L.SKINS.map((s) => s.id)).size, 5); assert.equal(new Set(L.SKINS.map((s) => s.name)).size, 5);
+const SKINS_GRATIS = ['menta', 'por-do-sol', 'uva', 'algodao-doce', 'luar'], SKINS_PAGAS = ['limao', 'caramelo', 'lavanda', 'cereja', 'ouro'];
+test('são 10 skins (as 5 de antes, grátis, e 5 novas, pagas), cada uma com id, nome em português e cores válidas', () => {
+  assert.deepEqual(L.SKINS.map((s) => s.id), SKINS_GRATIS.concat(SKINS_PAGAS)); assert.deepEqual(L.SKINS.filter((s) => s.free).map((s) => s.id), SKINS_GRATIS, 'as 5 primeiras são grátis'); assert.equal(new Set(L.SKINS.map((s) => s.name)).size, 10);
   for (const s of L.SKINS) { assert.match(s.id, /^[a-z]+(-[a-z]+)*$/); assert.ok(s.name.length >= 3 && s.name.length <= 20, s.name); for (const k of ['swatch', 'body', 'knob', 'hands', 'feet', 'cheek']) assert.match(s[k], /^#[0-9a-f]{6}$/, s.id + '.' + k); assert.ok(s.dots.length >= 5 && s.dots.length <= 9, s.id + ': detalhes pintados'); for (const d of s.dots) { assert.equal(d.length, 4); assert.match(d[3], /^#[0-9a-f]{6}$/); assert.ok(d[2] >= 0.04 && d[2] <= 0.1, 'raio do detalhe'); } }
 });
 test('as skins são diferentes entre si e do original (cor do corpo, do dentinho, dos pés), mas o pet continua o mesmo: mesmas peças, mesmo desenho do rosto', () => {
   const body = L.SKINS.map((s) => L.rgb(s.body)).concat([ORIG]);
   for (let i = 0; i < body.length; i++) for (let j = i + 1; j < body.length; j++) assert.ok(L.colorDist(body[i], body[j]) >= 0.3, 'corpos parecidos demais: ' + i + ' e ' + j);
-  assert.equal(new Set(L.SKINS.map((s) => s.feet)).size, 5, 'cada skin tem os pés de uma cor'); assert.equal(new Set(L.SKINS.map((s) => s.dots.map((d) => d[3]).sort().join())).size, 5, 'cada skin tem o seu conjunto de detalhes');
+  assert.equal(new Set(L.SKINS.map((s) => s.feet)).size, 10, 'cada skin tem os pés de uma cor'); assert.equal(new Set(L.SKINS.map((s) => s.dots.map((d) => d[3]).sort().join() + '|' + s.dots.length)).size, 10, 'cada skin tem o seu conjunto de detalhes');
   const ids = C.makeParts().map((p) => p.id);
   for (const s of L.SKINS) { const parts = C.makeParts(); L.apply(C, parts, L.build(C, { skin: s.id })); assert.deepEqual(parts.slice(0, ids.length).map((p) => p.id), ids, s.id + ': as 31 peças de sempre, na mesma ordem'); assert.equal(parts.length, ids.length + s.dots.length); }
 });
@@ -101,18 +102,18 @@ test('aplicar e tirar uma aparência restaura o pet de fábrica sem alterar as c
 });
 
 /* ============================ roupas ============================ */
-const OUT_IDS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao'];
-test('são exatamente 5 roupas, de modelos e estilos diferentes (capa, cachecol, chapéu, saia, macacão), cada uma com id, nome em português e emoji', () => {
-  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 5); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 5);
+const OUT_GRATIS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao'], OUT_PAGAS = ['bandana', 'fones', 'cartola', 'asas-anjo', 'coroa'], OUT_IDS = OUT_GRATIS.concat(OUT_PAGAS);
+test('são 10 roupas (as 5 de antes, grátis, e 5 novas, pagas), de modelos diferentes, cada uma com id, nome em português e emoji', () => {
+  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.deepEqual(L.OUTFITS.filter((o) => o.free).map((o) => o.id), OUT_GRATIS, 'as 5 primeiras são grátis'); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 10); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 10);
   for (const o of L.OUTFITS) { assert.match(o.name, /^[A-ZÁÉÍÓÚ]/); assert.ok(o.emoji.length >= 1); }
   const ids = L.OUTFITS.map((o) => L.build(C, { outfit: o.id }).extras.map((e) => e.id)), all = [].concat(...ids); assert.equal(new Set(all).size, all.length, 'cada roupa tem as suas próprias peças (nenhuma é a outra com outra cor)');
-  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 5, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
+  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 10, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
 });
 function worldVerts(look) {                                                      // todos os vértices e esferas da roupa, no referencial do corpo
   const out = [];
   for (const e of look.extras) {
     const l = e.local, M = new Float32Array(16); C.mTRS(M, l.t[0], l.t[1], l.t[2], l.r[0], l.r[1], l.r[2], l.s[0], l.s[1], l.s[2]);
-    if (e.geom === 'sph') { out.push({ id: e.id, sph: true, p: [l.t[0], l.t[1], l.t[2]], rad: Math.max(l.s[0], l.s[1], l.s[2]) }); continue; }
+    if (e.geom === 'sph') { out.push({ id: e.id, sph: true, p: [l.t[0], l.t[1], l.t[2]], rad: Math.max(l.s[0], l.s[1], l.s[2]), ex: Math.hypot(M[0], M[4], M[8]), ey: Math.hypot(M[1], M[5], M[9]) }); continue; }       // ex/ey: a extensão REAL da esfera esticada e girada
     const g = look.geoms[e.geom]; for (let i = 0; i < g.pos.length; i += 3) out.push({ id: e.id, p: C.mTransformPoint(M, g.pos[i], g.pos[i + 1], g.pos[i + 2]) });
   }
   return out;
@@ -137,7 +138,7 @@ test('a roupa SEMPRE se enxerga: a cor principal contrasta com o corpo de cada s
 });
 test('as roupas cabem na tela do mascote: o chapéu não passa do topo da câmera, a capa e a saia não passam das laterais, nada afunda abaixo dos pés', () => {
   const TOP = 1.4, SIDE = 1.55, BOTTOM = -1.0;
-  for (const o of L.OUTFITS) for (const v of worldVerts(L.build(C, { outfit: o.id }))) { const [x, y] = v.p; assert.ok(y <= TOP, o.id + ' passa do topo: ' + y.toFixed(2)); assert.ok(Math.abs(x) <= SIDE, o.id + ' passa das laterais: ' + x.toFixed(2)); assert.ok(y >= BOTTOM, o.id + ' passa dos pés: ' + y.toFixed(2)); }
+  for (const o of L.OUTFITS) for (const v of worldVerts(L.build(C, { outfit: o.id }))) { const [x, y] = v.p, rx = v.sph ? v.ex : 0, ry = v.sph ? v.ey : 0; assert.ok(y + ry <= TOP, o.id + ' passa do topo: ' + (y + ry).toFixed(2)); assert.ok(Math.abs(x) + rx <= SIDE, o.id + ' passa das laterais: ' + (Math.abs(x) + rx).toFixed(2)); assert.ok(y - ry >= BOTTOM, o.id + ' passa dos pés: ' + (y - ry).toFixed(2)); }
 });
 test('as roupas acompanham o corpo em TODA a faixa de poses (pulo, giro, achatamento, inclinação): matrizes finitas, e se movem junto com o corpo', () => {
   const rng = seeded(21);
@@ -154,11 +155,18 @@ test('as aparências são só desenho: sem rede, sem armazenamento, sem DOM, sem
   for (const proibido of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /localStorage/, /sessionStorage/, /indexedDB/, /document\b/, /window\b/, /\beval\s*\(/, /new Function/, /innerHTML/, /insertAdjacentHTML/, /https?:\/\//, /Math\.random/, /Date\b/]) assert.doesNotMatch(src, proibido, 'mascot-looks.js não pode conter ' + proibido);
   assert.match(looks, /module\.exports = api/);
 });
-test('a escolha fica SÓ neste aparelho: pet.js usa localStorage (chave qc.pet) e mais nada; o mascote em si continua sem armazenamento', () => {
+test('a escolha fica só no aparelho (visitante) ou na conta (loja): pet.js não guarda nada sozinho; quem guarda é loja.js, só com ids conhecidos e só o que dá para usar', () => {
   const src = code(pet);
-  for (const proibido of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /sessionStorage/, /indexedDB/, /document\.cookie/, /\beval\s*\(/, /new Function/, /innerHTML/, /outerHTML/, /insertAdjacentHTML/, /document\.write/, /https?:\/\//, /QC\.(state|socket|join|enterRoom|showScreen)/]) assert.doesNotMatch(src, proibido, 'pet.js não pode conter ' + proibido);
-  assert.deepEqual([...new Set((src.match(/localStorage\.\w+\(/g) || []))].sort(), ['localStorage.getItem(', 'localStorage.removeItem(', 'localStorage.setItem(']); assert.equal((src.match(/'qc\.pet'/g) || []).length, 1, 'uma única chave');
-  assert.match(src, /Looks\.sanitize\(raw \? JSON\.parse\(raw\) : \{\}\)/, 'o que vem do armazenamento sempre passa pela lista de ids conhecidos'); assert.match(src, /catch \(e\) \{ return \{ skin: '', outfit: '' \}; \}/, 'guardado corrompido não derruba nada');
+  for (const proibido of [/\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /localStorage/, /sessionStorage/, /indexedDB/, /document\.cookie/, /\beval\s*\(/, /new Function/, /innerHTML/, /outerHTML/, /insertAdjacentHTML/, /document\.write/, /https?:\/\//, /QC\.(state|socket|join|enterRoom|showScreen)/]) assert.doesNotMatch(src, proibido, 'pet.js não pode conter ' + proibido);
+  assert.match(src, /SP = window\.QC && window\.QC\.shopPet/); assert.match(src, /SP\.pick\(kind, look\)/); assert.match(src, /SP\.on\(function \(sel\) \{ M\.setLook\(sel\);/); assert.match(src, /SP\.ready\(\);/, 'relê o que estava guardado depois que mascot-looks.js carregou');
+  const ordem = [...read('public/index.html').matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]); assert.ok(ordem.indexOf('loja.js') < ordem.indexOf('mascot-looks.js'), 'a loja carrega antes das aparências (por isso o ready())');
+  const loja = code(read('public/loja.js'));
+  assert.deepEqual([...new Set((loja.match(/store\.(get|set)\('pet[c]?'/g) || []).map((x) => x.replace(/store\.(get|set)/, '')))].sort(), ["('pet'", "('petc'"], 'só duas chaves: qc.pet (visitante) e qc.petc (conta, neste aparelho)');
+  assert.match(loja, /S\.pet = !p \|\| \(S\.logged && p\.u !== S\.uid\) \? \{ skin: '', outfit: '' \} : petClean\(p, S\.logged\);/, 'o que vem do armazenamento passa pelo filtro; visitante só mantém o que é grátis');
+  assert.match(loja, /return \{ skin: a && \(trust \|\| petUsable\(a\)\) \? c\.skin : '', outfit: b && \(trust \|\| petUsable\(b\)\) \? c\.outfit : '' \};/);
+  assert.match(loja, /var L = window\.MascotLooks, c = L \? L\.sanitize\(sel\) : \{ skin: '', outfit: '' \}/, 'ids desconhecidos ou maliciosos viram o pet de fábrica');
+  assert.match(loja, /function petFromServer\(p\)/, 'logado: a conta manda'); assert.match(loja, /if \(j\.pet\) petFromServer\(j\.pet\);/);
+  assert.match(loja, /\{ category: cat, itemId: null \}/, 'tirar é um pedido ao servidor'); assert.doesNotMatch(loja, /innerHTML|insertAdjacentHTML|\beval\(|new Function|document\.cookie/);
   assert.doesNotMatch(code(mas), /localStorage|sessionStorage/, 'mascot.js continua sem armazenamento'); assert.doesNotMatch(code(mas), /openModal|closeModal|keydown|keyup/, 'mascot.js continua sem janelas nem teclado');
   assert.equal((code(mas).match(/preventDefault\(\)/g) || []).length, 1, 'único preventDefault do mascote: o da perda de contexto WebGL');
 });
@@ -166,7 +174,7 @@ test('a janela "Meu pet": acessível (diálogo, grupos de opções com nome, bot
   assert.match(html, /<div id="modal-pet" class="modal pet-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pet-title">/);
   assert.match(html, /<div id="pet-skins" class="pet-opts" role="radiogroup" aria-labelledby="lbl-pet-skin"><\/div>/); assert.match(html, /<div id="pet-outfits" class="pet-opts" role="radiogroup" aria-labelledby="lbl-pet-outfit"><\/div>/);
   assert.match(html, /id="btn-pet"[^>]*aria-describedby="lbl-pet pet-set-note"/); assert.match(html, /<link rel="stylesheet" href="pet\.css">/);
-  assert.match(pet, /setAttribute\('role', 'radio'\)/); assert.match(pet, /setAttribute\('aria-label', it\.name\)/); assert.match(pet, /aria-checked/); assert.match(pet, /ArrowRight/);
+  assert.match(pet, /setAttribute\('role', 'radio'\)/); assert.match(pet, /setAttribute\('aria-label', it\.name \+ \(it\.usable \? '' : ', bloqueado: custa '/, 'o cadeado também é dito em voz alta'); assert.match(pet, /aria-checked/); assert.match(pet, /ArrowRight/);
   assert.match(css, /\.pet-opt \{[^}]*min-width: 44px; height: 44px;/); assert.match(css, /\.pet-opt:focus-visible/); assert.match(css, /#modal-pet\[hidden\] \{ display: none !important; \}/);
   assert.match(html, /<div id="modal-pet"[\s\S]*?<div id="modal-settings"/, 'a janela fica junto das outras janelas (o gerenciador do botão voltar fecha qualquer .modal aberta)');
 });
@@ -181,5 +189,5 @@ test('ligações: o mascote ouve o botão Loja e o evento de amizade, e segurar 
 test('desenho: as peças novas entram nos mesmos grupos (esfera ou malha própria), sem textura, sem transparência e só com 1 chamada de buffers por grupo', () => {
   assert.match(mas, /if \(Looks\) Looks\.place\(Core, parts, pose\);/); assert.match(mas, /uploadLook\(\);[^\n]*\n\s+ready = true; resize\(\);/, 'as malhas da roupa vão para a GPU logo que ela fica pronta (e de novo se o contexto for refeito)');
   assert.match(mas, /gl\.deleteBuffer\(b\.pos\); gl\.deleteBuffer\(b\.nor\); gl\.deleteBuffer\(b\.idx\)/, 'libera a memória da roupa anterior'); assert.doesNotMatch(code(mas), /createTexture|BLEND|readPixels/);
-  assert.ok((read('public/mascot-core.js') + mas).length < 60000, 'núcleo + desenho continuam abaixo de 60 KB'); assert.ok(looks.length < 24000 && pet.length < 8000, 'módulos novos pequenos');
+  assert.ok((read('public/mascot-core.js') + mas).length < 60000, 'núcleo + desenho continuam abaixo de 60 KB'); assert.ok(looks.length < 36000 && pet.length < 12000, 'módulos novos pequenos');
 });
