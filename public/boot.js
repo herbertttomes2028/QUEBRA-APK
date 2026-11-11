@@ -6,4 +6,5 @@ try {
   d.setAttribute('data-theme', dark ? 'dark' : 'light');
   if (s.motion === 'reduce') d.setAttribute('data-motion', 'reduce');
   if (s.mascot === false) d.setAttribute('data-mascot', 'off');
+  if (s.trayAnim === false) d.setAttribute('data-tray-anim', 'off');
 } catch (e) { /* ignora */ }

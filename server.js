@@ -10,6 +10,7 @@
 const crypto = require('crypto');
 const phrases = require('./phrases');
 const library = require('./library');
+const shopCatalog = require('./shop');
 // Origem externa das imagens da biblioteca (opcional). Valor inválido é IGNORADO e o jogo segue com os arquivos locais (falha fechada).
 { const m = library.configureMedia(process.env.MEDIA_BASE_URL); if (process.env.MEDIA_BASE_URL) console.log(m ? '[biblioteca] imagens externas em ' + m.origin : '[biblioteca] MEDIA_BASE_URL inválida: usando os arquivos locais'); }
 const security = require('./security');
@@ -170,7 +171,7 @@ const zlib = require('zlib');
 let configGz = { body: '', gz: null };
 app.get('/api/config', (req, res) => {
   res.set({ 'Cache-Control': 'no-cache', 'Vary': 'Accept-Encoding' });
-  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
+  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), shop: shopCatalog.catalog(), accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
   res.type('application/json');
   if (body.length > 1024 && /\bgzip\b/i.test(req.get('accept-encoding') || '')) {
     if (configGz.body !== body) configGz = { body, gz: zlib.gzipSync(body) };

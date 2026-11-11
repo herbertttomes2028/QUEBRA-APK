@@ -156,7 +156,7 @@ test('Ajustes: há um botão (interruptor) para esconder o mascote, acessível, 
   assert.match(settingsSec, /<p id="motion-note" class="set-note">Com o movimento reduzido, o mascote da tela inicial fica escondido\.<\/p>/, 'o aviso está SEMPRE visível junto do ajuste de Movimento');
 });
 test('Ajustes: o padrão é mostrar, a escolha é guardada, e o aviso muda com o movimento reduzido (do aparelho ou dos Ajustes)', () => {
-  assert.match(game, /var DEFAULT_SETTINGS = \{[^}]*mascot: true \};/); assert.match(game, /h\.setAttribute\('data-mascot', s\.mascot === false \? 'off' : 'on'\);/);
+  assert.match(game, /var DEFAULT_SETTINGS = \{[^}]*mascot: true(, trayAnim: true)? \};/); assert.match(game, /h\.setAttribute\('data-mascot', s\.mascot === false \? 'off' : 'on'\);/);
   const f = game.slice(game.indexOf('function updateMascotNote() {'), game.indexOf('function saveSettings()'));
   assert.match(f, /var reduced = reducedMotion\(\), off = state\.settings\.mascot === false;/); assert.match(f, /sw\.disabled = reduced;/, 'com movimento reduzido o interruptor fica desligado (não dá para ligar)');
   assert.match(f, /sw\.setAttribute\('aria-checked', \(!reduced && !off\) \? 'true' : 'false'\);/, 'e mostra "desligado" para não enganar');

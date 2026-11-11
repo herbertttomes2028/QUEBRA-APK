@@ -99,7 +99,7 @@
     };
   })();
 
-  var DEFAULT_SETTINGS = { text: 'normal', theme: 'auto', motion: 'auto', sound: true, vibrate: true, push: false, mascot: true };
+  var DEFAULT_SETTINGS = { text: 'normal', theme: 'auto', motion: 'auto', sound: true, vibrate: true, push: false, mascot: true, trayAnim: true };
   state.settings = (function () {
     var saved = store.get('settings', {}) || {}, o = {};
     Object.keys(DEFAULT_SETTINGS).forEach(function (k) { o[k] = saved[k] !== undefined ? saved[k] : DEFAULT_SETTINGS[k]; });
@@ -1107,6 +1107,7 @@
     board.appendChild(ghost);
     board.appendChild(boardGuides(cfg));
     field.appendChild(board);
+    if (typeof QC !== 'undefined' && QC.tray) QC.tray.build(field, cfg);          // a bandeja decorativa (loja) fica ATRÁS das peças e nunca recebe toque
 
     state.pieces = snap.pieces.map(function (d) {
       var el = document.createElement('div');
@@ -1366,6 +1367,7 @@
       p.z = ++state.zMax;
       classify(p);
       gameEmit('grab', { id: p.id });
+      if (typeof QC !== 'undefined' && QC.tray) QC.tray.fx('select', p.x, p.y);       // brilho/efeito da bandeja ao escolher a peça (só visual)
     }
 
     var lx = (e.clientX - rect.left) / state.scale;
@@ -1378,7 +1380,7 @@
     state.drag = {
       id: p.id, pointerId: e.pointerId, sx: e.clientX, sy: e.clientY,
       offX: clamp(lx - cx0, -lim, lim), offY: clamp(ly - cy0, -lim, lim),
-      rect: rect, moved: false, last: 0, wasSelected: wasSelected
+      rect: rect, moved: false, last: 0, wasSelected: wasSelected, fromTray: p.y > state.cfg.TRAY_LINE
     };
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignora */ }
     clearTimeout(state.idleTimer);
@@ -1425,6 +1427,7 @@
       var dragThreshold = (state.cfg.PIECES === 6 || !state.duel) && e.pointerType === 'touch' ? 5 : 8;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < dragThreshold) return;
       d.moved = true;
+      if (typeof QC !== 'undefined' && QC.tray) { QC.tray.drag(true); if (d.fromTray) QC.tray.fx('pick', state.pieces[d.id].x, state.pieces[d.id].y); }   // retirou a peça da bandeja
     }
     var p = state.pieces[d.id];
     var half = Math.ceil(state.cfg.TRAY / 2);
@@ -1456,6 +1459,7 @@
     var d = state.drag;
     if (!d || e.pointerId !== d.pointerId) return;
     state.drag = null;
+    if (typeof QC !== 'undefined' && QC.tray) QC.tray.drag(false);
     var p = state.pieces[d.id];
     if (d.moved) {
       dropSelected();                         // arrastou e soltou: tenta encaixar
@@ -2108,6 +2112,7 @@
     h.setAttribute('data-theme', dark ? 'dark' : 'light');
     h.setAttribute('data-motion', s.motion === 'reduce' ? 'reduce' : 'auto');
     h.setAttribute('data-mascot', s.mascot === false ? 'off' : 'on');
+    h.setAttribute('data-tray-anim', s.trayAnim === false ? 'off' : 'on');       // animações das bandejas (loja)
     var mt = document.querySelector('meta[name="theme-color"]');
     if (mt) mt.setAttribute('content', dark ? '#111733' : '#eaeeff');
     Array.prototype.forEach.call(document.querySelectorAll('#modal-settings [data-setting]'), function (el) {
@@ -3535,7 +3540,7 @@
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
   }
 
-  $('#btn-menu').addEventListener('click', function () { $('#menu-block').hidden = $('#menu-report').hidden = !(window.QC && window.QC.canBlock) || state.solo; openModal('#modal-menu', '#menu-close'); });
+  $('#btn-menu').addEventListener('click', function () { var ms = $('#menu-shop'); if (ms) ms.hidden = !!state.duel; $('#menu-block').hidden = $('#menu-report').hidden = !(window.QC && window.QC.canBlock) || state.solo; openModal('#modal-menu', '#menu-close'); });
   // "Bloquear jogador": só para quem tem conta (a outra pessoa também precisa ter conta para poder ser bloqueada)
   $('#menu-block').addEventListener('click', function () {
     askConfirm({ title: 'Bloquear esta pessoa?', text: 'Vocês não poderão mais jogar juntos nem ser amigos, e você sai da partida.', ok: 'Bloquear', danger: true }).then(function (ok) {

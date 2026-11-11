@@ -16,6 +16,7 @@
   <script src="boot.js"></script>
   <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="loja.css">
 </head>
 <body>
   <div id="app">
@@ -91,6 +92,7 @@
 
         <div class="home-links">
           <button id="link-friends" class="btn btn-ghost" type="button" hidden><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="9" cy="8.5" r="3.3" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M3 19.5c.4-3.3 2.9-5.2 6-5.2s5.6 1.900 6 5.200" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="17.200" cy="9.500" r="2.500" fill="none" stroke="currentColor" stroke-width="2.200"/><path d="M17.500 14.600c2.200.2 3.700 1.800 4 4.400" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round"/></svg>Amigos<i id="friends-badge" class="me-badge" hidden>0</i></button>
+          <button id="link-shop" class="btn btn-ghost" type="button" aria-label="Loja de bandejas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5.5 8.5h13l-1 11.2a1.5 1.5 0 0 1-1.500 1.300H8a1.500 1.500 0 0 1-1.500-1.300Z" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linejoin="round"/><path d="M9 8.500V7a3 3 0 0 1 6 0v1.500" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round"/></svg> Loja</button>
           <button id="link-settings" class="btn btn-ghost" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M19.4 13.5a7.6 7.6 0 0 0 0-3l1.9-1.5-1.9-3.3-2.3.9a7.5 7.5 0 0 0-2.6-1.5L14.2 2.6h-3.8l-.3 2.5A7.5 7.5 0 0 0 7.500 6.600l-2.300-.9-1.900 3.300 1.900 1.500a7.600 7.600 0 0 0 0 3l-1.900 1.500 1.900 3.300 2.300-.9c.8.6 1.700 1.100 2.600 1.500l.3 2.500h3.800l.3-2.500c.9-.4 1.800-.9 2.600-1.500l2.300.9 1.900-3.300-1.900-1.500Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Ajustes</span></button>
         </div>
       </div>
@@ -482,6 +484,7 @@
         <h3 id="menu-title">Menu</h3>
         <button id="menu-help" class="btn btn-secondary btn-block" type="button">Como jogar</button>
         <button id="menu-settings" class="btn btn-secondary btn-block" type="button"><span aria-hidden="true">⚙</span> Ajustes</button>
+        <button id="menu-shop" class="btn btn-secondary btn-block" type="button"><span aria-hidden="true">🛍️</span> Loja e bandejas</button>
         <button id="menu-sound" class="btn btn-secondary btn-block" type="button" aria-pressed="true"><span id="menu-sound-icon" aria-hidden="true">🔊</span> <span id="menu-sound-text">Som: ligado</span></button>
         <button id="menu-change" class="btn btn-secondary btn-block" type="button">Trocar imagem ou peças</button>
         <button id="menu-restart" class="btn btn-secondary btn-block" type="button">Recomeçar esta imagem</button>
@@ -570,6 +573,11 @@
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-mascot" aria-describedby="mascot-note" aria-checked="true" data-setting="mascot"><i></i></button>
         </div>
         <p id="mascot-note" class="set-note"></p>
+        <div class="set-row">
+          <span id="lbl-trayanim" class="set-label">Animações das bandejas</span>
+          <button type="button" class="switch" role="switch" aria-labelledby="lbl-trayanim" aria-describedby="trayanim-note" aria-checked="true" data-setting="trayAnim"><i></i></button>
+        </div>
+        <p id="trayanim-note" class="set-note">Os brilhos e movimentos das bandejas da loja. Com o movimento reduzido no aparelho, ficam sempre parados.</p>
         <div class="set-row">
           <span id="lbl-sound" class="set-label">Sons</span>
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
@@ -779,9 +787,33 @@
     <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>
 
+  <!-- Loja de bandejas: só a bandeja de peças é decorada; a grade de encaixe não muda. -->
+  <div id="modal-shop" class="modal shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
+    <div class="sheet shop-sheet">
+      <header class="shop-head">
+        <h2 id="shop-title">🛍️ Loja</h2>
+        <span id="shop-gems" class="shop-gems" role="status" aria-live="polite" aria-label="Seu saldo de gemas">💎 —</span>
+        <button id="shop-close" data-back class="btn btn-ghost shop-x" type="button" aria-label="Fechar a loja">✕</button>
+      </header>
+      <div class="shop-tabs" role="tablist" aria-label="Seções da loja">
+        <button type="button" class="shop-tab on" role="tab" aria-selected="true" data-tab="loja">Loja</button>
+        <button type="button" class="shop-tab" role="tab" aria-selected="false" data-tab="minhas">Minhas Bandejas</button>
+      </div>
+      <div id="shop-body" class="shop-body"></div>
+    </div>
+  </div>
+  <div id="modal-tray-preview" class="modal shop-modal shop-modal-top" hidden role="dialog" aria-modal="true" aria-labelledby="tp-title">
+    <div class="sheet">
+      <h3 id="tp-title">Bandeja</h3>
+      <div id="tp-body" class="shop-body"></div>
+      <div id="tp-actions" class="sheet-actions"></div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="game.js"></script>
   <script src="conta.js"></script>
+  <script src="loja.js"></script>
   <script src="mascot-core.js"></script>
   <script src="mascot.js"></script>
 </body>
