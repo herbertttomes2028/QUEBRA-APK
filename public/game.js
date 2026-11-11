@@ -2734,7 +2734,10 @@
     p.x = d.x; p.y = d.y; p.tx = d.x; p.ty = d.y;
     setAngle(p, 0);
     if (state.selectedId === p.id) { state.selectedId = null; clearTimeout(state.idleTimer); }
-    if (state.drag && state.drag.id === p.id) state.drag = null;
+    if (state.drag && state.drag.id === p.id) {                       // o ímã puxou a peça com o dedo ainda segurando: o arrasto termina aqui
+      state.drag = null;
+      if (typeof QC !== 'undefined' && QC.tray) QC.tray.drag(false);
+    }
     classify(p);
     state.counts = d.counts;
     state.locked = d.locked;
