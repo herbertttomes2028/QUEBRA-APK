@@ -1,0 +1,15 @@
+/* Janela "Meu pet" (skin e roupa). A janela deixa o mascote da tela inicial visível acima dela, para a mudança aparecer na hora. */
+#modal-pet { background: rgba(20, 30, 70, 0.1); }
+#modal-pet[hidden] { display: none !important; }
+.pet-sheet { gap: 6px; padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+.pet-sheet h3 { margin: 0; }
+.pet-group { display: flex; flex-direction: column; gap: 6px; }
+.pet-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pet-name { font-size: .95rem; color: var(--ink); }
+.pet-opts { display: flex; gap: 6px; padding: 4px; background: var(--paper); border-radius: 16px; overflow-x: auto; scrollbar-width: none; }
+.pet-opts::-webkit-scrollbar { display: none; }
+.pet-opt { appearance: none; flex: 1 0 44px; min-width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pet-opt[aria-checked="true"] { background: var(--card); box-shadow: inset 0 0 0 3px var(--deep); }
+.pet-opt:focus-visible { outline: 3px solid var(--sel, #2a5ee8); outline-offset: 1px; }
+.pet-sw { width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(27, 37, 89, 0.35); display: block; }
+.pet-em { font-style: normal; font-size: 1.5rem; line-height: 1; }

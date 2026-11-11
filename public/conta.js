@@ -161,6 +161,7 @@
       loadFriends();
     } else if (ev.t === 'friend') {
       QC.toast('🤝 ' + ev.from.name + ' agora é seu amigo!', 3200); QC.playSound('chime');
+      try { if (window.Mascot && window.Mascot.note) window.Mascot.note('friend'); } catch (e) { /* o mascote nunca atrapalha */ }
       loadFriends();
     } else if (ev.t === 'unfriend' || ev.t === 'presence') {
       if (ev.t === 'presence' && !screenMe) return;

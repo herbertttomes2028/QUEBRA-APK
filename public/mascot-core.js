@@ -150,6 +150,11 @@
     proud: { eyeL: 0.9, eyeR: 0.9, browL: 0.45, browR: 0.45, mouthW: 1.15, mouthOpen: 0.45, mouthSmile: 1, blush: 0.5 },
     excited: { eyeL: 1.18, eyeR: 1.18, browL: 0.9, browR: 0.9, mouthW: 1.2, mouthOpen: 0.85, mouthSmile: 1, blush: 0.6, pupil: 1.1 },
     worried: { eyeL: 1, eyeR: 1, browL: 0.5, browR: 0.5, tiltL: -0.8, tiltR: -0.8, mouthW: 0.7, mouthOpen: 0.1, mouthSmile: -0.55 }
+    ,
+    // novas (rodada "pet-novidades"): encantado (olhos brilhando), contente (olhos fechados e sorrindo) e apaixonado
+    dreamy: { eyeL: 1.15, eyeR: 1.15, browL: 0.7, browR: 0.7, tiltL: -0.2, tiltR: -0.2, mouthW: 0.6, mouthOpen: 0.35, mouthSmile: 0.7, blush: 0.55, pupil: 1.2 },
+    content: { eyeL: 0.04, eyeR: 0.04, browL: 0.2, browR: 0.2, mouthW: 0.9, mouthOpen: 0.15, mouthSmile: 1, blush: 0.95 },
+    love: { eyeL: 1, eyeR: 1, browL: 0.4, browR: 0.4, mouthW: 1.1, mouthOpen: 0.5, mouthSmile: 1, blush: 1, pupil: 1.25 }
   };
 
   /* ===================== as reações ===================== */
@@ -188,11 +193,31 @@
     wake: { dur: 0.9, prio: 2, expr: 'wow', run: function (t, u, T, A) { A.hop = 0.15 * Math.sin(clamp(u * 2, 0, 1) * PI); T.armL = 1.5; T.armR = 1.5; } },
     lookThink: { dur: 1.7, prio: 2, expr: 'think', run: function (t, u, T) { T.roll = -0.07; T.armR = 0.7; T.armFR = 0.5; } },
     hopeful: { dur: 1.7, prio: 1, expr: 'happy', run: function (t, u, T, A) { A.hop = Math.abs(Math.sin(u * PI * 2)) * 0.06 * env(u); T.armL = 0.6; T.armFL = 0.6; T.armR = 0.6; T.armFR = 0.6; } }
+    ,
+    /* NOVAS (rodada "pet-novidades"). As 21 acima não foram tocadas. */
+    // admire: "uau, que chique!": olhos brilhando, mãozinhas juntas na frente do corpo e um balançar de um lado para o outro, na ponta dos pés. Botão Loja.
+    admire: { dur: 1.9, prio: 2, expr: 'dreamy', run: function (t, u, T, A) {
+        var k = win(u, 0, 1, 0.18);
+        T.armL = 0.95; T.armR = 0.95; T.armFL = 1.4; T.armFR = 1.4; T.pupil = 1.2;
+        A.pupil = sw(t, 5, 0.08) * k; A.roll = sw(t, 1.15, 0.075) * k; A.hop = Math.abs(Math.sin(u * PI * 2)) * 0.04 * k; A.sy = 0.025 * Math.sin(u * PI * 4) * k;
+      } },
+    // cuddle: "que gostoso!": segurar o dedo no mascote. Ele se abraça, fecha os olhos, amassa de leve e "ronrona".
+    cuddle: { dur: 2.3, prio: 2, expr: 'content', run: function (t, u, T, A) {
+        var k = win(u, 0, 1, 0.2);
+        T.armL = 0.55; T.armR = 0.55; T.armFL = 1.3; T.armFR = 1.3; T.roll = 0.09 * k; T.sx = 1 + 0.05 * k; T.sy = 1 - 0.06 * k;
+        A.roll = sw(t, 0.9, 0.05) * k; A.sy = sw(t, 1.7, 0.02) * k; A.hop = sw(t, 9, 0.006) * k;
+      } },
+    // heart: "somos amigos!": braços abertos para a frente, convidando para um abraço, com o corpo batendo como um coração. Evento: novo amigo.
+    heart: { dur: 2.2, prio: 2, expr: 'love', run: function (t, u, T, A) {
+        var k = win(u, 0, 1, 0.15), beat = Math.pow(Math.max(0, Math.sin(t * 2 * PI * 2.2)), 6);
+        T.armL = 1.7; T.armR = 1.7; T.armFL = 1.3; T.armFR = 1.3;
+        A.sx = 0.05 * beat * k; A.sy = 0.05 * beat * k; A.roll = sw(t, 1.5, 0.05) * k; A.hop = Math.abs(Math.sin(u * PI * 3)) * 0.07 * env(u * 0.6);
+      } }
   };
 
   // botão da tela inicial -> reação
-  var PRESS_MAP = { play: 'goodPiece', duel: 'determined', continue: 'nod', join: 'nod', friends: 'wave', settings: 'curious', help: 'curious', me: 'wave', codeFocus: 'lookThink', codeType: 'nodSmall', codeFull: 'excitedHop' };
-  var EVENT_MAP = { win: 'cheer', levelup: 'celebrate', achievement: 'proud', nearly: 'nearly' };
+  var PRESS_MAP = { play: 'goodPiece', duel: 'determined', continue: 'nod', join: 'nod', friends: 'wave', settings: 'curious', help: 'curious', me: 'wave', codeFocus: 'lookThink', codeType: 'nodSmall', codeFull: 'excitedHop', shop: 'admire' };
+  var EVENT_MAP = { win: 'cheer', levelup: 'celebrate', achievement: 'proud', nearly: 'nearly', friend: 'heart' };
   var TAP_SEQUENCE = ['tapHappy', 'tapGiggle', 'tapSurprise', 'tapShy', 'tapDizzy'];
 
   /* ===================== o cérebro ===================== */
