@@ -16,16 +16,26 @@
   // body = corpo, braços e pálpebras; knob = o "dente" de peça; hands = mãos e polegar; feet = pés; cheek = bochechas.
   // dots: detalhes pintados na frente, só nas zonas que o rosto não usa: [x, y, raio, cor] (x e y na frente do corpo; o z vem da superfície).
   var SKINS = [
-    { id: 'menta', name: 'Menta', swatch: '#25c9a4', body: '#25c9a4', knob: '#25c9a4', hands: '#ffffff', feet: '#ff8a6b', cheek: '#ff7f8f',
+    { id: 'menta', free: true, name: 'Menta', swatch: '#25c9a4', body: '#25c9a4', knob: '#25c9a4', hands: '#ffffff', feet: '#ff8a6b', cheek: '#ff7f8f',
       dots: [[-0.3, -0.64, 0.07, '#ff8a6b'], [-0.1, -0.655, 0.07, '#ffd24d'], [0.1, -0.655, 0.07, '#ff8a6b'], [0.3, -0.64, 0.07, '#ffd24d'], [-0.71, 0.18, 0.055, '#ffffff'], [0.71, 0.18, 0.055, '#ffffff']] },
-    { id: 'por-do-sol', name: 'Pôr do sol', swatch: '#ff7a45', body: '#ff7a45', knob: '#ffcf33', hands: '#fff1d6', feet: '#8a4fff', cheek: '#ff4f8b',
+    { id: 'por-do-sol', free: true, name: 'Pôr do sol', swatch: '#ff7a45', body: '#ff7a45', knob: '#ffcf33', hands: '#fff1d6', feet: '#8a4fff', cheek: '#ff4f8b',
       dots: [[-0.38, 0.625, 0.06, '#ffcf33'], [-0.19, 0.655, 0.06, '#ffcf33'], [0, 0.665, 0.07, '#ffe27a'], [0.19, 0.655, 0.06, '#ffcf33'], [0.38, 0.625, 0.06, '#ffcf33']] },
-    { id: 'uva', name: 'Uva', swatch: '#a24bd6', body: '#a24bd6', knob: '#c4b5fd', hands: '#efe7ff', feet: '#ff86bb', cheek: '#ff6fa8',
+    { id: 'uva', free: true, name: 'Uva', swatch: '#a24bd6', body: '#a24bd6', knob: '#c4b5fd', hands: '#efe7ff', feet: '#ff86bb', cheek: '#ff6fa8',
       dots: [[-0.25, 0.64, 0.07, '#c9b2ff'], [0.25, 0.64, 0.07, '#c9b2ff'], [-0.71, 0.3, 0.07, '#c9b2ff'], [0.71, 0.3, 0.07, '#c9b2ff'], [-0.7, -0.3, 0.06, '#c9b2ff'], [0.7, -0.3, 0.06, '#c9b2ff'], [0, -0.64, 0.07, '#c9b2ff']] },
-    { id: 'algodao-doce', name: 'Algodão-doce', swatch: '#ff8cc0', body: '#ff8cc0', knob: '#7fd4ff', hands: '#ffffff', feet: '#5cc8ff', cheek: '#ff6b6b',
+    { id: 'algodao-doce', free: true, name: 'Algodão-doce', swatch: '#ff8cc0', body: '#ff8cc0', knob: '#7fd4ff', hands: '#ffffff', feet: '#5cc8ff', cheek: '#ff6b6b',
       dots: [[-0.4, -0.63, 0.06, '#7fd4ff'], [-0.2, -0.655, 0.06, '#ffe27a'], [0, -0.66, 0.06, '#7fd4ff'], [0.2, -0.655, 0.06, '#ffe27a'], [0.4, -0.63, 0.06, '#7fd4ff'], [-0.7, 0.05, 0.05, '#ffffff'], [0.7, 0.05, 0.05, '#ffffff']] },
-    { id: 'luar', name: 'Luar', swatch: '#8d9bb8', body: '#8d9bb8', knob: '#ffd84d', hands: '#ffffff', feet: '#ffb020', cheek: '#ff7fb0',
-      dots: [[-0.3, 0.64, 0.05, '#ffd84d'], [0.12, 0.665, 0.07, '#ffd84d'], [0.4, 0.62, 0.045, '#ffd84d'], [-0.72, 0.28, 0.06, '#ffd84d'], [0.71, -0.2, 0.05, '#ffd84d'], [-0.2, -0.65, 0.05, '#ffd84d'], [0.28, -0.64, 0.06, '#ffd84d']] }
+    { id: 'luar', free: true, name: 'Luar', swatch: '#8d9bb8', body: '#8d9bb8', knob: '#ffd84d', hands: '#ffffff', feet: '#ffb020', cheek: '#ff7fb0',
+      dots: [[-0.3, 0.64, 0.05, '#ffd84d'], [0.12, 0.665, 0.07, '#ffd84d'], [0.4, 0.62, 0.045, '#ffd84d'], [-0.72, 0.28, 0.06, '#ffd84d'], [0.71, -0.2, 0.05, '#ffd84d'], [-0.2, -0.65, 0.05, '#ffd84d'], [0.28, -0.64, 0.06, '#ffd84d']] },
+    { id: 'limao', free: false, name: 'Limão', swatch: '#9fd62a', body: '#9fd62a', knob: '#fff176', hands: '#ffffff', feet: '#ff9f1c', cheek: '#ff6f6f',
+      dots: [[-0.3, 0.64, 0.06, '#ffffff'], [-0.1, 0.66, 0.05, '#ffffff'], [0.1, 0.66, 0.05, '#ffffff'], [0.3, 0.64, 0.06, '#ffffff'], [-0.71, 0.1, 0.055, '#fff59d'], [0.71, 0.1, 0.055, '#fff59d']] },
+    { id: 'caramelo', free: false, name: 'Caramelo', swatch: '#a9714a', body: '#a9714a', knob: '#f3d9b1', hands: '#fff3df', feet: '#6b4226', cheek: '#ff8f8f',
+      dots: [[-0.25, 0.64, 0.07, '#f3d9b1'], [0.25, 0.64, 0.07, '#f3d9b1'], [-0.7, 0.25, 0.065, '#f3d9b1'], [0.7, 0.25, 0.065, '#f3d9b1'], [-0.7, -0.25, 0.06, '#f3d9b1'], [0.7, -0.25, 0.06, '#f3d9b1']] },
+    { id: 'lavanda', free: false, name: 'Lavanda', swatch: '#c3b1f2', body: '#c3b1f2', knob: '#8b6fe0', hands: '#ffffff', feet: '#7a5af8', cheek: '#ff7fb0',
+      dots: [[-0.2, 0.655, 0.05, '#ffffff'], [0, 0.665, 0.07, '#8b6fe0'], [0.2, 0.655, 0.05, '#ffffff'], [-0.3, -0.64, 0.06, '#8b6fe0'], [0, -0.66, 0.06, '#ffffff'], [0.3, -0.64, 0.06, '#8b6fe0'], [-0.71, 0.1, 0.05, '#8b6fe0'], [0.71, 0.1, 0.05, '#8b6fe0']] },
+    { id: 'cereja', free: false, name: 'Cereja', swatch: '#e0305e', body: '#e0305e', knob: '#3ecf6e', hands: '#ffffff', feet: '#ffd23f', cheek: '#ffa3b5',
+      dots: [[-0.36, 0.62, 0.055, '#ffffff'], [-0.18, 0.655, 0.045, '#ffffff'], [0.3, 0.63, 0.05, '#ffb3c0'], [-0.7, 0.2, 0.07, '#ffb3c0'], [0.71, 0.2, 0.06, '#ffffff'], [-0.7, -0.28, 0.05, '#ffffff'], [0.7, -0.28, 0.055, '#ffb3c0']] },
+    { id: 'ouro', free: false, name: 'Ouro', swatch: '#ffcc2e', body: '#ffcc2e', knob: '#fff3a0', hands: '#ffffff', feet: '#c77700', cheek: '#ff8a5c',
+      dots: [[-0.38, 0.625, 0.05, '#ffffff'], [-0.19, 0.655, 0.045, '#c77700'], [0, 0.665, 0.06, '#ffffff'], [0.19, 0.655, 0.045, '#c77700'], [0.38, 0.625, 0.05, '#ffffff'], [-0.71, 0.18, 0.05, '#ffffff'], [0.71, 0.18, 0.05, '#c77700'], [-0.3, -0.64, 0.05, '#ffffff'], [0.3, -0.64, 0.05, '#c77700']] }
   ];
 
   /* ===================== malhas que acompanham o corpo ===================== */
@@ -42,7 +52,10 @@
       pos[k] = p[0]; pos[k + 1] = p[1]; pos[k + 2] = p[2]; nor[k] = nx / l; nor[k + 1] = ny / l; nor[k + 2] = nz / l; k += 3;
     }
     var flip = !!o.flip;
-    if (o.outward) {                                                   // decide o lado "de fora" pela maioria das normais
+    if (o.axis) {                                                      // tubo, anel, coroa: o "dentro" é o eixo de cada vértice (o.axis(a, b) -> [x, y, z])
+      var s2 = 0; k = 0; for (i = 0; i <= nu; i++) for (j = 0; j <= nv; j++) { var ax0 = o.axis(i / nu, j / nv); s2 += nor[k] * (pos[k] - ax0[0]) + nor[k + 1] * (pos[k + 1] - ax0[1]) + nor[k + 2] * (pos[k + 2] - ax0[2]); k += 3; }
+      flip = s2 < 0;
+    } else if (o.outward) {                                            // decide o lado "de fora" pela maioria das normais
       var s = 0; for (k = 0; k < cnt * 3; k += 3) s += nor[k] * (pos[k] - o.outward[0]) + nor[k + 1] * (pos[k + 1] - o.outward[1]) + nor[k + 2] * (pos[k + 2] - o.outward[2]);
       flip = s < 0;
     }
@@ -79,6 +92,24 @@
     return gridMesh(function (a, b) { var t = a, ang = b * 2 * PI, rr = r + (top - r) * t; return [rr * Math.cos(ang) + bend * t * t, h * t, rr * Math.sin(ang)]; }, rows, seg, { outward: [o.bend ? o.bend * 0.3 : 0, h * 0.5, 0] });
   }
 
+  // tubo ao longo de um arco de elipse no plano x-y (a faixa do fone de ouvido): do ângulo 0 (direita) até PI (esquerda)
+  function arcTube(o) {
+    var cy = o.cy, rx = o.rx, ry = o.ry, r = o.r;
+    var at = function (a) { var th = a * PI; return [rx * Math.cos(th), cy + ry * Math.sin(th), 0]; };
+    return gridMesh(function (a, b) { var th = a * PI, ang = b * 2 * PI, p = at(a), nx = Math.cos(th), ny = Math.sin(th); return [p[0] + r * Math.cos(ang) * nx, p[1] + r * Math.cos(ang) * ny, r * Math.sin(ang)]; }, o.rows || 26, o.seg || 10, { axis: function (a) { return at(a); } });
+  }
+  // anel (a auréola): raio R, espessura r, deitado (eixo y)
+  function ring(o) {
+    var R = o.R, r = o.r;
+    return gridMesh(function (a, b) { var ph = a * 2 * PI, ps = b * 2 * PI, c = Math.cos(ph), sn = Math.sin(ph); return [(R + r * Math.cos(ps)) * c, r * Math.sin(ps), (R + r * Math.cos(ps)) * sn]; }, o.rows || 32, o.seg || 10, { axis: function (a) { var ph = a * 2 * PI; return [R * Math.cos(ph), 0, R * Math.sin(ph)]; } });
+  }
+  // coroa: parede com `teeth` pontas (borda de cima em zigue-zague); aberta em cima, dos dois lados
+  function crown(o) {
+    var R = o.R, H0 = o.H0, H1 = o.H1, teeth = o.teeth || 5, flare = o.flare || 0;
+    return gridMesh(function (a, b) { var w = Math.abs(((b * teeth) % 1) * 2 - 1), h = a * (H0 + H1 * (1 - w)), rr = R + flare * a, ang = b * 2 * PI; return [rr * Math.cos(ang), h, rr * Math.sin(ang)]; },
+      o.rows || 4, o.seg || 60, { two: true, axis: function (a, b) { return [0, a * (H0 + H1 * 0.5), 0]; } });
+  }
+
   /* ===================== as roupas ===================== */
   var WHITE = '#ffffff', GOLD = '#ffc933';
   // Cada roupa escolhe, entre as suas cores, a que mais contrasta com o corpo da skin atual (o macacão azul sumiria num pet azul): a primeira que for bem diferente, ou a mais diferente de todas.
@@ -93,7 +124,7 @@
   // Cada roupa devolve { meshes: {nome: malha}, parts: [{ id, mesh | geom:'sph', color, flat, t:[x,y,z], r:[rx,ry,rz], s:[sx,sy,sz] }] } no referencial do corpo (acompanham pulo, giro e achatamento).
   function front(B, x, y) { var n = 2 / B.e, t = 1 - Math.pow(Math.abs(x / B.rx), n) - Math.pow(Math.abs(y / B.ry), n); return B.rz * Math.pow(Math.max(t, 0), 1 / n); }
   var OUTFITS = [
-    { id: 'capa-heroi', name: 'Capa de herói', emoji: '🦸',
+    { id: 'capa-heroi', free: true, name: 'Capa de herói', emoji: '🦸',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#e5383b', '#7a4fd6', '#2f6fe4', '#2fa84f']);
         m.cape = belt(B, { y0: -0.8, y1: 0.52, v0: -PI - 0.1, v1: 0.1, s0: 1.8, s1: 1.1, drop: 0.06, zpush: 0.3, two: true, lat: 10, lon: 40 });
@@ -102,7 +133,7 @@
         [-1, 1].forEach(function (sd) { parts.push({ id: 'fecho' + (sd < 0 ? 'L' : 'R'), geom: 'sph', color: GOLD, t: [sd * 0.755, 0.34, front(B, sd * 0.755, 0.34) - 0.02], s: [0.085, 0.085, 0.065] }); });
         return { meshes: m, parts: parts };
       } },
-    { id: 'cachecol', name: 'Cachecol de inverno', emoji: '🧣',
+    { id: 'cachecol', free: true, name: 'Cachecol de inverno', emoji: '🧣',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#e5383b', '#2fa84f', '#ff8a2a', '#7a4fd6']);
         m.a = belt(B, { y0: -0.6, y1: -0.5, s0: 1.1, s1: 1.1, lat: 3, lon: 44 }); m.b = belt(B, { y0: -0.67, y1: -0.6, s0: 1.1, s1: 1.1, lat: 3, lon: 44 }); m.c = belt(B, { y0: -0.74, y1: -0.67, s0: 1.1, s1: 1.1, lat: 3, lon: 44 });
@@ -113,7 +144,7 @@
         parts.push({ id: 'nozinho', geom: 'sph', color: shade(c, -0.25), t: [-0.36, -0.56, fz + 0.095], s: [0.14, 0.095, 0.075] });
         return { meshes: m, parts: parts };
       } },
-    { id: 'mago', name: 'Chapéu de mago', emoji: '🧙',
+    { id: 'mago', free: true, name: 'Chapéu de mago', emoji: '🧙',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#35177a', '#6d3fd1', '#e5383b', '#2fa84f']), H = 0.7, R = 0.4, TOP = 0.02, BEND = 0.16, hat = { t: [-0.2, 0.68, -0.02], r: [0, 0, 0.12] };
         m.hat = cone({ r: R, h: H, bend: BEND, top: TOP }); m.band = cone({ r: R + 0.012, h: 0.1, top: R, rows: 2 });
@@ -126,7 +157,7 @@
         });
         return { meshes: m, parts: parts };
       } },
-    { id: 'bailarina', name: 'Saia de bailarina', emoji: '🩰',
+    { id: 'bailarina', free: true, name: 'Saia de bailarina', emoji: '🩰',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#ff7ac0', '#7a4fd6', '#2f6fe4', '#ffd23f']);
         m.skirtB = belt(B, { y0: -0.8, y1: -0.58, s0: 1.9, s1: 1.4, drop: 0.07, wave: 0.05, wn: 14, two: true, lat: 6, lon: 56 });
@@ -137,7 +168,7 @@
         parts.push({ id: 'lacoL', geom: 'sph', color: bw, t: [-0.11, -0.52, fz + 0.1], s: [0.11, 0.075, 0.05], r: [0, 0, 0.35] }, { id: 'lacoR', geom: 'sph', color: bw, t: [0.11, -0.52, fz + 0.1], s: [0.11, 0.075, 0.05], r: [0, 0, -0.35] }, { id: 'lacoNo', geom: 'sph', color: shade(c, -0.55), t: [0, -0.52, fz + 0.11], s: [0.055, 0.055, 0.055] });
         return { meshes: m, parts: parts };
       } },
-    { id: 'macacao', name: 'Macacão de jardineiro', emoji: '🧑‍🌾',
+    { id: 'macacao', free: true, name: 'Macacão de jardineiro', emoji: '🧑‍🌾',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#e5383b', '#ffd23f', '#2fa84f', '#2f6fe4', '#7a4fd6']), btn = c === '#ffd23f' ? WHITE : GOLD;
         m.pants = belt(B, { y0: -0.72, y1: -0.52, v0: 0.25, v1: PI - 0.25, s0: 1.07, s1: 1.07, lat: 3, lon: 30 });
@@ -146,6 +177,64 @@
         parts.push({ id: 'calca', mesh: 'pants', color: c }, { id: 'alcaR', mesh: 'strapR', color: c }, { id: 'alcaL', mesh: 'strapL', color: c });
         [-1, 1].forEach(function (sd) { parts.push({ id: 'botao' + (sd < 0 ? 'L' : 'R'), geom: 'sph', color: btn, t: [sd * 0.68, 0.34, front(B, sd * 0.68, 0.34) + 0.03], s: [0.065, 0.065, 0.05] }); });
         parts.push({ id: 'bolso', geom: 'sph', color: shade(c, -0.28), t: [0, -0.63, front(B, 0, -0.63) + 0.05], s: [0.18, 0.08, 0.045] });
+        return { meshes: m, parts: parts };
+      } }
+    ,
+    { id: 'bandana', free: false, name: 'Bandana de pirata', emoji: '🏴‍☠️',
+      make: function (B, body) {
+        var m = {}, parts = [], c = pick(body, ['#e5383b', '#2f6fe4', '#2fa84f', '#7a4fd6']);
+        m.band = belt(B, { y0: 0.6, y1: 0.7, s0: 1.05, s1: 1.05, lat: 3, lon: 48 });
+        parts.push({ id: 'bandana', mesh: 'band', color: c });
+        [[-0.27, 0.636], [0, 0.662], [0.27, 0.636]].forEach(function (d, i) { parts.push({ id: 'caveira' + i, geom: 'sph', color: '#ffffff', flat: true, t: [d[0], d[1], front(B, d[0], d[1]) * 1.05 + 0.02], s: [0.05, 0.05, 0.03] }); });
+        parts.push({ id: 'no', geom: 'sph', color: shade(c, -0.25), t: [0.74, 0.62, 0.06], s: [0.09, 0.09, 0.08] });
+        parts.push({ id: 'ponta1', geom: 'sph', color: c, t: [0.84, 0.5, 0.0], r: [0, 0, -0.5], s: [0.05, 0.17, 0.04] }, { id: 'ponta2', geom: 'sph', color: c, t: [0.78, 0.45, -0.14], r: [0, 0, -0.2], s: [0.05, 0.17, 0.04] });
+        return { meshes: m, parts: parts };
+      } },
+    { id: 'fones', free: false, name: 'Fones de ouvido', emoji: '🎧',
+      make: function (B, body) {
+        var m = {}, parts = [], c = pick(body, ['#2b2d42', '#e5383b', '#ffd23f']);
+        m.arch = arcTube({ cy: 0.05, rx: 0.9, ry: 0.76, r: 0.04 });
+        parts.push({ id: 'arco', mesh: 'arch', color: c });
+        [-1, 1].forEach(function (sd) {
+          var n = sd < 0 ? 'L' : 'R';
+          parts.push({ id: 'concha' + n, geom: 'sph', color: c, t: [sd * 0.9, 0.05, 0], s: [0.11, 0.21, 0.21] }, { id: 'almofada' + n, geom: 'sph', color: shade(c, 0.4), t: [sd * 0.83, 0.05, 0], s: [0.05, 0.16, 0.16] });
+        });
+        return { meshes: m, parts: parts };
+      } },
+    { id: 'cartola', free: false, name: 'Cartola e gravata-borboleta', emoji: '🎩',
+      make: function (B, body) {
+        var m = {}, parts = [], c = pick(body, ['#2b2d42', '#e5383b', '#7a4fd6']), bow = pick(body, ['#e5383b', '#ffd23f', '#2f6fe4']), hat = { t: [-0.15, 0.66, -0.02], r: [0, 0, 0.1] };
+        m.hat = cone({ r: 0.36, h: 0.5, top: 0.33, seg: 32, rows: 6 }); m.ribbon = cone({ r: 0.365, h: 0.1, top: 0.363, rows: 2, seg: 32 });
+        parts.push({ id: 'cartola', mesh: 'hat', color: c, t: hat.t, r: hat.r }, { id: 'fita', mesh: 'ribbon', color: bow, t: hat.t, r: hat.r });
+        var cs = Math.cos(hat.r[2]), sn = Math.sin(hat.r[2]);
+        parts.push({ id: 'topo', geom: 'sph', color: shade(c, 0.12), t: [hat.t[0] - 0.5 * sn, hat.t[1] + 0.5 * cs, hat.t[2]], r: hat.r, s: [0.335, 0.025, 0.335] });
+        parts.push({ id: 'aba', geom: 'sph', color: shade(c, -0.15), t: [hat.t[0], hat.t[1] + 0.005, hat.t[2]], r: hat.r, s: [0.52, 0.04, 0.52] });
+        var fz = front(B, 0, -0.6) + 0.07;
+        parts.push({ id: 'gravataL', geom: 'sph', color: bow, t: [-0.12, -0.6, fz], r: [0, 0, 0.35], s: [0.12, 0.075, 0.05] }, { id: 'gravataR', geom: 'sph', color: bow, t: [0.12, -0.6, fz], r: [0, 0, -0.35], s: [0.12, 0.075, 0.05] }, { id: 'gravataNo', geom: 'sph', color: shade(bow, -0.3), t: [0, -0.6, fz + 0.01], s: [0.055, 0.055, 0.055] });
+        return { meshes: m, parts: parts };
+      } },
+    { id: 'asas-anjo', free: false, name: 'Asas de anjo', emoji: '😇',
+      make: function (B, body) {
+        var m = {}, parts = [], gold = pick(body, ['#ffc933', '#ff7a45', '#7a4fd6']);
+        m.halo = ring({ R: 0.3, r: 0.035 });
+        parts.push({ id: 'aureola', mesh: 'halo', color: gold, t: [-0.05, 1.1, 0], r: [0.6, 0, 0.08] });
+        [-1, 1].forEach(function (sd) {
+          var n = sd < 0 ? 'L' : 'R';
+          parts.push({ id: 'asa' + n, geom: 'sph', color: '#ffffff', t: [sd * 0.98, 0.32, -0.3], r: [0, 0, sd * -0.6], s: [0.15, 0.6, 0.3] }, { id: 'pena' + n, geom: 'sph', color: '#d7e8ff', t: [sd * 1.04, -0.04, -0.3], r: [0, 0, sd * -0.95], s: [0.12, 0.44, 0.24] });
+        });
+        return { meshes: m, parts: parts };
+      } },
+    { id: 'coroa', free: false, name: 'Coroa real', emoji: '👑',
+      make: function (B, body) {
+        var m = {}, parts = [], c = pick(body, ['#ffc933', '#c0c7d6', '#b5179e']), cr = { t: [-0.2, 0.68, -0.02], r: [0, 0, 0.1] }, R = 0.36, H0 = 0.14, H1 = 0.22, cs = Math.cos(cr.r[2]), sn = Math.sin(cr.r[2]);
+        m.crown = crown({ R: R, H0: H0, H1: H1, teeth: 5, flare: 0.04 });
+        parts.push({ id: 'coroa', mesh: 'crown', color: c, t: cr.t, r: cr.r });
+        var gemCol = ['#e5383b', '#2f6fe4', '#2fa84f', '#e5383b', '#2f6fe4'];
+        for (var k = 0; k < 5; k++) {                                                                  // uma pedra em cada ponta
+          var ang = 2 * PI * k / 5, x = (R + 0.035) * Math.cos(ang), y = H0 + H1 - 0.015, z = (R + 0.035) * Math.sin(ang);
+          parts.push({ id: 'pedra' + k, geom: 'sph', color: gemCol[k], t: [cr.t[0] + x * cs - y * sn, cr.t[1] + x * sn + y * cs, cr.t[2] + z], s: [0.05, 0.05, 0.05] });
+        }
+        parts.push({ id: 'joia', geom: 'sph', color: '#2f6fe4', t: [cr.t[0] + (-0.06) * 0 - 0.07 * sn, cr.t[1] + 0.07 * cs, cr.t[2] + R + 0.05], s: [0.06, 0.06, 0.04] });
         return { meshes: m, parts: parts };
       } }
   ];

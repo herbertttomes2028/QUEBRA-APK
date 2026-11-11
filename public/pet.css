@@ -13,3 +13,8 @@
 .pet-opt:focus-visible { outline: 3px solid var(--sel, #2a5ee8); outline-offset: 1px; }
 .pet-sw { width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(27, 37, 89, 0.35); display: block; }
 .pet-em { font-style: normal; font-size: 1.5rem; line-height: 1; }
+
+/* itens ainda não desbloqueados: aparecem com cadeado e levam à loja */
+.pet-opt { position: relative; }
+.pet-opt.lock .pet-sw, .pet-opt.lock .pet-em { opacity: .5; filter: grayscale(.4); }
+.pet-opt.lock::after { content: "🔒"; position: absolute; right: 2px; bottom: 0; font-size: .8rem; line-height: 1; }

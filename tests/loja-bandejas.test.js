@@ -157,8 +157,9 @@ test('cor da PARTIDA inteira: fundo, campo, tabuleiro e grade acompanham a cor e
 test('o catálogo reserva do cliente (sem internet) é igual ao do servidor: mesmos modelos, nomes, descrições e preços', () => {
   const shop = require('../shop');
   assert.deepEqual(JSON.parse(JSON.stringify(T.fallback)), shop.catalog().categories[0].items);
-  assert.deepEqual(Object.keys(T.shapes), shop.ITEMS.map((i) => i.id), 'há um contorno para cada bandeja vendida');
-  assert.deepEqual(Object.keys(T.defaults), shop.ITEMS.map((i) => i.id));
+  const trays = shop.ITEMS.filter((i) => i.category === 'bandejas').map((i) => i.id);
+  assert.deepEqual(Object.keys(T.shapes), trays, 'há um contorno para cada bandeja vendida (as skins e roupas do pet não têm contorno de bandeja)');
+  assert.deepEqual(Object.keys(T.defaults), trays);
   assert.equal(T.current().model, 'classica', 'sem conta e sem nada salvo: Clássica');
 });
 

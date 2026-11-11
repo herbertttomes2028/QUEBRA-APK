@@ -497,7 +497,7 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 
 ## Mascote: reações, skins e roupas
 - **24 reações** na tela inicial. As 3 mais novas: **admire** (ao tocar no botão **Loja**: olhos brilhando e mãos juntas), **cuddle** (**segurar o dedo** no mascote por meio segundo: ele se abraça, fecha os olhos e ronrona) e **heart** (quando alguém **vira seu amigo**: abre os braços e cora).
-- **Meu pet** (Ajustes > Meu pet): **5 skins** (Menta, Pôr do sol, Uva, Algodão-doce e Luar, além do Azul clássico) e **5 roupas** (capa de herói, cachecol de inverno, chapéu de mago, saia de bailarina e macacão de jardineiro, além de "sem roupa"). A escolha vale na hora e fica guardada **só neste aparelho**. Sem WebGL, o desenho de reserva só ganha as cores da skin.
+- **Skins e roupas do pet** (na **Loja**, categorias 🎨 Skins e 👕 Roupas, e em Ajustes > Meu pet): **10 skins** e **10 roupas**. As 5 skins (Menta, Pôr do sol, Uva, Algodão-doce, Luar) e as 5 roupas (capa de herói, cachecol, chapéu de mago, saia de bailarina, macacão) de antes são **grátis** para todos. As novas se **desbloqueiam com gemas**, e as mais raras custam mais: skins Limão 100, Caramelo 100, Lavanda 180, Cereja 320, Ouro 500; roupas Bandana de pirata 150, Fones de ouvido 250, Cartola e gravata-borboleta 350, Asas de anjo 450, Coroa real 600. O que você equipou fica salvo na **conta** (visitantes usam só os grátis, guardados no aparelho). Sem WebGL, o desenho de reserva só ganha as cores da skin.
 - Código: `public/mascot-core.js` (reações), `public/mascot-looks.js` (skins e roupas), `public/mascot.js` (desenho), `public/pet.js` e `pet.css` (janela "Meu pet").
 
 ## Segurança (resumo; detalhes e passo a passo em `SEGURANCA.md`)

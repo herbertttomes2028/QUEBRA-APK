@@ -744,7 +744,7 @@ function createAccounts(d) {
   }));
   r.post('/shop/equip', needUser, guard(async (req, res) => {
     if (!shopGate(req, res, 30)) return;
-    const out = await shopService.equip(req.user.id, (req.body || {}).itemId);
+    const out = await shopService.equip(req.user.id, (req.body || {}).itemId, (req.body || {}).category);
     if (!out.ok) return bad(res, out.error === 'locked' ? 403 : out.error === 'auth' ? 401 : 400, out.error);
     res.json(out);
   }));
