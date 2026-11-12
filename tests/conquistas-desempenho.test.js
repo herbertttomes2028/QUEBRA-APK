@@ -10,8 +10,8 @@ const conta = read('public/conta.js'), css = read('public/style.css');
 const renderAch = conta.slice(conta.indexOf('  function renderAch() {'), conta.indexOf('  // Uma área para cada categoria'));
 
 test('CSS: cada cartão só gasta layout e pintura quando está perto da tela (content-visibility) e reserva a altura', () => {
-  assert.match(css, /\.ach-card, \.col-card \{ content-visibility: auto; contain-intrinsic-size: auto 118px; \}/);
-  assert.match(css, /\.col-card \{ contain-intrinsic-size: auto 420px; \}/);
+  assert.match(css, /\.ach-card, \.col-card \{ content-visibility: auto; contain-intrinsic-height: auto 118px; \}/, 'reserva só a ALTURA (um valor em contain-intrinsic-size reservaria também a largura e vazaria da tela)');
+  assert.match(css, /\.col-card \{ contain-intrinsic-height: auto 420px; min-width: 0; max-width: 100%; \}/);
   assert.doesNotMatch(css, /content-visibility: hidden/, '"hidden" esconderia o cartão para o leitor de tela');
 });
 
