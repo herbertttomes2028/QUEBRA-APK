@@ -9,6 +9,8 @@ const path = require('node:path');
 const { caminho } = require('../public/pecas.js');
 
 const LARGURA = 720, ALTURA = 1600, BASE = '#111633';
+// tema CLARO: o mesmo desenho com o degradê lavanda que as telas já tinham (--paper-2 em cima, --paper-3 embaixo), luzes e peças em tons pastel
+const CLARO = { topo: '#F6F7FF', base: '#DFE5FF', luzes: 0.72, luzOpac: 0.55 };
 // cores das peças (as do JSON mais tons discretos de verde, amarelo e rosa)
 const COR = { azul: '#25448F', roxo: '#7E326F', turquesa: '#0E929E', cinza: '#605A5D', oliva: '#77704E', indigo: '#6555CA', violeta: '#4C286F', amarelo: '#9A7B1F', rosa: '#A33A74', verde: '#1E8A62', ouro: '#B38B1E', lilas: '#6B3DA8' };
 const LIMITES = { pecasMin: 4, pecasMax: 7, opacMin: 0.2, opacMax: 0.45, centro: { x0: 0.23, x1: 0.77, y0: 0.23, y1: 0.77 } };
@@ -60,29 +62,33 @@ function pecasSvg(v, tema) {
     return `<path d="${caminho(tabsDe(i))}" transform="translate(${cx} ${cy}) rotate(${ang}) scale(${tam})" fill="${c}" fill-opacity="${o}"/>`;
   }).join('\n  ');
 }
-// tema: 'completo' (fundo marinho + luzes + peças), 'escuro' ou 'claro' (só as peças, para a folha das janelas)
+// tema: 'completo' (marinho do JSON: base + luzes + peças), 'completo-claro' (degradê lavanda + luzes e peças pastel), 'escuro' ou 'claro' (só as peças, para a folha das janelas)
 function svg(nome, tema) {
-  const v = VARIACOES[nome];
-  const luzes = tema === 'completo' ? v.luzes.map((l, i) => `<radialGradient id="l${i}" gradientUnits="userSpaceOnUse" cx="${num(l[2] / 100 * LARGURA)}" cy="${num(l[3] / 100 * ALTURA)}" r="${num(l[4] / 100 * 1000)}"><stop offset="0" stop-color="${l[0]}" stop-opacity="${l[1]}"/><stop offset="1" stop-color="${l[0]}" stop-opacity="0"/></radialGradient>`).join('') : '';
-  const camadas = tema === 'completo' ? `<rect width="${LARGURA}" height="${ALTURA}" fill="${BASE}"/>\n  ` + v.luzes.map((l, i) => `<rect width="${LARGURA}" height="${ALTURA}" fill="url(#l${i})"/>`).join('\n  ') + '\n  ' : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LARGURA} ${ALTURA}" preserveAspectRatio="xMidYMid slice" width="${LARGURA}" height="${ALTURA}">\n  <!-- GERADO por scripts/fundos.js (${nome}, ${tema}). Não edite à mão. -->\n  ${luzes ? '<defs>' + luzes + '</defs>\n  ' : ''}${camadas}${pecasSvg(v, tema)}\n</svg>\n`;
+  const v = VARIACOES[nome], cheio = tema === 'completo' || tema === 'completo-claro', cl = tema === 'completo-claro';
+  const luz = (l) => cl ? [mistura(l[0], CLARO.luzes), CLARO.luzOpac, l[2], l[3], l[4]] : l;
+  const luzes = cheio ? v.luzes.map((l0, i) => { const l = luz(l0); return `<radialGradient id="l${i}" gradientUnits="userSpaceOnUse" cx="${num(l[2] / 100 * LARGURA)}" cy="${num(l[3] / 100 * ALTURA)}" r="${num(l[4] / 100 * 1000)}"><stop offset="0" stop-color="${l[0]}" stop-opacity="${l[1]}"/><stop offset="1" stop-color="${l[0]}" stop-opacity="0"/></radialGradient>`; }).join('') : '';
+  const fundoCl = `<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${CLARO.topo}"/><stop offset="1" stop-color="${CLARO.base}"/></linearGradient>`;
+  const base = !cheio ? '' : cl ? `<rect width="${LARGURA}" height="${ALTURA}" fill="url(#bg)"/>\n  ` : `<rect width="${LARGURA}" height="${ALTURA}" fill="${BASE}"/>\n  `;
+  const camadas = cheio ? base + v.luzes.map((l, i) => `<rect width="${LARGURA}" height="${ALTURA}" fill="url(#l${i})"/>`).join('\n  ') + '\n  ' : '';
+  const defs = cheio ? '<defs>' + (cl ? fundoCl : '') + luzes + '</defs>\n  ' : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${LARGURA} ${ALTURA}" preserveAspectRatio="xMidYMid slice" width="${LARGURA}" height="${ALTURA}">\n  <!-- GERADO por scripts/fundos.js (${nome}, ${tema}). Não edite à mão. -->\n  ${defs}${camadas}${pecasSvg(v, cl ? 'claro' : tema)}\n</svg>\n`;
 }
 function css() {
   const nomes = Object.keys(VARIACOES).filter((n) => n !== 'janela'), tela = TELAS.join(', ');
-  let s = `/* GERADO por scripts/fundos.js a partir da especificação dos fundos. Não edite à mão (rode: node scripts/fundos.js). */\n:root { --fundo-base: ${BASE}; --janela-img: url("fundos/janela-claro.svg"); }\nhtml[data-theme="dark"] { --janela-img: url("fundos/janela-escuro.svg"); }\n`;
-  s += `/* telas: fundo marinho com as luzes e as peças da variação escolhida em data-fundo (o scripts troca o atributo nas telas que mudam de aparência, como categorias e coleções) */\nhtml body :is(${tela})[data-fundo] { background-color: var(--fundo-base); background-image: var(--fundo-img); background-position: center; background-size: cover; background-repeat: no-repeat; }\n`;
-  nomes.forEach((n) => { s += `html body :is(${tela})[data-fundo="${n}"] { --fundo-img: url("fundos/${n}.svg"); }\n`; });
+  let s = `/* GERADO por scripts/fundos.js a partir da especificação dos fundos. Não edite à mão (rode: node scripts/fundos.js). */\n:root { --fundo-base: ${CLARO.base}; --janela-img: url("fundos/janela-claro.svg"); }\nhtml[data-theme="dark"] { --fundo-base: ${BASE}; --janela-img: url("fundos/janela-escuro.svg"); }\n`;
+  s += `/* telas: o fundo acompanha o TEMA. Escuro = marinho do JSON; claro = o lavanda de sempre, com as mesmas peças em tons pastel. data-fundo escolhe a variação (o JS troca nas telas que mudam de aparência, como categorias e coleções) */\nhtml body :is(${tela})[data-fundo] { background-color: var(--fundo-base); background-image: var(--fundo-img); background-position: center; background-size: cover; background-repeat: no-repeat; }\n`;
+  nomes.forEach((n) => { s += `html body :is(${tela})[data-fundo="${n}"] { --fundo-img: url("fundos/${n}-claro.svg"); }\nhtml[data-theme="dark"] body :is(${tela})[data-fundo="${n}"] { --fundo-img: url("fundos/${n}.svg"); }\n`; });
   s += `/* janelas: só as peças (pastel no tema claro) sobre a folha da janela */\n.sheet { background-image: var(--janela-img); background-position: center; background-size: cover; background-repeat: no-repeat; }\n`;
   JANELAS.filter((n) => n !== 'janela').forEach((n) => { s += `.sheet[data-janela="${n}"] { --janela-img: url("fundos/${n}-janela-claro.svg"); }\nhtml[data-theme="dark"] .sheet[data-janela="${n}"] { --janela-img: url("fundos/${n}-janela-escuro.svg"); }\n`; });
   return s;
 }
 function tudo() {
   const out = { 'fundos.css': css(), 'fundos/peca-icone.svg': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.62 -0.62 1.24 1.24"><!-- GERADO por scripts/fundos.js: o ícone de peça dos selos (usado como máscara). --><path d="${caminho([1, 1, -1, -1])}" fill="#000"/></svg>\n` };
-  Object.keys(VARIACOES).filter((n) => n !== 'janela').forEach((n) => { out['fundos/' + n + '.svg'] = svg(n, 'completo'); });
+  Object.keys(VARIACOES).filter((n) => n !== 'janela').forEach((n) => { out['fundos/' + n + '.svg'] = svg(n, 'completo'); out['fundos/' + n + '-claro.svg'] = svg(n, 'completo-claro'); });
   JANELAS.forEach((n) => { ['claro', 'escuro'].forEach((t) => { out['fundos/' + (n === 'janela' ? '' : n + '-') + 'janela-' + t + '.svg'] = svg(n, t); }); });
   return out;
 }
-module.exports = { LARGURA, ALTURA, BASE, COR, LIMITES, VARIACOES, JANELAS, TELAS, svg, css, tudo, mistura };
+module.exports = { LARGURA, ALTURA, BASE, CLARO, COR, LIMITES, VARIACOES, JANELAS, TELAS, svg, css, tudo, mistura };
 
 if (require.main === module) {
   const pub = path.join(__dirname, '..', 'public'), arq = tudo(); let ruim = 0;
