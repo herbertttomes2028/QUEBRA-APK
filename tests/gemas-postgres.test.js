@@ -35,7 +35,7 @@ test('PostgreSQL: migração, créditos atômicos, idempotência, rollback e con
   const balance = async () => Number((await pool.query('SELECT gems FROM users WHERE id = $1', [uid])).rows[0].gems);
   try {
     const migrations = (await pool.query('SELECT name FROM schema_migrations ORDER BY name')).rows.map(x => x.name);
-    assert.deepEqual(migrations, ['001_contas.sql','002_seguranca.sql','003_xp.sql','004_modo_solo.sql','005_gemas.sql','006_biblioteca.sql','007_remover_fotos_enviadas.sql','008_catalogo_biblioteca.sql','009_imagens_2026-11-a.sql','010_imagens_2026-11-b.sql','011_imagens_2026-11-c.sql','012_denuncias.sql','013_desbloqueio_categorias_novas.sql','014_imagens_2026-11-d.sql','015_loja_bandejas.sql','016_loja_pet.sql']);
+    assert.deepEqual(migrations, ['001_contas.sql','002_seguranca.sql','003_xp.sql','004_modo_solo.sql','005_gemas.sql','006_biblioteca.sql','007_remover_fotos_enviadas.sql','008_catalogo_biblioteca.sql','009_imagens_2026-11-a.sql','010_imagens_2026-11-b.sql','011_imagens_2026-11-c.sql','012_denuncias.sql','013_desbloqueio_categorias_novas.sql','014_imagens_2026-11-d.sql','015_loja_bandejas.sql','016_loja_pet.sql','017_imagens_2026-11-e.sql']);
     const unique = crypto.randomBytes(8).toString('hex');
     uid = (await pool.query("INSERT INTO users (google_sub, name, friend_code) VALUES ($1, 'Teste Gemas', $2) RETURNING id", ['test-gems-' + unique, unique.slice(0,8).toUpperCase()])).rows[0].id;
     assert.equal(await balance(), 0);
