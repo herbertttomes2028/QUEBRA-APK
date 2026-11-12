@@ -1,0 +1,4 @@
+/* Fluidez (rodada "suavidade"): ajustes de renderização medidos com a CPU 4x mais lenta. Nada aqui muda o visual. */
+/* As peças se movem (translate) e mudam de tamanho (scale) a cada quadro durante o arrasto: pedir a camada própria desde o início e isolar o layout de cada uma
+   evita repintar o desenho da peça a cada passo (medido: tempo perdido no arrasto 106 -> 17 ms, quadros lentos 2 -> 1). */
+.piece { will-change: transform; contain: layout style; }

@@ -255,7 +255,37 @@
     return imgCache[key];
   }
 
+  /* Recorte + JPEG da imagem da partida. Primeiro tenta o Worker (crop-worker.js): a thread principal só entrega o bitmap já decodificado e não trava (medido: ~10 ms contra
+   * 100 a 700 ms). Sem Worker/OffscreenCanvas no aparelho, ou se algo falhar, cai no caminho de sempre (cropMain), que continua sendo o plano B. */
+  var cropWorker = null, cropSeq = 0, cropWait = {};
+  function cropWorkerGet() {
+    if (cropWorker !== null) return cropWorker;
+    cropWorker = false;
+    try {
+      if (window.Worker && window.OffscreenCanvas && window.createImageBitmap && typeof OffscreenCanvas.prototype.convertToBlob === 'function') {
+        var w = new Worker('crop-worker.js');
+        w.onmessage = function (e) { var d = e.data || {}, p = cropWait[d.id]; if (!p) return; delete cropWait[d.id]; if (d.blob) p.res(d.blob); else p.rej(new Error(d.erro || 'crop')); };
+        w.onerror = function () { cropWorker = false; Object.keys(cropWait).forEach(function (k) { var p = cropWait[k]; delete cropWait[k]; p.rej(new Error('worker')); }); try { w.terminate(); } catch (e) { /* ok */ } };
+        cropWorker = w;
+      }
+    } catch (e) { cropWorker = false; }
+    return cropWorker;
+  }
+  function cropInWorker(img, W, H) {
+    var w = cropWorkerGet();
+    if (!w) return Promise.reject(new Error('sem worker'));
+    return createImageBitmap(img).then(function (bm) {
+      return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+    });
+  }
+  function blobToUrl(blob, fallbackUrl) {
+    if (!blob) return fallbackUrl;
+    var url = URL.createObjectURL(blob); ownedImageUrls.add(url); return url;
+  }
   function cropToBlob(img, W, H, fallbackUrl) {
+    return cropInWorker(img, W, H).then(function (blob) { return blobToUrl(blob, fallbackUrl); }, function () { return cropMain(img, W, H, fallbackUrl); });
+  }
+  function cropMain(img, W, H, fallbackUrl) {
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -266,12 +296,7 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
     return new Promise(function (res) {
-      cv.toBlob(function (blob) {
-        if (!blob) { res(fallbackUrl); return; }
-        var url = URL.createObjectURL(blob);
-        ownedImageUrls.add(url);
-        res(url);
-      }, 'image/jpeg', 0.9);
+      cv.toBlob(function (blob) { res(blobToUrl(blob, fallbackUrl)); }, 'image/jpeg', 0.9);
     });
   }
 
@@ -327,6 +352,17 @@
   /* ---------------------------------------------------------
    * Tela de escolha de imagem
    * --------------------------------------------------------- */
+  /* Fluidez: o trabalho de "primeira vez" não pode cair no meio de uma animação.
+   *  - recorte da imagem: o Worker é criado ao entrar na escolha (fora da thread principal). Só em aparelho SEM worker, o 1º toBlob da página (~4x mais caro que os seguintes)
+   *    é pago antecipadamente, com um desenho minúsculo, para não cair no giro da imagem na abertura da partida;
+   * (Medido e DESCARTADO: pré-decodificar as capas das categorias com o app parado não ajudou, 639 contra 550 ms sem ele, e gastaria os dados do jogador.) */
+  var warmDone = { canvas: false };
+  function idleDo(fn, timeout) { if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: timeout || 3000 }); else setTimeout(fn, 1200); }
+  function warmCanvasEncoder() {
+    if (warmDone.canvas) return; warmDone.canvas = true;
+    if (cropWorkerGet()) return;          // o recorte roda no Worker (que já nasce aqui, sem custo para a tela): aquecer o canvas na thread principal só atrapalharia a transição
+    idleDo(function () { try { var c = document.createElement('canvas'); c.width = c.height = 16; var x = c.getContext('2d'); x.fillStyle = '#888'; x.fillRect(0, 0, 8, 8); c.toBlob(function () {}, 'image/jpeg', 0.9); } catch (e) { /* aquecer é só uma ajuda */ } }, 2500);       // aparelho SEM worker: o 1º toBlob (~4x mais caro) é pago aqui, em tempo ocioso
+  }
   // Aquece o recorte da imagem (o MESMO que a partida faz ao entrar) enquanto o jogador ainda escolhe. Recortar e recodificar em JPEG trava a
   // thread principal por centenas de milissegundos; feito na abertura, isso caía justo no giro da imagem e no "VAMOS LÁ!".
   // prepareImage guarda o resultado por imagem + grade (imgCache): ao tocar em "Jogar" a imagem já está pronta e nada trava.
@@ -348,7 +384,7 @@
   }
 
   function openPick(mode) {
-    state.pickMode = mode;
+    state.pickMode = mode; warmCanvasEncoder();
     $('#pick-title').textContent = mode === 'create' || mode === 'solo' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
     $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : mode === 'solo' ? 'Toque numa imagem para escolher.' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
     $('#duel-modes').hidden = mode !== 'duel';
