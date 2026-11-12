@@ -495,6 +495,10 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil/nome fica no canto oposto (só existe com contas ligadas).
 - **Amigos** (ao lado de **Ajustes**): abre "Meus amigos" (busca por código, pedidos, convites, desafiar). Fica fora do perfil; o perfil tem só as abas Perfil e Partidas.
 
+## Suavidade
+- A imagem da partida é recortada e comprimida **fora da thread principal** (`public/crop-worker.js`), então o início da partida e o giro do "VAMOS LÁ!" travam bem menos. Em aparelhos que não suportam isso, o jogo usa o método de antes.
+- O pet mantém o movimento fluido até o fim de cada reação, e as peças ficam em camadas próprias (`public/suave.css`) para o arrastar ficar mais leve.
+
 ## Visual das telas (fundos)
 - **Fundo azul-marinho** com luzes suaves e peças de quebra-cabeça decorativas nas bordas, em todas as telas, com **uma variação para cada área** (tela inicial, categorias, coleções, montagem, Sala Desafio, Loja, Amigos, Ajustes e Meu espaço). Nas janelas aparecem só algumas peças, bem tênues. Na montagem, só 4 peças pequenas nos cantos; se você usa uma bandeja colorida da loja, a tela mantém a cor dela.
 - **O fundo acompanha o tema**: no tema escuro é o azul-marinho do JSON; no claro, o lavanda de sempre, com as mesmas peças em tons pastel.
