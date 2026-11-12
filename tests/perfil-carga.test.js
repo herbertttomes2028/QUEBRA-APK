@@ -75,7 +75,7 @@ test('cliente: as conquistas só são pedidas ao abrir perfil/aba, sem pedido du
 });
 
 test('cliente: enquanto as conquistas carregam aparece um aviso (e nunca HTML com dado do servidor)', () => {
-  assert.match(conta, /function paintAchLoading\(\)/);
+  assert.doesNotMatch(conta, /function paintAchLoading\(\)|function paintAchNext\(/, 'o Perfil não pinta mais conquistas (elas ficam só na aba Conquistas)');
   assert.match(conta, /'Carregando suas conquistas…'/);
   assert.match(conta, /\$\('#col-count'\)\.textContent = 'Carregando…'/);
   for (const m of conta.matchAll(/\.innerHTML\s*=\s*([^;]+);/g)) assert.match(m[1].trim(), /^''$/, 'innerHTML só para limpar: ' + m[0]);

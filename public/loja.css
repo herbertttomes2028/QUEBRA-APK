@@ -96,7 +96,7 @@ html[data-motion="reduce"] .tray-skin, html[data-motion="reduce"] .tray-skin * {
 .shop-cat.on { background: var(--sun); color: var(--on-sun); box-shadow: 0 3px 0 var(--sun-deep); }
 .shop-note { margin: 0; color: var(--ink-soft); font-weight: 600; font-size: .95rem; }
 .shop-list { display: flex; flex-direction: column; gap: 14px; }
-.shop-card { background: var(--card); border-radius: 22px; box-shadow: 0 0 0 2px var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; content-visibility: auto; contain-intrinsic-size: auto 400px; }
+.shop-card { background: var(--card); border-radius: 22px; box-shadow: 0 0 0 2px var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; content-visibility: auto; contain-intrinsic-height: auto 400px; }
 .shop-card.on { box-shadow: 0 0 0 3px var(--sel); }
 .shop-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .shop-name { margin: 0; font-size: 1.1rem; }

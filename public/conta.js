@@ -244,7 +244,7 @@
   function repaintAch() {                 // os dados chegaram: refaz só o que está na tela
     if (!$('#screen-me').classList.contains('active')) return;
     var d = achData(); if (!d) return;
-    if (acc.tab === 'profile') paintAchNext(d); else if (acc.tab === 'ach') renderAch(); else if (acc.tab === 'col') renderCol();
+    if (acc.tab === 'ach') renderAch(); else if (acc.tab === 'col') renderCol();
     updateAchBadge();
   }
   function loadFriends() {
@@ -298,7 +298,6 @@
   $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
   $('#btn-me').addEventListener('click', function () { openMe('profile'); });
   $('#link-friends').addEventListener('click', openFriends);
-  $('#me-ach-all').addEventListener('click', function () { setTab('ach'); });
   // O aviso de "conquista concluída" abre direto a aba Conquistas (só com conta).
   QC.showAchievements = function () { if (!acc.token) return; acc.tab = 'ach'; openMe('profile'); };
 
@@ -483,7 +482,6 @@
     $('#sec-pw-open').hidden = !me.hasPassword;
     var st = me.stats;
     paintStats($('#me-stats'), [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']]);
-    if (achData()) paintAchNext(achData()); else paintAchLoading();
     updateAchBadge();
     paintContinue();
   }
@@ -561,17 +559,6 @@
     }
     d.appendChild(body);
     return d;
-  }
-  function paintAchLoading() { var box = $('#me-ach'); box.innerHTML = ''; $('#me-ach-count').textContent = '…'; box.appendChild(el('p', 'ach-empty', 'Carregando suas conquistas…')); }
-  // Perfil: só as 3 conquistas mais perto de sair ("Quase lá!"). A lista completa fica na aba Conquistas.
-  function paintAchNext(me) {
-    var box = $('#me-ach'), list = me.achievements || [], s = me.achSummary || { done: 0, total: list.length };
-    box.innerHTML = ''; $('#me-ach-count').textContent = s.done + ' de ' + s.total;
-    var next = list.filter(function (a) { return !a.done && !a.secret && !a.lower && a.goal > 1; })
-      .sort(function (x, y) { return (y.now / y.goal) - (x.now / x.goal); }).slice(0, 3);
-    if (!next.length) { box.appendChild(el('p', 'ach-empty', s.done >= s.total && s.total ? 'Você concluiu todas as conquistas! 🎉' : 'Jogue mais para ver as próximas conquistas.')); return; }
-    box.appendChild(el('h4', 'ach-sub', 'Quase lá!'));
-    next.forEach(function (a) { box.appendChild(achCard(a, false, true)); });
   }
   function renderAch() {
     var me = achData();

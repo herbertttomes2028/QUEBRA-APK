@@ -11,12 +11,12 @@ const cssNovo = css.slice(css.indexOf('/* ===================== Conquistas e col
 
 test('abas do meu espaço: Perfil, Conquistas, Coleções e Partidas, cada uma com o seu painel', () => {
   for (const t of ['profile', 'ach', 'col', 'history']) assert.match(html, new RegExp('class="me-tab[^"]*" type="button" data-tab="' + t + '"'));
-  for (const id of ['tab-ach', 'tab-col', 'ach-summary', 'ach-filters', 'ach-groups', 'ach-list', 'col-list', 'col-count', 'me-ach-all', 'me-tab-ach-badge']) assert.ok(html.includes('id="' + id + '"'), id);
+  for (const id of ['tab-ach', 'tab-col', 'ach-summary', 'ach-filters', 'ach-groups', 'ach-list', 'col-list', 'col-count', 'me-tab-ach-badge']) assert.ok(html.includes('id="' + id + '"'), id);
   assert.match(html, /<i id="me-tab-ach-badge" class="me-badge" hidden><\/i>/);
   assert.match(html, /id="fp-ach" class="shelf"/);                                          // perfil de amigo: prateleira, não a grade do dono
   assert.match(conta, /\['profile', 'ach', 'col', 'friends', 'history'\]\.forEach/);
   assert.match(conta, /if \(t === 'ach'\) renderAch\(\);\s*\n\s*if \(t === 'col'\) renderCol\(\);/);
-  assert.match(conta, /if \(achData\(\)\) paintAchNext\(achData\(\)\); else paintAchLoading\(\);\s*\n\s*updateAchBadge\(\);/);
+  assert.match(conta, /paintStats\(\$\('#me-stats'\), \[\['Partidas', st\.games, 'c1'\][^\n]*\n\s*updateAchBadge\(\);/, 'o Perfil mostra só as estatísticas; o selo de novidades da aba do troféu continua');
   assert.match(conta, /paintFriendAch\(\$\('#fp-ach'\), \$\('#fp-ach-count'\), p\.achievements, p\.achSummary\)/);
 });
 
