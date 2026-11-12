@@ -1,0 +1,150 @@
+{
+  "lote": "2026-11-e",
+  "categorias": [],
+  "imagens": [
+    {
+      "arquivo": "lib-fauna-20.webp",
+      "categoria": "fauna",
+      "rotulo": "Tamanduá-bandeira",
+      "ordem": 20,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-20.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-21.webp",
+      "categoria": "fauna",
+      "rotulo": "Jacaré-do-pantanal",
+      "ordem": 21,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-21.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-22.webp",
+      "categoria": "fauna",
+      "rotulo": "Ariranha",
+      "ordem": 22,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-22.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-23.webp",
+      "categoria": "fauna",
+      "rotulo": "Gavião-real (harpia)",
+      "ordem": 23,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-23.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-24.webp",
+      "categoria": "fauna",
+      "rotulo": "Tatu",
+      "ordem": 24,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-24.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-25.webp",
+      "categoria": "fauna",
+      "rotulo": "Anta brasileira",
+      "ordem": 25,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-25.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-26.webp",
+      "categoria": "fauna",
+      "rotulo": "Mico-leão-dourado",
+      "ordem": 26,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-26.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-27.webp",
+      "categoria": "fauna",
+      "rotulo": "Lobo-guará",
+      "ordem": 27,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: lib-fauna-27.png)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-28.webp",
+      "categoria": "fauna",
+      "rotulo": "Pirarucu",
+      "ordem": 28,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 01_Pirarucu.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-29.webp",
+      "categoria": "fauna",
+      "rotulo": "Tambaqui",
+      "ordem": 29,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 02_Tambaqui.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-30.webp",
+      "categoria": "fauna",
+      "rotulo": "Piranha",
+      "ordem": 30,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 03_Piranha.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-31.webp",
+      "categoria": "fauna",
+      "rotulo": "Dourado",
+      "ordem": 31,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 04_Dourado.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-32.webp",
+      "categoria": "fauna",
+      "rotulo": "Pintado",
+      "ordem": 32,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 05_Pintado.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-33.webp",
+      "categoria": "fauna",
+      "rotulo": "Pacu",
+      "ordem": 33,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 06_Pacu.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-34.webp",
+      "categoria": "fauna",
+      "rotulo": "Tucunaré",
+      "ordem": 34,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 07_Tucunare.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-35.webp",
+      "categoria": "fauna",
+      "rotulo": "Traíra",
+      "ordem": 35,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 08_Traira.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-36.webp",
+      "categoria": "fauna",
+      "rotulo": "Poraquê (peixe-elétrico)",
+      "ordem": 36,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 09_Poraque_Peixe_Eletrico.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    },
+    {
+      "arquivo": "lib-fauna-37.webp",
+      "categoria": "fauna",
+      "rotulo": "Borboleta-azul (Morpho)",
+      "ordem": 37,
+      "fonte": "Imagem enviada pelo proprietário do jogo em 12/11/2026 (original: 10_Borboleta_Azul_Morpho.webp)",
+      "licenca": "Direitos de uso sob responsabilidade do proprietário; verificar autorização de publicação."
+    }
+  ]
+}
