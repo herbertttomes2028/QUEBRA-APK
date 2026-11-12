@@ -1,0 +1,69 @@
+{
+  "lote": "2026-11-e",
+  "imagens": [
+    {
+      "arquivo": "lib-fauna-20.webp",
+      "categoria": "fauna",
+      "rotulo": "Tamanduá-bandeira",
+      "ordem": 20,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-20.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-21.webp",
+      "categoria": "fauna",
+      "rotulo": "Jacaré-do-pantanal",
+      "ordem": 21,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-21.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-22.webp",
+      "categoria": "fauna",
+      "rotulo": "Ariranha",
+      "ordem": 22,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-22.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-23.webp",
+      "categoria": "fauna",
+      "rotulo": "Harpia",
+      "ordem": 23,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-23.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-24.webp",
+      "categoria": "fauna",
+      "rotulo": "Tatu",
+      "ordem": 24,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-24.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-25.webp",
+      "categoria": "fauna",
+      "rotulo": "Anta no rio",
+      "ordem": 25,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-25.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-26.webp",
+      "categoria": "fauna",
+      "rotulo": "Mico-leão-dourado",
+      "ordem": 26,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-26.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-fauna-27.webp",
+      "categoria": "fauna",
+      "rotulo": "Lobo-guará",
+      "ordem": 27,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: lib-fauna-27.png)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    }
+  ]
+}
