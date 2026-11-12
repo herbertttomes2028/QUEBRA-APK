@@ -361,7 +361,7 @@
       state.pickPieces = mode === 'change' && state.cfg ? state.cfg.PIECES : (okSaved ? saved : state.defaultPieces);
       if (!state.images.length) showError($('#pick-error'), 'Nenhuma imagem encontrada na pasta public/imagens. Você ainda pode adicionar a sua!');
       libraryView = 'home';
-      closePickSheet();
+      closePickSheet(); pickScrollTop();
       renderLibraryHome();
       refreshLibrary().then(function () { if (currentScreen() === 'pick') renderLibraryCurrent(); });
       renderSizes();
@@ -380,6 +380,7 @@
    * guardam só as conclusões gratuitas neste aparelho.
    * --------------------------------------------------------- */
   var libraryView = 'home';   // home | legacy | category
+  function pickScrollTop() { var s = $('#pick-scroll'); if (s) s.scrollTop = 0; }       // trocar de vista (por ação do jogador) começa no topo; atualizar o progresso NÃO mexe na rolagem
   var libraryCategory = null;
   var libraryProgress = { clears: [], purchases: [], gems: 0, loaded: false };
   var libraryCelebrationPending = null; // só comemora o último 5/5 recém-concluído
@@ -3473,11 +3474,11 @@
     if (cbtn) {
       var c = libraryById(cbtn.dataset.category);
       if (!libraryProgress.loaded || !c) return;
-      if (libraryAvailable(c)) renderLibraryCategory(c.id);
+      if (libraryAvailable(c)) { pickScrollTop(); renderLibraryCategory(c.id); }
       else buyLibraryCategory(c);
       return;
     }
-    if (e.target.closest('#library-classic')) { libraryView = 'legacy'; renderPickGrid(); }
+    if (e.target.closest('#library-classic')) { libraryView = 'legacy'; pickScrollTop(); renderPickGrid(); }
   });
 
   $('#pick-grid').addEventListener('click', function (e) {
@@ -3501,7 +3502,7 @@
   $('#ps-close').addEventListener('click', closePickSheet);
 
   $('#btn-pick-back').addEventListener('click', function () {
-    if (libraryView !== 'home') { closePickSheet(); renderLibraryHome(); return; }
+    if (libraryView !== 'home') { closePickSheet(); pickScrollTop(); renderLibraryHome(); return; }
     closePickSheet();
     showScreen(state.pickMode === 'change' && state.inGame ? 'game' : 'home');
   });

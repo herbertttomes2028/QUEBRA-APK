@@ -56,7 +56,7 @@ test('galeria de categorias em duas colunas, imagens da categoria em três e um 
   assert.match(css, /\.library-heading \{[^}]*text-align: center/);
   assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
   assert.match(css, /\.pick-sheet #btn-pick-go \{[^}]*margin: 0 auto; align-self: center;/);
-  assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); renderLibraryHome\(\); return; \}/);
+  assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); pickScrollTop\(\); renderLibraryHome\(\); return; \}/);
   assert.match(js, /libraryView === 'legacy' \? state\.images\.filter/);
   assert.match(js, /'★ Concluída'/);
 });

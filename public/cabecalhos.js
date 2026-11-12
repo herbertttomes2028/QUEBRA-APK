@@ -33,5 +33,26 @@
     host.appendChild(svg);
     host.setAttribute('aria-label', feitas + ' de ' + total + ' imagens concluídas');
   }
-  window.QCCab = { destaque: destaque, separador: separador, progresso: progresso };
+  /* Ícones da barra de abas, todos feitos de peças de quebra-cabeça (o mesmo traçado do resto do jogo):
+   *  amigos = duas peças que se encaixam (azul e rosa);  loja = peça amarela com uma gema;  ajustes = peça roxa com uma engrenagem. */
+  var BORDA = 'rgba(27,37,89,.32)';
+  function peca(svg, cx, cy, tam, tabs, cor) {
+    svg.appendChild(svgEl('path', { d: P.caminho(tabs), transform: 'translate(' + cx + ' ' + cy + ') scale(' + tam + ')', fill: cor, stroke: BORDA, 'stroke-width': 0.07, 'stroke-linejoin': 'round' }));
+  }
+  function icone(host, nome) {
+    limpa(host); var svg = tira(svgEl('svg', { viewBox: '0 0 32 32', class: 'tab-svg' }));
+    if (nome === 'amigos') { peca(svg, 10.2, 16, 12.5, [0, 1, 0, 0], '#4f7dff'); peca(svg, 23.1, 16, 12.5, [0, 0, 0, -1], '#ff6fa3'); }
+    else if (nome === 'loja') {
+      peca(svg, 15.5, 16, 17, [1, 0, 0, -1], '#ffcf33');
+      svg.appendChild(svgEl('path', { d: 'M15.5 10.4 L20.1 15.2 L15.5 22 L10.9 15.2 Z', fill: '#ffffff', stroke: '#2a5ee8', 'stroke-width': 1.1, 'stroke-linejoin': 'round' }));
+      svg.appendChild(svgEl('path', { d: 'M10.9 15.2 H20.1', fill: 'none', stroke: '#2a5ee8', 'stroke-width': 0.9 }));
+    } else if (nome === 'ajustes') {
+      peca(svg, 15.5, 16, 17, [0, 1, 0, -1], '#8b6cf0');
+      svg.appendChild(svgEl('circle', { cx: 15.5, cy: 16, r: 5.1, fill: 'none', stroke: '#ffffff', 'stroke-width': 2.6, 'stroke-dasharray': '2 2.0' }));
+      svg.appendChild(svgEl('circle', { cx: 15.5, cy: 16, r: 3.3, fill: '#8b6cf0', stroke: '#ffffff', 'stroke-width': 1.5 }));
+    }
+    host.appendChild(svg);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ico]'), function (el) { icone(el, el.getAttribute('data-ico')); });
+  window.QCCab = { destaque: destaque, separador: separador, progresso: progresso, icone: icone };
 })();

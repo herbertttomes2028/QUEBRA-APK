@@ -497,6 +497,9 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 
 ## Visual das telas (fundos)
 - **Fundo azul-marinho** com luzes suaves e peças de quebra-cabeça decorativas nas bordas, em todas as telas, com **uma variação para cada área** (tela inicial, categorias, coleções, montagem, Sala Desafio, Loja, Amigos, Ajustes e Meu espaço). Nas janelas aparecem só algumas peças, bem tênues. Na montagem, só 4 peças pequenas nos cantos; se você usa uma bandeja colorida da loja, a tela mantém a cor dela.
+- **O fundo acompanha o tema**: no tema escuro é o azul-marinho do JSON; no claro, o lavanda de sempre, com as mesmas peças em tons pastel.
+- **Menu fixo (barra de abas)** na tela inicial: **Amigos**, **Loja** e **Ajustes**, com ícones feitos de peças de quebra-cabeça (Amigos só aparece com a conta ligada).
+- Nas **Categorias** e nas **Coleções**, o Voltar, os títulos (e, na coleção, o progresso e o selo) ficam **fixos** no topo e só a lista de categorias ou imagens rola.
 - **Categorias**: título **ESCOLHA UMA CATEGORIA** (com CATEGORIA em destaque), subtítulo e o botão Voltar menor no canto. **Coleções**: nome da coleção, **ESCOLHA SUA IMAGEM**, progresso em **peças encaixadas** (ex.: 7/19 concluídas) e o selo das coleções que o progresso libera.
 - Código: `scripts/fundos.js` gera os arquivos de `public/fundos/` e `public/fundos.css` (rode `node scripts/fundos.js` depois de mudar uma variação; **não edite os SVG à mão**), `public/telas.css` (cabeçalhos), `public/pecas.js` e `public/cabecalhos.js`.
 

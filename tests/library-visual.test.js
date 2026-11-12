@@ -66,5 +66,5 @@ test('biblioteca com Fredoka, título centralizado e só um Voltar amarelo', () 
   assert.match(css, /#screen-pick \.pick-inner \{ font-family: "Fredoka", var\(--font\); \}/);
   assert.match(css, /#screen-pick #btn-pick-back \{[^}]*background: var\(--sun\);/);
   assert.match(css, /\.library-heading \{[^}]*text-align: center;/);
-  assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); renderLibraryHome\(\); return; \}/);
+  assert.match(js, /if \(libraryView !== 'home'\) \{ closePickSheet\(\); pickScrollTop\(\); renderLibraryHome\(\); return; \}/);
 });
