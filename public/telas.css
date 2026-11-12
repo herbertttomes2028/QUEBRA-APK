@@ -1,47 +1,62 @@
-/* Identidade visual das telas: o fundo em si é GERADO (fundos.css, de scripts/fundos.js). Aqui ficam o texto sobre o fundo, os cabeçalhos, o botão voltar e o progresso em peças. */
-:root { --stage-ink: #f4f6ff; --stage-soft: #c3cbf3; }
+/* Identidade visual das telas. O fundo em si é GERADO (fundos.css, de scripts/fundos.js) e acompanha o tema: marinho no escuro, o lavanda de sempre no claro.
+ * Aqui ficam: as cores dos textos soltos (que seguem o tema), o botão voltar padronizado, o cabeçalho FIXO das categorias e das coleções, o progresso em peças e a barra de abas. */
+:root {
+  --stage-ink: var(--ink); --stage-soft: var(--ink-soft);                         /* texto direto sobre o fundo = as cores normais do tema (claro: azul-marinho; escuro: quase branco) */
+  --pick-hl: #c2185b;                                                              /* palavra em destaque do título: rosa-escuro no claro (amarelo sumiria no lavanda) */
+  --titulo-sombra: 0 2px 0 rgba(255, 255, 255, .8);
+  --pc-off-fill: rgba(27, 37, 89, .08); --pc-off-line: rgba(27, 37, 89, .38);
+  --tab-bg: rgba(255, 255, 255, .94); --tab-press: rgba(42, 94, 232, .12);
+}
+html[data-theme="dark"] {
+  --pick-hl: var(--sun);
+  --titulo-sombra: 0 3px 0 rgba(0, 0, 0, .3);
+  --pc-off-fill: rgba(255, 255, 255, .14); --pc-off-line: rgba(255, 255, 255, .5);
+  --tab-bg: rgba(25, 32, 74, .95); --tab-press: rgba(255, 255, 255, .12);
+}
 .bg-deco { display: none; }                                   /* as peças soltas antigas da tela inicial: o fundo gerado já cuida disso */
 
-/* ---------- texto que fica DIRETO sobre o fundo marinho (nos dois temas o palco é escuro) ---------- */
-#screen-home { --home-pink: #ff8fb8; }
-#screen-home h1 { color: var(--stage-ink); text-shadow: 0 3px 0 rgba(0, 0, 0, .3); }
-#screen-home .h1-two { color: var(--home-pink); }
-#screen-home > .home-inner > .lead, #screen-home .home-inner > p.lead { color: var(--stage-soft); }
-#screen-lobby h2, #screen-me h2 { color: var(--stage-ink); }
-#lobby-msg, #screen-me .me-small, #screen-me .me-inner > p, #screen-me .lead, #screen-me .me-hero p { color: var(--stage-soft); }
-#hud-time { color: var(--stage-ink); }
-#screen-game[data-tint] #hud-time { color: var(--ink); }
-.library-note, .library-slot-text { color: var(--stage-soft); }
-
-/* ---------- a tela de montagem mantém a cor da bandeja equipada (pedido da rodada "loja-fluida") e ganha só as peças discretas por cima ---------- */
+/* ---------- a tela de montagem mantém a cor da bandeja equipada (pedido da rodada "loja-fluida") e ganha só as peças tênues por cima ---------- */
 html body #screen-game[data-fundo][data-tint] { background-color: var(--paper); background-image: var(--janela-img), linear-gradient(180deg, var(--paper) 0%, var(--paper-3) 100%); }      /* as peças tênues POR CIMA do mesmo degradê da bandeja de antes */
 
-/* ---------- botão voltar: menor, no mesmo canto de todas as telas, com a área de toque confortável (a ::after estende 7 px para cada lado) ---------- */
-#screen-pick #btn-pick-back, #me-back, #lobby-leave { position: relative; min-height: 34px; padding: 0 14px; font-size: .84rem; line-height: 34px; border-radius: 999px; align-self: flex-start; }
+/* ---------- botão voltar: UM padrão para todas as telas (amarelo, pequeno, no canto), com a área de toque confortável (a ::after estende 7 px para cada lado) ---------- */
+#screen-pick #btn-pick-back, #me-back, #lobby-leave {
+  position: relative; z-index: 2; align-self: flex-start; min-height: 34px; padding: 0 14px; font-size: .84rem; line-height: 34px; border: 0; border-radius: 999px;
+  background: var(--sun); color: var(--on-sun); box-shadow: 0 4px 0 var(--sun-deep); font-family: "Fredoka", var(--font); font-weight: 700;
+}
 #screen-pick #btn-pick-back::after, #me-back::after, #lobby-leave::after { content: ""; position: absolute; inset: -7px -8px; }
-#me-back, #lobby-leave { color: var(--stage-soft); z-index: 2; }
+.me-head { align-items: center; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 16px 2px; }
+.me-head-title { color: var(--stage-ink); }
 
-/* ---------- cabeçalho da tela de categorias: voltar, título, subtítulo e um separador de peças ---------- */
-.pick-top { position: relative; z-index: 2; width: 100%; display: flex; justify-content: flex-start; padding-top: 2px; }       /* acima do cabeçalho animado: a borda de toque do voltar não pode ficar coberta */
+/* o Voltar da Sala Desafio fica no MESMO canto (a recepção centraliza o conteúdo na vertical, então o botão sai do fluxo) */
+#screen-lobby #lobby-leave { position: absolute; top: 12px; left: 16px; }
+#screen-lobby .lobby-inner { padding-top: 56px; }
+
+/* ---------- cabeçalho FIXO da tela de escolha: voltar, título e subtítulo (categorias) ou nome, orientação, progresso e selo (coleção) ficam parados; só a lista rola ---------- */
+.pick-fixo { flex: none; position: relative; z-index: 3; width: 100%; max-width: 460px; margin: 0 auto; padding: 12px 20px 2px; display: flex; flex-direction: column; align-items: center; font-family: "Fredoka", var(--font); }
+.pick-fixo .pick-top { position: relative; z-index: 2; width: 100%; display: flex; justify-content: flex-start; margin-left: -4px; }       /* acima do cabeçalho animado: a borda de toque do voltar não pode ficar coberta */
+.pick-scroll { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px); mask-image: linear-gradient(to bottom, transparent 0, #000 14px); }       /* a lista "nasce" suave debaixo do cabeçalho fixo */
+.pick-scroll .pick-inner { padding-top: 6px; }
+
+/* ---------- título e subtítulo das categorias ---------- */
 .pick-head { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 6px 0 8px; }
-#screen-pick #pick-title { margin: 0; max-width: 100%; text-align: center; color: var(--stage-ink); font-size: clamp(1.45rem, 6.6vw, 2.05rem); line-height: 1.06; letter-spacing: .01em; text-shadow: 0 3px 0 rgba(0, 0, 0, .3); text-wrap: balance; overflow-wrap: anywhere; }
-.pick-hl { color: var(--sun); }
+#screen-pick #pick-title { margin: 0; max-width: 100%; text-align: center; color: var(--stage-ink); font-size: clamp(1.45rem, 6.6vw, 2.05rem); line-height: 1.06; letter-spacing: .01em; text-shadow: var(--titulo-sombra); text-wrap: balance; overflow-wrap: anywhere; }
+.pick-hl { color: var(--pick-hl); }
 #screen-pick #pick-lead { margin: 0; max-width: 32ch; text-align: center; color: var(--stage-soft); font-size: .95rem; font-weight: 500; line-height: 1.3; text-wrap: balance; }
 .peca-sep { display: block; height: 12px; margin-top: 3px; }
 .peca-sep-svg { display: block; height: 12px; width: auto; }
-.peca-sep-svg .cor-0 { fill: #5b86ff; } .peca-sep-svg .cor-1 { fill: var(--sun); } .peca-sep-svg .cor-2 { fill: #ff6fa3; }
+.peca-sep-svg .cor-0 { fill: #4f7dff; } .peca-sep-svg .cor-1 { fill: var(--sun); stroke: rgba(27, 37, 89, .25); stroke-width: .04; } .peca-sep-svg .cor-2 { fill: #ff6fa3; }
 #screen-pick.library-inside-category .pick-head { display: none; }
 
 /* ---------- cabeçalho da coleção: nome (principal), orientação discreta, progresso em peças encaixadas e o selo de conteúdo liberado ---------- */
-.library-nav { gap: 4px; padding: 4px 0 14px; }
-.library-heading { color: var(--stage-ink); font-size: clamp(1.4rem, 6.4vw, 1.9rem); line-height: 1.06; text-shadow: 0 3px 0 rgba(0, 0, 0, .3); text-wrap: balance; overflow-wrap: anywhere; }
-.library-sub { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--stage-soft); opacity: .9; }
+.library-nav { gap: 4px; padding: 4px 0 10px; }
+.library-heading { color: var(--stage-ink); font-size: clamp(1.4rem, 6.4vw, 1.9rem); line-height: 1.06; text-shadow: var(--titulo-sombra); text-wrap: balance; overflow-wrap: anywhere; }
+.library-sub { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--stage-soft); opacity: .95; }
 .library-meter { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 9px; margin-top: 5px; max-width: 100%; }
 .library-progress { display: inline-flex; }
 .library-progress[hidden] { display: none; }
 .prog-svg { display: block; height: 20px; width: calc(var(--n, 5) * 15px); max-width: 64vw; }
-.pc-on { fill: var(--sun); stroke: rgba(0, 0, 0, .25); stroke-width: .03; } .pc-off { fill: rgba(255, 255, 255, .14); stroke: rgba(255, 255, 255, .5); stroke-width: .04; }
-.library-progress.completo .pc-on { fill: #5fe3bd; }
+.pc-on { fill: var(--sun); stroke: rgba(27, 37, 89, .3); stroke-width: .03; } .pc-off { fill: var(--pc-off-fill); stroke: var(--pc-off-line); stroke-width: .04; }
+.library-progress.completo .pc-on { fill: #34d3a8; }
 .library-detail { font-size: .82rem; font-weight: 600; color: var(--stage-soft); }
 .library-detail:empty { display: none; }
 .library-gate { display: inline-flex; align-items: center; gap: 6px; }
@@ -57,3 +72,15 @@ html[data-theme="dark"] .library-gate.feito { background: #0f4b3a; color: #b8f5d
   html:not([data-motion="reduce"]) .pick-head > :nth-child(3), html:not([data-motion="reduce"]) .library-nav > :nth-child(3) { animation-delay: .12s; }
   html:not([data-motion="reduce"]) .library-nav > :nth-child(4) { animation-delay: .18s; }
 }
+
+/* ---------- barra de abas FIXA da tela inicial (Amigos, Loja e Ajustes), com ícones de peças de quebra-cabeça ---------- */
+#screen-home { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }       /* o conteúdo nunca fica atrás da barra */
+.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center; padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--tab-bg); border-top: 2px solid var(--line); box-shadow: 0 -6px 18px rgba(27, 37, 89, .10); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.tabbar .tab { appearance: none; border: 0; background: transparent; position: relative; flex: 1 1 0; max-width: 150px; min-height: 56px; margin: 0 2px; padding: 2px 4px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--ink-soft); font: 700 .72rem/1.1 "Fredoka", var(--font); -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background-color .12s ease; }
+.tabbar .tab[hidden] { display: none; }
+.tabbar .tab:active { transform: scale(.93); background: var(--tab-press); }
+.tabbar .tab:focus-visible { outline: 3px solid var(--focus, #2a5ee8); outline-offset: -2px; }
+.tab-ico { display: block; width: 32px; height: 32px; }
+.tab-svg { display: block; width: 32px; height: 32px; overflow: visible; }
+.tabbar .tab .me-badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+.tab-txt { color: var(--ink); }
