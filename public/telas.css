@@ -1,0 +1,59 @@
+/* Identidade visual das telas: o fundo em si é GERADO (fundos.css, de scripts/fundos.js). Aqui ficam o texto sobre o fundo, os cabeçalhos, o botão voltar e o progresso em peças. */
+:root { --stage-ink: #f4f6ff; --stage-soft: #c3cbf3; }
+.bg-deco { display: none; }                                   /* as peças soltas antigas da tela inicial: o fundo gerado já cuida disso */
+
+/* ---------- texto que fica DIRETO sobre o fundo marinho (nos dois temas o palco é escuro) ---------- */
+#screen-home { --home-pink: #ff8fb8; }
+#screen-home h1 { color: var(--stage-ink); text-shadow: 0 3px 0 rgba(0, 0, 0, .3); }
+#screen-home .h1-two { color: var(--home-pink); }
+#screen-home > .home-inner > .lead, #screen-home .home-inner > p.lead { color: var(--stage-soft); }
+#screen-lobby h2, #screen-me h2 { color: var(--stage-ink); }
+#lobby-msg, #screen-me .me-small, #screen-me .me-inner > p, #screen-me .lead, #screen-me .me-hero p { color: var(--stage-soft); }
+#hud-time { color: var(--stage-ink); }
+#screen-game[data-tint] #hud-time { color: var(--ink); }
+.library-note, .library-slot-text { color: var(--stage-soft); }
+
+/* ---------- a tela de montagem mantém a cor da bandeja equipada (pedido da rodada "loja-fluida") e ganha só as peças discretas por cima ---------- */
+html body #screen-game[data-fundo][data-tint] { background-color: var(--paper); background-image: var(--janela-img), linear-gradient(180deg, var(--paper) 0%, var(--paper-3) 100%); }      /* as peças tênues POR CIMA do mesmo degradê da bandeja de antes */
+
+/* ---------- botão voltar: menor, no mesmo canto de todas as telas, com a área de toque confortável (a ::after estende 7 px para cada lado) ---------- */
+#screen-pick #btn-pick-back, #me-back, #lobby-leave { position: relative; min-height: 34px; padding: 0 14px; font-size: .84rem; line-height: 34px; border-radius: 999px; align-self: flex-start; }
+#screen-pick #btn-pick-back::after, #me-back::after, #lobby-leave::after { content: ""; position: absolute; inset: -7px -8px; }
+#me-back, #lobby-leave { color: var(--stage-soft); z-index: 2; }
+
+/* ---------- cabeçalho da tela de categorias: voltar, título, subtítulo e um separador de peças ---------- */
+.pick-top { position: relative; z-index: 2; width: 100%; display: flex; justify-content: flex-start; padding-top: 2px; }       /* acima do cabeçalho animado: a borda de toque do voltar não pode ficar coberta */
+.pick-head { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 6px 0 8px; }
+#screen-pick #pick-title { margin: 0; max-width: 100%; text-align: center; color: var(--stage-ink); font-size: clamp(1.45rem, 6.6vw, 2.05rem); line-height: 1.06; letter-spacing: .01em; text-shadow: 0 3px 0 rgba(0, 0, 0, .3); text-wrap: balance; overflow-wrap: anywhere; }
+.pick-hl { color: var(--sun); }
+#screen-pick #pick-lead { margin: 0; max-width: 32ch; text-align: center; color: var(--stage-soft); font-size: .95rem; font-weight: 500; line-height: 1.3; text-wrap: balance; }
+.peca-sep { display: block; height: 12px; margin-top: 3px; }
+.peca-sep-svg { display: block; height: 12px; width: auto; }
+.peca-sep-svg .cor-0 { fill: #5b86ff; } .peca-sep-svg .cor-1 { fill: var(--sun); } .peca-sep-svg .cor-2 { fill: #ff6fa3; }
+#screen-pick.library-inside-category .pick-head { display: none; }
+
+/* ---------- cabeçalho da coleção: nome (principal), orientação discreta, progresso em peças encaixadas e o selo de conteúdo liberado ---------- */
+.library-nav { gap: 4px; padding: 4px 0 14px; }
+.library-heading { color: var(--stage-ink); font-size: clamp(1.4rem, 6.4vw, 1.9rem); line-height: 1.06; text-shadow: 0 3px 0 rgba(0, 0, 0, .3); text-wrap: balance; overflow-wrap: anywhere; }
+.library-sub { font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--stage-soft); opacity: .9; }
+.library-meter { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px 9px; margin-top: 5px; max-width: 100%; }
+.library-progress { display: inline-flex; }
+.library-progress[hidden] { display: none; }
+.prog-svg { display: block; height: 20px; width: calc(var(--n, 5) * 15px); max-width: 64vw; }
+.pc-on { fill: var(--sun); stroke: rgba(0, 0, 0, .25); stroke-width: .03; } .pc-off { fill: rgba(255, 255, 255, .14); stroke: rgba(255, 255, 255, .5); stroke-width: .04; }
+.library-progress.completo .pc-on { fill: #5fe3bd; }
+.library-detail { font-size: .82rem; font-weight: 600; color: var(--stage-soft); }
+.library-detail:empty { display: none; }
+.library-gate { display: inline-flex; align-items: center; gap: 6px; }
+.library-gate::before { content: ""; flex: none; width: 12px; height: 12px; background: currentColor; -webkit-mask: url("fundos/peca-icone.svg") center / contain no-repeat; mask: url("fundos/peca-icone.svg") center / contain no-repeat; }
+.library-gate.feito { background: #c9f5e6; color: #0b5a43; }
+html[data-theme="dark"] .library-gate.feito { background: #0f4b3a; color: #b8f5df; }
+
+/* ---------- entrada suave dos elementos (só com movimento liberado) ---------- */
+@keyframes cab-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="reduce"]) .pick-head > *, html:not([data-motion="reduce"]) .library-nav > * { animation: cab-entra .38s ease-out both; }
+  html:not([data-motion="reduce"]) .pick-head > :nth-child(2), html:not([data-motion="reduce"]) .library-nav > :nth-child(2) { animation-delay: .06s; }
+  html:not([data-motion="reduce"]) .pick-head > :nth-child(3), html:not([data-motion="reduce"]) .library-nav > :nth-child(3) { animation-delay: .12s; }
+  html:not([data-motion="reduce"]) .library-nav > :nth-child(4) { animation-delay: .18s; }
+}

@@ -67,9 +67,11 @@ test('"Próxima", chave do gate e atalho "Continuar" (com movimento reduzido res
 });
 
 test('cabeçalho da categoria explica o que ela libera e quanto falta', () => {
-  assert.match(js, /'✓ ' \+ deps\[0\]\.name \+ ' liberada'/);
-  assert.match(js, /'As ' \+ gn \+ ' primeiras liberam ' \+ deps\[0\]\.name/);
-  assert.match(js, /'Concluir todas libera ' \+ deps\[0\]\.name/);
+  // desde a rodada "fundos": o selo lista TODAS as coleções que o progresso libera ("A, B e C"), e o "✓" virou o ícone de peça do selo
+  assert.match(js, /nomes \+ \(varias \? ' liberadas' : ' liberada'\)/);
+  assert.match(js, /'As ' \+ gn \+ ' primeiras liberam ' \+ nomes/);
+  assert.match(js, /'Concluir todas libera ' \+ nomes/);
+  assert.match(js, /function libraryNames\(list\)/);
 });
 
 test('CSS: 3 colunas, chips, ping só com movimento permitido, alvos de toque e modo escuro', () => {

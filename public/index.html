@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="loja.css">
   <link rel="stylesheet" href="pet.css">
+  <link rel="stylesheet" href="fundos.css">
+  <link rel="stylesheet" href="telas.css">
 </head>
 <body>
   <div id="app">
@@ -25,7 +27,7 @@
     <!-- ========== INÍCIO ========== -->
     <div id="banner-wake" class="banner-wake" hidden role="status" aria-live="polite"><span class="wk-spin" aria-hidden="true"></span><span id="wake-text">Acordando o servidor…</span><button id="wake-retry" class="wk-btn" type="button" hidden>Tentar agora</button></div>
 
-    <section id="screen-home" class="screen active">
+    <section id="screen-home" class="screen active" data-fundo="inicio">
       <!-- peças de quebra-cabeça decorativas, bem discretas, só nas laterais -->
       <svg class="bg-deco" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <defs>
@@ -100,7 +102,7 @@
     </section>
 
     <!-- ========== MEU ESPAÇO (perfil, amigos, partidas) ========== -->
-    <section id="screen-me" class="screen">
+    <section id="screen-me" class="screen" data-fundo="conta">
       <div class="me-wrap">
         <header class="me-head">
           <button id="me-back" class="btn btn-ghost" type="button">‹ Voltar</button>
@@ -276,12 +278,15 @@
     </section>
 
     <!-- ========== ESCOLHA DA IMAGEM ========== -->
-    <section id="screen-pick" class="screen">
+    <section id="screen-pick" class="screen" data-fundo="categorias">
       <div id="pick-scroll" class="pick-scroll">
         <div class="pick-inner">
-          <button id="btn-pick-back" class="btn btn-primary" type="button">‹ Voltar</button>
-          <h2 id="pick-title">Escolha a imagem</h2>
-          <p id="pick-lead" class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+          <div class="pick-top"><button id="btn-pick-back" class="btn btn-primary" type="button" aria-label="Voltar">‹ Voltar</button></div>
+          <header class="pick-head">
+            <h2 id="pick-title">Escolha a imagem</h2>
+            <p id="pick-lead" class="lead small">Seu amigo vai montar a mesma imagem que você escolher.</p>
+            <span id="pick-sep" class="peca-sep" aria-hidden="true"></span>
+          </header>
           <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Modo de jogo" hidden>
             <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
             <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
@@ -290,7 +295,11 @@
           <div id="library-categories" class="library-categories" aria-label="Categorias de imagens"></div>
           <div id="library-nav" class="library-nav" hidden>
             <span id="library-heading" class="library-heading"></span>
-            <small id="library-detail" class="library-detail"></small>
+            <small id="library-sub" class="library-sub">ESCOLHA SUA IMAGEM</small>
+            <div class="library-meter">
+              <span id="library-progress" class="library-progress" role="img" hidden></span>
+              <small id="library-detail" class="library-detail"></small>
+            </div>
             <small id="library-gate" class="library-gate" hidden></small>
             <button id="library-continue" class="library-continue" type="button" hidden></button>
           </div>
@@ -313,7 +322,7 @@
     </section>
 
     <!-- ========== SALA DESAFIO: RECEPÇÃO ========== -->
-    <section id="screen-lobby" class="screen">
+    <section id="screen-lobby" class="screen" data-fundo="desafio">
       <div class="lobby-inner">
         <button id="lobby-leave" class="btn btn-ghost" type="button">‹ Sair da sala</button>
         <h2>Sala Desafio</h2>
@@ -348,7 +357,7 @@
     </section>
 
     <!-- ========== JOGO ========== -->
-    <section id="screen-game" class="screen">
+    <section id="screen-game" class="screen" data-fundo="montagem">
       <header class="hud">
         <div class="hud-time" aria-label="Tempo de jogo"><span id="hud-time">00:00</span></div>
         <div id="hud-progress" class="hud-progress" role="progressbar" aria-label="Peças encaixadas" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0">
@@ -558,7 +567,7 @@
     </div>
 
     <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
-      <div class="sheet set-sheet">
+      <div class="sheet set-sheet" data-janela="ajustes">
         <h3 id="set-title">Ajustes</h3>
 
         <div class="set-row">
@@ -699,7 +708,7 @@
 
     <!-- ========== PERFIL DO AMIGO ========== -->
     <div id="modal-fprofile" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fp-name">
-      <div class="sheet fp-sheet">
+      <div class="sheet fp-sheet" data-janela="amigos">
         <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
         <div class="fp-head">
           <span id="fp-av" class="fp-av"></span>
@@ -742,7 +751,7 @@
     </div>
 
     <div id="modal-friend" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fa-title">
-      <div class="sheet">
+      <div class="sheet" data-janela="amigos">
         <h2 id="fa-title">Amigo</h2>
         <div class="sheet-actions">
           <button id="fa-remove" class="btn btn-secondary" type="button">Remover dos amigos</button>
@@ -811,7 +820,7 @@
 
   <!-- Loja de bandejas: só a bandeja de peças é decorada; a grade de encaixe não muda. -->
   <div id="modal-shop" class="modal shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
-    <div class="sheet shop-sheet">
+    <div class="sheet shop-sheet" data-janela="loja">
       <header class="shop-head">
         <h2 id="shop-title">🛍️ Loja</h2>
         <span id="shop-gems" class="shop-gems" role="status" aria-live="polite" aria-label="Seu saldo de gemas">💎 —</span>
@@ -833,6 +842,8 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
+  <script src="pecas.js"></script>
+  <script src="cabecalhos.js"></script>
   <script src="game.js"></script>
   <script src="conta.js"></script>
   <script src="loja.js"></script>
