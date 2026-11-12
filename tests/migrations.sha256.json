@@ -14,5 +14,6 @@
   "013_desbloqueio_categorias_novas.sql": "8a06ae75bec51494f5ca2f7ad8fb17c6fa566fdae4d119d1f55cb1e2e1c91dba",
   "014_imagens_2026-11-d.sql": "cbeecc67145b6f4fd5c80f9edc34042265ff83b8eb9ee437109d2520dd736fbb",
   "015_loja_bandejas.sql": "5efd1c03fd8de43585761a2006748517c84565d9cd8aff01ec16eb4fa3a4d43c",
-  "016_loja_pet.sql": "87a8f2b9f3f20f9543a057c5a2efb1ef6ad7d8378fe5c4c62618e5161ad56b73"
+  "016_loja_pet.sql": "87a8f2b9f3f20f9543a057c5a2efb1ef6ad7d8378fe5c4c62618e5161ad56b73",
+  "017_imagens_2026-11-e.sql": "d01f9c9c6680f25e5975c8ebbaa9ea4cb27c8e19ff93b3e793f8b26f2519118d"
 }
