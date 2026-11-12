@@ -201,7 +201,7 @@ test('integração mínima com o jogo: a bandeja entra logo depois do tabuleiro;
 test('telas: botão da loja na inicial e no menu da partida, janelas com data-back, interruptor nos Ajustes, arquivos no aplicativo instalado', () => {
   for (const id of ['link-shop', 'menu-shop', 'modal-shop', 'modal-tray-preview', 'shop-gems', 'shop-body', 'shop-close', 'tp-title', 'tp-body', 'tp-actions']) assert.ok(html.includes('id="' + id + '"'), 'existe #' + id);
   assert.match(html, /<button id="shop-close" data-back /, 'o voltar do Android fecha a loja'); assert.match(js, /close\.setAttribute\('data-back', ''\)/);
-  assert.match(html, /<button id="link-shop" class="btn btn-ghost" type="button" aria-label="Loja de bandejas"><svg/, 'botão com ícone de sacola');
+  assert.match(html, /<button id="link-shop" class="tab" type="button" aria-label="Loja de bandejas, skins e roupas"><span class="tab-ico" data-ico="loja"/, 'a loja é uma aba da barra fixa da tela inicial, com ícone de peça e gema');
   assert.match(html, /data-tab="loja">Loja<\/button>\s*<button[^>]*data-tab="minhas">Minhas Bandejas<\/button>/);
   assert.match(html, /role="switch" aria-labelledby="lbl-trayanim"[^>]*data-setting="trayAnim"/);
   assert.match(html, /id="modal-shop" class="modal shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title"/);

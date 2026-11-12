@@ -51,23 +51,27 @@ test('nuances pedidas: Loja em amarelo e roxo, Amigos em turquesa/verde e rosa, 
   for (const c of set('ajustes')) assert.ok(['azul', 'cinza', 'indigo'].includes(c), 'ajustes: ' + c);
   const m = F.VARIACOES.montagem; assert.equal(m.pecas.length, 4); for (const p of m.pecas) { assert.ok(p[6] <= 0.3 && p[3] <= 130, 'montagem: peça discreta ' + p[0]); assert.ok(p[2] < 300 || p[2] > 1300, 'montagem: só nos cantos de cima e de baixo, longe do tabuleiro'); }
 });
-test('os SVG são seguros e leves: só formas e gradientes (sem script, imagem, link ou fonte externa), 720×1600 com corte pelas bordas, o fundo completo tem a base marinho e a folha de janela NÃO tem', () => {
+test('os SVG são seguros e leves: só formas e gradientes (sem script, imagem, link ou fonte externa), 720×1600 com corte pelas bordas, o fundo escuro tem a base marinho, o claro o degradê lavanda e a folha de janela nenhum dos dois', () => {
   for (const f of fs.readdirSync(path.join(root, 'public/fundos'))) {
     const s = read('public/fundos/' + f);
     assert.doesNotMatch(s, /<script|<image|<foreignObject|href=|xlink|url\(http|@import|onload|onerror|<style/i, f); assert.ok(s.length < 7000, f + ' pesa pouco: ' + s.length);
     assert.equal((s.match(/<svg/g) || []).length, 1); assert.equal((s.match(/<\/svg>/g) || []).length, 1); assert.equal((s.match(/<path /g) || []).length, (s.match(/\/>/g) || []).length - (s.match(/<rect /g) || []).length - (s.match(/<stop /g) || []).length);
     if (f === 'peca-icone.svg') continue;
     assert.match(s, /viewBox="0 0 720 1600" preserveAspectRatio="xMidYMid slice"/, f);
-    const janela = /janela/.test(f); assert.equal(/<rect width="720" height="1600" fill="#111633"\/>/.test(s), !janela, f + (janela ? ': a folha da janela é transparente' : ': tem a base marinho'));
+    const janela = /janela/.test(f), claro = /-claro\.svg$/.test(f) && !janela;
+    assert.equal(/<rect width="720" height="1600" fill="#111633"\/>/.test(s), !janela && !claro, f + ': a base marinho só no fundo escuro completo');
+    assert.equal(s.includes('fill="url(#bg)"'), claro, f + ': o fundo claro tem o degradê lavanda'); if (claro) assert.ok(s.includes('stop-color="' + F.CLARO.topo + '"') && s.includes('stop-color="' + F.CLARO.base + '"'), f + ': as duas pontas do degradê claro');
+    if (janela) assert.ok(!/<rect|<linearGradient|<radialGradient/.test(s), f + ': a folha da janela só tem peças');
   }
 });
-test('o CSS gerado: o fundo vale nas 5 telas (com força para vencer os fundos antigos), cada variação aponta para um arquivo que existe, e as janelas trocam de peças pastel (claro) e marinho (escuro)', () => {
+test('o CSS gerado: o fundo vale nas 5 telas e ACOMPANHA O TEMA (lavanda no claro, marinho no escuro), cada variação aponta para arquivos que existem, e as janelas trocam de peças pastel e marinho', () => {
   const css = read('public/fundos.css'); assert.match(css, /^\/\* GERADO por scripts\/fundos\.js/);
+  assert.match(css, new RegExp(':root \\{ --fundo-base: ' + F.CLARO.base + '; --janela-img: url\\("fundos/janela-claro\\.svg"\\); \\}'));
+  assert.match(css, new RegExp('html\\[data-theme="dark"\\] \\{ --fundo-base: ' + F.BASE + '; --janela-img: url\\("fundos/janela-escuro\\.svg"\\); \\}'));
   assert.match(css, /html body :is\(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game\)\[data-fundo\] \{ background-color: var\(--fundo-base\); background-image: var\(--fundo-img\); background-position: center; background-size: cover; background-repeat: no-repeat; \}/);
   for (const m of css.matchAll(/url\("([^"]+)"\)/g)) assert.ok(fs.existsSync(path.join(root, 'public', m[1])), m[1] + ' existe');
-  for (const n of NAO_JANELA) assert.match(css, new RegExp('\\[data-fundo="' + n + '"\\] \\{ --fundo-img: url\\("fundos/' + n + '\\.svg"\\); \\}'));
-  assert.match(css, /--janela-img: url\("fundos\/janela-claro\.svg"\)/); assert.match(css, /html\[data-theme="dark"\] \{ --janela-img: url\("fundos\/janela-escuro\.svg"\); \}/);
-  for (const n of ['loja', 'ajustes', 'amigos']) { assert.match(css, new RegExp('\\.sheet\\[data-janela="' + n + '"\\] \\{ --janela-img: url\\("fundos/' + n + '-janela-claro\\.svg"\\)')); }
+  for (const n of NAO_JANELA) { assert.match(css, new RegExp('html body :is\\([^)]*\\)\\[data-fundo="' + n + '"\\] \\{ --fundo-img: url\\("fundos/' + n + '-claro\\.svg"\\); \\}')); assert.match(css, new RegExp('html\\[data-theme="dark"\\] body :is\\([^)]*\\)\\[data-fundo="' + n + '"\\] \\{ --fundo-img: url\\("fundos/' + n + '\\.svg"\\); \\}')); }
+  for (const n of ['loja', 'ajustes', 'amigos']) assert.match(css, new RegExp('\\.sheet\\[data-janela="' + n + '"\\] \\{ --janela-img: url\\("fundos/' + n + '-janela-claro\\.svg"\\)'));
 });
 
 /* ===================== ligação nas telas ===================== */
@@ -77,14 +81,13 @@ test('cada tela e janela tem a sua variação, e os estilos vêm por último (de
   assert.match(h, /<div class="sheet shop-sheet" data-janela="loja">/); assert.match(h, /<div class="sheet set-sheet" data-janela="ajustes">/); assert.equal((h.match(/data-janela="amigos"/g) || []).length, 2);
   const links = [...h.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map((m) => m[1]); assert.deepEqual(links.slice(-2), ['fundos.css', 'telas.css']); assert.ok(links.indexOf('style.css') < links.indexOf('loja.css') && links.indexOf('pet.css') < links.indexOf('fundos.css'));
   const sc = [...h.matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]); assert.ok(sc.indexOf('pecas.js') < sc.indexOf('cabecalhos.js') && sc.indexOf('cabecalhos.js') < sc.indexOf('game.js'));
-  const sw = read('public/sw.js'); for (const f of ['/pecas.js', '/cabecalhos.js', '/fundos.css', '/telas.css', '/fundos/peca-icone.svg', ...NAO_JANELA.map((n) => '/fundos/' + n + '.svg'), '/fundos/janela-claro.svg', '/fundos/janela-escuro.svg']) assert.ok(sw.includes("'" + f + "'"), 'service worker guarda ' + f);
+  const sw = read('public/sw.js'); for (const f of ['/pecas.js', '/cabecalhos.js', '/fundos.css', '/telas.css', '/fundos/peca-icone.svg', ...NAO_JANELA.map((n) => '/fundos/' + n + '.svg'), ...NAO_JANELA.map((n) => '/fundos/' + n + '-claro.svg'), '/fundos/janela-claro.svg', '/fundos/janela-escuro.svg']) assert.ok(sw.includes("'" + f + "'"), 'service worker guarda ' + f);
   assert.match(sw, /const CACHE = 'quebra-cabeca-v21';/, 'a versão do cache não mudou');
 });
 test('a tela de montagem mantém a cor da bandeja equipada (loja define data-tint) e as peças decorativas ficam só nas bordas, longe das peças jogáveis', () => {
   const loja = read('public/loja.js'), tc = read('public/telas.css');
   assert.match(loja, /sg\.removeAttribute\('data-tint'\);/); assert.match(loja, /themed = true; sg\.setAttribute\('data-tint', '1'\);/);
   assert.match(tc, /html body #screen-game\[data-fundo\]\[data-tint\] \{ background-color: var\(--paper\); background-image: var\(--janela-img\), linear-gradient\(180deg, var\(--paper\) 0%, var\(--paper-3\) 100%\); \}/, 'o degradê da bandeja continua, com as peças por cima');
-  assert.match(tc, /#screen-game\[data-tint\] #hud-time \{ color: var\(--ink\); \}/, 'sobre o papel claro da bandeja o cronômetro volta a ser escuro');
   assert.ok(!/pointer-events:\s*auto/.test(read('public/fundos.css')), 'o fundo nunca captura toques');
 });
 
@@ -106,14 +109,40 @@ test('cabeçalho de categorias e de coleção: os textos pedidos, a variação d
   assert.ok(h.indexOf('id="pick-title"') > h.indexOf('id="btn-pick-back"') && h.indexOf('id="library-heading"') < h.indexOf('id="library-sub"') && h.indexOf('id="library-sub"') < h.indexOf('id="library-progress"') && h.indexOf('id="library-progress"') < h.indexOf('id="library-gate"'), 'hierarquia: voltar, título, orientação, progresso, selo');
   for (const id of ['library-heading', 'library-detail', 'library-gate', 'library-continue', 'library-categories', 'pick-grid', 'pick-title', 'pick-lead', 'btn-pick-back']) assert.equal((h.match(new RegExp('id="' + id + '"', 'g')) || []).length, 1, 'continua existindo: ' + id);
 });
-test('estilos dos cabeçalhos: voltar pequeno com toque confortável (≥ 44 px), títulos que quebram linha em vez de estourar, texto claro sobre o fundo e movimento respeitado', () => {
+test('estilos: o texto solto SEGUE O TEMA (nada de cor fixa clara sobre o fundo), o voltar é UM padrão (amarelo, pequeno, toque ≥ 44 px) em todas as telas, títulos que quebram linha e movimento respeitado', () => {
   const tc = read('public/telas.css');
-  assert.match(tc, /#screen-pick #btn-pick-back, #me-back, #lobby-leave \{[^}]*min-height: 34px;[^}]*font-size: \.84rem;/); assert.match(tc, /#screen-pick #btn-pick-back::after, #me-back::after, #lobby-leave::after \{ content: ""; position: absolute; inset: -7px -8px; \}/);
-  assert.ok(34 + 2 * 7 >= 44, 'área de toque'); assert.match(tc, /\.pick-top \{ position: relative; z-index: 2;/, 'o voltar fica acima do cabeçalho animado, senão a borda de toque ficaria coberta'); assert.match(tc, /#me-back, #lobby-leave \{ color: var\(--stage-soft\); z-index: 2; \}/); assert.match(tc, /#screen-pick #pick-title \{[^}]*text-wrap: balance; overflow-wrap: anywhere;/); assert.match(tc, /\.library-heading \{[^}]*text-wrap: balance; overflow-wrap: anywhere;/);
-  assert.match(tc, /font-size: clamp\(1\.45rem, 6\.6vw, 2\.05rem\)/); assert.match(tc, /\.pick-hl \{ color: var\(--sun\); \}/);
+  assert.match(tc, /--stage-ink: var\(--ink\); --stage-soft: var\(--ink-soft\);/, 'texto sobre o fundo = as cores do tema (claro: marinho; escuro: quase branco)'); assert.doesNotMatch(tc, /--stage-ink: #|--stage-soft: #/);
+  assert.match(tc, /--pick-hl: #c2185b;/); assert.match(tc, /html\[data-theme="dark"\] \{\s+--pick-hl: var\(--sun\);/);
+  assert.match(tc, /#screen-pick #btn-pick-back, #me-back, #lobby-leave \{[^}]*min-height: 34px;[^}]*font-size: \.84rem;[^}]*background: var\(--sun\); color: var\(--on-sun\); box-shadow: 0 4px 0 var\(--sun-deep\);/, 'o mesmo botão amarelo nas categorias, em Amigos e na recepção da Sala Desafio');
+  assert.match(tc, /#screen-pick #btn-pick-back::after, #me-back::after, #lobby-leave::after \{ content: ""; position: absolute; inset: -7px -8px; \}/); assert.ok(34 + 2 * 7 >= 44, 'área de toque');
+  assert.match(tc, /\.pick-fixo \.pick-top \{ position: relative; z-index: 2;/, 'o voltar fica acima do cabeçalho animado'); assert.match(tc, /#me-back, #lobby-leave \{|#screen-pick #btn-pick-back, #me-back, #lobby-leave \{[^}]*z-index: 2;/);
+  assert.match(tc, /#screen-pick #pick-title \{[^}]*text-wrap: balance; overflow-wrap: anywhere;/); assert.match(tc, /\.library-heading \{[^}]*text-wrap: balance; overflow-wrap: anywhere;/); assert.match(tc, /font-size: clamp\(1\.45rem, 6\.6vw, 2\.05rem\)/); assert.match(tc, /\.pick-hl \{ color: var\(--pick-hl\); \}/);
   assert.match(tc, /@media \(prefers-reduced-motion: no-preference\) \{\s+html:not\(\[data-motion="reduce"\]\) \.pick-head > \*/);
-  assert.ok(cr('#F4F6FF', F.BASE) >= 12 && cr('#C3CBF3', F.BASE) >= 9 && cr('#FFCF33', F.BASE) >= 9, 'texto e destaque sobre a base marinho');
-  assert.match(tc, /\.prog-svg \{[^}]*max-width: 64vw;/); assert.match(tc, /\.library-gate::before \{[^}]*mask: url\("fundos\/peca-icone\.svg"\)/);
+  assert.ok(cr('#C2185B', F.CLARO.base) >= 4.5 && cr('#1B2559', F.CLARO.base) >= 9 && cr('#55608F', F.CLARO.topo) >= 4.5, 'tema claro: destaque, texto e texto suave sobre o lavanda'); assert.ok(cr('#FFCF33', F.BASE) >= 9 && cr('#EEF1FF', F.BASE) >= 12 && cr('#AAB5E8', F.BASE) >= 7, 'tema escuro sobre o marinho');
+  assert.match(tc, /\.prog-svg \{[^}]*max-width: 64vw;/); assert.match(tc, /\.pc-off \{ fill: var\(--pc-off-fill\); stroke: var\(--pc-off-line\);/); assert.match(tc, /\.library-gate::before \{[^}]*mask: url\("fundos\/peca-icone\.svg"\)/);
+});
+test('CABEÇALHO FIXO: voltar, título e subtítulo (categorias) e nome, orientação, progresso e selo (coleção) ficam num bloco que NÃO rola; só a lista de categorias/imagens rola', () => {
+  const h = read('public/index.html'), a = h.indexOf('<section id="screen-pick"'), s = h.slice(a, h.indexOf('</section>', a));
+  const fixo = s.indexOf('<div class="pick-fixo">'), rola = s.indexOf('<div id="pick-scroll" class="pick-scroll">'); assert.ok(fixo > 0 && fixo < rola, 'o bloco fixo vem ANTES e fora do bloco que rola');
+  const dentroFixo = s.slice(fixo, rola), dentroRola = s.slice(rola);
+  for (const id of ['btn-pick-back', 'pick-title', 'pick-lead', 'library-nav', 'library-heading', 'library-sub', 'library-progress', 'library-detail', 'library-gate']) { assert.ok(dentroFixo.includes('id="' + id + '"'), '#' + id + ' fica no bloco FIXO'); assert.ok(!dentroRola.includes('id="' + id + '"'), '#' + id + ' não está no bloco que rola'); }
+  for (const id of ['library-categories', 'pick-grid', 'duel-modes', 'library-continue']) { assert.ok(dentroRola.includes('id="' + id + '"') && !dentroFixo.includes('id="' + id + '"'), '#' + id + ' rola'); }
+  const tc = read('public/telas.css'); assert.match(tc, /\.pick-fixo \{ flex: none;/, 'não encolhe nem rola'); assert.match(tc, /\.pick-scroll \{ -webkit-mask-image: linear-gradient\(to bottom, transparent 0, #000 14px\)/);
+  const st = read('public/style.css'); assert.match(st, /#screen-pick \{ overflow: hidden; align-items: stretch; \}/); assert.match(st, /\.pick-scroll \{ flex: 1; min-height: 0; width: 100%; overflow-y: auto;/, 'a lista é o único bloco que rola');
+  assert.match(h, /<div id="pick-scroll"[\s\S]*?<div id="pick-sheet"/, 'o painel de baixo continua fora da lista');
+});
+test('BARRA DE ABAS fixa na tela inicial: Amigos, Loja e Ajustes com os mesmos ids de sempre, ícones de peças de quebra-cabeça, toque confortável e sem cobrir o conteúdo', () => {
+  const h = read('public/index.html'), a = h.indexOf('<section id="screen-home"'), home = h.slice(a, h.indexOf('</section>', a)), nav = home.slice(home.indexOf('<nav class="tabbar"'), home.indexOf('</nav>') + 6);
+  assert.match(nav, /<nav class="tabbar" aria-label="Menu principal">/); assert.deepEqual([...nav.matchAll(/<button id="([^"]+)" class="tab"/g)].map((m) => m[1]), ['link-friends', 'link-shop', 'link-settings'], 'mesma ordem e mesmos ids (as ligações com o jogo e com o mascote não mudam)');
+  assert.deepEqual([...nav.matchAll(/data-ico="([^"]+)"/g)].map((m) => m[1]), ['amigos', 'loja', 'ajustes']); assert.match(nav, /<button id="link-friends" class="tab" type="button" hidden>/, 'Amigos só aparece com contas ligadas, como antes'); assert.match(nav, /<i id="friends-badge" class="me-badge" hidden>0<\/i>/);
+  assert.ok(!/<div class="home-links">/.test(home) && !/class="btn btn-ghost"/.test(nav), 'os botões antigos saíram'); assert.ok(home.indexOf('class="join-card"') < home.indexOf('<nav class="tabbar"'), 'a barra vem depois do conteúdo, como filha direta da tela (sem transform por perto)');
+  const tc = read('public/telas.css'); assert.match(tc, /\.tabbar \{ position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;/); assert.match(tc, /padding: 6px 10px calc\(6px \+ env\(safe-area-inset-bottom, 0px\)\)/, 'respeita o recorte do celular');
+  assert.match(tc, /\.tabbar \.tab \{[^}]*flex: 1 1 0;[^}]*min-height: 56px;/); assert.match(tc, /#screen-home \{ padding-bottom: calc\(84px \+ env\(safe-area-inset-bottom, 0px\)\); \}/, 'o conteúdo nunca fica atrás da barra'); assert.match(tc, /\.tabbar \.tab:focus-visible/);
+  const cab = read('public/cabecalhos.js'); for (const n of ['amigos', 'loja', 'ajustes']) assert.match(cab, new RegExp("nome === '" + n + "'")); assert.match(cab, /\[\[data-ico\]|querySelectorAll\('\[data-ico\]'\)/); assert.match(cab, /P\.caminho\(tabs\)/, 'os ícones usam a forma de peça do jogo');
+  assert.match(cab, /icone: icone/);
+  assert.equal((cab.match(/peca\(svg, \d/g) || []).length, 4, 'amigos = 2 peças, loja = 1 e ajustes = 1');
+  assert.match(cab, /if \(nome === 'amigos'\) \{ peca\(svg, 10\.2, 16, 12\.5, \[0, 1, 0, 0\], '#4f7dff'\); peca\(svg, 23\.1, 16, 12\.5, \[0, 0, 0, -1\], '#ff6fa3'\); \}/, 'duas peças que se ENCAIXAM (dente à direita na azul, encaixe à esquerda na rosa)');
+  assert.match(cab, /M15\.5 10\.4 L20\.1 15\.2 L15\.5 22 L10\.9 15\.2 Z/, 'a gema da loja'); assert.match(cab, /'stroke-dasharray': '2 2\.0'/, 'os dentes da engrenagem');
 });
 
 /* ===================== peças e progresso ===================== */
@@ -132,4 +161,14 @@ test('cabecalhos.js só desenha por DOM: sem HTML dinâmico, sem rede, sem armaz
   for (const proibido of [/innerHTML|outerHTML|insertAdjacentHTML|document\.write/, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon/, /localStorage|sessionStorage|indexedDB|document\.cookie/, /\beval\s*\(|new Function/, /https?:\/\/(?!www\.w3\.org)/]) assert.doesNotMatch(s, proibido);
   assert.match(s, /createElementNS\(NS, tag\)/); assert.match(s, /host\.setAttribute\('aria-label', feitas \+ ' de ' \+ total \+ ' imagens concluídas'\)/); assert.match(s, /svg\.setAttribute\('aria-hidden', 'true'\)/);
   assert.doesNotMatch(code(read('public/pecas.js')), /document\b|window\b\./, 'pecas.js é puro');
+});
+
+test('rolagem: trocar de vista por ação do jogador volta ao topo, mas atualizar o progresso NÃO mexe na rolagem; e o Voltar fica no mesmo canto em todas as telas', () => {
+  const g = read('public/game.js'), tc = read('public/telas.css');
+  assert.match(g, /function pickScrollTop\(\) \{ var s = \$\('#pick-scroll'\); if \(s\) s\.scrollTop = 0; \}/);
+  assert.equal((g.match(/pickScrollTop\(\)/g) || []).length, 5, 'definição + abrir categoria + abrir clássicas + voltar às categorias + entrar na tela');
+  assert.match(g, /if \(libraryAvailable\(c\)\) \{ pickScrollTop\(\); renderLibraryCategory\(c\.id\); \}/); assert.match(g, /libraryView = 'legacy'; pickScrollTop\(\); renderPickGrid\(\);/); assert.match(g, /closePickSheet\(\); pickScrollTop\(\); renderLibraryHome\(\); return;/);
+  const refresh = g.slice(g.indexOf('function renderLibraryCurrent'), g.indexOf('function renderLibraryCurrent') + 400); assert.doesNotMatch(refresh, /pickScrollTop/, 'a atualização automática do progresso não pode jogar o jogador para o topo');
+  assert.match(tc, /#screen-lobby #lobby-leave \{ position: absolute; top: 12px; left: 16px; \}/); assert.match(tc, /#screen-lobby \.lobby-inner \{ padding-top: 56px; \}/);
+  assert.match(tc, /\.me-head \{[^}]*padding: max\(12px, env\(safe-area-inset-top\)\) 16px 2px;/); assert.match(tc, /\.pick-fixo \.pick-top \{[^}]*margin-left: -4px;/); assert.match(tc, /\.pick-fixo \{[^}]*padding: 12px 20px 2px;/);
 });
