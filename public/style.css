@@ -2362,9 +2362,9 @@ html[data-theme="dark"] .ach-chip.on { color: #1b1b1b; }
 .ach-blurb, .ach-sub { margin: 0 4px 8px; font-size: .78rem; font-weight: 700; color: var(--ink-soft); }
 .ach-sub { font: 700 .95rem "Fredoka", var(--font); color: var(--ink); margin-bottom: 6px; }
 .ach-empty { margin: 8px 4px 14px; text-align: center; font-weight: 700; color: var(--ink-soft); }
-.ach-next { margin-bottom: 10px; }
 /* coleções */
-.col-list { display: grid; gap: 14px; margin-bottom: 14px; }
+.col-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+#tab-col > .me-h small { display: block; margin-top: 3px; font-size: .8rem; line-height: 1.25; }       /* o contador numa linha só dele (sem "imagens" sozinha embaixo) */
 .col-card { background: var(--card); border-radius: 22px; padding: 14px; box-shadow: 0 5px 0 var(--line-2); }
 .col-head { display: flex; align-items: center; gap: 14px; }
 .col-ring { --p: 0; position: relative; flex: none; width: 74px; height: 74px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#2fd3a3 calc(var(--p) * 1%), var(--line) 0); }
@@ -2420,8 +2420,10 @@ html[data-theme="dark"] .ach-done-tag { background: #123f33; color: #a8f0d4; }
 
 /* Desempenho da aba Conquistas: são ~120 cartões. Com "content-visibility: auto" o navegador só calcula layout e pinta os que estão na tela
  * (os outros ficam reservados com a altura estimada "auto", que ele guarda depois de ver cada um). Medido: 634 ms -> ver o teste de desempenho. */
-.ach-card, .col-card { content-visibility: auto; contain-intrinsic-size: auto 118px; }
-.col-card { contain-intrinsic-size: auto 420px; }
+/* Atenção: contain-intrinsic-size com UM valor vale para a largura E a altura. O cartão de coleção (auto 420px) ficava com 420 px de LARGURA estimada dentro da grade e vazava
+   da tela. Aqui só a ALTURA é estimada (contain-intrinsic-height), e a grade nunca deixa a coluna passar do espaço disponível. */
+.ach-card, .col-card { content-visibility: auto; contain-intrinsic-height: auto 118px; }
+.col-card { contain-intrinsic-height: auto 420px; min-width: 0; max-width: 100%; }
 
 /* ===================== Mascote da tela inicial ===================== */
 .mascot { --mh: clamp(104px, 18.5vh, 168px); position: relative; display: block; width: calc(var(--mh) * 1.333); max-width: 100%; height: var(--mh); margin: 0 auto 10px; padding: 0; border: 0; background: none; border-radius: 24px; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; font: inherit; }
