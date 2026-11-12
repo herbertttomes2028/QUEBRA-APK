@@ -417,6 +417,7 @@
     var g = libraryGate(prev).length;
     return { text: libraryHasGate(prev) ? 'Conclua as ' + g + ' primeiras de ' + prev.name : 'Conclua ' + prev.name, done: libraryGateDone(prev), total: g };
   }
+  function libraryNames(list) { var n = list.map(function (d) { return d.name; }); return n.length < 2 ? (n[0] || '') : n.slice(0, -1).join(', ') + ' e ' + n[n.length - 1]; }       // "A, B e C"
   function libraryDependents(c) { return state.libraryCatalog.filter(function (d) { return d.unlock === 'after' && d.requires === c.id; }); }
   // até 4 imagens espalhadas pela categoria: dá uma ideia do conjunto todo na hora de decidir a compra
   function libraryPreview(c) {
@@ -503,8 +504,8 @@
   // Nenhuma regra de liberação é recalculada aqui; usamos libraryAvailable e a API existente.
   function renderLibraryHome() {
     libraryView = 'home'; libraryCategory = null;
-    $('#screen-pick').classList.remove('library-inside-category');
-    $('#pick-title').textContent = 'ESCOLHA UMA CATEGORIA';
+    $('#screen-pick').classList.remove('library-inside-category'); $('#screen-pick').setAttribute('data-fundo', 'categorias');
+    if (window.QCCab) { QCCab.destaque($('#pick-title'), 'ESCOLHA UMA CATEGORIA'); QCCab.separador($('#pick-sep')); } else $('#pick-title').textContent = 'ESCOLHA UMA CATEGORIA';
     $('#pick-lead').textContent = 'Explore imagens e complete suas coleções.';
     $('#library-nav').hidden = true; $('#pick-grid').hidden = true;
     var root = $('#library-categories'); root.hidden = false; root.textContent = '';
@@ -605,15 +606,19 @@
     var c = libraryById(id);
     if (!c || !libraryAvailable(c)) { renderLibraryHome(); return; }
     libraryView = 'category'; libraryCategory = id;
-    $('#screen-pick').classList.add('library-inside-category');
+    $('#screen-pick').classList.add('library-inside-category'); $('#screen-pick').setAttribute('data-fundo', 'colecoes');
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
     $('#library-heading').textContent = c.name.toLocaleUpperCase('pt-BR');
-    $('#library-detail').textContent = 'Escolha sua imagem · ' + librarySummary(c) + ' concluídas';
+    $('#library-sub').textContent = 'ESCOLHA SUA IMAGEM';
+    var feitas = c.images.filter(function (i) { return libraryDone(i.file); }).length;
+    if (window.QCCab) QCCab.progresso($('#library-progress'), feitas, c.images.length);
+    $('#library-detail').textContent = librarySummary(c) + ' concluídas';
     var deps = libraryDependents(c), line = '';
     if (deps.length) {
-      var gn = libraryGate(c).length, gd = libraryGateDone(c);
-      line = gd >= gn ? '✓ ' + deps[0].name + ' liberada' : (libraryHasGate(c) ? 'As ' + gn + ' primeiras liberam ' + deps[0].name : 'Concluir todas libera ' + deps[0].name) + ' · ' + gd + '/' + gn;
+      var gn = libraryGate(c).length, gd = libraryGateDone(c), nomes = libraryNames(deps), varias = deps.length > 1;
+      line = gd >= gn ? nomes + (varias ? ' liberadas' : ' liberada') : (libraryHasGate(c) ? 'As ' + gn + ' primeiras liberam ' + nomes : 'Concluir todas libera ' + nomes) + ' · ' + gd + '/' + gn;
     }
+    $('#library-gate').classList.toggle('feito', !!deps.length && gd >= gn);
     $('#library-gate').textContent = line; $('#library-gate').hidden = !line;
     renderPickGrid();
   }
@@ -654,9 +659,10 @@
     grid.classList.toggle('library-gallery', libraryView === 'category');
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
     if (libraryView === 'legacy') {
-      $('#screen-pick').classList.add('library-inside-category');
-      $('#library-heading').textContent = 'IMAGENS CLÁSSICAS';
-      $('#library-detail').textContent = 'Escolha uma imagem';
+      $('#screen-pick').classList.add('library-inside-category'); $('#screen-pick').setAttribute('data-fundo', 'colecoes');
+      $('#library-heading').textContent = 'IMAGENS CLÁSSICAS'; $('#library-sub').textContent = 'ESCOLHA UMA IMAGEM';
+      if (window.QCCab) QCCab.progresso($('#library-progress'), 0, 0);
+      $('#library-detail').textContent = '';
     }
     var items = libraryView === 'legacy' ? state.images.filter(function (item) { return !item.categoryId; }) :
       state.images.filter(function (item) { return item.categoryId === libraryCategory; });

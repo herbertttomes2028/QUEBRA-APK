@@ -93,13 +93,14 @@
     var sg = $('#screen-game'); if (!sg) return;
     var on = themeOn() && screenName === 'game', mt = document.querySelector('meta[name="theme-color"]'), keys = Object.keys(themeVars('#dbe2ff', false).vars), i;
     if (!on) {
+      sg.removeAttribute('data-tint');
       if (themed) { for (i = 0; i < keys.length; i++) sg.style.removeProperty(keys[i]); if (mt && metaOrig !== null) mt.setAttribute('content', metaOrig); themed = false; }
       return;
     }
     var t = themeVars(current().hex, document.documentElement.getAttribute('data-theme') === 'dark');
     for (i = 0; i < keys.length; i++) sg.style.setProperty(keys[i], t.vars[keys[i]]);
     if (mt) { if (!themed) metaOrig = mt.getAttribute('content'); mt.setAttribute('content', t.paper); }
-    themed = true;
+    themed = true; sg.setAttribute('data-tint', '1');                         // a tela de montagem mantém a cor da bandeja (ver telas.css)
   }
   function gameScreen() { var sg = $('#screen-game'); return sg && sg.classList.contains('active') ? 'game' : 'outra'; }
 

@@ -1,0 +1,22 @@
+/* GERADO por scripts/fundos.js a partir da especificação dos fundos. Não edite à mão (rode: node scripts/fundos.js). */
+:root { --fundo-base: #111633; --janela-img: url("fundos/janela-claro.svg"); }
+html[data-theme="dark"] { --janela-img: url("fundos/janela-escuro.svg"); }
+/* telas: fundo marinho com as luzes e as peças da variação escolhida em data-fundo (o scripts troca o atributo nas telas que mudam de aparência, como categorias e coleções) */
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo] { background-color: var(--fundo-base); background-image: var(--fundo-img); background-position: center; background-size: cover; background-repeat: no-repeat; }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="desafio"] { --fundo-img: url("fundos/desafio.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="inicio"] { --fundo-img: url("fundos/inicio.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="categorias"] { --fundo-img: url("fundos/categorias.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="colecoes"] { --fundo-img: url("fundos/colecoes.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="montagem"] { --fundo-img: url("fundos/montagem.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="loja"] { --fundo-img: url("fundos/loja.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="amigos"] { --fundo-img: url("fundos/amigos.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="ajustes"] { --fundo-img: url("fundos/ajustes.svg"); }
+html body :is(#screen-home, #screen-me, #screen-pick, #screen-lobby, #screen-game)[data-fundo="conta"] { --fundo-img: url("fundos/conta.svg"); }
+/* janelas: só as peças (pastel no tema claro) sobre a folha da janela */
+.sheet { background-image: var(--janela-img); background-position: center; background-size: cover; background-repeat: no-repeat; }
+.sheet[data-janela="loja"] { --janela-img: url("fundos/loja-janela-claro.svg"); }
+html[data-theme="dark"] .sheet[data-janela="loja"] { --janela-img: url("fundos/loja-janela-escuro.svg"); }
+.sheet[data-janela="ajustes"] { --janela-img: url("fundos/ajustes-janela-claro.svg"); }
+html[data-theme="dark"] .sheet[data-janela="ajustes"] { --janela-img: url("fundos/ajustes-janela-escuro.svg"); }
+.sheet[data-janela="amigos"] { --janela-img: url("fundos/amigos-janela-claro.svg"); }
+html[data-theme="dark"] .sheet[data-janela="amigos"] { --janela-img: url("fundos/amigos-janela-escuro.svg"); }
