@@ -136,7 +136,9 @@
   function startLoop() { if (!raf && !timer && loopWanted()) { lastTs = performance.now(); raf = requestAnimationFrame(frame); } }
   function stopLoop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } if (timer) { clearTimeout(timer); timer = 0; } }
   function kick() { startLoop(); }
-  function capNow() { var c = CAPS[Math.min(quality, CAPS.length - 1)]; return brain.busy() ? c[0] : c[1]; }
+  // Depois de uma reação o corpo ainda está assentando (as molas levam ~0,5 s): se o laço caísse para 12 quadros por segundo no instante em que a reação acaba, o fim do movimento sairia aos soquinhos.
+  var settleUntil = 0, SETTLE_MS = 900;
+  function capNow() { var c = CAPS[Math.min(quality, CAPS.length - 1)], now = performance.now(); if (brain.busy()) { settleUntil = now + SETTLE_MS; return c[0]; } return now < settleUntil ? c[0] : c[1]; }
 
   function frame(ts) {
     raf = 0;
