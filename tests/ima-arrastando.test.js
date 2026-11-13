@@ -5,7 +5,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { startServer, client } = require('./helpers');
+const { startServer, client, DIAG_TOKEN } = require('./helpers');
 const magnet = require('../magnet');
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -143,7 +143,7 @@ test('código: a regra de encaixe não mudou (tryLock idêntico), o cliente nunc
 test('chave de segurança DRAG_MAGNET=0: volta ao comportamento antigo (só encaixa ao SOLTAR), e o /diagnostico mostra o estado', async () => {
   const off = await startServer({ DRAG_MAGNET: '0', ROOM_CREATES_PER_10MIN: '100' });
   try {
-    assert.equal((await (await fetch(off.url + '/diagnostico')).json()).encaixe.puxa_ao_arrastar, false); assert.equal((await (await fetch(srv.url + '/diagnostico')).json()).encaixe.puxa_ao_arrastar, true, 'padrão: ligado');
+    assert.equal((await (await fetch(off.url + '/diagnostico?token=' + DIAG_TOKEN)).json()).encaixe.puxa_ao_arrastar, false); assert.equal((await (await fetch(srv.url + '/diagnostico?token=' + DIAG_TOKEN)).json()).encaixe.puxa_ao_arrastar, true, 'padrão: ligado');
     const cj = await (await fetch(off.url + '/api/config')).json(), a = await client(off.url), b = await client(off.url);
     const r1 = await a.emitAck('create', { pid: 'pa' + Math.random(), imageId: cj.images[0].file, pieces: 12, name: 'Ana' }); const r2 = await b.emitAck('join', { pid: 'pb' + Math.random(), code: r1.snapshot.code, name: 'Beto' });
     const cfg = r2.snapshot.cfg, p = r2.snapshot.pieces[0], t = alvo(cfg, p); let locked = false; a.on('locked', () => { locked = true; });
