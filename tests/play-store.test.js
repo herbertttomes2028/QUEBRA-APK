@@ -1,5 +1,5 @@
 "use strict";
-// Preparação para a Google Play Store: galeria sem imagens de terceiros, jogo para 13 anos ou mais (cadastro, textos e divulgação),
+// Preparação para a Google Play Store: galeria sem imagens de terceiros, jogo não indicado para menores de 16 anos (cadastro, textos e divulgação),
 // política de privacidade e página de exclusão de conta (conferidas contra o app), e a interface de denúncia.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,23 +31,23 @@ test('galeria: o servidor oferece exatamente o que está na pasta (nada mais é 
   assert.match(sv, /readdirSync\(IMG_DIR\)/);
 });
 
-/* ---------------- 13 anos ou mais ---------------- */
-test('13+: o servidor recusa o cadastro (e-mail e Google) sem a confirmação, e só aceita o booleano true', () => {
-  assert.equal((acc.match(/if \(b\.age13 !== true\) return bad\(res, 400, 'age13'\);/g) || []).length, 2, 'cadastro por e-mail e primeiro acesso pelo Google');
-  const reg = acc.slice(acc.indexOf("r.post('/register'"), acc.indexOf("r.post('/login'")); assert.ok(reg.indexOf("b.consent !== true") < reg.indexOf("b.age13 !== true") && reg.indexOf("b.age13 !== true") < reg.indexOf('createUser('), 'a conta só é criada depois das duas confirmações');
+/* ---------------- 16 anos ou mais ---------------- */
+test('16+: o servidor recusa o cadastro (e-mail e Google) sem a confirmação, e só aceita o booleano true', () => {
+  assert.equal((acc.match(/if \(b\.age16 !== true\) return bad\(res, 400, 'age16'\);/g) || []).length, 2, 'cadastro por e-mail e primeiro acesso pelo Google');
+  const reg = acc.slice(acc.indexOf("r.post('/register'"), acc.indexOf("r.post('/login'")); assert.ok(reg.indexOf("b.consent !== true") < reg.indexOf("b.age16 !== true") && reg.indexOf("b.age16 !== true") < reg.indexOf('createUser('), 'a conta só é criada depois das duas confirmações');
 });
-test('13+: o cadastro mostra a caixa "tenho 13 anos ou mais" (só ao criar conta) e a envia ao servidor', () => {
-  assert.match(html, /<label id="auth-age-wrap" class="me-check" hidden>\s*<input id="auth-age" type="checkbox">\s*<span>Tenho 13 anos ou mais\. \(Este jogo é para quem tem 13 anos ou mais\.\)<\/span><\/label>/);
+test('16+: o cadastro mostra a caixa "tenho 16 anos ou mais" (só ao criar conta) e a envia ao servidor', () => {
+  assert.match(html, /<label id="auth-age-wrap" class="me-check" hidden>\s*<input id="auth-age" type="checkbox">\s*<span>Tenho 16 anos ou mais\. \(Este jogo não é indicado para menores de 16 anos\.\)<\/span><\/label>/);
   assert.ok(html.indexOf('id="auth-consent-wrap"') < html.indexOf('id="auth-age-wrap"') && html.indexOf('id="auth-age-wrap"') < html.indexOf('id="auth-error"'));
-  assert.match(conta, /show\('#auth-consent-wrap', up\); show\('#auth-age-wrap', up\);/); assert.match(conta, /body\.age13 = \$\('#auth-age'\)\.checked;/);
-  assert.match(conta, /age13: \$\('#auth-age'\)\.checked, name: state\.name,/, 'o primeiro acesso pelo Google também envia'); assert.match(conta, /\$\('#auth-age'\)\.checked = false; say\('#auth-error', ''\);/, 'sair da conta desmarca');
-  assert.match(conta, /age13: 'Este jogo é para quem tem 13 anos ou mais\. Marque a caixa para confirmar\.'/);
+  assert.match(conta, /show\('#auth-consent-wrap', up\); show\('#auth-age-wrap', up\);/); assert.match(conta, /body\.age16 = \$\('#auth-age'\)\.checked;/);
+  assert.match(conta, /age16: \$\('#auth-age'\)\.checked, name: state\.name,/, 'o primeiro acesso pelo Google também envia'); assert.match(conta, /\$\('#auth-age'\)\.checked = false; say\('#auth-error', ''\);/, 'sair da conta desmarca');
+  assert.match(conta, /age16: 'Este jogo não é indicado para menores de 16 anos\. Marque a caixa se você tem 16 anos ou mais\.'/);
 });
-test('13+: nada do app, da loja ou dos documentos o apresenta como jogo infantil', () => {
+test('16+: nada do app, da loja ou dos documentos o apresenta como jogo infantil', () => {
   const alvo = [html, game, conta, priv, del, JSON.stringify(manifest), read('public/boot.js')].join('\n');
   assert.doesNotMatch(text(alvo) + alvo.replace(/<[^>]+>/g, ' '), /(para|de|das?) (as )?crian[çc]as|infantil|crian[çc]ada|para os pequenos|kids|baby/i, 'sem linguagem voltada a crianças');
   assert.doesNotMatch(priv, /feito para crianças|Crianças devem/);
-  assert.match(manifest.description, /13 anos ou mais/);
+  assert.match(manifest.description, /Não indicado para menores de 16 anos/);
   for (const f of ['CONTAS.md', 'README.md']) assert.doesNotMatch(read(f), /voltado ao público infantil|o público é infantil/, f);
   assert.doesNotMatch(read('server.js'), /o público é infantil/);
   assert.match(read('CONTAS.md'), /ECA Digital/, 'o risco legal brasileiro está registrado para o responsável conferir com um profissional');
@@ -56,7 +56,7 @@ test('13+: nada do app, da loja ou dos documentos o apresenta como jogo infantil
 /* ---------------- política de privacidade e exclusão (conferidas contra o app) ---------------- */
 test('privacidade: diz para quem é o jogo, o que guarda, com quem passa, por quanto tempo, os direitos e como excluir', () => {
   const t = text(priv);
-  for (const trecho of ['13 anos ou mais', 'Não é feito para menores de 13 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', '15 minutos', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Excluir minha conta…', 'excluir-conta.html', 'frases prontas', 'não aceita fotos'])
+  for (const trecho of ['não é indicado para menores de 16 anos', 'Não coletamos dados de menores de 16 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', '15 minutos', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Excluir minha conta…', 'excluir-conta.html', 'frases prontas', 'não aceita fotos'])
     assert.ok(t.includes(trecho), 'a política precisa dizer: ' + trecho);
   assert.match(priv, /<b id="contato">[^<@]+@[^<]+<\/b>/, 'e-mail de contato preenchido'); assert.doesNotMatch(priv, /PREENCHER/); assert.match(priv, /<html lang="pt-BR">/);
   assert.match(priv, /atualizada em \d{1,2} de [a-zç]+ de 20\d\d/, 'tem data');
@@ -81,7 +81,7 @@ test('exclusão de conta: TODA tabela ligada a um usuário apaga em cascata (a p
   for (const tb of comUsuario) { const def = new RegExp('CREATE TABLE IF NOT EXISTS ' + tb + ' \\([\\s\\S]*?\\n\\);').exec(sql)[0]; for (const m of def.matchAll(/REFERENCES users\(id\)([^,\n]*)/g)) assert.match(m[1], /ON DELETE CASCADE/, tb + ' precisa apagar em cascata'); }
 });
 test('app: a política e a exclusão estão dentro dos Ajustes e no cadastro (a Play pede a política acessível no app)', () => {
-  assert.match(html, /<p class="set-note set-about">Jogo para 13 anos ou mais\. <a href="\/privacidade\.html" data-privacy>Privacidade e exclusão de conta<\/a><\/p>/);
+  assert.match(html, /<p class="set-note set-about">Jogo não indicado para menores de 16 anos\. <a href="\/privacidade\.html" data-privacy>Privacidade e exclusão de conta<\/a><\/p>/);
   assert.match(html, /<a href="\/privacidade\.html" data-privacy>política de privacidade<\/a>/);
   assert.ok(html.indexOf('id="push-note"') < html.indexOf('set-about') && html.indexOf('set-about') < html.indexOf('id="set-close"'));
 });

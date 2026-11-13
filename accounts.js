@@ -353,7 +353,7 @@ function createAccounts(d) {
     if (!email) return bad(res, 400, 'email');
     if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
     if (b.consent !== true) return bad(res, 400, 'consent');
-    if (b.age13 !== true) return bad(res, 400, 'age13');                          // o jogo é para 13 anos ou mais (a pessoa confirma ao criar a conta)
+    if (b.age16 !== true) return bad(res, 400, 'age16');                          // o jogo não é indicado para menores de 16 anos (a pessoa confirma ao criar a conta)
     const name = cleanName(b.name) || 'Jogador', avatar = cleanAvatar(b.avatar) || '';
     if (weakPassword(pw, email, name)) return bad(res, 400, 'password_weak');
     const old = await one('SELECT * FROM users WHERE email = $1', [email]);
@@ -477,7 +477,7 @@ function createAccounts(d) {
     }
     if (!u) {
       if (b.consent !== true) return bad(res, 400, 'consent');
-      if (b.age13 !== true) return bad(res, 400, 'age13');
+      if (b.age16 !== true) return bad(res, 400, 'age16');
       u = await createUser({ email: g.email, passHash: null, googleSub: g.sub, name: cleanName(b.name) || cleanName(g.name) || 'Jogador', avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests), emailVerified: true });
     }
     res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
@@ -607,16 +607,28 @@ function createAccounts(d) {
     res.json({ ok: true, bests: cur });
   }));
 
+  // apaga a conta e TUDO que está ligado a ela (usado por /delete e por /underage)
+  async function eraseAccount(user) {
+    const fr = (await db.q("SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS other FROM friendships WHERE user_a = $1 OR user_b = $1", [user.id])).rows;
+    await db.q('DELETE FROM users WHERE id = $1', [user.id]);          // sessões, amizades, convites, saves, bloqueios e histórico saem em cascata
+    for (const k of [...blockSet]) if (k.indexOf(user.id) >= 0) blockSet.delete(k);
+    for (const f of fr) notify(f.other, { t: 'unfriend' });
+    io.to('u:' + user.id).emit('acc:ev', { t: 'deleted' });
+    revokeSocketSessions(user.id);
+  }
   r.post('/delete', needUser, guard(async (req, res) => {       // apaga a conta e TUDO que está ligado a ela
     const b = req.body || {};
     if (b.confirm !== 'EXCLUIR') return bad(res, 400, 'confirm');
     if (req.user.pass_hash && !(await checkPassword(String(b.password || '').slice(0, 128), req.user.pass_hash))) return bad(res, 401, 'bad_login');
-    const fr = (await db.q("SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS other FROM friendships WHERE user_a = $1 OR user_b = $1", [req.user.id])).rows;
-    await db.q('DELETE FROM users WHERE id = $1', [req.user.id]);          // sessões, amizades, convites, saves, bloqueios e histórico saem em cascata
-    for (const k of [...blockSet]) if (k.indexOf(req.user.id) >= 0) blockSet.delete(k);
-    for (const f of fr) notify(f.other, { t: 'unfriend' });
-    io.to('u:' + req.user.id).emit('acc:ev', { t: 'deleted' });
-    revokeSocketSessions(req.user.id);
+    await eraseAccount(req.user);
+    res.json({ ok: true });
+  }));
+
+  // O jogo não é indicado para menores de 16 anos: quem informa isso na tela de idade do app e ainda tem uma conta neste aparelho tem a conta APAGADA.
+  // Sem pedir senha de propósito: a pessoa já está com a sessão aberta e acabou de declarar que não pode usar o jogo (e só apaga a PRÓPRIA conta).
+  r.post('/underage', needUser, guard(async (req, res) => {
+    if (!allow('under:' + req.user.id, 5, 10 * 60 * 1000)) return bad(res, 429, 'rate');
+    await eraseAccount(req.user);
     res.json({ ok: true });
   }));
 

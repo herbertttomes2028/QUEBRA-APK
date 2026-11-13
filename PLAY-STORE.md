@@ -9,7 +9,7 @@ Copie cada texto para o campo de mesmo nome em **Play Console › Presença na l
 | Campo | O que colocar | Limite |
 | --- | --- | --- |
 | Nome do app | Quebra-Cabeça a Dois | 30 (usa 20) |
-| Descrição curta | Monte quebra-cabeças online: sozinho, com um amigo ou em disputa. Para 13+. | 80 (usa 75) |
+| Descrição curta | Monte quebra-cabeças online: sozinho, com um amigo ou em disputa. Para 16+. | 80 (usa 75) |
 | Tipo de app | Jogo | |
 | Categoria | Quebra-cabeça | |
 | E-mail de contato | o mesmo da política de privacidade (confira a grafia antes de salvar) | |
@@ -54,7 +54,7 @@ PRIVACIDADE
 • Sem propaganda e sem rastreadores de terceiros.
 • Você pode excluir a sua conta a qualquer momento, dentro do app.
 
-Para 13 anos ou mais. Requer conexão com a internet.
+Não indicado para menores de 16 anos. Requer conexão com a internet.
 ```
 
 ## 2. Elementos gráficos
@@ -78,18 +78,19 @@ Arquivos no pacote `material-da-loja.zip`, já no tamanho e formato que a Play e
 
 ## 3. Público-alvo e conteúdo
 
-O jogo é declarado para 13 anos ou mais, sem nenhuma faixa abaixo de 13. Caminho: **Política › Conteúdo do app › Público-alvo e conteúdo**. Os nomes das perguntas podem variar um pouco na tela.
+O jogo é declarado como **não indicado para menores de 16 anos**: sem nenhuma faixa abaixo de 16. Caminho: **Política › Conteúdo do app › Público-alvo e conteúdo**. Os nomes das perguntas podem variar um pouco na tela.
 
 | Pergunta | Resposta |
 | --- | --- |
-| Faixas etárias do público-alvo | Marque 13–15, 16–17 e 18 ou mais. Não marque 5 ou menos, 6–8 nem 9–12. |
+| Faixas etárias do público-alvo | Marque 16–17 e 18 ou mais. Não marque 5 ou menos, 6–8, 9–12 nem 13–15. |
 | A página da loja pode atrair crianças sem querer? | Sim. O mascote e parte das ilustrações são em estilo de desenho. |
 | O app contém anúncios? | Não |
 
-- Responder "Sim" à pergunta sobre atrair crianças é a resposta honesta. Pelo que a Play documenta, ela passa a mostrar na loja o aviso de que o app não foi criado para crianças, o que reforça a sua declaração de 13+ (não verificado na conta do proprietário).
-- A ferramenta que gera o pacote (PWABuilder/Bubblewrap) avisa que apps desse tipo não podem ter público infantil. Declarar 13+ é o único caminho compatível.
+- Responder "Sim" à pergunta sobre atrair crianças é a resposta honesta. Pelo que a Play documenta, ela passa a mostrar na loja o aviso de que o app não foi criado para crianças, o que reforça a sua declaração de 16+ (não verificado na conta do proprietário).
+- A ferramenta que gera o pacote (PWABuilder/Bubblewrap) avisa que apps desse tipo não podem ter público infantil. Declarar 16+ é compatível.
 - Mantenha a coerência: não use "para crianças", "infantil" ou "para a criançada" na loja, em redes sociais ou em anúncios do jogo.
-- No app, o cadastro pede a confirmação "Tenho 13 anos ou mais" e a política de privacidade diz o mesmo.
+- No app, uma **tela de idade neutra** (mês e ano de nascimento, guardados só no aparelho) aparece antes de tudo: menores de 16 anos não jogam e, se havia conta, ela é apagada. O cadastro pede a confirmação "Tenho 16 anos ou mais" e a política de privacidade diz o mesmo.
+- **Instruções de acesso para o revisor da Play:** "Ao abrir o app, informe um mês e um ano de nascimento de alguém com 16 anos ou mais (por exemplo, janeiro de 1990). O modo visitante não precisa de conta."
 
 ## 4. Segurança dos dados
 
@@ -256,9 +257,9 @@ O pacote e os textos estão prontos, mas estes pontos ainda dependem do propriet
 - [ ] **Publicar a correção do vínculo (assetlinks):** depois do deploy, repita a consulta `assetlinks:check` do Google até aparecer `linked: true` para a chave de envio (o cache pode levar até cerca de 1 hora), desinstale o APK de teste e instale de novo.
 - [ ] **Teste em Android real:** nem o AAB nem o APK de teste foram instalados num aparelho de verdade. Confira a abertura sem barra de endereço, o botão voltar, o teclado e o mascote num celular simples.
 - [ ] **Hospedagem:** o Render gratuito dorme. A primeira resposta levou 11 a 22 segundos nas medições de 09/11/2026. Um plano que não dorme evita que testadores e revisores vejam tela em branco.
-- [ ] **ECA Digital (Lei 15.211/2025):** confirmar com um profissional se um jogo com amigos, convites e apelidos, para 13 anos ou mais, precisa de verificação de idade mais forte ou de vínculo com um responsável para 13 a 15 anos.
+- [ ] **ECA Digital (Lei 15.211/2025):** confirmar com um profissional se um jogo com amigos, convites e apelidos, para 16 anos ou mais, está dentro da lei. Perguntas ao profissional: (a) "até 16 anos", no art. 24, inclui quem tem exatamente 16? (b) a tela de idade neutra e a autodeclaração bastam como mecanismo de aferição? (c) um jogo com amigos, convites e frases prontas conta como rede social? (d) a arte em desenho faz o jogo ser de "acesso provável" por menores de 16, mesmo declarando 16+?
 - [ ] **E-mail de contato:** conferir a grafia do endereço que aparece na política de privacidade e na página de exclusão antes de repeti-lo na loja.
 - [ ] **Aviso de denúncia por e-mail:** fazer uma denúncia de teste entre duas contas suas para confirmar que o e-mail chega pelo Brevo de verdade.
 - [ ] **Capa da coleção Cultura brasileira:** mostra uma pessoa. Confirmar a origem e a licença dessa imagem no catálogo.
 - [ ] **Endereço `onrender.com`:** o pacote aponta para ele. Trocar por domínio próprio depois exige um AAB novo.
-- [ ] **Estilo visual:** o mascote e as ilustrações clássicas são em desenho. A declaração de 13+ e os textos estão coerentes, mas a avaliação final é da Play.
+- [ ] **Estilo visual:** o mascote e as ilustrações clássicas são em desenho. A declaração de 16+ e os textos estão coerentes, mas a avaliação final é da Play.

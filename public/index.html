@@ -135,7 +135,7 @@
                   <span>Li a <a href="/privacidade.html" data-privacy>política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
                 <label id="auth-age-wrap" class="me-check" hidden>
                   <input id="auth-age" type="checkbox">
-                  <span>Tenho 13 anos ou mais. (Este jogo é para quem tem 13 anos ou mais.)</span></label>
+                  <span>Tenho 16 anos ou mais. (Este jogo não é indicado para menores de 16 anos.)</span></label>
                 <p id="auth-error" class="error" role="alert" hidden></p>
                 <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
                 <button id="auth-forgot-link" class="me-link" type="button">Esqueci minha senha</button>
@@ -634,7 +634,7 @@
           <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
         </div>
         <p id="push-note" class="set-note"></p>
-        <p class="set-note set-about">Jogo para 13 anos ou mais. <a href="/privacidade.html" data-privacy>Privacidade e exclusão de conta</a></p>
+        <p class="set-note set-about">Jogo não indicado para menores de 16 anos. <a href="/privacidade.html" data-privacy>Privacidade e exclusão de conta</a></p>
         <div class="set-row">
           <span id="lbl-safe" class="set-label">Jogue com segurança</span>
           <button type="button" id="btn-safe" class="btn btn-secondary btn-small" aria-describedby="lbl-safe">🛡️ Ver dicas</button>
@@ -857,9 +857,30 @@
     </div>
   </div>
 
+  <!-- tela de idade (neutra): cobre tudo até a pessoa informar mês e ano de nascimento; ver idade.js -->
+  <div id="modal-age" class="modal age-modal" hidden role="dialog" aria-modal="true" aria-labelledby="age-title" aria-describedby="age-note">
+    <div class="sheet age-sheet" data-janela="ajustes">
+      <section id="age-ask">
+        <h3 id="age-title">Antes de começar</h3>
+        <p id="age-note">Informe o mês e o ano do seu nascimento. Isso fica só neste aparelho e não é enviado para ninguém.</p>
+        <div class="age-row">
+          <div><label for="age-m">Mês</label><select id="age-m"><option value="">Mês</option></select></div>
+          <div><label for="age-y">Ano</label><select id="age-y"><option value="">Ano</option></select></div>
+        </div>
+        <p id="age-err" class="error" role="alert" hidden></p>
+        <button id="age-go" class="btn btn-primary btn-block" type="button" disabled>Continuar</button>
+      </section>
+      <section id="age-no" hidden>
+        <h3 id="age-no-title" tabindex="-1">Este jogo não é indicado para menores de 16 anos</h3>
+        <p>Obrigado por entender. Você poderá jogar quando fizer 16 anos.</p>
+        <p id="age-no-acc" hidden>Como havia uma conta neste aparelho, ela foi apagada.</p>
+      </section>
+    </div>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="pecas.js"></script>
   <script src="cabecalhos.js"></script>
+  <script src="idade.js"></script>
   <script src="game.js"></script>
   <script src="conta.js"></script>
   <script src="loja.js"></script>

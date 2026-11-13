@@ -387,7 +387,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **Atualizações do jogo aparecem sozinhas:** quando você atualiza o GitHub e o Render publica, o aplicativo mostra a versão nova na próxima abertura, sem reinstalar o APK. Só é preciso gerar um APK novo se o endereço do Render mudar.
 - A primeira abertura pode demorar (plano gratuito do Render dorme depois de uns 15 minutos sem uso).
 - Se aparecer uma **barra de endereço no topo** do aplicativo, faltou o passo 6 ou o nome do pacote/impressão digital no `assetlinks.json` não bate com o do APK. Corrija, feche e abra o aplicativo (se persistir, desinstale e instale de novo).
-- Para publicar na **Play Store** é preciso uma conta de desenvolvedor paga e seguir as regras da loja. O jogo é para **13 anos ou mais** (veja `CONTAS.md` e a política em `public/privacidade.html`). As imagens de personagens de terceiros e de pessoas reais **já foram retiradas** da galeria; mantenha assim.
+- Para publicar na **Play Store** é preciso uma conta de desenvolvedor paga e seguir as regras da loja. O jogo **não é indicado para menores de 16 anos** (veja `CONTAS.md` e a política em `public/privacidade.html`). As imagens de personagens de terceiros e de pessoas reais **já foram retiradas** da galeria; mantenha assim.
 
 ---
 
@@ -466,6 +466,14 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 ### Tela inicial (organização atual)
 - **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil/nome fica no canto oposto (só existe com contas ligadas).
 - **Amigos** (ao lado de **Ajustes**): abre "Meus amigos" (busca por código, pedidos, convites, desafiar). Fica fora do perfil; o perfil tem só as abas Perfil e Partidas.
+
+## Idade mínima: 16 anos
+- O jogo **não é indicado para menores de 16 anos** (decisão do proprietário). Ao abrir o app pela primeira vez, uma **tela de idade neutra** pede só o **mês e o ano de nascimento**, sem dizer qual é o limite. A resposta fica **só neste aparelho** e nunca é enviada ao servidor.
+- **16 anos ou mais:** o jogo segue e não pergunta de novo. **Menos de 16:** aparece o aviso e o jogo não abre (a idade é reavaliada a cada abertura, então libera sozinho quando a pessoa fizer 16). Como o dia do aniversário não é perguntado, só vale depois que o **mês** do 16º aniversário termina.
+- Se havia uma **conta** no aparelho e a pessoa informa menos de 16 anos, a conta é **apagada** no servidor.
+- Nada do jogo (sala por link de convite, conta, tutorial) começa antes da tela de idade. O cadastro pede também a confirmação "Tenho 16 anos ou mais".
+- Para testar ou para o revisor da Play: informe um mês e um ano de quem tem 16 anos ou mais (por exemplo, janeiro de 1990). Limpar os dados do app faz a pergunta voltar.
+- A idade é **autodeclarada**: não há como provar. As dúvidas jurídicas (ECA Digital, LGPD) estão em `PLAY-STORE.md`; **não há parecer de advogado**.
 
 ## Suavidade
 - A imagem da partida é recortada e comprimida **fora da thread principal** (`public/crop-worker.js`), então o início da partida e o giro do "VAMOS LÁ!" travam bem menos. Em aparelhos que não suportam isso, o jogo usa o método de antes.

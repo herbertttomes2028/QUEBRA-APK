@@ -1,6 +1,6 @@
 "use strict";
 // PostgreSQL real somente no banco temporário qc_test, num SCHEMA TEMPORÁRIO isolado.
-// Cadastro só com "tenho 13 anos ou mais" + denúncias de jogadores (rotas HTTP e o evento da sala): validação, limites, deduplicação, bloqueio junto,
+// Cadastro só com "tenho 16 anos ou mais" + denúncias de jogadores (rotas HTTP e o evento da sala): validação, limites, deduplicação, bloqueio junto,
 // a pessoa denunciada nunca é avisada, e tudo some em cascata quando uma conta é excluída.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -11,7 +11,7 @@ const { EventEmitter } = require('node:events');
 const enabled = process.env.GEMAS_TEST_DB === '1';
 const connection = process.env.DATABASE_URL || '';
 
-test('PostgreSQL: cadastro 13+ e denúncias (HTTP e sala), com limites, sigilo e exclusão em cascata', { skip: !enabled }, async () => {
+test('PostgreSQL: cadastro 16+ e denúncias (HTTP e sala), com limites, sigilo e exclusão em cascata', { skip: !enabled }, async () => {
   const url = new URL(connection);
   if (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.pathname !== '/qc_test') throw Error('PROTEÇÃO: só qc_test em localhost; nunca Neon/produção');
   const { Pool } = require('pg');
@@ -47,16 +47,16 @@ test('PostgreSQL: cadastro 13+ e denúncias (HTTP e sala), com limites, sigilo e
     const rep = async (token, b) => post('/reports', token, b);
     const linhas = async (w, p) => (await q('SELECT * FROM reports ' + (w || ''), p || [])).rows;
 
-    /* ================= 1) cadastro: só com a confirmação de 13+ ================= */
+    /* ================= 1) cadastro: só com a confirmação de 16+ ================= */
     let ipN = 0; const reg = (b) => post('/register', null, b, '10.0.0.' + (++ipN));       // cada tentativa de outro IP (o limite de cadastros por IP já existe)
     const senha = 'Aa1!' + crypto.randomBytes(12).toString('hex');                      // gerada a cada execução: nenhuma senha escrita no código
     const base = { email: 'novo1@t.test', password: senha, name: 'Nina', consent: true };
-    assert.equal((await reg(Object.assign({}, base, { consent: false, age13: true }))).body.error, 'consent', 'sem a caixa de privacidade: recusa');
-    let r = await reg(base); assert.deepEqual([r.status, r.body.error], [400, 'age13'], 'sem confirmar 13+: recusa');
-    r = await reg(Object.assign({}, base, { age13: false })); assert.equal(r.body.error, 'age13', 'age13 falso: recusa');
-    for (const falso of ['true', 1, 'sim', {}, null]) assert.equal((await reg(Object.assign({}, base, { age13: falso }))).body.error, 'age13', 'só o booleano true vale: ' + JSON.stringify(falso));
+    assert.equal((await reg(Object.assign({}, base, { consent: false, age16: true }))).body.error, 'consent', 'sem a caixa de privacidade: recusa');
+    let r = await reg(base); assert.deepEqual([r.status, r.body.error], [400, 'age16'], 'sem confirmar 16+: recusa');
+    r = await reg(Object.assign({}, base, { age16: false })); assert.equal(r.body.error, 'age16', 'age16 falso: recusa');
+    for (const falso of ['true', 1, 'sim', {}, null]) assert.equal((await reg(Object.assign({}, base, { age16: falso }))).body.error, 'age16', 'só o booleano true vale: ' + JSON.stringify(falso));
     assert.equal((await q("SELECT count(*)::int AS n FROM users WHERE email = 'novo1@t.test'")).rows[0].n, 0, 'nenhuma conta foi criada sem a confirmação');
-    r = await reg(Object.assign({}, base, { age13: true })); assert.equal(r.body.ok, true, 'com as duas caixas: cria a conta ' + JSON.stringify(r.body).slice(0, 160)); assert.ok(r.body.token);
+    r = await reg(Object.assign({}, base, { age16: true })); assert.equal(r.body.ok, true, 'com as duas caixas: cria a conta ' + JSON.stringify(r.body).slice(0, 160)); assert.ok(r.body.token);
     assert.equal((await q("SELECT count(*)::int AS n FROM users WHERE email = 'novo1@t.test'")).rows[0].n, 1);
 
     /* ================= 2) denúncia por HTTP ================= */

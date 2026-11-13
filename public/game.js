@@ -3754,7 +3754,7 @@
   state.name = store.get('name', '') || '';
   applySettings();
 
-  fetchConfig().then(function () {
+  fetchConfig().then(function () { return window.QCIdade ? window.QCIdade.ready : null; }).then(function () {          // nada de sala, conta ou tutorial antes da idade
     updatePushNote();
     var param = '';
     try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, state.codeLen); } catch (e) { /* ignora */ }
@@ -3890,6 +3890,7 @@
   }
   function closeTopModal(m) {
     if (m.id === 'modal-help') { closeTutorial(); return true; }
+    if (m.id === 'modal-age') return true;                  // a tela de idade não se fecha: ou a pessoa informa o mês e o ano, ou fica sem jogar
     if (m.id === 'modal-rematch') return true;              // pedido de revanche precisa de resposta: voltar não decide por ninguém
     var b = m.querySelector('[data-back]');
     if (b && !b.hidden) { b.click(); return true; }

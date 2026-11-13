@@ -219,5 +219,5 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). 
 
 **No Play Console:**
 8. Conta pessoal nova: teste fechado com **12 testadores por 14 dias seguidos**, depois o pedido de acesso à produção. Conta de organização é isenta.
-9. **Público-alvo:** decida se inclui crianças. Se incluir, vale a Families Policy (declarar dados de crianças, política de privacidade fiel, apps sociais com aviso de segurança, só SDKs aprovados para crianças). Decida também sobre o **login com o Google** nessa faixa e sobre a **LGPD, art. 14** (consentimento de pais para crianças); isso é tema para revisão profissional.
+9. **Público-alvo (decidido em 13/11/2026):** **não indicado para menores de 16 anos** (marque 16–17 e 18 ou mais; ver `PLAY-STORE.md`, seção 3). A tela de idade neutra e o cadastro 16+ já estão no app. Leve ao profissional as perguntas jurídicas listadas em `PLAY-STORE.md` (ECA Digital, LGPD). O login com o Google está desligado no seu Render, então a dúvida sobre ele em app com menores não se aplica hoje.
 10. Formulários: segurança de dados (link de exclusão: `/excluir-conta.html`), classificação de conteúdo, instruções de acesso (o modo visitante entra sem conta), e-mail de suporte. **Reveja o e-mail de contato da política de privacidade** (`herbert.uva.unversidade@gmail.com`: confira se "unversidade" não é erro de digitação).
