@@ -44,7 +44,7 @@ O Render publica sozinho. Espere o status **Live**.
 
 As tabelas são criadas **sozinhas** quando o servidor liga (não precisa rodar comando). Para conferir, abra no navegador:
 
-`https://SEU-APP.onrender.com/diagnostico` — deve aparecer `"contas": { "ativas": true, ... "dica": "Contas funcionando." }`.
+`https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN` (crie antes a variável `DIAG_TOKEN` no Render; ver `SEGURANCA.md`, seção 0) — deve aparecer `"contas": { "ativas": true, ... "dica": "Contas funcionando." }`.
 
 Se aparecer `ativas: false`, leia `dica`: normalmente a `DATABASE_URL` está errada ou faltou a pasta `migrations/`. Os detalhes ficam em **Logs** do Render (procure por `[contas]`).
 

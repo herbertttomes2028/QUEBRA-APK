@@ -136,4 +136,40 @@ function createJoinGuard(env) {
   };
 }
 
-module.exports = { ipOfSocket, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE };
+/* ---------- /diagnostico protegido por token ----------
+ * DIAG_TOKEN (variável do Render, 24 a 200 caracteres) libera a versão COMPLETA do diagnóstico. Sem ela, ou com token errado, só aparece o essencial.
+ * O token vai no cabeçalho "Authorization: Bearer ..." ou, para abrir no navegador, em ?token=. Comparação em tempo constante (resumos SHA-256);
+ * tentativas ERRADAS limitadas por endereço (10 em 10 minutos): passado o limite nem o token certo entra, para não dar para adivinhar. */
+const DIAG_MIN = 24, DIAG_MAX = 200, DIAG_MAX_WRONG = 10, DIAG_WINDOW_MS = 10 * 60 * 1000;
+function createDiagGate(env, nowFn) {
+  const now = nowFn || Date.now;
+  const raw = String((env && env.DIAG_TOKEN) || '').trim();
+  const token = raw.length >= DIAG_MIN && raw.length <= DIAG_MAX ? raw : '';
+  const digest = (v) => crypto.createHash('sha256').update(String(v)).digest();
+  const want = token ? digest(token) : null;
+  const wrong = new Map();
+  const sweep = setInterval(() => { const t = now(); for (const [ip, a] of wrong) if (!a.some((x) => t - x < DIAG_WINDOW_MS)) wrong.delete(ip); }, 60000);
+  sweep.unref();
+  function presented(req) {
+    const m = /^Bearer\s+(\S+)\s*$/i.exec(String(req.get('authorization') || ''));
+    if (m) return m[1];
+    const q = req.query && req.query.token;
+    return typeof q === 'string' ? q : '';
+  }
+  return {
+    enabled: !!token,
+    tooShort: raw.length > 0 && !token,
+    check(req) {                       // 'ok' | 'desligado' | 'negado' | 'limitado'
+      if (!want) return 'desligado';
+      const ip = req.ip || 'desconhecido', t = now(), list = (wrong.get(ip) || []).filter((x) => t - x < DIAG_WINDOW_MS);
+      if (list.length >= DIAG_MAX_WRONG) { wrong.set(ip, list); return 'limitado'; }
+      const p = presented(req);
+      if (!p) return 'negado';         // não tentou nenhum token: não conta como erro
+      if (crypto.timingSafeEqual(digest(p), want)) return 'ok';
+      if (wrong.size < 5000 || wrong.has(ip)) { list.push(t); wrong.set(ip, list); }
+      return 'negado';
+    }
+  };
+}
+
+module.exports = { ipOfSocket, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE, createDiagGate };

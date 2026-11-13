@@ -221,15 +221,28 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
   res.json(loadAssetLinks().dados);
 });
 
-// Página de conferência: mostra o que o servidor está publicando para o Android
+// Página de conferência. O essencial (o que o servidor publica para o Android, que já é público em /.well-known) aparece para todos;
+// o DETALHE (e-mail, limites, CSP, contas) só com o DIAG_TOKEN do Render, no cabeçalho Authorization: Bearer ou em ?token=
+const diagGate = security.createDiagGate(process.env);
+if (diagGate.tooShort) console.warn('[diagnostico] DIAG_TOKEN tem menos de 24 caracteres: ignorado. Use um valor longo e aleatório.');
+else if (!diagGate.enabled) console.log('[diagnostico] detalhes DESLIGADOS (defina DIAG_TOKEN no Render para vê-los).');
 app.get('/diagnostico', (req, res) => {
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+  const acesso = diagGate.check(req);
+  if (acesso === 'limitado') return res.status(429).json({ servidor: 'ok', erro: 'muitas tentativas erradas; espere alguns minutos' });
   const al = loadAssetLinks();
   const pacotes = [];
   for (const st of al.dados) {
     const t = st && st.target;
     if (t && t.namespace === 'android_app') pacotes.push({ pacote: t.package_name, impressoes_digitais: t.sha256_cert_fingerprints || [] });
   }
-  res.set('Cache-Control', 'no-cache');
+  if (acesso !== 'ok') {
+    return res.json({
+      servidor: 'ok',
+      verificacao_do_aplicativo: { publicado_em: '/.well-known/assetlinks.json', pacotes },
+      detalhes: diagGate.enabled ? 'protegidos: acrescente ?token=SEU_TOKEN' : 'desligados: defina DIAG_TOKEN (24 caracteres ou mais) no Render para vê-los'
+    });
+  }
   res.json({
     servidor: 'ok',
     verificacao_do_aplicativo: {

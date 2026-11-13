@@ -3,10 +3,22 @@
 > Este guia cobre: frases prontas, limite de tentativas no código da sala, bloquear jogadores, código de confirmação por e-mail,
 > recuperar e trocar a senha, cabeçalhos de segurança (CSP em modo "só relatar") e a verificação do certificado do banco.
 
+## 0. Token do `/diagnostico` (faça primeiro)
+
+O `/diagnostico` mostra configuração interna (e-mail, limites, CSP, contas). Por isso o detalhe só aparece com um token:
+
+1. No Render, **Environment > Add Environment Variable**: nome `DIAG_TOKEN`, valor = texto **aleatório de 24 caracteres ou mais** (por exemplo, gere com o botão de gerar valor do Render, ou `openssl rand -hex 24` no computador). Valores curtos são ignorados (e o log avisa).
+2. Abra `https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN`. Sem token, ou com token errado, aparece só o essencial (pacote Android e impressões digitais, que já são públicos).
+3. Para ferramentas e scripts, prefira enviar o token no cabeçalho `Authorization`, com o valor `Bearer` seguido de um espaço e do token (por exemplo, no Postman). Aberto no navegador, o token fica no histórico: se alguém mais usar o aparelho, troque o valor no Render.
+4. Dez tentativas **erradas** bloqueiam o endereço por 10 minutos (nem o token certo entra nesse período).
+5. Nunca coloque o token no GitHub, em conversa ou em print.
+
+(Nos passos abaixo, onde estiver "abra `/diagnostico`", use o endereço com `?token=SEU_TOKEN`.)
+
 ## 1. Ordem recomendada (leva uns 30 minutos)
 
 1. **Publicar o código** no GitHub (seção 2). O jogo continua funcionando como hoje: o e-mail ainda está desligado.
-2. **Conferir** em `https://SEU-APP.onrender.com/diagnostico` (seção 3).
+2. **Conferir** em `https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN` (seção 3).
 3. **Ligar o e-mail** (Brevo, seção 4). Só aqui as contas passam a pedir o código.
 4. **Testar com dois celulares** (seção 9).
 5. Depois de alguns dias, **ligar a CSP obrigatória** (seção 6).
@@ -29,7 +41,7 @@ Também **não** existe mais nenhum `moderation.js`: não há filtro de fotos ne
 
 ## 3. Conferir que ligou
 
-Abra `/diagnostico`. Em `contas` deve aparecer `"ativas": true`. Em `seguranca` você vê:
+Abra `/diagnostico?token=SEU_TOKEN`. Em `contas` deve aparecer `"ativas": true`. Em `seguranca` você vê:
 `cabecalhos` (ativos), `csp.modo` (`report`), `tamanho_do_codigo_da_sala` (6), `limite_de_tentativas` e `email` (`não configurado — faltam as variáveis: ...` até a seção 4; mostra só os **nomes** do que falta).
 
 Se `contas.ativas` for `false` logo após esta atualização, quase certamente é o **certificado do banco** (seção 7): veja os registros (Logs) do Render.
@@ -79,8 +91,9 @@ A **política de conteúdo (CSP)** começa em **`report`** (só relata, não blo
 sem sites externos além do Google, e a conexão em tempo real só para o próprio endereço do jogo.
 
 - Veja o que ela relataria em `/diagnostico` > `seguranca.csp` (`violacoes_registradas`, `por_regra`, `ultimas`).
-- **Nos meus testes, com a CSP obrigatória, o jogo inteiro rodou com 0 violações.** Mas isso foi em celular simulado.
-- Depois de **1 a 2 semanas de uso real com 0 violações**, ligue a obrigatória: no Render crie `CSP_MODE` = `enforce`. Para voltar atrás, apague a variável (ou use `off`).
+- **Testada para `enforce` (rodada `seguranca-play`):** com `CSP_MODE=enforce` e o login do Google ligado, percorri o jogo inteiro (início com o pet, Ajustes, Loja, tutorial, partida solo com arrasto e recorte da imagem, Sala Desafio, conta e Amigos, tela de entrada e service worker) escutando todo evento de violação: **0 violações**, e o `/diagnostico` também ficou em 0. Foi em navegador de teste (desktop headless), não em Android real.
+- **Para ligar:** no Render crie `CSP_MODE` = `enforce`, jogue uma partida completa em dois celulares, abra Amigos e a Loja. Se algo quebrar, apague a variável (volta ao modo `report`). Acompanhe `seguranca.csp.violacoes_registradas` durante o teste fechado da Play: deve continuar em 0.
+- Os testes do projeto impedem o que quebraria o `enforce`: script embutido, atributo `onclick=` e similares, `javascript:`, `eval` e recurso de outro site (fora o login do Google).
 - Se for ligar o login do Google depois, repita o teste (a política já libera `accounts.google.com/gsi/`).
 
 ## 7. Certificado do banco (Neon)
@@ -188,3 +201,23 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). 
 - **Prazo que a política promete:** responder a pedidos em até 15 dias. Olhe `reports` pelo menos uma vez por semana.
 - **Risco imediato** (ameaça, conteúdo ilegal): exclua a conta primeiro, depois avalie se precisa avisar as autoridades.
 - Limites: 15 denúncias por hora por pessoa; a mesma denúncia repetida em 24 h conta uma vez. Cada denúncia aceita uma nota de até 200 letras.
+
+## 13. Antes de gerar o AAB da Play Store (segurança e política)
+
+**Feito no código (rodada `seguranca-play`):** `/diagnostico` com token, CSP testada para `enforce`, aviso curto de segurança online, README corrigido (sem upload nem chat livre).
+
+**No Render (você):**
+1. Crie `DIAG_TOKEN` (seção 0) e, depois de testar, `CSP_MODE=enforce` (seção 6).
+2. Confira `DATABASE_URL`, `BREVO_API_KEY` e `GOOGLE_CLIENT_ID`; troque qualquer chave que já tenha aparecido em conversa, print ou arquivo. (`DB_SSL_VERIFY=0` é ignorado de propósito: o certificado do banco é sempre conferido.)
+3. O plano grátis **dorme**: o revisor da Play e os testadores veriam tela em branco por 20 a 60 s. Antes da revisão, use um plano que não durma (ou um ping de manutenção).
+4. Confirme a retenção de backup do banco (Neon) antes de ter jogadores reais.
+
+**Na geração do AAB:**
+5. O aplicativo novo precisa mirar o **Android 16 (API 36)**. Confira o AAB: `bundletool dump manifest --bundle app.aab` e procure `targetSdkVersion` (36 ou mais). Se vier menor, gere de novo com uma versão atual do PWABuilder ou do Bubblewrap.
+6. Pacote `com.onrender.quebra_apk.twa` (o mesmo do `assetlinks.json`; não muda depois de publicado). Guarde a chave de envio e as senhas em **dois lugares fora do GitHub**.
+7. Com **Play App Signing** (padrão), a Google reassina o app. Depois do primeiro envio, copie a impressão digital SHA-256 da **chave de assinatura do app** (Integridade do app) e **some** ao `public/assetlinks.json`; só então o app abre sem barra de endereço.
+
+**No Play Console:**
+8. Conta pessoal nova: teste fechado com **12 testadores por 14 dias seguidos**, depois o pedido de acesso à produção. Conta de organização é isenta.
+9. **Público-alvo:** decida se inclui crianças. Se incluir, vale a Families Policy (declarar dados de crianças, política de privacidade fiel, apps sociais com aviso de segurança, só SDKs aprovados para crianças). Decida também sobre o **login com o Google** nessa faixa e sobre a **LGPD, art. 14** (consentimento de pais para crianças); isso é tema para revisão profissional.
+10. Formulários: segurança de dados (link de exclusão: `/excluir-conta.html`), classificação de conteúdo, instruções de acesso (o modo visitante entra sem conta), e-mail de suporte. **Reveja o e-mail de contato da política de privacidade** (`herbert.uva.unversidade@gmail.com`: confira se "unversidade" não é erro de digitação).
