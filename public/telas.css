@@ -88,3 +88,14 @@ html[data-theme="dark"] .library-gate.feito { background: #0f4b3a; color: #b8f5d
 /* ---------- aviso de segurança online (janela curta, lida uma vez por aparelho) ---------- */
 .safe-list { margin: 8px 0 16px; padding-left: 1.25em; display: grid; gap: 9px; font-size: 1rem; line-height: 1.35; color: var(--ink); }
 .safe-sheet h3 { margin-bottom: 4px; }
+
+/* ---------- tela de idade (neutra): cobre o app inteiro até a pessoa informar mês e ano de nascimento ---------- */
+.age-modal { z-index: 99999; background: var(--paper); align-items: center; justify-content: center; padding: 18px; }
+.age-modal .sheet { border-radius: 26px; max-width: 420px; width: 100%; }
+.age-sheet h3 { margin-bottom: 6px; }
+#age-no-title:focus { outline: none; }       /* o foco nele é só para o leitor de tela anunciar o aviso: não é um controle, então sem contorno */
+.age-sheet p { color: var(--ink); }
+.age-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 10px; }
+.age-row label { display: block; margin: 0 0 4px 2px; font-weight: 700; font-size: .85rem; color: var(--ink-soft); }
+.age-row select { width: 100%; min-height: 48px; padding: 0 10px; font: inherit; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 14px; }
+.age-sheet .btn[disabled] { opacity: .55; }

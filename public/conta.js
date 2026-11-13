@@ -30,7 +30,7 @@
     email: 'Confira o e-mail: ele precisa ter o formato nome@exemplo.com.',
     password: 'A senha precisa ter pelo menos 8 caracteres.',
     consent: 'Marque a caixa de privacidade para criar a conta.',
-    age13: 'Este jogo é para quem tem 13 anos ou mais. Marque a caixa para confirmar.',
+    age16: 'Este jogo não é indicado para menores de 16 anos. Marque a caixa se você tem 16 anos ou mais.',
     reason: 'Escolha o motivo da denúncia.',
     guest: 'Essa pessoa não tem conta, então não dá para denunciar por aqui. Você pode sair da partida pelo menu.',
     no_peer: 'Não há ninguém na sala para denunciar.',
@@ -351,7 +351,7 @@
     var up = acc.mode === 'up', go = $('#auth-go');
     var body = { email: $('#auth-email').value, password: $('#auth-pass').value };
     if (!body.email.trim() || !body.password) { say('#auth-error', 'Preencha o e-mail e a senha.'); return; }
-    if (up) { body.name = $('#auth-name').value.trim() || state.name; body.avatar = state.avatar; body.consent = $('#auth-consent').checked; body.age13 = $('#auth-age').checked; body.bests = state.bests; }
+    if (up) { body.name = $('#auth-name').value.trim() || state.name; body.avatar = state.avatar; body.consent = $('#auth-consent').checked; body.age16 = $('#auth-age').checked; body.bests = state.bests; }
     go.disabled = true; say('#auth-error', '');
     api('POST', up ? '/register' : '/login', body).then(function (j) {
       go.disabled = false;
@@ -458,9 +458,9 @@
     document.head.appendChild(s);
   }
   function onGoogle(resp) {
-    api('POST', '/google', { credential: resp.credential, consent: $('#auth-consent').checked, age13: $('#auth-age').checked, name: state.name, avatar: state.avatar, bests: state.bests }).then(function (j) {
+    api('POST', '/google', { credential: resp.credential, consent: $('#auth-consent').checked, age16: $('#auth-age').checked, name: state.name, avatar: state.avatar, bests: state.bests }).then(function (j) {
       if (!j || !j.ok) {
-        if (j && (j.error === 'consent' || j.error === 'age13')) { setAuthMode('up'); say('#auth-error', 'Primeira vez aqui? Marque as caixas de privacidade e de idade (13 anos ou mais) e toque no botão do Google de novo.'); }
+        if (j && (j.error === 'consent' || j.error === 'age16')) { setAuthMode('up'); say('#auth-error', 'Primeira vez aqui? Marque as caixas de privacidade e de idade (16 anos ou mais) e toque no botão do Google de novo.'); }
         else say('#auth-error', errText(j && j.error));
         return;
       }
