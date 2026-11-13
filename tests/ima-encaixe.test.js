@@ -6,7 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { startServer, client } = require('./helpers');
+const { startServer, client, DIAG_TOKEN } = require('./helpers');
 const root = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 const dorme = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -99,7 +99,7 @@ for (const modo of ['comum', 'quebra']) {
 }
 
 test('ajuste pelo painel do Render: SNAP_FACTOR de 0,25 a 0,75 vale; qualquer outro valor é ignorado e vale 0,5; o /diagnostico mostra o que está em uso', async () => {
-  const lePor = async (env) => { const s = await startServer(Object.assign({ ROOM_CREATES_PER_10MIN: '100' }, env)); try { const j = await (await fetch(s.url + '/diagnostico')).json(); const cj = await (await fetch(s.url + '/api/config')).json();
+  const lePor = async (env) => { const s = await startServer(Object.assign({ ROOM_CREATES_PER_10MIN: '100' }, env)); try { const j = await (await fetch(s.url + '/diagnostico?token=' + DIAG_TOKEN)).json(); const cj = await (await fetch(s.url + '/api/config')).json();
       const a = await client(s.url); const r = await a.emitAck('create', { pid: 'p' + Math.random(), imageId: cj.images[0].file, pieces: 12, name: 'Ana' }); const cfg = r.snapshot.cfg; a.close(); return { enc: j.encaixe, snap: cfg.SNAP, tile: cfg.TILE }; } finally { await s.stop(); } };
   const padrao = await lePor({}); assert.deepEqual([padrao.enc.raio_em_casas, padrao.enc.padrao, padrao.enc.origem], [0.5, 0.5, 'padrão']); assert.equal(padrao.snap, Math.round(padrao.tile * 0.5));
   for (const v of ['0.4', '0.25', '0.75']) { const r = await lePor({ SNAP_FACTOR: v }); assert.equal(r.enc.raio_em_casas, Number(v), v); assert.equal(r.enc.origem, 'variável SNAP_FACTOR'); assert.equal(r.snap, Math.round(r.tile * Number(v)), 'o servidor usa ' + v); }

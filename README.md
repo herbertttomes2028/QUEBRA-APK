@@ -7,7 +7,7 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 - **Gestos simples nas peças:** arrastar, tocar para girar e pinça para dar zoom.
 - **Tela inicial renovada:** os 4 blocos do logotipo se encaixam ao abrir, fonte arredondada, campos e botões com relevo e resposta ao toque, avatares em grade com salto ao escolher e fundo com peças de quebra-cabeça.
 - **Abertura da partida:** ao criar, a imagem escolhida gira no centro e aparece "VAMOS LÁ!"; quando a partida começa toca um "TANNN".
-- **Galeria de um toque + "Minha imagem":** tocou na imagem, ela já está escolhida e um painel de baixo mostra a prévia e as quantidades de peças. O cartão **"Adicionar minha imagem"** deixa qualquer jogador usar uma foto ou desenho do próprio celular.
+- **Galeria de um toque:** tocou na imagem, ela já está escolhida e um painel de baixo mostra a prévia e as quantidades de peças. As imagens vêm só do catálogo do jogo (os jogadores não enviam fotos).
 - **🏆 Sala Desafio:** dois jogadores montam a MESMA imagem ao mesmo tempo, cada um no seu tabuleiro; vence quem terminar primeiro. Dois modos: **Comum** e **Quebrando Cabeças** (caixa de presentes que solta as peças).
 - **Tutorial animado** na primeira vez, **avatares**, **modo escuro**, **texto maior**, **sons** e **marcos de progresso** (25%, 50% e 75%).
 - **Dica de lugar 📍**, **recomeçar só com a confirmação do amigo** e **avisos com o aplicativo fechado** (opcionais).
@@ -32,7 +32,7 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 10. **Exclusividade:** enquanto uma pessoa segura uma peça (contorno colorido e etiqueta com o nome dela), a outra **não consegue** pegá-la, movê-la nem girá-la.
 11. **💡 Lâmpada:** fica no topo, ao lado do menu, e é só o ícone. Ao apertar, a **imagem completa aparece esmaecida no tabuleiro, atrás das peças, por 4 segundos** e depois some sozinha. Cada jogador pode usar **10 vezes por partida** (o número pequeno no botão mostra quantas restam). Apertar de novo enquanto a imagem está visível não gasta outra dica, e só quem apertou vê a imagem. Recarregar a página não renova as dicas.
 12. **📍 Dica de lugar:** com uma peça **escolhida**, o mesmo botão vira **📍**. Ao apertar, a **casa certa da peça pisca no tabuleiro por cerca de 4 segundos**. É só um destaque: a peça não se mexe sozinha. São **5 usos por jogador** por partida (o número no botão mostra quantos restam), e só quem apertou vê o destaque. Se a peça já estiver no lugar, o jogo avisa e não gasta o uso.
-13. **💬 Conversa:** toque no balão 💬 no topo para abrir o painel. Escreva e toque em **Enviar** (ou use o Enter), ou toque numa reação rápida (👍 😂 👏 😮 🤔 ❤️ 🎉). Com o painel fechado, quando o amigo escrever aparece um **aviso no topo** com a mensagem e um **contador** no botão 💬. Toque no aviso para abrir. Quem entra depois, ou volta à sala, vê as últimas mensagens.
+13. **💬 Conversa (frases prontas):** toque no balão 💬 no topo para abrir o painel e escolha uma **frase pronta** ou uma reação rápida (👍 😂 👏 😮 🤔 ❤️ 🎉); não há campo de texto. Com o painel fechado, quando o amigo falar aparece um **aviso no topo** com a frase e um **contador** no botão 💬. Toque no aviso para abrir. Quem entra depois, ou volta à sala, vê as últimas mensagens.
 14. **Marcos e sons:** ao chegar a **25%, 50% e 75%** das peças encaixadas aparece uma mensagem curta ("Um quarto!", "Metade!", "Falta pouco!"). Há sons curtos ao encaixar, ao vencer, ao chegar mensagem e ao chegar um pedido de recomeçar. Eles são gerados pelo próprio navegador, e o **botão de silêncio** fica no Menu (☰) e em Ajustes.
 15. **Vitória:** aparece a **imagem completa** (sem nenhuma linha de grade), o **tempo**, quantas peças cada um encaixou (com avatar e nome) e o seu **melhor tempo** para aquela imagem e quantidade de peças (aparece "🏆 Novo recorde!" quando você bate o seu melhor). Os botões **⬇ Salvar imagem** e **↗ Compartilhar** geram uma figura com a imagem pronta e uma faixa com os nomes, a quantidade de peças e o tempo. Se o aparelho não permitir compartilhar direto, a imagem é salva para você enviar.
 16. **Recomeçar com a confirmação do amigo:** "Jogar de novo", "Recomeçar esta imagem" e "Trocar imagem ou peças" **pedem o aceite do outro jogador**. Ele vê "Fulano quer recomeçar" (com a imagem e a quantidade de peças) e pode **Aceitar** ou dizer **Agora não**, e tem **30 segundos** para responder. Quem pediu vê "Esperando…" e pode **Cancelar**. Se o amigo não estiver na sala, recomeça na hora. Assim ninguém perde a partida sem querer.
@@ -41,18 +41,12 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 
 ---
 
-## Conversa (chat)
+## Conversa (frases prontas)
 
-- **Como funciona:** as mensagens passam pelo mesmo servidor do jogo e chegam na hora aos dois da sala. Cada mensagem mostra o nome de quem escreveu, com a cor do jogador.
-- **Limites:** até 200 letras por mensagem e um ritmo máximo de 20 mensagens a cada 10 segundos por pessoa (para evitar enchentes). Mensagens em branco não são enviadas.
-- **Só texto:** nada do que for digitado vira link, imagem ou código; aparece exatamente como foi escrito.
-- **Histórico:** o servidor guarda só as **últimas 50 mensagens da sala**, na memória, para quem voltar à sala. Elas somem quando a sala é apagada (cerca de 15 minutos depois de todos saírem) ou quando o Render reinicia o serviço. **Nada é gravado em arquivo e as mensagens não aparecem no registro (log) do servidor.** Reiniciar a partida não apaga a conversa.
-- **Teclado do celular:** ao tocar no campo de texto, o painel sobe junto com o teclado para o campo não ficar escondido.
-- **Não precisa gerar outro APK:** o aplicativo carrega o jogo do site, então a conversa aparece sozinha depois que você atualizar o GitHub.
-- **Moderação:** não há filtro de palavras. Se o jogo for usado com crianças ou alunos, vale combinar regras antes ou **desligar a conversa**:
-  1. No Render, abra o serviço e vá em **Environment**.
-  2. Clique em **Add Environment Variable**, use o nome `CHAT_ENABLED` e o valor `false`, e salve.
-  3. O Render publica de novo e o botão 💬 deixa de aparecer. Para ligar de novo, apague a variável ou troque o valor por `true`.
+- **Só frases prontas e reações:** não existe campo de texto. O jogador toca numa frase (ou reação) da lista; o servidor só aceita frases dessa lista (`phrases.js`) e recusa qualquer outro texto. Cada mensagem mostra o nome de quem a enviou, com a cor do jogador. Há 10 frases básicas; outras são liberadas jogando, para quem tem conta.
+- **Limites:** no máximo 12 mensagens a cada 10 segundos por pessoa, com pelo menos 0,4 s entre elas. No modo solo não há conversa.
+- **Histórico:** o servidor guarda só as últimas mensagens da sala, na memória. Elas somem quando a sala é apagada (cerca de 15 minutos depois de todos saírem) ou quando o Render reinicia o serviço. Nada é gravado em arquivo.
+- **Moderação:** como não há texto livre, não há filtro de palavras para manter. Há **Bloquear** e **Denunciar** (ver `SEGURANCA.md`). Para desligar a conversa: no Render, em **Environment**, crie `CHAT_ENABLED` com o valor `false`. O botão 💬 deixa de aparecer; para ligar de novo, apague a variável.
 
 ---
 
@@ -77,7 +71,7 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 
 ---
 
-## Escolher a imagem (um toque) e "Minha imagem"
+## Escolher a imagem (um toque)
 
 ### A galeria
 - **Um toque na imagem** e ela já é escolhida: ganha uma borda colorida, o ✓ e uma pequena animação.
@@ -86,30 +80,8 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 - Tocar em outra imagem troca a escolha sem fechar o painel; o **✕** fecha o painel e volta à galeria.
 - **Miniaturas prontas:** para a galeria abrir sem pesar, cada imagem da pasta `public/imagens/` tem uma miniatura de 300 × 400 (cerca de 27 KB, com o mesmo visual de sempre) em `public/imagens/mini/`, com **o mesmo nome do arquivo**. Imagens novas que você colocar na pasta funcionam mesmo sem miniatura (o celular gera uma, uma por vez), mas a galeria fica mais leve se você incluir também a miniatura em `public/imagens/mini/`.
 
-### Minha imagem
-1. Toque no cartão **Adicionar minha imagem** (o primeiro da galeria, com o mesmo tamanho dos outros). O seletor de arquivos do celular abre.
-2. Escolha uma foto ou desenho. Aparece uma **prévia no formato do quebra-cabeça (3:4)**: **arraste** para escolher a parte, use o **zoom** (ou a pinça com dois dedos), **Preencher** cobre o quadro todo e **Inteira** mostra a imagem completa (as sobras ficam com a própria imagem desfocada). A proporção da imagem nunca é esticada.
-3. **Usar esta imagem** envia a imagem e ela entra na galeria, já escolhida, com o painel de peças aberto. **Escolher outra** reabre o seletor.
-4. Dali em diante é o fluxo normal: escolher a quantidade de peças e confirmar. Vale para a partida comum, para a **Sala Desafio** e para **trocar a imagem** durante o jogo.
-
-### Validações (com mensagens amigáveis)
-- Aceita fotos e desenhos em JPG, PNG, WebP, GIF e BMP, até **40 MB**, com pelo menos **200 pixels** de lado (abaixo de 700 pixels o jogo avisa que pode ficar sem nitidez).
-- **Não** aceita SVG nem arquivos que não são imagem; fotos **HEIC** (iPhone) podem não abrir em alguns aparelhos, e a mensagem sugere JPG, PNG ou WebP.
-- O celular reduz a imagem para **900 × 1200** e a reenvia como **JPEG de até 1,5 MB**. O servidor só aceita JPEG íntegro de 64 a 2048 pixels.
-- Sem internet, o envio mostra um aviso e a janela continua aberta para tentar de novo.
-
-### Como a imagem chega ao outro jogador
-- A imagem **não depende do celular de quem a escolheu**: ela é enviada ao servidor, que a guarda e a entrega aos dois por um endereço próprio (`/api/up/<código aleatório>`). A sala guarda só esse código.
-- **A partida só começa depois que a imagem estiver carregada e preparada nos DOIS celulares.** Na partida comum, o cronômetro só corre quando os dois avisam que estão prontos (enquanto isso aparece "Preparando a imagem nos dois celulares…"). Na **Sala Desafio** (para qualquer imagem), o botão "Estou pronto!" só vale com a imagem pronta, e a contagem só começa com as duas prontas.
-- Trocar para outra imagem durante o jogo repete essa espera.
-
-### Privacidade e limites do servidor
-- A imagem só sai do celular quando você toca em **Usar esta imagem**. Ela é **reencodada como um JPEG novo**, o que remove dados da foto original, como a localização.
-- As imagens ficam **só na memória do servidor** (não vão para o GitHub nem para disco) e **somem em até 8 horas** (ou se o Render reiniciar). Uma imagem que uma sala está usando nunca é apagada antes da sala.
-- O endereço é um código aleatório de 128 bits: não dá para adivinhar, mas quem o recebe vê a imagem. **Não envie imagens íntimas ou de outras pessoas sem permissão.**
-- Limites: **15 envios por pessoa a cada 10 minutos** (variável opcional `UPLOAD_RATE` no Render), no máximo **80 imagens ou 96 MB** guardadas ao mesmo tempo (as mais antigas e sem uso saem primeiro).
-
----
+### Imagens dos jogadores: não há
+O jogo **não aceita fotos nem imagens enviadas pelos jogadores** (o recurso "Minha imagem" foi retirado: não há rota de envio no servidor). Isso evita guardar fotos de crianças e conteúdo de terceiros, e é o que a política de privacidade afirma. Todas as imagens vêm do catálogo do jogo (pasta `public/biblioteca`, registrada em migrações com origem e licença de cada uma).
 
 ## 🏆 Sala Desafio (disputa entre dois jogadores)
 
@@ -474,7 +446,7 @@ O jogo pode ter **contas de jogador**: perfil com avatar e código de amigo, est
 
 - Guia completo, passo a passo (Neon, Render, Google, testes com dois celulares, custos e privacidade): **[CONTAS.md](CONTAS.md)**
 - Código: `accounts.js` (login, amigos, convites, salvamento, histórico), `db.js` (banco e migrações automáticas), `migrations/`, `public/conta.js` (telas).
-- Conferir se está ativo: abra `/diagnostico` e veja o campo `contas`.
+- Conferir se está ativo: abra `/diagnostico?token=SEU_TOKEN` (precisa da variável `DIAG_TOKEN`; ver a seção Segurança) e veja o campo `contas`.
 
 
 ## Contas, amigos, convites e progresso salvo
@@ -519,3 +491,7 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - **Código de confirmação por e-mail** (cadastro e recuperação de senha) por API web (Brevo/Resend), mais **trocar senha** e **sair de todos os aparelhos**.
 - **Cabeçalhos de segurança** em todas as respostas e **CSP** (modo `report` por padrão; `CSP_MODE=enforce` para obrigar).
 - **Banco de dados**: o certificado TLS é obrigatoriamente verificado; `DB_SSL_VERIFY=0` não desativa essa checagem. Ver `AUDITORIA-SEGURANCA-2026-10-31.md`.
+- **Conferência (`/diagnostico`) protegida:** sem a variável `DIAG_TOKEN` (24 caracteres ou mais, aleatórios) só aparece o essencial (o pacote Android e as impressões digitais, que já são públicos em `/.well-known/assetlinks.json`). Com o token, no cabeçalho `Authorization: Bearer SEU_TOKEN` ou, para abrir no navegador, em `/diagnostico?token=SEU_TOKEN`, aparece o detalhe (e-mail, limites, CSP, contas). Dez tentativas erradas bloqueiam o endereço por 10 minutos. Guarde o token só no Render, nunca no GitHub.
+- **CSP pronta para `enforce`:** o jogo inteiro (início, pet, Ajustes, Loja, partida com arrasto, Sala Desafio, conta, Amigos, login do Google e service worker) foi percorrido com `CSP_MODE=enforce` **sem nenhuma violação**. O padrão continua `report`; para obrigar, crie `CSP_MODE` = `enforce` no Render e, se algo quebrar, apague a variável. Detalhes e roteiro em `SEGURANCA.md`.
+- **Aviso de segurança online:** uma vez por aparelho, antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código, Amigos, aceitar convite), aparece um aviso curto de três recomendações. O modo solo não mostra. Dá para reler em **Ajustes > Jogue com segurança**.
+- **Antes de publicar na Play Store:** siga o checklist da seção 13 do `SEGURANCA.md` (nível de API 36, teste fechado com 12 pessoas por 14 dias, chave de assinatura da Google no `assetlinks.json`, público-alvo e formulários).
