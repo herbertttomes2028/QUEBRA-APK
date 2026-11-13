@@ -566,6 +566,18 @@
       </div>
     </div>
 
+    <div id="modal-safe" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="safe-title" aria-describedby="safe-list">
+      <div class="sheet safe-sheet" data-janela="ajustes">
+        <h3 id="safe-title">🛡️ Jogue com segurança</h3>
+        <ul id="safe-list" class="safe-list">
+          <li>Jogue só com quem você conhece.</li>
+          <li>Nunca conte seu nome completo, endereço, escola, telefone ou senha.</li>
+          <li>Se algo incomodar, saia da sala, use <b>Bloquear</b> ou <b>Denunciar</b> e conte a um adulto de confiança.</li>
+        </ul>
+        <button id="safe-ok" class="btn btn-primary btn-block" type="button">Entendi</button>
+      </div>
+    </div>
+
     <div id="modal-settings" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="set-title">
       <div class="sheet set-sheet" data-janela="ajustes">
         <h3 id="set-title">Ajustes</h3>
@@ -623,6 +635,10 @@
         </div>
         <p id="push-note" class="set-note"></p>
         <p class="set-note set-about">Jogo para 13 anos ou mais. <a href="/privacidade.html" data-privacy>Privacidade e exclusão de conta</a></p>
+        <div class="set-row">
+          <span id="lbl-safe" class="set-label">Jogue com segurança</span>
+          <button type="button" id="btn-safe" class="btn btn-secondary btn-small" aria-describedby="lbl-safe">🛡️ Ver dicas</button>
+        </div>
         <button id="set-close" data-back class="btn btn-primary btn-block" type="button">Pronto</button>
       </div>
     </div>

@@ -3448,11 +3448,25 @@
     updateDuelRematch();
   });
 
+  /* Aviso de segurança online (Play: apps com crianças e recursos sociais): UMA vez por aparelho, antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código,
+   * abrir Amigos, aceitar convite). O modo solo não leva o aviso. Fechar sem tocar em "Entendi" (Voltar do Android) não segue adiante e não conta como visto. */
+  var SAFE_KEY = 'qc.safe.v1', safeMem = false, safePending = null;
+  function safeAcked() { if (safeMem) return true; try { return localStorage.getItem(SAFE_KEY) === '1'; } catch (e) { return false; } }
+  function safeThen(fn) {
+    if (safeAcked()) { fn(); return; }
+    safePending = fn; openModal('#modal-safe', '#safe-ok');
+  }
+  $('#safe-ok').addEventListener('click', function () {
+    safeMem = true; try { localStorage.setItem(SAFE_KEY, '1'); } catch (e) { /* sem armazenamento: vale só nesta sessão */ }
+    var fn = safePending; safePending = null; closeModal('#modal-safe');
+    if (fn) { try { fn(); } catch (e) { /* o aviso nunca trava o jogo */ } }
+  });
+  $('#btn-safe').addEventListener('click', function () { safePending = null; openModal('#modal-safe', '#safe-ok'); });
   $('#btn-duel').addEventListener('click', function () {
     popEl(this, 'go');
     readName();
     syncDuelModes();
-    openPick('duel');
+    safeThen(function () { openPick('duel'); });
   });
   function syncDuelModes() {
     Array.prototype.forEach.call($('#duel-modes').children, function (b) { b.setAttribute('aria-checked', b.dataset.mode === state.duelMode ? 'true' : 'false'); });
@@ -3488,13 +3502,13 @@
   // "Jogar" abre a escolha: Sozinho (Solo) ou Com um amigo (o cooperativo de sempre, com código)
   $('#btn-play').addEventListener('click', function () { popEl(this, 'go'); openModal('#modal-play', '#btn-solo'); });
   $('#btn-solo').addEventListener('click', function () { closeModal('#modal-play'); readName(); openPick('solo'); });
-  $('#btn-create').addEventListener('click', function () { closeModal('#modal-play'); readName(); openPick('create'); });
+  $('#btn-create').addEventListener('click', function () { closeModal('#modal-play'); readName(); safeThen(function () { openPick('create'); }); });
 
   $('#btn-join').addEventListener('click', function () {
     var code = $('#input-code').value.trim().toUpperCase();
     if (code.length < state.codeLen) { showError($('#home-error'), 'Digite os ' + state.codeLen + ' caracteres do código.'); return; }
     showError($('#home-error'), '');
-    doJoin(code);
+    safeThen(function () { doJoin(code); });
   });
   $('#input-code').addEventListener('input', function (e) {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -3947,6 +3961,7 @@
 
   // ponte para a área de contas (conta.js): só expõe o que ela precisa, sem duplicar nada
   window.QC = {
+    safeThen: safeThen,                    // aviso de segurança online (uma vez por aparelho): conta.js usa em Amigos e convites
     state: state, socket: socket, store: store, ready: imagesReady,
     $: $, toast: toast, vibrate: vibrate, playSound: playSound, announce: announce,
     openModal: openModal, closeModal: closeModal, showScreen: showScreen, setLoading: setLoading,

@@ -269,8 +269,8 @@
   }
   // botão "Amigos" da tela inicial: com conta abre a lista; sem conta pede para entrar e depois leva à lista
   function openFriends() {
-    acc.after = acc.token ? null : 'friends';
-    openMe('friends');
+    var go = function () { acc.after = acc.token ? null : 'friends'; openMe('friends'); };
+    if (QC.safeThen) QC.safeThen(go); else go();          // aviso de segurança online, uma vez por aparelho
   }
   function renderMe() {
     var logged = !!acc.me;
@@ -834,7 +834,7 @@
       f.invites.forEach(function (i) {
         var r = row(i.from, KIND[i.kind] + ' · ' + i.imageLabel + ' · ' + i.pieces + ' peças', undefined, 'bare');
         var b = el('div', 'fr-btns');
-        b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { respondInvite(i, true); }));
+        b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { if (QC.safeThen) QC.safeThen(function () { respondInvite(i, true); }); else respondInvite(i, true); }));
         b.appendChild(btn('✕', 'btn-secondary me-mini', function () { respondInvite(i, false); }, 'Recusar convite de ' + i.from.name));
         b.appendChild(btn('⛔', 'btn-ghost me-mini', function () { blockPerson(i.from); }, 'Bloquear ' + i.from.name));
         r.appendChild(b); box.appendChild(r);
