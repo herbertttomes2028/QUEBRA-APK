@@ -101,10 +101,10 @@ select status, count(*) from invites group by status;                          -
 - "Continuar jogando" vale só para a **partida cooperativa** (a última inacabada). Recomeçar ou trocar a imagem apaga o progresso antigo.
 - Convites: **pendente → aceito / recusado / expirado** (3 minutos). Aceitar duas vezes devolve a mesma sala; se a sala acabou ou encheu, o convite vira "expirado".
 
-## Público: 13 anos ou mais, privacidade e denúncias (leia)
+## Público: não indicado para menores de 16 anos, privacidade e denúncias (leia)
 
-- **O jogo é para 13 anos ou mais.** Não é direcionado a menores de 13. No cadastro (e-mail ou Google) há duas caixas: a de privacidade ("se tenho menos de 18 anos, um responsável me autorizou") e a de idade (**"tenho 13 anos ou mais"**). O servidor recusa o cadastro sem as duas. O visitante (sem conta) não precisa confirmar nada, porque nada dele é guardado no servidor.
-- Guardamos o mínimo: e-mail (só para entrar), senha protegida, apelido, avatar, partidas, amigos e a última partida salva. Sem telefone, endereço, data de nascimento, localização ou bate-papo livre (só frases prontas).
+- **O jogo não é indicado para menores de 16 anos.** Ao abrir o app, uma **tela de idade neutra** pede mês e ano de nascimento (guardados só no aparelho, nunca enviados). Quem informa menos de 16 anos não joga e, se havia conta neste aparelho, ela é apagada no servidor. No cadastro (e-mail ou Google) há duas caixas: a de privacidade ("se tenho menos de 18 anos, um responsável me autorizou") e a de idade (**"tenho 16 anos ou mais"**). O servidor recusa o cadastro sem as duas. O visitante (sem conta) também passa pela tela de idade, mas nada dele é guardado no servidor.
+- Guardamos o mínimo: e-mail (só para entrar), senha protegida, apelido, avatar, partidas, amigos e a última partida salva. Sem telefone, endereço, localização ou bate-papo livre (só frases prontas). O mês e o ano de nascimento da tela de idade ficam só no aparelho.
 - **Política de privacidade:** `public/privacidade.html` (também abre dentro do app, em *Ajustes* e no cadastro). **Exclusão de conta:** no app (*Perfil > Excluir minha conta*) e na página pública `public/excluir-conta.html` (o endereço que a Play Store pede).
 - **Denúncia:** em *perfil do amigo*, *ações do amigo* e no *menu da partida* (quando a outra pessoa tem conta). Vai para a tabela `reports` (veja `SEGURANCA.md`, seção 12).
 - **Divulgação:** nada do jogo, do texto da loja ou das imagens deve parecer feito para crianças pequenas. Não escreva "para crianças", "infantil" ou "para a criançada" na loja.
