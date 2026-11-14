@@ -75,14 +75,14 @@ test('concorrência: protege API e scrypt, libera vagas após concluir ou falhar
     return { res, admitted };
   }
   try {
-    const a = start('/api/acc/login', 'a'), b = start('/api/acc/login', 'b');
+    const a = start('/api/acc/profile/login', 'a'), b = start('/api/acc/profile/login', 'b');
     assert.equal(a.admitted, true); assert.equal(b.admitted, true);
-    const c = start('/api/acc/login', 'c');
+    const c = start('/api/acc/profile/login', 'c');
     assert.equal(c.admitted, false); assert.equal(c.res.statusCode, 503);
     assert.deepEqual(shield.stats().costlyAuth, 2);
     a.res.emit('close'); a.res.emit('finish');
     assert.equal(shield.stats().costlyAuth, 1);
-    const d = start('/api/acc/login', 'd'); assert.equal(d.admitted, true);
+    const d = start('/api/acc/profile/login', 'd'); assert.equal(d.admitted, true);
     b.res.emit('finish'); d.res.emit('finish');
     const running = Array.from({ length: 10 }, (_, i) => start('/api/acc/library', 'ip-' + i, 'GET'));
     assert.equal(running.every(x => x.admitted), true);

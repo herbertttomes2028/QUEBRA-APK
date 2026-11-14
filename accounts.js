@@ -71,23 +71,58 @@ function normSecret(v) {
 /* ---------- conquistas: catálogo, regras e estatísticas vivem em achievements.js (módulo puro); o PAGAMENTO fica aqui, na transação do XP ---------- */
 const ACHIEVEMENTS = ach.STATIC;
 
+/* ---------- limites de tentativas (na memória) ----------
+ * Antes: UM mapa para tudo, com teto de 6000 chaves; cheio, ele recusava QUALQUER chave nova. Quem tivesse muitos endereços (IPs)
+ * enchia o mapa com tentativas erradas e, por até ~70 min, nenhum aparelho novo conseguia entrar nem criar perfil, nem com o código
+ * certo (auditoria de 14/11/2026, SEC-02). Agora:
+ *  - um GRUPO por tipo de limite ("plogin", "pnew", "kfail:id", "kfail:ip", "shop"...): encher um grupo não afeta os outros;
+ *  - cada chave lembra a própria janela e sai quando ela vence (limpeza a cada minuto e na hora em que o grupo enche);
+ *  - grupo cheio de chaves AINDA válidas: sai a usada há MAIS tempo daquele grupo (nunca se recusa alguém só porque o mapa encheu).
+ *    Isso só "zera" a contagem de alguém se o atacante tiver milhares de endereços; mesmo assim, contra o código-chave de ~99 bits
+ *    não muda nada na prática, e os limites globais (criação por hora, scrypt simultâneo) continuam valendo.
+ * Os limites em si (quantas vezes, em quanto tempo) NÃO mudaram. */
+const LIMIT_GROUP_MAX = (() => { const v = Number(process.env.ACC_LIMIT_GROUP_MAX); return Number.isInteger(v) && v >= 10 && v <= 100000 ? v : 6000; })();   // ACC_LIMIT_GROUP_MAX: só para testes (grupo pequeno enche rápido)
+const LIMIT_TIMES_MAX = 2000;
+function makeLimiter(opts) {
+  const o = opts || {}, groupMax = o.groupMax || LIMIT_GROUP_MAX, now = o.now || Date.now;
+  const groups = new Map();                                   // nome do grupo -> Map(chave -> { t: [instantes], ms: janela })
+  const groupOf = (key) => { const p = String(key).split(':'); return p[0] === 'kfail' ? p[0] + ':' + p[1] : p[0]; };
+  function prune(g, t) { for (const [k, e] of g) if (!e.t.length || t - e.t[e.t.length - 1] >= e.ms) g.delete(k); }
+  function entry(key, ms) {
+    const name = groupOf(key);
+    let g = groups.get(name);
+    if (!g) { g = new Map(); groups.set(name, g); }
+    let e = g.get(key);
+    if (e) { g.delete(key); g.set(key, e); if (ms > e.ms) e.ms = ms; return e; }      // volta para o fim: é a usada mais recentemente
+    if (g.size >= groupMax) { prune(g, now()); while (g.size >= groupMax) g.delete(g.keys().next().value); }
+    e = { t: [], ms }; g.set(key, e);
+    return e;
+  }
+  function recent(e, ms, t) { e.t = e.t.filter((x) => t - x < ms); return e.t; }
+  return {
+    // conta uma tentativa se ainda couber no limite; devolve false quando passou do limite
+    allow(key, max, ms) { const t = now(), e = entry(key, ms), a = recent(e, ms, t); if (a.length >= max) return false; a.push(t); return true; },
+    // só consulta (não conta nada)
+    tooMany(key, max, ms) { const g = groups.get(groupOf(key)), e = g && g.get(key); if (!e) return false; const t = now(); return e.t.filter((x) => t - x < ms).length >= max; },
+    // registra uma falha (login errado etc.)
+    note(key, ms) { const t = now(), e = entry(key, ms), a = recent(e, ms, t); a.push(t); if (a.length > LIMIT_TIMES_MAX) a.splice(0, a.length - LIMIT_TIMES_MAX); },
+    sweep() { const t = now(); for (const [name, g] of groups) { prune(g, t); if (!g.size) groups.delete(name); } },
+    size: (name) => { const g = groups.get(name); return g ? g.size : 0; }
+  };
+}
+
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
   const shopService = shop.makeService(db);
 
-  /* ----- limites de tentativas (na memória) ----- */
-  const hits = new Map();
+  /* ----- limites de tentativas (na memória; ver makeLimiter acima) ----- */
+  const limiter = makeLimiter();
   function allow(key, max, ms, perIp) {
     if (perIp) max *= RATE_MULT;                  // limites por endereço (IP) podem ser afrouxados nos testes
-    const now = Date.now();
-    const a = (hits.get(key) || []).filter((t) => now - t < ms);
-    if (!hits.has(key) && hits.size >= 6000) return false;
-    if (a.length >= max) { hits.set(key, a); return false; }
-    a.push(now); hits.set(key, a);
-    return true;
+    return limiter.allow(key, max, ms);
   }
-  setInterval(() => { const now = Date.now(); for (const [k, a] of hits) if (!a.some((t) => now - t < 3600 * 1000)) hits.delete(k); }, 10 * 60 * 1000).unref();
+  setInterval(() => limiter.sweep(), 60 * 1000).unref();
 
   /* ----- quem está online ----- */
   const online = new Map();                       // uid -> Set(socket.id)
@@ -271,11 +306,8 @@ function createAccounts(d) {
 
   /* ----- perfil gerado pelo jogo: criar, entrar com o código-chave, trocar o código, sortear outro nome, apagar ----- */
   // Falhas por ID e por endereço são contadas à parte: assim quem só digita certo não é bloqueado por tentativas dos outros... até o limite.
-  function tooMany(key, max, ms) { const now = Date.now(); return (hits.get(key) || []).filter((t) => now - t < ms).length >= max; }
-  function noteFail(key, ms) {
-    const now = Date.now(), a = (hits.get(key) || []).filter((t) => now - t < ms); a.push(now);
-    if (hits.has(key) || hits.size < 6000) hits.set(key, a);
-  }
+  const tooMany = (key, max, ms) => limiter.tooMany(key, max, ms);
+  const noteFail = (key, ms) => limiter.note(key, ms);
   const LOGIN_FAIL_MS = 15 * 60 * 1000;
   // confere ID + código-chave sem revelar qual dos dois falhou (mesma resposta e mesmo tempo de conta)
   async function userByKey(id, secretRaw, ip) {
@@ -828,4 +860,4 @@ function createAccounts(d) {
   };
 }
 
-module.exports = { createAccounts, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };
+module.exports = { createAccounts, makeLimiter, LIMIT_GROUP_MAX, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };

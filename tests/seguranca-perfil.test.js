@@ -322,6 +322,23 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       t.diagnostic('criação de perfis do MESMO endereço em sequência: ' + n200 + ' criados, ' + n429 + ' barrados'); assert.ok(n200 <= 6 && n429 >= 3, 'criação em massa por endereço é limitada');
     });
 
+    /* ============ 9c) mapa de limites cheio NÃO barra quem chega depois (auditoria SEC-02) ============ */
+    await t.test('9c) muitas tentativas erradas de muitos endereços enchem o grupo de limites, mas um aparelho novo ainda entra e cria perfil', async () => {
+      const S3 = await startServer(dbUrl, { ACC_RATE_MULT: '1', ACC_LIMIT_GROUP_MAX: '40' });     // grupos de só 40 chaves: enchem com poucas tentativas
+      try {
+        const vit = await http(S3, 'POST', '/profile/new', { ip: nextIp(), body: { consent: true, age16: true } }); assert.equal(vit.status, 200);
+        const st = {};
+        for (let i = 0; i < 70; i++) { const r = await http(S3, 'POST', '/profile/login', { ip: nextIp(), body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); st[r.status] = (st[r.status] || 0) + 1; }
+        assert.deepEqual(st, { 401: 70 }, 'cada tentativa errada (de um endereço novo) é só "código errado", nunca 429 por mapa cheio: ' + JSON.stringify(st));
+        const ok = await http(S3, 'POST', '/profile/login', { ip: nextIp(), body: { id: vit.body.id, secret: vit.body.secret } });
+        assert.equal(ok.status, 200, 'o login CORRETO de um aparelho novo continua funcionando (antes: 429)');
+        assert.equal((await http(S3, 'POST', '/profile/new', { ip: nextIp(), body: { consent: true, age16: true } })).status, 200, 'criar perfil de um aparelho novo continua funcionando');
+        const ip = nextIp(); let n = 0;
+        for (let i = 0; i < 21; i++) { const r = await http(S3, 'POST', '/profile/login', { ip, body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); if (r.status === 429) n++; }
+        assert.ok(n >= 1, 'o limite por endereço (20 erros) continua valendo com o grupo cheio');
+      } finally { await S3.stop(); }
+    });
+
     await t.test('9b) palpites de código de sala em sequência são travados (locked) e a sala de verdade continua protegida', async () => {
       const A = await novo(S2), sa = await abre(S2); await sa.emitAck('acc:auth', { token: A.token });
       const cr = await sa.emitAck('create', { pid: 'pid-' + crypto.randomUUID(), imageId: imagem, pieces: 12 }); assert.equal(cr.ok, true);
