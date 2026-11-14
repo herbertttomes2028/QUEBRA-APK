@@ -533,10 +533,17 @@
       var list = (j && j.ok) ? j.blocked : [];
       $('#sec-blocked-n').textContent = list.length ? '(' + list.length + ')' : '';
       if (!list.length) box.appendChild(el('p', 'me-small', 'Você não bloqueou ninguém.'));
+      // A lista nunca mostra quem é a pessoa (o servidor não manda ID, apelido, nível nem avatar): só "Jogador bloqueado" e a data.
       list.forEach(function (u) {
-        var r = row(u, 'bloqueado(a)', undefined, 'bare'), b = el('div', 'fr-btns');
+        var quando = '';
+        try { if (u.at) quando = ' em ' + new Date(u.at).toLocaleDateString('pt-BR'); } catch (e) { quando = ''; }
+        var r = row({ name: 'Jogador bloqueado', avatar: '', level: 0 }, 'bloqueado' + quando, undefined, 'bare'), b = el('div', 'fr-btns');
         b.appendChild(btn('Desbloquear', 'btn-secondary me-mini', function () {
-          api('POST', '/blocks/remove', { code: u.code }).then(function (x) { if (x && x.ok) { QC.toast(u.name + ' foi desbloqueado(a).', 2400); loadBlocked(); } });
+          api('POST', '/blocks/remove', { ref: u.ref || u.code }).then(function (x) {
+            if (x && x.ok) QC.toast('Jogador desbloqueado.', 2400);
+            else QC.toast('Não consegui desbloquear agora. Tente de novo.', 2600);
+            loadBlocked();                                    // relê a lista (a referência muda quando o servidor reinicia)
+          });
         }));
         r.appendChild(b); box.appendChild(r);
       });
