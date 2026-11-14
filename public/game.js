@@ -810,7 +810,9 @@
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', p.pieces === state.pickPieces ? 'true' : 'false');
       b.dataset.pieces = p.pieces;
-      b.innerHTML = '<b>' + p.pieces + '</b><span>' + p.label + '</span>';
+      var nb = document.createElement('b'), nl = document.createElement('span');   // textContent: nenhum dado entra como HTML
+      nb.textContent = String(p.pieces); nl.textContent = String(p.label);
+      b.appendChild(nb); b.appendChild(nl);
       grid.appendChild(b);
     });
     updateSizeNote();
