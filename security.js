@@ -25,13 +25,13 @@ function cspPolicy(host, withAncestors) {
   const h = /^[a-z0-9.\-]+(:\d+)?$/i.test(host || '') ? host : '';
   return [
     "default-src 'self'",
-    "script-src 'self' https://accounts.google.com/gsi/client",
-    "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
-    "img-src 'self' data: blob: https://*.googleusercontent.com" + (MEDIA ? ' ' + MEDIA.origin : ''),
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:" + (MEDIA ? ' ' + MEDIA.origin : ''),
     "media-src 'self' blob: data:",
     "font-src 'self' data:",
-    "connect-src 'self'" + (h ? ' ws://' + h + ' wss://' + h : '') + ' https://accounts.google.com/gsi/',
-    'frame-src https://accounts.google.com/gsi/',
+    "connect-src 'self'" + (h ? ' ws://' + h + ' wss://' + h : ''),
+    "frame-src 'none'",
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -46,7 +46,7 @@ function securityHeaders(req, res, next) {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': PERMISSIONS,
     'X-Frame-Options': 'DENY',
-    'Cross-Origin-Opener-Policy': 'same-origin-allow-popups'        // mantém o login do Google (janelinha) funcionando
+    'Cross-Origin-Opener-Policy': 'same-origin'
   };
   if (CSP_MODE === 'enforce') h['Content-Security-Policy'] = cspPolicy(req.get('host'), true);
   else {

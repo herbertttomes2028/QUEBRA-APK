@@ -1,116 +1,77 @@
-# Contas, amigos e convites — guia de configuração (passo a passo)
+# Perfil gerado pelo jogo (ID + código-chave) — guia de configuração e regras
 
-> Tempo estimado: 20 a 30 minutos, uma única vez. Você vai criar **uma conta gratuita num serviço de banco de dados**, copiar **um endereço** e colá-lo no Render.
-> Nunca cole senhas ou esse endereço no GitHub, em conversas ou em prints.
+> Desde a etapa "perfil gerado", **não existe mais conta por e-mail, senha, Google, lista de amigos nem convites**. Cada pessoa tem um **perfil criado pelo próprio jogo**, identificado por um **ID público** e protegido por um **código-chave** que só aparece uma vez.
+> Nunca cole a `DATABASE_URL` nem códigos-chave no GitHub, em conversas ou em prints.
 
 ## O que existe e por quê
 
 | Peça | Escolha | Por quê |
 |---|---|---|
-| Servidor | o mesmo Node/Express/Socket.IO de sempre (Render) | nada novo para manter; o tempo real (convites, amigos online) já usa o Socket.IO |
-| Banco de dados | **PostgreSQL** (sugestão: **Neon**, plano gratuito) | o Render gratuito **não tem disco** (tudo se perde ao reiniciar), então as contas precisam de um banco externo |
-| Login | e-mail + senha, no próprio servidor (senha protegida com *scrypt*) e, opcionalmente, **Google** | simples no celular; sem chaves privadas no aplicativo |
-| Visitante | continua existindo | quem não quer conta joga como sempre |
+| Servidor | Node/Express/Socket.IO (Render) | o tempo real das salas privadas já usa o Socket.IO |
+| Banco de dados | **PostgreSQL** (Neon, plano gratuito) | o Render gratuito não tem disco; o perfil e o progresso precisam de um banco externo |
+| Identidade | **ID** de 8 caracteres (ex.: `K7QM-4TRD`, **não é segredo**) + **código-chave** de 20 caracteres (ex.: `ABCDE-FGHJK-MNPQR-STUVW`, **segredo**) | não pedimos nome, e-mail, telefone nem senha: menos dados pessoais para proteger |
+| Apelido | sorteado pelo jogo (Animal + Cor, ex.: "Garça Amarelo"); a pessoa só pode **sortear outro**, não digitar | evita nomes reais e ofensas |
+| Nas salas | sempre "Jogador 1" e "Jogador 2" | a outra pessoa nunca vê apelido, ID, nível, gemas, pet ou roupas |
+| Visitante | continua existindo | quem não quer perfil joga como sempre (nada fica no servidor) |
 
-O banco **só é ligado** se existir a variável `DATABASE_URL`. Sem ela o jogo é idêntico ao de antes (e o botão "Entrar" nem aparece).
+O banco **só é ligado** se existir a variável `DATABASE_URL`. Sem ela o jogo funciona como visitante e a opção de perfil não aparece.
+
+## Como o código-chave é protegido
+
+- Gerado no servidor com 20 símbolos de um alfabeto de 31 (sem I, L, O, 0, 1), ou seja, cerca de 99 bits de aleatoriedade (`crypto.randomInt`).
+- **Aparece uma única vez**, na resposta da criação (e quando a pessoa gera um código novo). O banco guarda só `scrypt$salt$hash` (`users.secret_hash`); o código não vai para log, não fica no aparelho e não pode ser lido por ninguém.
+- **Quem perde o código perde o perfil**: não há e-mail para recuperar. Gerar um **código novo** exige o código atual; o antigo deixa de valer na hora e as sessões de outros aparelhos são encerradas.
+- Login por ID + código com resposta **igual** para "ID inexistente" e "código errado" (e tempo parecido, com um hash de mentira), limite de tentativas por ID (8) e por endereço (20) a cada 15 minutos, e limite de criação de perfis por endereço (6 por hora).
+- Sessão: token aleatório, só o hash SHA-256 fica no banco, vale 60 dias; "Sair" apaga a sessão; "Sair de todos os aparelhos" apaga todas e derruba os sockets.
 
 ## Passo 1 — Criar o banco gratuito (Neon)
 
-1. Acesse **neon.com** e toque em **Sign up** (pode entrar com Google ou GitHub). Não pede cartão.
-2. Crie um **projeto** (nome sugerido: `quebra-cabeca`). Em **Region**, escolha a mais próxima do seu Render (se o Render estiver em *Oregon/Ohio/Virginia*, escolha *US East*; se estiver em *Frankfurt*, escolha *Europe*).
-3. Na tela do projeto, toque em **Connect** (ou *Connection details*). Deixe marcado **Pooled connection** e copie a linha que começa com `postgresql://` (é a **DATABASE_URL**). Ela contém uma senha: trate como segredo.
+1. Acesse **neon.com** e toque em **Sign up**. Não pede cartão.
+2. Crie um **projeto** (nome sugerido: `quebra-cabeca`). Em **Region**, escolha a mais próxima do seu Render.
+3. Em **Connect**, deixe marcado **Pooled connection** e copie a linha que começa com `postgresql://` (é a **DATABASE_URL**). Ela contém senha: trate como segredo.
 
 ## Passo 2 — Colocar o endereço no Render
 
-1. No Render, abra o seu serviço **quebra-apk** (ou o nome que você usa) > **Environment**.
+1. No Render, abra o seu serviço > **Environment**.
 2. **Add Environment Variable**: nome `DATABASE_URL`, valor = a linha copiada do Neon. **Save changes**.
-3. (Opcional, Google) veja o Passo 6. Só depois, adicione também `GOOGLE_CLIENT_ID`.
+3. Variáveis úteis (todas opcionais): `CSP_MODE` (`report` por padrão; troque para `enforce` depois de testar no celular), `ACC_RATE_MULT` (multiplicador dos limites; deixe vazio em produção), `CHAT_ENABLED` e `PUSH_ENABLED` (hoje `false`).
 
-## Passo 3 — Publicar o código no GitHub
+## Passo 3 — Publicar o código
 
-Envie para o repositório (substituindo os que já existem):
+Siga o fluxo de sempre: ramificação nova no GitHub, subir os arquivos do pacote mantendo as pastas, abrir o Pull request, **Merge** e, no Render, **Manual Deploy**. A migração `018_perfil_gerado.sql` roda **sozinha** quando o servidor liga e **não apaga nada** (ver `docs/MIGRACAO_E_ROLLBACK.md`).
 
-- Raiz: `server.js`, `challenge.js`, `package.json`, `package-lock.json`, **`accounts.js`** (novo), **`db.js`** (novo), `README.md`, `CONTAS.md`, `render.yaml`.
-- Pasta **`migrations/`** (nova) com `001_contas.sql`.
-- Pasta `public/`: `index.html`, `style.css`, `game.js`, `sw.js`, **`conta.js`** (novo), **`privacidade.html`** (novo).
-- (Opcional) pasta `scripts/` com `migrate.js`.
+## Passo 4 — Conferir se ligou
 
-> No computador é só arrastar as pastas para o GitHub (**Add file > Upload files**). No celular o GitHub não aceita pastas: para a pasta nova use **Add file > Create new file**, digite `migrations/001_contas.sql` no nome (a barra cria a pasta), cole o conteúdo do arquivo e confirme.
-> **Atenção:** `package.json` precisa ir junto, porque agora inclui o pacote `pg` (driver do banco).
+Abra `https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN` (crie antes a variável `DIAG_TOKEN` no Render; ver `SEGURANCA.md`, seção 0). Deve aparecer `"contas": { "ativas": true, ... }` e `login_por_codigo_chave`. Se aparecer `ativas: false`, leia `dica`; os detalhes ficam em **Logs** (procure `[contas]`).
 
-O Render publica sozinho. Espere o status **Live**.
+## Passo 5 — Perfis antigos (e-mail/Google)
 
-## Passo 4 — Conferir se ligou (migrações automáticas)
+Perfis criados antes desta etapa ficam no banco com `kind = 'legado'` e **não conseguem mais entrar** (não há login por e-mail). Para listar e, só se você decidir, apagar: `node scripts/apaga-contas-antigas.js` (apenas lista) e `node scripts/apaga-contas-antigas.js --apagar --confirmo` (apaga de verdade, em cascata). Faça um backup do Neon antes.
 
-As tabelas são criadas **sozinhas** quando o servidor liga (não precisa rodar comando). Para conferir, abra no navegador:
+## Passo 6 — Testar com dois celulares
 
-`https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN` (crie antes a variável `DIAG_TOKEN` no Render; ver `SEGURANCA.md`, seção 0) — deve aparecer `"contas": { "ativas": true, ... "dica": "Contas funcionando." }`.
-
-Se aparecer `ativas: false`, leia `dica`: normalmente a `DATABASE_URL` está errada ou faltou a pasta `migrations/`. Os detalhes ficam em **Logs** do Render (procure por `[contas]`).
-
-## Passo 5 — Permissões e segurança (já feitas no código)
-
-- O aplicativo **nunca fala direto com o banco**: só o servidor fala. Por isso não há "regras de acesso" para configurar no Neon.
-- Cada rota só mexe nos dados de quem está logado. Busca de amigo: só pelo código exato. E-mail nunca é mostrado a outras pessoas.
-- Se quiser reforço: no Neon, em **Settings > Roles**, você pode criar uma "role" só para o jogo (sem poder apagar o projeto). Opcional.
-
-## Passo 6 (opcional) — Entrar com o Google
-
-1. **console.cloud.google.com** > crie um projeto > **APIs e serviços > Tela de permissão OAuth** (tipo *Externo*, nome do app, e-mail de suporte).
-2. **Credenciais > Criar credenciais > ID do cliente OAuth > Aplicativo da Web.**
-3. Em **Origens JavaScript autorizadas** coloque `https://SEU-APP.onrender.com`. Salve.
-4. Copie o **ID do cliente** (termina em `.apps.googleusercontent.com`) e coloque no Render como `GOOGLE_CLIENT_ID`. **Não precisa** do "segredo do cliente".
-5. Aguarde o Render reiniciar: o botão "Continuar com o Google" aparece na tela de entrada.
-
-Observações: contas Google de crianças (Family Link) podem ter restrições; o login por e-mail sempre fica disponível.
-Os nomes dos botões do Google Cloud mudam de tempos em tempos.
-
-## Passo 7 — Testar com dois celulares
-
-1. Celular 1: abra o jogo > **Entrar** (canto superior direito) > **Criar conta** (apelido, e-mail, senha, caixa de privacidade).
-2. Celular 2: faça o mesmo com outro e-mail.
-3. Celular 1: **Perfil** mostra o *Meu código de amigo* (ex.: `K7QM-4TRD`). No celular 2, aba **Amigos**, digite esse código > **Procurar** > **Pedir amizade**.
-4. Celular 1 recebe o aviso e aceita em **Amigos > Pedidos**. Os dois aparecem na lista um do outro (com bolinha verde quando online).
-5. Celular 1: **Desafiar** > escolha o modo > escolha a imagem > **Criar e convidar**. O celular 2 recebe o convite na tela > **Aceitar**: os dois entram na mesma sala.
-6. Salvamento: no modo cooperativo, encaixe 2 ou 3 peças, feche o app, abra de novo: aparece **Continuar jogando** na tela inicial.
-
-## Como verificar os dados no banco
-
-No Neon: **SQL Editor** e rode (somente leitura):
-
-```sql
-select name, friend_code, created_at from users order by created_at desc;      -- contas (sem mostrar senhas)
-select count(*) from matches;                                                  -- partidas registradas
-select user_id, pieces, jsonb_array_length(locked) as encaixadas from saves;  -- partidas salvas
-select status, count(*) from invites group by status;                          -- convites
-```
-
-## Custos e limites (conferidos em outubro de 2026; podem mudar)
-
-- **Neon gratuito:** permanente, sem cartão; **0,5 GB** de armazenamento e **100 horas de processamento por mês** por projeto. O banco "dorme" após ~5 min parado e acorda em ~1 s na próxima visita.
-  Para centenas de jogadores, o espaço é suficiente (cada conta e cada partida ocupam poucos KB; só uma **partida salva com imagem própria** guarda até ~1,5 MB).
-- **Render gratuito:** o servidor dorme sem uso (o primeiro acesso demora) e **acordar derruba as salas abertas**, como antes. As contas e o progresso salvo **não se perdem**, porque estão no banco.
-- **Supabase** (alternativa): 500 MB, mas o projeto **pausa após 7 dias sem uso**; funciona do mesmo jeito (basta usar a *connection string* dele como `DATABASE_URL`).
-- Nenhum serviço novo cobra se você ficar nos limites gratuitos.
+1. Celular 1: **Entrar** > **Criar perfil** > marque as duas caixas (privacidade e 16 anos) > **Criar**. Anote o **ID** e o **código-chave**, marque "anotei" e toque **Começar a jogar**.
+2. Em **Perfil**: **Sortear outro apelido**; **Gerar código novo** (confira que o antigo não entra mais); **Sair**; **Entrar** com ID + código novo.
+3. Celular 1 cria uma sala (cooperativo ou Desafio) e mostra o código da sala; celular 2 entra com o código. Nos dois aparece só "Jogador 1/2".
+4. Tente uma terceira pessoa na mesma sala: deve ser recusada.
+5. Em **Apagar meus dados…**: código errado é recusado; código certo apaga e desloga.
 
 ## Regras claras para partidas competitivas (Sala Desafio)
 
-- Queda de conexão: a pessoa tem **45 segundos** para voltar; passado o prazo, **perde** (o adversário vence).
-- Sair da sala durante a disputa conta como **derrota** (e o outro ganha), sem tempo registrado.
-- Uma disputa **encerrada nunca é retomada**: ao reabrir o app, o jogo começa limpo.
-- "Continuar jogando" vale só para a **partida cooperativa** (a última inacabada). Recomeçar ou trocar a imagem apaga o progresso antigo.
-- Convites: **pendente → aceito / recusado / expirado** (3 minutos). Aceitar duas vezes devolve a mesma sala; se a sala acabou ou encheu, o convite vira "expirado".
+- Queda de conexão: **45 segundos** para voltar; passado o prazo, perde (o adversário vence).
+- Sair da sala durante a disputa conta como **derrota**, sem tempo registrado.
+- Uma disputa **encerrada nunca é retomada**.
+- "Continuar jogando" vale só para a **partida cooperativa** (a última inacabada).
 
-## Público: não indicado para menores de 16 anos, privacidade e denúncias (leia)
+## Público: não indicado para menores de 16 anos, privacidade e denúncias
 
-- **O jogo não é indicado para menores de 16 anos.** Ao abrir o app, uma **tela de idade neutra** pede mês e ano de nascimento (guardados só no aparelho, nunca enviados). Quem informa menos de 16 anos não joga e, se havia conta neste aparelho, ela é apagada no servidor. No cadastro (e-mail ou Google) há duas caixas: a de privacidade ("se tenho menos de 18 anos, um responsável me autorizou") e a de idade (**"tenho 16 anos ou mais"**). O servidor recusa o cadastro sem as duas. O visitante (sem conta) também passa pela tela de idade, mas nada dele é guardado no servidor.
-- Guardamos o mínimo: e-mail (só para entrar), senha protegida, apelido, avatar, partidas, amigos e a última partida salva. Sem telefone, endereço, localização ou bate-papo livre (só frases prontas). O mês e o ano de nascimento da tela de idade ficam só no aparelho.
-- **Política de privacidade:** `public/privacidade.html` (também abre dentro do app, em *Ajustes* e no cadastro). **Exclusão de conta:** no app (*Perfil > Excluir minha conta*) e na página pública `public/excluir-conta.html` (o endereço que a Play Store pede).
-- **Denúncia:** em *perfil do amigo*, *ações do amigo* e no *menu da partida* (quando a outra pessoa tem conta). Vai para a tabela `reports` (veja `SEGURANCA.md`, seção 12).
-- **Divulgação:** nada do jogo, do texto da loja ou das imagens deve parecer feito para crianças pequenas. Não escreva "para crianças", "infantil" ou "para a criançada" na loja.
-- **Cuidado jurídico (importante):** este material **não é aconselhamento jurídico**. O **ECA Digital** (Lei 15.211/2025, em vigor desde 17/03/2026) vale para serviços "de acesso provável" por menores de 18 anos, trata da aferição de idade e manda vincular a um responsável as contas de até 16 anos em redes sociais. Este jogo não é uma rede social, mas tem amigos, convites e apelidos: **confirme com um profissional** se isso exige algo a mais (por exemplo, supervisão de um responsável para 13 a 15 anos) antes de divulgar amplamente.
+- **O jogo não é indicado para menores de 16 anos.** Ao abrir o app, uma **tela de idade neutra** pede mês e ano de nascimento (guardados só no aparelho, nunca enviados). Quem informa menos de 16 anos não joga e, se havia perfil neste aparelho, ele é apagado no servidor. Para criar o perfil há duas caixas: privacidade ("se tenho menos de 18 anos, um responsável me autorizou") e idade (**"tenho 16 anos ou mais"**). O servidor recusa a criação sem as duas.
+- Guardamos o mínimo: apelido sorteado, avatar, hash do código-chave, partidas, XP, gemas, conquistas, coleções, loja/pet e a última partida salva. Sem e-mail, telefone, endereço, localização ou bate-papo livre.
+- **Política de privacidade:** `public/privacidade.html`. **Exclusão:** no app (*Perfil > Apagar meus dados…*) e em `public/excluir-conta.html` (o endereço que a Play Store pede).
+- **Denúncia:** no menu da partida. Vai para a tabela `reports` (ver `SEGURANCA.md`, seção 12). Para um ID inexistente a resposta é a mesma de um ID real.
+- **Divulgação:** nada do jogo, do texto da loja ou das imagens deve parecer feito para crianças pequenas.
+- **Cuidado jurídico (importante):** este material **não é aconselhamento jurídico**. O **ECA Digital** (Lei 15.211/2025) vale para serviços "de acesso provável" por menores de 18 anos. Tirar amigos, convites e nomes reais reduz a exposição, mas **confirme com um profissional** o enquadramento antes de divulgar amplamente. Veja `docs/CONTROLES_LGPD_ECA.md`.
 
-## O que ainda não existe
+## O que não existe (de propósito)
 
-- **Recuperar senha por e-mail** (precisa de um serviço de envio de e-mails). Por enquanto, quem esquecer a senha cria outra conta ou entra pelo Google.
-- Bate-papo entre amigos, perfis públicos e ranking (de propósito, nesta etapa).
+- Recuperar perfil por e-mail, login com Google, lista de amigos, convites, perfis públicos, ranking e bate-papo livre.

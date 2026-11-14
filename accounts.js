@@ -17,18 +17,15 @@ const gemm = require('./gems');
 const library = require('./library');
 const shop = require('./shop');
 const ach = require('./achievements');
-const { codeEmail, reportEmail, reportTarget, FRIEND_CODE_RE } = require('./mailer');
+const { reportEmail, reportTarget, FRIEND_CODE_RE } = require('./mailer');
+const names = require('./names');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
-const INVITE_MS = Number(process.env.INVITE_MS) || 3 * 60 * 1000;                 // convite vale 3 minutos
-const INVITE_SWEEP_MS = Number(process.env.INVITE_SWEEP_MS) || 20000;
 const RATE_MULT = Number(process.env.ACC_RATE_MULT) || 1;     // só para testes: afrouxa os limites por endereço (IP)
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';   // sem 0/O/1/I/L, que se confundem
 const SAVE_DEBOUNCE_MS = Number(process.env.SAVE_DEBOUNCE_MS) || 2000;
-const GOOGLE_ISS = ['accounts.google.com', 'https://accounts.google.com'];
 
 /* ---------- utilidades ---------- */
-const b64u = (s) => Buffer.from(String(s), 'base64url').toString('utf8');
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 const fmtCode = (c) => (c ? c.slice(0, 4) + '-' + c.slice(4) : '');
 function normCode(s) {
@@ -41,16 +38,7 @@ function newFriendCode() {
   for (let i = 0; i < 8; i++) c += CODE_ALPHABET[b[i] % CODE_ALPHABET.length];
   return c;
 }
-const COMMON_PASSWORDS = new Set(['12345678', '123456789', '1234567890', 'password', 'password1', 'senha123', 'senha1234', 'qwertyui', 'qwerty123', 'abcd1234', '11111111', '00000000', 'iloveyou', 'brasil123', '12341234', '123123123', 'minhasenha', 'quebracabeca']);
-function weakPassword(pw, email, name) {
-  const l = String(pw).toLowerCase();
-  return COMMON_PASSWORDS.has(l) || /^(.)\1+$/.test(pw) || (email && l === String(email).split('@')[0]) || (name && l === String(name).toLowerCase());
-}
 function maskEmail(e) { const [u, d] = String(e || '').split('@'); return u ? u.slice(0, 1) + '***@' + d : ''; }
-function normEmail(e) {
-  e = String(e || '').trim().toLowerCase();
-  return e.length <= 254 && /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$/.test(e) ? e : null;
-}
 
 /* ---------- senha (scrypt) ---------- */
 function scryptAsync(pw, salt) {
@@ -70,31 +58,14 @@ async function checkPassword(pw, stored) {
 }
 const FAKE_HASH = 'scrypt$' + Buffer.alloc(16, 7).toString('base64url') + '$' + Buffer.alloc(64, 9).toString('base64url');   // iguala o tempo quando o e-mail não existe
 
-/* ---------- Google: confere o token de login no servidor ---------- */
-let jwksCache = { at: 0, keys: [] };
-async function googleKeys() {
-  if (Date.now() - jwksCache.at < 6 * 3600 * 1000 && jwksCache.keys.length) return jwksCache.keys;
-  const r = await fetch(process.env.GOOGLE_CERTS_URL || 'https://www.googleapis.com/oauth2/v3/certs', { signal: AbortSignal.timeout(8000) });
-  if (!r.ok) throw new Error('não consegui buscar as chaves do Google');
-  jwksCache = { at: Date.now(), keys: (await r.json()).keys || [] };
-  return jwksCache.keys;
-}
-async function verifyGoogleIdToken(token, clientId, getKeys) {
-  if (typeof token !== 'string' || token.length > 8192) throw new Error('formato');
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('formato');
-  const header = JSON.parse(b64u(parts[0]));
-  const payload = JSON.parse(b64u(parts[1]));
-  if (header.alg !== 'RS256') throw new Error('algoritmo');
-  const jwk = ((await (getKeys || googleKeys)()) || []).find((k) => k.kid === header.kid);
-  if (!jwk) throw new Error('chave desconhecida');
-  const ok = crypto.verify('RSA-SHA256', Buffer.from(parts[0] + '.' + parts[1]), crypto.createPublicKey({ key: jwk, format: 'jwk' }), Buffer.from(parts[2], 'base64url'));
-  if (!ok) throw new Error('assinatura');
-  if (!GOOGLE_ISS.includes(payload.iss)) throw new Error('emissor');
-  if (!clientId || payload.aud !== clientId) throw new Error('destinatário');
-  if (!payload.exp || payload.exp * 1000 < Date.now() - 60000) throw new Error('expirado');
-  if (!payload.sub) throw new Error('sem identificador');
-  return { sub: String(payload.sub), email: payload.email_verified ? normEmail(payload.email) : null, name: String(payload.given_name || payload.name || '') };
+/* ---------- código-chave do perfil gerado (sem e-mail e sem senha) ---------- */
+const KEY_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';      // 31 símbolos, sem I, L, O, 0 e 1 (não se confundem ao copiar) // gitleaks:allow (alfabeto, não é segredo)
+const KEY_LEN = 20;                                          // 20 x log2(31) = cerca de 99 bits de aleatoriedade
+function newSecret() { let t = ''; for (let i = 0; i < KEY_LEN; i++) t += KEY_CHARS[crypto.randomInt(0, KEY_CHARS.length)]; return t; }
+const fmtSecret = (t) => t.match(/.{5}/g).join('-');
+function normSecret(v) {
+  const c = String(v == null ? '' : v).slice(0, 64).toUpperCase().replace(/[\s-]/g, '');
+  return c.length === KEY_LEN && [...c].every((ch) => KEY_CHARS.includes(ch)) ? c : null;
 }
 
 /* ---------- conquistas: catálogo, regras e estatísticas vivem em achievements.js (módulo puro); o PAGAMENTO fica aqui, na transação do XP ---------- */
@@ -104,8 +75,6 @@ function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
   const shopService = shop.makeService(db);
-  const googleClientId = d.googleClientId || null;
-  const getKeys = d.googleKeys || googleKeys;
 
   /* ----- limites de tentativas (na memória) ----- */
   const hits = new Map();
@@ -129,19 +98,19 @@ function createAccounts(d) {
   const one = async (text, params) => (await db.q(text, params)).rows[0] || null;
   const publicUser = (u) => ({ code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, level: u.xp == null ? 0 : xpm.levelFromXp(u.xp) });
 
-  async function createUser({ email, passHash, googleSub, name, avatar, bests, emailVerified }) {
+  async function createUser({ name, avatar, bests, secretHash, kind }) {
     for (let tries = 0; tries < 6; tries++) {
       try {
         return await one(
-          'INSERT INTO users (email, pass_hash, google_sub, name, avatar, friend_code, bests, email_verified, email_verified_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::boolean, CASE WHEN $8::boolean THEN now() END) RETURNING *',
-          [email, passHash, googleSub, name, avatar, newFriendCode(), JSON.stringify(bests || {}), !!emailVerified]
+          'INSERT INTO users (name, avatar, friend_code, bests, secret_hash, secret_rotated_at, kind) VALUES ($1,$2,$3,$4,$5, now(), $6) RETURNING *',
+          [name, avatar, newFriendCode(), JSON.stringify(bests || {}), secretHash, kind || 'gerado']
         );
       } catch (e) {
-        if (e.code === '23505' && /friend_code/.test(e.constraint || e.detail || '')) continue;   // código repetido: sorteia outro
+        if (e.code === '23505' && /friend_code/.test(e.constraint || e.detail || '')) continue;   // ID repetido: sorteia outro
         throw e;
       }
     }
-    throw new Error('não consegui gerar um código de amigo');
+    throw new Error('não consegui gerar o ID do perfil');
   }
 
   async function newSession(uid) {
@@ -163,7 +132,7 @@ function createAccounts(d) {
         if (onAuth) onAuth(sock, null);
       }
     }
-    if (!ids.size) { online.delete(uid); tellFriendsPresence(uid, false); }
+    if (!ids.size) { online.delete(uid); }
   }
   async function socketSessionValid(socket) {
     const uid = socket.data.uid, hash = socket.data.sessionHash;
@@ -185,12 +154,11 @@ function createAccounts(d) {
               min(duration_ms) FILTER (WHERE completed AND pieces >= 20)::bigint AS fastest20,
               count(*) FILTER (WHERE custom)::int AS "customGames",
               coalesce(sum(duration_ms), 0)::bigint AS "totalMs"`;
-  const FRIENDS_SQL = "SELECT count(*)::int FROM friendships WHERE status = 'accepted' AND (user_a = $1 OR user_b = $1)";
   function mapStats(s, friends) {
     return { games: s.games, wins: s.wins, losses: s.losses, completed: s.completed, maxPieces: s.maxPieces, fastest20: s.fastest20 == null ? null : Number(s.fastest20), customGames: s.customGames, totalMs: Number(s.totalMs), friends };
   }
   async function statsOf(uid) {
-    const r = await one(`SELECT ${STATS_COLS}, (${FRIENDS_SQL}) AS friends FROM matches WHERE user_id = $1`, [uid]);
+    const r = await one(`SELECT ${STATS_COLS}, 0 AS friends FROM matches WHERE user_id = $1`, [uid]);
     return mapStats(r, r.friends);
   }
   // Estatísticas para as conquistas = básicas (statsOf) + extras (SQL em achievements.js) + as que dependem das duas.
@@ -223,9 +191,7 @@ function createAccounts(d) {
   async function coreOf(uid) {
     return one(`SELECT
         (SELECT row_to_json(t) FROM (SELECT ${STATS_COLS} FROM matches WHERE user_id = $1) t) AS s,
-        (${FRIENDS_SQL}) AS friends,
-        (SELECT count(*)::int FROM friendships WHERE status = 'pending' AND requested_by <> $1 AND (user_a = $1 OR user_b = $1)) AS pend,
-        (SELECT count(*)::int FROM invites WHERE to_user = $1 AND status = 'pending' AND expires_at > now()) AS inv,
+        0 AS friends,
         (SELECT row_to_json(v) FROM (SELECT image_label, pieces, jsonb_array_length(locked) AS n, elapsed_ms, partner_name, updated_at FROM saves WHERE user_id = $1) v) AS save,
         (SELECT row_to_json(x) FROM (SELECT xp, xp_seeded, gems FROM users WHERE id = $1) x) AS u`, [uid]);
   }
@@ -236,11 +202,10 @@ function createAccounts(d) {
     const stats = mapStats(c.s, c.friends);
     const sv = c.save;
     return {
-      code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, email: u.email || '', hasPassword: !!u.pass_hash, google: !!u.google_sub,
+      code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, kind: u.kind || 'legado',
       createdAt: u.created_at, stats,
       save: sv ? { imageLabel: sv.image_label, pieces: sv.pieces, locked: sv.n, elapsedMs: Number(sv.elapsed_ms), partner: sv.partner_name, updatedAt: new Date(sv.updated_at) } : null,
-      xp: xpm.progress(xpTot), gems: Number(x.gems || 0), emailVerified: !!u.email_verified, mail: !!mailer, phrases: [...phrases.unlockedFor(stats)],
-      pending: { requests: c.pend, invites: c.inv }
+      xp: xpm.progress(xpTot), gems: Number(x.gems || 0), phrases: [...phrases.unlockedFor(stats)]
     };
   }
   // Conquistas e coleções do dono (a parte pesada, separada do /me).
@@ -258,41 +223,7 @@ function createAccounts(d) {
     return Object.assign(lite, await achievementsOf(u.id, lite.stats));
   }
 
-  /* ----- amigos ----- */
-  async function friendsOf(uid) {
-    const rows = (await db.q(
-      `SELECT f.status, f.requested_by, f.created_at, u.id AS other, u.friend_code, u.name, u.avatar, u.xp, u.xp_seeded
-         FROM friendships f JOIN users u ON u.id = CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
-        WHERE f.user_a = $1 OR f.user_b = $1 ORDER BY f.created_at DESC`, [uid])).rows;
-    const out = { friends: [], incoming: [], outgoing: [] };
-    await seedMany(rows);                                  // quem ainda não teve o histórico convertido em XP é convertido agora
-    for (const r of rows) {
-      const p = publicUser(r);
-      if (r.status === 'accepted') out.friends.push(Object.assign(p, { online: isOnline(r.other) }));
-      else if (r.requested_by === uid) out.outgoing.push(p);
-      else out.incoming.push(Object.assign(p, { at: r.created_at }));
-    }
-    out.friends.sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name, 'pt'));
-    const invRows = (await db.q(
-      `SELECT i.id, i.kind, i.image_label, i.pieces, i.room_code, i.expires_at, u.id AS other, u.friend_code, u.name, u.avatar, u.xp, u.xp_seeded
-         FROM invites i JOIN users u ON u.id = i.from_user
-        WHERE i.to_user = $1 AND i.status = 'pending' AND i.expires_at > now() ORDER BY i.created_at DESC`, [uid])).rows;
-    await seedMany(invRows);
-    out.invites = invRows
-      .map((i) => ({ id: i.id, kind: i.kind, imageLabel: i.image_label, pieces: i.pieces, expiresAt: i.expires_at, from: publicUser(i) }));
-    return out;
-  }
-  const pairKey = (a, b) => (a < b ? [a, b] : [b, a]);
-  async function friendRow(a, b) { const [x, y] = pairKey(a, b); return one('SELECT * FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]); }
   async function userByCode(code) { return code ? one('SELECT * FROM users WHERE friend_code = $1', [code]) : null; }
-
-  async function tellFriendsPresence(uid, on) {
-    try {
-      const me = await one('SELECT friend_code FROM users WHERE id = $1', [uid]);
-      const fs = (await db.q("SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS other FROM friendships WHERE status = 'accepted' AND (user_a = $1 OR user_b = $1)", [uid])).rows;
-      for (const f of fs) if (isOnline(f.other)) notify(f.other, { t: 'presence', code: fmtCode(me.friend_code), online: on });
-    } catch (e) { /* presença é só um enfeite: não derruba nada */ }
-  }
 
   /* ===================== rotas HTTP ===================== */
   const r = express.Router();
@@ -309,7 +240,7 @@ function createAccounts(d) {
   }
   r.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
-  r.get('/status', (req, res) => res.json({ ok: true, enabled: true, google: googleClientId, mail: !!mailer }));
+  r.get('/status', (req, res) => res.json({ ok: true, enabled: true, key: true }));
 
   function sanitizeBests(b) {
     const out = {};
@@ -318,170 +249,6 @@ function createAccounts(d) {
     }
     return out;
   }
-
-  /* ----- códigos por e-mail (confirmar e-mail e trocar senha) ----- */
-  const CODE_TTL_MS = 15 * 60 * 1000, CODE_COOLDOWN_MS = process.env.CODE_COOLDOWN_MS !== undefined ? Number(process.env.CODE_COOLDOWN_MS) : 60 * 1000, CODE_MAX_TRIES = 5;
-  const codeHash = (uid, purpose, code) => sha256(uid + ':' + purpose + ':' + code);
-  async function sendCode(u, purpose) {
-    const last = await one('SELECT created_at FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
-    if (last && Date.now() - new Date(last.created_at).getTime() < CODE_COOLDOWN_MS) { const e = new Error('cooldown'); e.code = 'cooldown'; throw e; }
-    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-    await db.q('DELETE FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
-    await db.q('INSERT INTO email_codes (user_id, purpose, code_hash, expires_at) VALUES ($1,$2,$3,$4)', [u.id, purpose, codeHash(u.id, purpose, code), new Date(Date.now() + CODE_TTL_MS)]);
-    try { await mailer.send(Object.assign({ to: u.email }, codeEmail(purpose, code, u.name))); }
-    catch (e) {
-      await db.q('DELETE FROM email_codes WHERE user_id = $1 AND purpose = $2', [u.id, purpose]);
-      console.error('[contas] e-mail não enviado:', e.message);
-      const err = new Error('mail'); err.code = 'mail'; throw err;
-    }
-  }
-  async function checkCode(uid, purpose, code) {                 // 'ok' | 'bad_code' | 'expired' | 'too_many'
-    const row = await one('SELECT * FROM email_codes WHERE user_id = $1 AND purpose = $2', [uid, purpose]);
-    if (!row) return 'bad_code';
-    if (new Date(row.expires_at).getTime() < Date.now()) { await db.q('DELETE FROM email_codes WHERE id = $1', [row.id]); return 'expired'; }
-    if (row.attempts >= CODE_MAX_TRIES) return 'too_many';            // o código fica "queimado" até vencer ou o jogador pedir outro
-    const good = Buffer.from(row.code_hash, 'hex'), mine = Buffer.from(codeHash(uid, purpose, code), 'hex');
-    if (good.length !== mine.length || !crypto.timingSafeEqual(good, mine)) { await db.q('UPDATE email_codes SET attempts = attempts + 1 WHERE id = $1 AND attempts < $2', [row.id, CODE_MAX_TRIES]); return 'bad_code'; }
-    const used = await db.q('DELETE FROM email_codes WHERE id = $1 AND code_hash = $2 AND attempts < $3 AND expires_at > now() RETURNING id', [row.id, row.code_hash, CODE_MAX_TRIES]);
-    return used.rowCount === 1 ? 'ok' : 'bad_code';
-  }
-
-  r.post('/register', guard(async (req, res) => {
-    const b = req.body || {};
-    if (!allow('reg:' + req.ip, 8, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');
-    const email = normEmail(b.email), pw = String(b.password || '');
-    if (!email) return bad(res, 400, 'email');
-    if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
-    if (b.consent !== true) return bad(res, 400, 'consent');
-    if (b.age16 !== true) return bad(res, 400, 'age16');                          // o jogo não é indicado para menores de 16 anos (a pessoa confirma ao criar a conta)
-    const name = cleanName(b.name) || 'Jogador', avatar = cleanAvatar(b.avatar) || '';
-    if (weakPassword(pw, email, name)) return bad(res, 400, 'password_weak');
-    const old = await one('SELECT * FROM users WHERE email = $1', [email]);
-    if (old) {
-      // Conta que NUNCA foi confirmada e está parada (sem amigos, partidas, progresso nem bloqueios) não tem dono comprovado: o endereço é liberado.
-      // Se ela tem QUALQUER atividade, ela NÃO é apagada (alguém poderia digitar o e-mail dos outros só para destruir a conta):
-      // o dono verdadeiro recupera pelo "Esqueci minha senha", que prova a posse do e-mail com o código.
-      let livre = false;
-      if (mailer && !old.email_verified && !old.legacy && !old.google_sub) {
-        const act = await one(`SELECT (SELECT count(*) FROM friendships WHERE user_a = $1 OR user_b = $1) + (SELECT count(*) FROM matches WHERE user_id = $1)
-                                    + (SELECT count(*) FROM saves WHERE user_id = $1) + (SELECT count(*) FROM blocks WHERE blocker = $1 OR blocked = $1) AS n`, [old.id]);
-        livre = Number(act.n) === 0;
-      }
-      if (livre) await db.q('DELETE FROM users WHERE id = $1', [old.id]);
-      else return bad(res, 409, 'email_taken');
-    }
-    const u = await createUser({ email, passHash: await hashPassword(pw), googleSub: null, name, avatar, bests: sanitizeBests(b.bests), emailVerified: false });
-    if (mailer) {                                                  // a conta só vale depois de digitar o código enviado ao e-mail
-      try { await sendCode(u, 'verify'); } catch (e) { await db.q('DELETE FROM users WHERE id = $1', [u.id]); return bad(res, 502, 'mail'); }
-      return res.json({ ok: true, needsVerify: true, email: maskEmail(email) });
-    }
-    res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
-  }));
-
-  r.post('/login', guard(async (req, res) => {
-    const b = req.body || {};
-    const email = normEmail(b.email), pw = String(b.password || '');
-    if (!allow('login:' + req.ip, 20, 10 * 60 * 1000, true) || (email && !allow('login:' + email, 8, 10 * 60 * 1000))) return bad(res, 429, 'rate');
-    const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
-    const ok = await checkPassword(pw.slice(0, 128), u && u.pass_hash ? u.pass_hash : FAKE_HASH);
-    if (!u || !u.pass_hash || !ok) return bad(res, 401, 'bad_login');
-    if (mailer && !u.email_verified) {                             // senha certa, mas o e-mail ainda não foi confirmado
-      let sent = false, why = null;
-      try { await sendCode(u, 'verify'); sent = true; } catch (e) { why = e.code === 'cooldown' ? 'cooldown' : 'mail'; }   // cooldown = já mandamos há pouco; mail = o envio FALHOU
-      return res.status(403).json({ ok: false, error: 'unverified', email: maskEmail(u.email), sent, why });
-    }
-    await db.q('UPDATE users SET last_seen = now() WHERE id = $1', [u.id]);
-    res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
-  }));
-
-  r.post('/verify', guard(async (req, res) => {
-    const b = req.body || {};
-    const email = normEmail(b.email), code = String(b.code || '').replace(/\D/g, '').slice(0, 6);
-    if (!allow('ver:' + req.ip, 30, 10 * 60 * 1000, true) || (email && !allow('ver:' + email, 10, 10 * 60 * 1000))) return bad(res, 429, 'rate');
-    if (!email || code.length !== 6) return bad(res, 400, 'bad_code');
-    const u = await one('SELECT * FROM users WHERE email = $1', [email]);
-    if (!u || u.email_verified) return bad(res, 400, 'bad_code');
-    const st = await checkCode(u.id, 'verify', code);
-    if (st !== 'ok') return bad(res, 400, st);
-    await db.q('UPDATE users SET email_verified = true, email_verified_at = now(), last_seen = now() WHERE id = $1', [u.id]);
-    u.email_verified = true;
-    res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
-  }));
-
-  r.post('/verify/resend', guard(async (req, res) => {
-    if (!mailer) return bad(res, 503, 'mail_off');
-    const email = normEmail((req.body || {}).email);
-    if (!allow('resend:' + req.ip, 20, 3600 * 1000, true) || (email && !allow('resend:' + email, 6, 3600 * 1000))) return bad(res, 429, 'rate');
-    const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
-    if (u && !u.email_verified) { try { await sendCode(u, 'verify'); } catch (e) { if (e.code === 'mail') return bad(res, 502, 'mail'); } }
-    res.json({ ok: true });                                        // sempre "ok": não revela quais e-mails têm conta
-  }));
-
-  r.post('/password/forgot', guard(async (req, res) => {
-    if (!mailer) return bad(res, 503, 'mail_off');
-    const email = normEmail((req.body || {}).email);
-    if (!allow('forgot:' + req.ip, 15, 3600 * 1000, true) || (email && !allow('forgot:' + email, 5, 3600 * 1000))) return bad(res, 429, 'rate');
-    const u = email ? await one('SELECT * FROM users WHERE email = $1', [email]) : null;
-    if (u) { try { await sendCode(u, 'reset'); } catch (e) { if (e.code === 'mail') return bad(res, 502, 'mail'); } }
-    res.json({ ok: true });
-  }));
-
-  r.post('/password/reset', guard(async (req, res) => {
-    const b = req.body || {};
-    const email = normEmail(b.email), code = String(b.code || '').replace(/\D/g, '').slice(0, 6), pw = String(b.password || '');
-    if (!allow('reset:' + req.ip, 30, 10 * 60 * 1000, true) || (email && !allow('reset:' + email, 10, 10 * 60 * 1000))) return bad(res, 429, 'rate');
-    if (!email || code.length !== 6) return bad(res, 400, 'bad_code');
-    if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
-    const u = await one('SELECT * FROM users WHERE email = $1', [email]);
-    if (!u) return bad(res, 400, 'bad_code');
-    if (weakPassword(pw, email, u.name)) return bad(res, 400, 'password_weak');
-    const st = await checkCode(u.id, 'reset', code);
-    if (st !== 'ok') return bad(res, 400, st);
-    await db.q('UPDATE users SET pass_hash = $1, email_verified = true, email_verified_at = coalesce(email_verified_at, now()) WHERE id = $2', [await hashPassword(pw), u.id]);
-    await db.q('DELETE FROM sessions WHERE user_id = $1', [u.id]);   // quem estava dentro (inclusive um invasor) é desconectado
-    revokeSocketSessions(u.id);
-    res.json({ ok: true });
-  }));
-
-  r.post('/password/change', needUser, guard(async (req, res) => {
-    const b = req.body || {};
-    const cur = String(b.current || ''), pw = String(b.password || '');
-    if (!req.user.pass_hash) return bad(res, 400, 'no_password');
-    if (!allow('pwchg:' + req.user.id, 6, 10 * 60 * 1000)) return bad(res, 429, 'rate');
-    if (!(await checkPassword(cur.slice(0, 128), req.user.pass_hash))) return bad(res, 401, 'bad_login');
-    if (pw.length < 8 || pw.length > 128) return bad(res, 400, 'password');
-    if (weakPassword(pw, req.user.email, req.user.name)) return bad(res, 400, 'password_weak');
-    if (pw === cur) return bad(res, 400, 'same');
-    await db.q('UPDATE users SET pass_hash = $1 WHERE id = $2', [await hashPassword(pw), req.user.id]);
-    await db.q('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [req.user.id, sha256(req.token)]);   // sai dos outros aparelhos
-    revokeSocketSessions(req.user.id, sha256(req.token));
-    res.json({ ok: true });
-  }));
-
-  r.post('/google', guard(async (req, res) => {
-    if (!googleClientId) return bad(res, 404, 'google_off');
-    const b = req.body || {};
-    if (!allow('goog:' + req.ip, 20, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');
-    let g;
-    try { g = await verifyGoogleIdToken(b.credential, googleClientId, getKeys); } catch (e) { return bad(res, 401, 'google_token'); }
-    let u = await one('SELECT * FROM users WHERE google_sub = $1', [g.sub]);
-    if (!u && g.email) {                                              // e-mail já cadastrado: vincula (o Google garante que o e-mail é dele)
-      u = await one('SELECT * FROM users WHERE email = $1', [g.email]);
-      if (u) {
-        // Se a conta por senha nunca teve o e-mail confirmado, quem a criou pode não ser o dono: a senha antiga deixa de valer
-        const was = !!u.email_verified;
-        await db.q('UPDATE users SET google_sub = $1, email_verified = true, email_verified_at = coalesce(email_verified_at, now()), pass_hash = CASE WHEN $3::boolean THEN pass_hash ELSE NULL END WHERE id = $2', [g.sub, u.id, was]);
-        if (!was) await db.q('DELETE FROM sessions WHERE user_id = $1', [u.id]);
-        u.email_verified = true;
-      }
-    }
-    if (!u) {
-      if (b.consent !== true) return bad(res, 400, 'consent');
-      if (b.age16 !== true) return bad(res, 400, 'age16');
-      u = await createUser({ email: g.email, passHash: null, googleSub: g.sub, name: cleanName(b.name) || cleanName(g.name) || 'Jogador', avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests), emailVerified: true });
-    }
-    res.json({ ok: true, token: await newSession(u.id), me: await meOf(u) });
-  }));
 
   r.post('/logout', needUser, guard(async (req, res) => {
     await db.q('DELETE FROM sessions WHERE token_hash = $1', [sha256(req.token)]);
@@ -494,12 +261,75 @@ function createAccounts(d) {
         if (onAuth) onAuth(sock, null);
       }
     }
-    if (online.has(req.user.id) && !online.get(req.user.id).size) { online.delete(req.user.id); tellFriendsPresence(req.user.id, false); }
+    if (online.has(req.user.id) && !online.get(req.user.id).size) { online.delete(req.user.id); }
     res.json({ ok: true });
   }));
   r.post('/logout-all', needUser, guard(async (req, res) => {
     await db.q('DELETE FROM sessions WHERE user_id = $1', [req.user.id]);
     revokeSocketSessions(req.user.id);
+    res.json({ ok: true });
+  }));
+
+  /* ----- perfil gerado pelo jogo: criar, entrar com o código-chave, trocar o código, sortear outro nome, apagar ----- */
+  // Falhas por ID e por endereço são contadas à parte: assim quem só digita certo não é bloqueado por tentativas dos outros... até o limite.
+  function tooMany(key, max, ms) { const now = Date.now(); return (hits.get(key) || []).filter((t) => now - t < ms).length >= max; }
+  function noteFail(key, ms) {
+    const now = Date.now(), a = (hits.get(key) || []).filter((t) => now - t < ms); a.push(now);
+    if (hits.has(key) || hits.size < 6000) hits.set(key, a);
+  }
+  const LOGIN_FAIL_MS = 15 * 60 * 1000;
+  // confere ID + código-chave sem revelar qual dos dois falhou (mesma resposta e mesmo tempo de conta)
+  async function userByKey(id, secretRaw, ip) {
+    if (typeof id !== 'string' || typeof secretRaw !== 'string') { noteFail('kfail:ip:' + ip, LOGIN_FAIL_MS); return { bad: true }; }     // só texto (uma lista ["ABCD","2XYZ"] seria juntada pelo normalizador)
+    const code = normCode(id), secret = normSecret(secretRaw);
+    if (tooMany('kfail:ip:' + ip, 20 * RATE_MULT, LOGIN_FAIL_MS) || (code && tooMany('kfail:id:' + code, 8, LOGIN_FAIL_MS))) return { limited: true };
+    const u = code ? await one('SELECT * FROM users WHERE friend_code = $1', [code]) : null;
+    const ok = await checkPassword(secret || 'A'.repeat(KEY_LEN), u && u.secret_hash ? u.secret_hash : FAKE_HASH);
+    if (!u || !u.secret_hash || !secret || !ok) { noteFail('kfail:ip:' + ip, LOGIN_FAIL_MS); if (code) noteFail('kfail:id:' + code, LOGIN_FAIL_MS); return { bad: true }; }
+    return { user: u };
+  }
+  r.post('/profile/new', guard(async (req, res) => {
+    const b = req.body || {};
+    if (!allow('pnew:' + req.ip, 6, 3600 * 1000, true) || !allow('pnew:all', 1500, 3600 * 1000)) return bad(res, 429, 'rate');
+    if (b.consent !== true) return bad(res, 400, 'consent');                   // leu a política de privacidade (menor de 18: responsável autorizou)
+    if (b.age16 !== true) return bad(res, 400, 'age16');                       // o jogo não é indicado para menores de 16 anos (a tela de idade do aparelho já confirmou)
+    const secret = newSecret();
+    const u = await createUser({ name: names.pick(), avatar: cleanAvatar(b.avatar) || '', bests: sanitizeBests(b.bests), secretHash: await hashPassword(secret), kind: 'gerado' });
+    res.json({ ok: true, token: await newSession(u.id), id: fmtCode(u.friend_code), secret: fmtSecret(secret), me: await meOf(u) });   // o código-chave só aparece AGORA
+  }));
+  r.post('/profile/login', guard(async (req, res) => {
+    const b = req.body || {};
+    if (!allow('plogin:' + req.ip, 40, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');
+    const k = await userByKey(b.id, b.secret, req.ip);
+    if (k.limited) return bad(res, 429, 'rate');
+    if (!k.user) return bad(res, 401, 'bad_login');
+    await db.q('UPDATE users SET last_seen = now() WHERE id = $1', [k.user.id]);
+    res.json({ ok: true, token: await newSession(k.user.id), me: await meOf(k.user) });
+  }));
+  // Gera um código-chave NOVO: o anterior deixa de valer e os outros aparelhos saem do perfil (se o código vazou, o intruso é expulso).
+  r.post('/profile/new-secret', needUser, guard(async (req, res) => {
+    if (!allow('psec:' + req.user.id, 5, 3600 * 1000)) return bad(res, 429, 'rate');
+    const secret = newSecret(), keep = sha256(req.token);
+    await db.q('UPDATE users SET secret_hash = $1, secret_rotated_at = now() WHERE id = $2', [await hashPassword(secret), req.user.id]);
+    await db.q('DELETE FROM sessions WHERE user_id = $1 AND token_hash <> $2', [req.user.id, keep]);
+    revokeSocketSessions(req.user.id, keep);
+    res.json({ ok: true, secret: fmtSecret(secret) });
+  }));
+  r.post('/profile/nickname', needUser, guard(async (req, res) => {          // sorteia outro nome (ninguém digita nome)
+    if (!allow('pnick:' + req.user.id, 20, 3600 * 1000)) return bad(res, 429, 'rate');
+    const name = names.pick();
+    await db.q('UPDATE users SET name = $1 WHERE id = $2', [name, req.user.id]);
+    res.json({ ok: true, me: await meLite(Object.assign({}, req.user, { name })) });
+  }));
+  // Exclusão SEM sessão (página pública /excluir-conta.html): ID do perfil + código-chave.
+  r.post('/profile/erase', guard(async (req, res) => {
+    const b = req.body || {};
+    if (b.confirm !== 'EXCLUIR') return bad(res, 400, 'confirm');
+    if (!allow('perase:' + req.ip, 20, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');
+    const k = await userByKey(b.id, b.secret, req.ip);
+    if (k.limited) return bad(res, 429, 'rate');
+    if (!k.user) return bad(res, 401, 'bad_login');
+    await eraseAccount(k.user);
     res.json({ ok: true });
   }));
 
@@ -512,11 +342,7 @@ function createAccounts(d) {
     if (!other || me === other) return false;
     await db.q('INSERT INTO blocks (blocker, blocked) VALUES ($1,$2) ON CONFLICT DO NOTHING', [me, other]);
     blockSet.add(me + ':' + other);
-    const [x, y] = pairKey(me, other);
-    await db.q('DELETE FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]);
-    await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE status = 'pending' AND ((from_user = $1 AND to_user = $2) OR (from_user = $2 AND to_user = $1))", [me, other]);
     phraseCache.delete(me); phraseCache.delete(other);
-    notify(other, { t: 'unfriend' });
     notify(me, { t: 'blocks' });
     return true;
   }
@@ -574,11 +400,11 @@ function createAccounts(d) {
     if (b.alsoBlock === true) { await blockUser(reporter, target.id); blocked = true; }          // "denunciar e bloquear" num toque só
     return { ok: true, blocked };
   }
-  r.post('/reports', needUser, guard(async (req, res) => {
+  r.post('/reports', needUser, guard(async (req, res) => {         // denunciar pelo ID do perfil (a denúncia DENTRO da sala é por socket: acc:reportPeer)
     if (!allow('report:' + req.user.id, 15, 3600 * 1000)) return bad(res, 429, 'rate');
     const b = req.body || {};
     const t = await userByCode(normCode(b.code));
-    if (!t) return bad(res, 404, 'notfound');
+    if (!t) return res.json({ ok: true, blocked: false });          // mesma resposta de sempre: a denúncia não revela quais IDs existem
     if (t.id === req.user.id) return bad(res, 400, 'self');
     const out = await fileReport(req.user.id, t, b, b.context === 'amigos' ? 'amigos' : 'perfil');
     if (out.error) return bad(res, 400, out.error);
@@ -590,13 +416,11 @@ function createAccounts(d) {
   // Conquistas e coleções: pedidas só quando a pessoa abre a aba (ou o perfil), não a cada volta à tela inicial.
   r.get('/achievements', needUser, guard(async (req, res) => res.json(Object.assign({ ok: true }, await achievementsOf(req.user.id)))));
 
-  r.post('/profile', needUser, guard(async (req, res) => {
+  r.post('/profile', needUser, guard(async (req, res) => {       // só o avatar: o NOME é sorteado pelo jogo (veja /profile/nickname)
     const b = req.body || {};
-    const name = cleanName(b.name);
-    if (!name) return bad(res, 400, 'name');
-    const avatar = b.avatar === '' ? '' : (b.avatar === undefined ? req.user.avatar : (cleanAvatar(b.avatar) || req.user.avatar));   // avatar inválido: mantém o atual
-    await db.q('UPDATE users SET name = $1, avatar = $2 WHERE id = $3', [name, avatar, req.user.id]);
-    res.json({ ok: true, me: await meOf(Object.assign({}, req.user, { name, avatar })) });
+    const avatar = b.avatar === '' ? '' : (b.avatar === undefined ? req.user.avatar : (cleanAvatar(b.avatar) || req.user.avatar));
+    await db.q('UPDATE users SET avatar = $1 WHERE id = $2', [avatar, req.user.id]);
+    res.json({ ok: true, me: await meOf(Object.assign({}, req.user, { avatar })) });
   }));
 
   r.post('/import', needUser, guard(async (req, res) => {      // traz os melhores tempos do modo visitante
@@ -609,17 +433,17 @@ function createAccounts(d) {
 
   // apaga a conta e TUDO que está ligado a ela (usado por /delete e por /underage)
   async function eraseAccount(user) {
-    const fr = (await db.q("SELECT CASE WHEN user_a = $1 THEN user_b ELSE user_a END AS other FROM friendships WHERE user_a = $1 OR user_b = $1", [user.id])).rows;
-    await db.q('DELETE FROM users WHERE id = $1', [user.id]);          // sessões, amizades, convites, saves, bloqueios e histórico saem em cascata
+    await db.q('DELETE FROM users WHERE id = $1', [user.id]);          // sessões, saves, bloqueios, denúncias e histórico saem em cascata
     for (const k of [...blockSet]) if (k.indexOf(user.id) >= 0) blockSet.delete(k);
-    for (const f of fr) notify(f.other, { t: 'unfriend' });
     io.to('u:' + user.id).emit('acc:ev', { t: 'deleted' });
     revokeSocketSessions(user.id);
   }
-  r.post('/delete', needUser, guard(async (req, res) => {       // apaga a conta e TUDO que está ligado a ela
+  r.post('/delete', needUser, guard(async (req, res) => {       // apaga o perfil e TUDO que está ligado a ele; exige o código-chave
     const b = req.body || {};
     if (b.confirm !== 'EXCLUIR') return bad(res, 400, 'confirm');
-    if (req.user.pass_hash && !(await checkPassword(String(b.password || '').slice(0, 128), req.user.pass_hash))) return bad(res, 401, 'bad_login');
+    if (!allow('del:' + req.user.id, 5, 10 * 60 * 1000)) return bad(res, 429, 'rate');
+    const secret = normSecret(b.secret);
+    if (req.user.secret_hash && !(secret && await checkPassword(secret, req.user.secret_hash))) return bad(res, 401, 'bad_login');
     await eraseAccount(req.user);
     res.json({ ok: true });
   }));
@@ -630,101 +454,6 @@ function createAccounts(d) {
     if (!allow('under:' + req.user.id, 5, 10 * 60 * 1000)) return bad(res, 429, 'rate');
     await eraseAccount(req.user);
     res.json({ ok: true });
-  }));
-
-  r.get('/friends', needUser, guard(async (req, res) => res.json(Object.assign({ ok: true }, await friendsOf(req.user.id)))));
-
-  r.post('/friends/search', needUser, guard(async (req, res) => {
-    if (!allow('search:' + req.user.id, 20, 10 * 60 * 1000)) return bad(res, 429, 'rate');
-    const code = normCode((req.body || {}).code);
-    if (!code) return bad(res, 400, 'code');
-    const u = await userByCode(code);
-    if (!u) return bad(res, 404, 'notfound');
-    if (u.id !== req.user.id && blockSet.has(u.id + ':' + req.user.id)) return bad(res, 404, 'notfound');   // quem foi bloqueado não encontra quem bloqueou
-    let relation = 'none';
-    if (u.id === req.user.id) relation = 'self';
-    else if (blockSet.has(req.user.id + ':' + u.id)) relation = 'blocked';
-    else {
-      const f = await friendRow(req.user.id, u.id);
-      if (f) relation = f.status === 'accepted' ? 'friend' : (f.requested_by === req.user.id ? 'pending_out' : 'pending_in');
-    }
-    res.json({ ok: true, user: publicUser(u), relation });
-  }));
-
-  r.post('/friends/request', needUser, guard(async (req, res) => {
-    if (!allow('freq:' + req.user.id, 20, 3600 * 1000)) return bad(res, 429, 'rate');
-    const code = normCode((req.body || {}).code);
-    if (!code) return bad(res, 400, 'code');
-    const t = await userByCode(code);
-    if (!t) return bad(res, 404, 'notfound');
-    if (t.id === req.user.id) return bad(res, 400, 'self');
-    if (blockedBetween(req.user.id, t.id)) return bad(res, 404, 'notfound');
-    const old = await friendRow(req.user.id, t.id);
-    if (old) {
-      if (old.status === 'accepted') return bad(res, 409, 'already_friends');
-      if (old.requested_by === req.user.id) return bad(res, 409, 'already_sent');
-      // ele já tinha pedido: os dois querem ser amigos, então aceita direto
-      const [a, b] = pairKey(req.user.id, t.id);
-      await db.q("UPDATE friendships SET status = 'accepted', accepted_at = now() WHERE user_a = $1 AND user_b = $2", [a, b]);
-      notify(t.id, { t: 'friend', from: publicUser(req.user) });
-      payAfterFriend(req.user.id); payAfterFriend(t.id);
-      return res.json({ ok: true, state: 'accepted', user: publicUser(t) });
-    }
-    const n = await one("SELECT count(*)::int AS n FROM friendships WHERE status = 'pending' AND requested_by = $1", [req.user.id]);
-    if (n.n >= 30) return bad(res, 429, 'too_many');
-    const [a, b] = pairKey(req.user.id, t.id);
-    try { await db.q("INSERT INTO friendships (user_a, user_b, requested_by, status) VALUES ($1,$2,$3,'pending')", [a, b, req.user.id]); }
-    catch (e) { if (e.code === '23505') return bad(res, 409, 'already_sent'); throw e; }
-    notify(t.id, { t: 'req', from: publicUser(req.user) });
-    res.json({ ok: true, state: 'pending', user: publicUser(t) });
-  }));
-
-  r.post('/friends/respond', needUser, guard(async (req, res) => {
-    const b = req.body || {};
-    const t = await userByCode(normCode(b.code));
-    if (!t) return bad(res, 404, 'notfound');
-    const f = await friendRow(req.user.id, t.id);
-    if (!f || f.status !== 'pending' || f.requested_by === req.user.id) return bad(res, 404, 'notfound');
-    const [x, y] = pairKey(req.user.id, t.id);
-    if (b.accept === true) {
-      await db.q("UPDATE friendships SET status = 'accepted', accepted_at = now() WHERE user_a = $1 AND user_b = $2", [x, y]);
-      notify(t.id, { t: 'friend', from: publicUser(req.user) });
-      payAfterFriend(req.user.id); payAfterFriend(t.id);
-    } else {
-      await db.q('DELETE FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]);
-    }
-    res.json({ ok: true });
-  }));
-
-  r.post('/friends/remove', needUser, guard(async (req, res) => {
-    const t = await userByCode(normCode((req.body || {}).code));
-    if (!t) return bad(res, 404, 'notfound');
-    const [x, y] = pairKey(req.user.id, t.id);
-    await db.q('DELETE FROM friendships WHERE user_a = $1 AND user_b = $2', [x, y]);
-    await db.q("UPDATE invites SET status = 'expired' WHERE status = 'pending' AND ((from_user = $1 AND to_user = $2) OR (from_user = $2 AND to_user = $1))", [req.user.id, t.id]);
-    notify(t.id, { t: 'unfriend' });
-    res.json({ ok: true });
-  }));
-
-  /* PERFIL DO AMIGO. Só quem é amigo (com amizade aceita) e sem bloqueio entre os dois pode ver.
-   * "código inexistente", "não é seu amigo", "pedido pendente" e "bloqueado" têm a MESMA resposta (ninguém descobre quem existe).
-   * Nunca devolve e-mail, id, partida salva, nem os nomes dos adversários de ninguém. */
-  r.get('/friends/profile', needUser, guard(async (req, res) => {
-    if (!allow('fprof:' + req.user.id, 60, 60 * 1000)) return bad(res, 429, 'rate');
-    const t = await userByCode(normCode(String(req.query.code || '')));
-    const fr = t && t.id !== req.user.id ? await friendRow(req.user.id, t.id) : null;
-    if (!t || !fr || fr.status !== 'accepted' || blockedBetween(req.user.id, t.id)) return bad(res, 403, 'forbidden');
-    const st = await statsOf(t.id);
-    const fr2 = await achRowsOf(t.id, st);
-    // Só o que a tela mostra. Não sai daqui: derrotas, lista ou número de amigos, melhores tempos, hábitos de dias/horários, conquistas secretas, partidas, e-mail, nem nome de adversário.
-    res.json({
-      ok: true,
-      profile: {
-        code: fmtCode(t.friend_code), name: t.name, avatar: t.avatar, level: xpm.levelFromXp(await xpTotal(t.id)), online: isOnline(t.id), since: t.created_at,
-        stats: { games: st.games, completed: st.completed, challenges: st.wins + st.losses, wins: st.wins },
-        achievements: ach.friendView(fr2.rows), achSummary: ach.friendSummary(fr2.rows)
-      }
-    });
   }));
 
   r.get('/matches', needUser, guard(async (req, res) => {
@@ -944,15 +673,6 @@ function createAccounts(d) {
              total: pr.total, level: pr.level, prevLevel: lvBefore, leveledUp: pr.level > lvBefore, into: pr.into, need: pr.need, pct: pr.pct, max: pr.max,
              gemsMatch, gemsLevel, gemsBalance };
   }
-  async function payAfterFriend(uid) {
-    try {
-      await ensureSeeded(uid);                                  // o histórico antigo (e as conquistas que já existiam) entra antes, sem aviso
-      const ach = await awardAchievements(uid);
-      const ev = ach ? xpEvent(null, ach) : null;
-      if (ach) levelMap.set(uid, xpm.levelFromXp(ach.after));
-      if (ev) notify(uid, ev);
-    } catch (e) { console.error('[contas] xp (amizade):', e.message); }
-  }
   async function payMatch(uid, o) {
     try {
       await ensureSeeded(uid);
@@ -973,7 +693,7 @@ function createAccounts(d) {
       phraseCache.delete(uid);                          // novas frases podem ter sido liberadas
     } catch (e) { console.error('[contas] histórico:', e.message); }
   }
-  async function areFriends(x, y) { try { const f = await friendRow(x, y); return !!(f && f.status === 'accepted'); } catch (e) { return false; } }
+  async function areFriends() { return false; }       // não existe mais amizade no jogo: o bônus de amigo nunca é pago
   async function finishCoop(room) {
     const solo = room.solo === true;            // Solo: grava mode 'solo' e NÃO apaga o progresso salvo do cooperativo
     const gameMs = d.elapsedOf(room);
@@ -1014,67 +734,6 @@ function createAccounts(d) {
     }
   }
 
-  /* ===================== convites ===================== */
-  async function expireInvites() {
-    const rows = (await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE status = 'pending' AND expires_at <= now() RETURNING id, from_user, to_user")).rows;
-    for (const x of rows) { notify(x.from_user, { t: 'inv-up', id: x.id, status: 'expired' }); notify(x.to_user, { t: 'inv-up', id: x.id, status: 'expired' }); }
-  }
-  const sweeper = setInterval(() => expireInvites().catch(() => {}), INVITE_SWEEP_MS);
-  sweeper.unref();
-
-  async function sendInvite(socket, data) {
-    const uid = socket.data.uid;
-    if (!uid) return { ok: false, error: 'auth' };
-    if (!allow('inv:' + uid, 12, 60 * 1000)) return { ok: false, error: 'rate' };
-    const t = await userByCode(normCode((data || {}).to));
-    if (!t) return { ok: false, error: 'notfound' };
-    const f = await friendRow(uid, t.id);
-    if (!f || f.status !== 'accepted') return { ok: false, error: 'not_friends' };
-    const room = roomOfSocket(socket);
-    if (!room) return { ok: false, error: 'no_room' };
-    if (!room.free) return { ok: false, error: 'room_full' };
-    const old = await one("SELECT id, room_code, expires_at FROM invites WHERE from_user = $1 AND to_user = $2 AND status = 'pending' AND expires_at > now()", [uid, t.id]);
-    if (old && old.room_code === room.code) return { ok: true, id: old.id, expiresAt: old.expires_at, again: true };   // já enviado para esta sala: não duplica
-    if (old) { await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE id = $1", [old.id]); notify(t.id, { t: 'inv-up', id: old.id, status: 'expired' }); }
-    const inv = await one('INSERT INTO invites (from_user, to_user, kind, room_code, image_label, pieces, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, expires_at',
-      [uid, t.id, room.kind, room.code, imageLabel(room.imageId), room.pieces, new Date(Date.now() + INVITE_MS)]);
-    const me = await one('SELECT friend_code, name, avatar, xp FROM users WHERE id = $1', [uid]);
-    notify(t.id, { t: 'inv', invite: { id: inv.id, kind: room.kind, imageLabel: imageLabel(room.imageId), pieces: room.pieces, expiresAt: inv.expires_at, from: publicUser(me) } });
-    return { ok: true, id: inv.id, expiresAt: inv.expires_at };
-  }
-
-  async function respondInvite(socket, data) {
-    const uid = socket.data.uid;
-    if (!uid) return { ok: false, error: 'auth' };
-    const id = String((data || {}).id || '');
-    if (!/^[0-9a-f-]{36}$/.test(id)) return { ok: false, error: 'notfound' };
-    const inv = await one('SELECT * FROM invites WHERE id = $1 AND to_user = $2', [id, uid]);
-    if (!inv) return { ok: false, error: 'notfound' };
-    if (inv.status === 'accepted' && data.accept === true) return { ok: true, room: inv.room_code, kind: inv.kind, already: true };   // toque duplo: devolve o mesmo resultado
-    if (inv.status !== 'pending') return { ok: false, error: inv.status === 'declined' ? 'declined' : 'expired' };
-    if (new Date(inv.expires_at).getTime() <= Date.now()) {
-      await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE id = $1 AND status = 'pending'", [id]);
-      notify(inv.from_user, { t: 'inv-up', id, status: 'expired' });
-      return { ok: false, error: 'expired' };
-    }
-    const me = await one('SELECT friend_code, name, avatar, xp FROM users WHERE id = $1', [uid]);
-    if (data.accept !== true) {
-      await db.q("UPDATE invites SET status = 'declined', responded_at = now() WHERE id = $1 AND status = 'pending'", [id]);
-      notify(inv.from_user, { t: 'inv-up', id, status: 'declined', by: publicUser(me) });
-      return { ok: true, declined: true };
-    }
-    const info = roomInfo(inv.room_code);
-    if (!info || !info.free || !info.hostConnected) {                       // a sala acabou, encheu ou o anfitrião saiu
-      await db.q("UPDATE invites SET status = 'expired', responded_at = now() WHERE id = $1 AND status = 'pending'", [id]);
-      notify(inv.from_user, { t: 'inv-up', id, status: 'expired' });
-      return { ok: false, error: 'gone' };
-    }
-    const upd = await one("UPDATE invites SET status = 'accepted', responded_at = now() WHERE id = $1 AND status = 'pending' RETURNING id", [id]);
-    if (!upd) return { ok: false, error: 'expired' };
-    notify(inv.from_user, { t: 'inv-up', id, status: 'accepted', by: publicUser(me) });
-    return { ok: true, room: inv.room_code, kind: inv.kind };
-  }
-
   /* ===================== Socket.IO ===================== */
   io.on('connection', (socket) => {
     const ack = (cb, v) => { if (typeof cb === 'function') cb(v); };
@@ -1089,7 +748,7 @@ function createAccounts(d) {
       socket.data.uid = null;
       socket.leave('u:' + uid);
       const set = online.get(uid);
-      if (set) { set.delete(socket.id); if (!set.size) { online.delete(uid); tellFriendsPresence(uid, false); } }
+      if (set) { set.delete(socket.id); if (!set.size) { online.delete(uid); } }
     }
 
     socket.on('acc:auth', wrap(async (data) => {
@@ -1111,17 +770,13 @@ function createAccounts(d) {
       socket.join('u:' + u.id);
       let set = online.get(u.id);
       if (!set) { set = new Set(); online.set(u.id, set); }
-      const first = !set.size;
       set.add(socket.id);
-      if (first) tellFriendsPresence(u.id, true);
       db.q('UPDATE users SET last_seen = now() WHERE id = $1', [u.id]).catch(() => {});
       if (onAuth) onAuth(socket, u.id);
       return { ok: true };
     }));
 
     socket.on('acc:logout', wrap(async () => { unbind(); if (onAuth) onAuth(socket, null); return { ok: true }; }));
-    socket.on('inv:send', wrap(async (data) => { if (!await socketSessionValid(socket)) return { ok: false, error: 'auth' }; return sendInvite(socket, data); }));
-    socket.on('inv:respond', wrap(async (data) => { if (!await socketSessionValid(socket)) return { ok: false, error: 'auth' }; return respondInvite(socket, data || {}); }));
     // dentro de uma sala: bloqueia a outra pessoa (precisa ter conta) e o aparelho sai da sala
     socket.on('acc:blockPeer', wrap(async () => {
       const uid = socket.data.uid;
@@ -1150,12 +805,11 @@ function createAccounts(d) {
 
   return {
     enabled: true,
-    config: { google: googleClientId },
+    config: {},
     reportMailInfo: () => ({ ligado: !!(mailer && reportMail.to && REPORT_MAIL_MAX), destino: reportMail.to ? maskEmail(reportMail.to) : null, origem: reportMail.origem || null, problema: reportMail.problema || (REPORT_MAIL_MAX ? null : 'REPORT_MAIL_MAX_PER_HOUR=0 (desligado)'), maximo_por_hora: REPORT_MAIL_MAX }),
-    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, expireInvites, allowedPhrases, blockedBetween, blockUser,
-    verifyGoogleIdToken: (t) => verifyGoogleIdToken(t, googleClientId, getKeys),
-    close: () => { clearInterval(sweeper); }
+    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, allowedPhrases, blockedBetween, blockUser,
+    close: () => {}
   };
 }
 
-module.exports = { createAccounts, verifyGoogleIdToken, hashPassword, checkPassword, normCode, fmtCode, weakPassword, maskEmail, ACHIEVEMENTS };
+module.exports = { createAccounts, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };

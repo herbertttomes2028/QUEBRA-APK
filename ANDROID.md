@@ -13,7 +13,7 @@
 - Ordem: pergunta de confirmação → janelas → carregando/contagem → bate-papo (frases → conversa → fechar) → tela atual (escolha de imagem → início; conta → início; partida/sala → pergunta "Sair?").
 - Dentro de uma partida o voltar **nunca desconecta sozinho**: pergunta "Sair da partida?" (ou "Sair da disputa? Seu adversário vence.").
 - Tela inicial: 1º toque mostra "Pressione voltar novamente para sair do aplicativo."; o 2º em até ~2 s fecha o app (quem fecha é o Android). Depois de 2 s a proteção volta.
-- Convites e pedidos de revanche não são aceitos nem recusados pelo voltar.
+- Não há convites nem lista de amigos: as salas privadas são entradas só pelo código da sala.
 
 ## 3. Como publicar com segurança (sem mexer na versão que está no ar)
 1. No GitHub, abra o repositório > menu de ramificações (**main**) > digite `correcoes-navegacao-android` > **Create branch**.
@@ -25,11 +25,11 @@
 1. **Abrir o app instalado** (o do APK, não o Chrome). Veja se aparece a barra de endereço.
 2. **Voltar na tela inicial:** 1 toque → aviso; 2º toque em até 2 s → fecha. Repita esperando 3 s entre os toques → não fecha e mostra o aviso de novo.
 3. **Voltar nas telas:** Criar partida > voltar (vai ao início); Ajustes > voltar (fecha); conta > voltar.
-4. **Partida a dois:** voltar abre "Sair da partida?"; "Continuar jogando" mantém tudo; o amigo continua vendo você conectado.
+4. **Partida a dois:** voltar abre "Sair da partida?"; "Continuar jogando" mantém tudo; a outra pessoa continua vendo você conectado.
 5. **Concluir uma partida:** toque no ✕ e confira "🏆 Ver resultado"; reabra; "Jogar de novo" ainda funciona.
 6. **Bate-papo:** abra a conversa > "Frases prontas": a conversa some; ‹ volta; mande uma frase e o painel volta à conversa.
 7. **Servidor dormindo:** deixe 20 min sem abrir (o Render gratuito dorme) e abra o app: a tela do jogo deve aparecer na hora, com o aviso "Acordando o servidor…" até conectar.
-8. **Sair da conta / remover amigo:** a pergunta deve ser do próprio jogo (sem título com o endereço do site).
+8. **Sair do perfil / apagar meus dados:** a pergunta deve ser do próprio jogo (sem título com o endereço do site).
 
 ## 5. Se o endereço ainda aparecer
 O código web já não expõe o endereço. Se uma barra com o endereço ainda aparecer no app instalado, a causa está **fora do repositório**:

@@ -1,6 +1,6 @@
 # Quebra-Cabeça a Dois — ficha da Play Store e respostas dos formulários
 
-Atualizado em 09/11/2026. Mesmo conteúdo do documento "Quebra-Cabeça a Dois — ficha da Play Store e respostas dos formulários" (Claude Docs do proprietário). Aqui não há segredos: a chave de envio e a senha ficam só com o proprietário, fora do GitHub.
+Atualizado em 09/11/2026; **partes sobre conta, amigos e dados coletados revisadas em 14/11/2026 (perfil gerado)**. Mesmo conteúdo do documento "Quebra-Cabeça a Dois — ficha da Play Store e respostas dos formulários" (Claude Docs do proprietário). Aqui não há segredos: a chave de envio e a senha ficam só com o proprietário, fora do GitHub.
 
 ## 1. Ficha da loja
 
@@ -9,7 +9,7 @@ Copie cada texto para o campo de mesmo nome em **Play Console › Presença na l
 | Campo | O que colocar | Limite |
 | --- | --- | --- |
 | Nome do app | Quebra-Cabeça a Dois | 30 (usa 20) |
-| Descrição curta | Monte quebra-cabeças online: sozinho, com um amigo ou em disputa. Para 16+. | 80 (usa 75) |
+| Descrição curta | Monte quebra-cabeças online: sozinho, em dupla ou em disputa. Para 16+. | 80 (usa 75) |
 | Tipo de app | Jogo | |
 | Categoria | Quebra-cabeça | |
 | E-mail de contato | o mesmo da política de privacidade (confira a grafia antes de salvar) | |
@@ -20,11 +20,11 @@ Copie cada texto para o campo de mesmo nome em **Play Console › Presença na l
 ### Descrição completa (limite de 4.000 caracteres)
 
 ```
-Quebra-Cabeça a Dois é um jogo de quebra-cabeça online para montar do seu jeito: sozinho, junto com um amigo na mesma imagem ou em disputa para ver quem termina primeiro.
+Quebra-Cabeça a Dois é um jogo de quebra-cabeça online para montar do seu jeito: sozinho, junto com outra pessoa na mesma imagem ou em disputa para ver quem termina primeiro.
 
 COMO JOGAR
 • Sozinho: escolha uma imagem e a quantidade de peças e monte no seu ritmo.
-• Com um amigo: os dois montam a mesma imagem ao mesmo tempo, cada um no seu celular, vendo as peças se moverem em tempo real.
+• Com outra pessoa: os dois montam a mesma imagem ao mesmo tempo, cada um no seu celular, vendo as peças se moverem em tempo real.
 • Sala Desafio: cada jogador monta o próprio tabuleiro com a mesma imagem. Vence quem encaixar a última peça primeiro. São dois modos: Comum e Quebrando Cabeças, em que uma caixa surpresa solta as peças.
 
 IMAGENS E DIFICULDADE
@@ -38,9 +38,10 @@ PROGRESSO
 • Gemas ganhas jogando, usadas para liberar coleções e bandejas decorativas na loja. Não há compras com dinheiro real.
 • Seus melhores tempos ficam guardados.
 
-AMIGOS
-• Adicione amigos pelo código de amigo e convide para jogar.
-• A conversa usa apenas frases prontas: não há bate-papo livre.
+SALAS PRIVADAS E SEGURANÇA
+• Jogue com outra pessoa numa sala privada, entrando pelo código da sala. Os dois aparecem só como Jogador 1 e Jogador 2.
+• Sem e-mail, sem senha e sem lista de amigos: o próprio jogo cria um perfil com apelido sorteado e um código-chave para você voltar a qualquer aparelho.
+• Quando a conversa está ligada, usa apenas frases prontas: não há bate-papo livre.
 • Você pode bloquear e denunciar outros jogadores.
 
 CONFORTO
@@ -69,10 +70,9 @@ Arquivos no pacote `material-da-loja.zip`, já no tamanho e formato que a Play e
 | | `capturas/3-partida.png` | 1080 × 1920 |
 | | `capturas/2-galeria.png` | 1080 × 1920 |
 | | `capturas/4-conquistas.png` | 1080 × 1920 |
-| | `capturas/5-amigos.png` | 1080 × 1920 |
-| | `capturas/6-perfil-amigo.png` | 1080 × 1920 |
+| | `capturas/5-perfil.png` (**refazer**: a tela de Amigos e a de Perfil do amigo não existem mais) | 1080 × 1920 |
 
-- As capturas são do app real. Os nomes Ana, Beto, Cris e Davi e os códigos de amigo são contas de teste, não pessoas reais.
+- As capturas são do app real. Os perfis das capturas devem ser de teste (apelido sorteado e ID gerado), nunca de pessoas reais. **As capturas 5 e 6 antigas (Amigos e Perfil do amigo) estão obsoletas: não envie.**
 - Nenhuma captura mostra personagem de terceiros nem pessoa real. A galeria usada é a categoria Fauna brasileira.
 - Capturas de tablet (7 e 10 polegadas) são opcionais e não foram feitas.
 
@@ -104,7 +104,7 @@ Declare que o app coleta dados, não compartilha com terceiros, criptografa em t
 | Todos os dados são criptografados em trânsito? | Sim (o site só responde por HTTPS) |
 | Os usuários podem pedir a exclusão dos dados? | Sim |
 | Link para pedir a exclusão da conta | https://quebra-apk.onrender.com/excluir-conta.html |
-| Há como criar conta no app? | Sim, por e-mail e senha (a conta é opcional) |
+| Há como criar conta no app? | Sim: um perfil gerado pelo próprio jogo (ID + código-chave), sem e-mail nem senha (o perfil é opcional) |
 
 ### Tipos de dados coletados
 
@@ -112,10 +112,9 @@ Para todos: **Coletado = Sim**, **Compartilhado = Não**, **Processamento tempor
 
 | Categoria na Play | Tipo | O que é no jogo | Finalidades a marcar |
 | --- | --- | --- | --- |
-| Informações pessoais | Endereço de e-mail | E-mail da conta | Gerenciamento de contas |
-| Informações pessoais | Nome | Apelido de jogador | Funcionalidade do app; Gerenciamento de contas |
-| Informações pessoais | IDs de usuário | Identificador da conta e código de amigo | Funcionalidade do app; Gerenciamento de contas |
-| Atividade no app | Interações no app | Partidas, tempos, XP, gemas, conquistas, amigos, convites e itens da loja (bandejas desbloqueadas com gemas, bandeja em uso e cores) | Funcionalidade do app |
+| Informações pessoais | Nome | Apelido sorteado pelo jogo (a pessoa não digita nome) | Funcionalidade do app; Gerenciamento de contas |
+| Informações pessoais | IDs de usuário | ID do perfil gerado pelo jogo e código-chave (guardado só como hash) | Funcionalidade do app; Gerenciamento de contas; Segurança |
+| Atividade no app | Interações no app | Partidas, tempos, XP, gemas, conquistas, bloqueios e itens da loja (bandejas desbloqueadas com gemas, bandeja em uso e cores) | Funcionalidade do app |
 | Atividade no app | Outro conteúdo gerado pelo usuário | Nota opcional de até 200 letras numa denúncia | Funcionalidade do app; Prevenção de fraudes, segurança e conformidade |
 | Mensagens | Outras mensagens no app | Frases prontas trocadas na partida (ficam só na memória da sala) | Funcionalidade do app |
 | IDs do dispositivo ou outros | IDs do dispositivo ou outros | Endereço de notificação do aparelho, só se a pessoa ligar os avisos (fica só na memória da sala) | Funcionalidade do app |
@@ -124,9 +123,9 @@ Para todos: **Coletado = Sim**, **Compartilhado = Não**, **Processamento tempor
 
 Localização, informações financeiras, saúde e condicionamento físico, fotos e vídeos, arquivos de áudio, arquivos e documentos, agenda, contatos, navegação na Web, apps instalados e dados de diagnóstico.
 
-- **Por que "não compartilhado":** Render (hospedagem), Neon (banco) e Brevo (envio de e-mails, inclusive o aviso de denúncia ao responsável) processam os dados em seu nome. A Play não conta provedores de serviço como compartilhamento.
+- **Por que "não compartilhado":** Render (hospedagem), Neon (banco) e Brevo (só o aviso de denúncia ao responsável, sem e-mail de jogador) processam os dados em seu nome. A Play não conta provedores de serviço como compartilhamento.
 - **Itens declarados por cautela:** as duas últimas linhas da tabela ficam só na memória do servidor por pouco tempo. Declarar a mais não gera punição; declarar a menos gera.
-- Se um dia você ligar o login com o Google, anúncios ou compras, este formulário precisa ser refeito.
+- **Mudança nesta etapa:** o app **deixou de coletar e-mail**. Se você já tinha preenchido o formulário com "Endereço de e-mail", **atualize** a declaração. Se um dia ligar login com o Google, e-mail, anúncios ou compras, este formulário precisa ser refeito.
 
 ## 5. Classificação de conteúdo
 
@@ -141,7 +140,7 @@ O questionário deve resultar numa classificação baixa com o aviso de interaç
 | Drogas, álcool ou tabaco | Não |
 | Jogos de azar ou apostas, reais ou simulados | Não |
 | Humor grosseiro | Não |
-| Os usuários podem interagir ou trocar conteúdo? | Sim: apelidos, convites entre amigos e frases prontas na partida |
+| Os usuários podem interagir ou trocar conteúdo? | Sim: salas privadas entre duas pessoas (identificadas só como Jogador 1 e 2) e frases prontas na partida |
 | Há conversa de texto livre, voz ou vídeo? | Não: a conversa usa só frases prontas |
 | O app compartilha a localização do usuário? | Não |
 | Permite comprar itens digitais com dinheiro real? | Não |
@@ -153,26 +152,19 @@ O questionário deve resultar numa classificação baixa com o aviso de interaç
 
 ## 6. Acesso ao app e demais declarações
 
-Os revisores da Play precisam de duas contas já confirmadas, porque o cadastro exige um código enviado por e-mail e os recursos de amigos pedem duas pessoas. Caminho: **Política › Conteúdo do app › Acesso ao app**.
-
-### Antes de preencher
-
-1. Crie duas contas no jogo com e-mails que você controla e confirme o código de cada uma.
-2. Em cada conta, adicione a outra como amiga pelo código de amigo.
-3. Use senhas só para isso, diferentes das suas senhas pessoais.
+Os revisores da Play **não precisam de conta de teste**: o perfil é criado pelo próprio jogo, sem e-mail, senha nem confirmação. Caminho: **Política › Conteúdo do app › Acesso ao app**.
 
 ### O que colocar em "Acesso ao app"
 
-Marque que parte do app é restrita e cadastre as instruções abaixo, trocando os campos entre colchetes.
+Marque que parte do app é restrita (a sala com outra pessoa) e cadastre as instruções abaixo.
 
 ```
-O jogo pode ser usado sem conta: toque em "Jogar" > "Sozinho" para montar um quebra-cabeça.
-Para testar conta, amigos, convites, bloqueio e denúncia, use as contas de teste:
-Conta 1: [e-mail 1] / senha: [senha 1]
-Conta 2: [e-mail 2] / senha: [senha 2]
-As duas contas já são amigas. Entre em "Entrar" (canto superior direito da tela inicial).
-A Sala Desafio e o modo "Com um amigo" precisam de dois aparelhos, um em cada conta.
-Não é preciso código de e-mail: as contas já estão confirmadas.
+O jogo pode ser usado sem perfil: toque em "Jogar" > "Sozinho" para montar um quebra-cabeça.
+Ao abrir, informe um mês e um ano de nascimento de alguém com 16 anos ou mais (por exemplo, janeiro de 1990).
+Para testar perfil, salas e bloqueio: toque em "Entrar" (canto superior direito da tela inicial) > "Criar perfil",
+marque as duas caixas e anote o ID e o código-chave. Não é preciso e-mail nem senha.
+A sala com outra pessoa (cooperativo e Sala Desafio) precisa de dois aparelhos, cada um com seu perfil:
+um cria a sala e passa o código da sala, o outro entra com esse código.
 O servidor pode levar até 60 segundos para responder na primeira abertura.
 ```
 
@@ -257,9 +249,9 @@ O pacote e os textos estão prontos, mas estes pontos ainda dependem do propriet
 - [ ] **Publicar a correção do vínculo (assetlinks):** depois do deploy, repita a consulta `assetlinks:check` do Google até aparecer `linked: true` para a chave de envio (o cache pode levar até cerca de 1 hora), desinstale o APK de teste e instale de novo.
 - [ ] **Teste em Android real:** nem o AAB nem o APK de teste foram instalados num aparelho de verdade. Confira a abertura sem barra de endereço, o botão voltar, o teclado e o mascote num celular simples.
 - [ ] **Hospedagem:** o Render gratuito dorme. A primeira resposta levou 11 a 22 segundos nas medições de 09/11/2026. Um plano que não dorme evita que testadores e revisores vejam tela em branco.
-- [ ] **ECA Digital (Lei 15.211/2025):** confirmar com um profissional se um jogo com amigos, convites e apelidos, para 16 anos ou mais, está dentro da lei. Perguntas ao profissional: (a) "até 16 anos", no art. 24, inclui quem tem exatamente 16? (b) a tela de idade neutra e a autodeclaração bastam como mecanismo de aferição? (c) um jogo com amigos, convites e frases prontas conta como rede social? (d) a arte em desenho faz o jogo ser de "acesso provável" por menores de 16, mesmo declarando 16+?
+- [ ] **ECA Digital (Lei 15.211/2025):** confirmar com um profissional se um jogo com salas privadas entre duas pessoas e apelidos sorteados (sem amigos, convites, e-mail ou nomes reais), para 16 anos ou mais, está dentro da lei. Perguntas ao profissional: (a) "até 16 anos", no art. 24, inclui quem tem exatamente 16? (b) a tela de idade neutra e a autodeclaração bastam como mecanismo de aferição? (c) um jogo com salas privadas e frases prontas conta como rede social? (d) a arte em desenho faz o jogo ser de "acesso provável" por menores de 16, mesmo declarando 16+?
 - [ ] **E-mail de contato:** conferir a grafia do endereço que aparece na política de privacidade e na página de exclusão antes de repeti-lo na loja.
-- [ ] **Aviso de denúncia por e-mail:** fazer uma denúncia de teste entre duas contas suas para confirmar que o e-mail chega pelo Brevo de verdade.
+- [ ] **Aviso de denúncia por e-mail:** fazer uma denúncia de teste entre dois perfis seus para confirmar que o e-mail chega pelo Brevo de verdade.
 - [ ] **Capa da coleção Cultura brasileira:** mostra uma pessoa. Confirmar a origem e a licença dessa imagem no catálogo.
 - [ ] **Endereço `onrender.com`:** o pacote aponta para ele. Trocar por domínio próprio depois exige um AAB novo.
 - [ ] **Estilo visual:** o mascote e as ilustrações clássicas são em desenho. A declaração de 16+ e os textos estão coerentes, mas a avaliação final é da Play.

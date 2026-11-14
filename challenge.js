@@ -168,7 +168,7 @@ module.exports = function createChallenge(d) {
     const same = !!(old && old.pid === pid);
     room.players[idx] = {
       pid, socketId: socket.id, connected: true,
-      name: cleanName(name) || (same ? old.name : '') || 'Jogador ' + (idx + 1),
+              name: 'Jogador ' + (idx + 1),             // nomes e apelidos do perfil NUNCA circulam entre jogadores
       avatar: cleanAvatar(avatar) || (same ? old.avatar : '') || '',
       ready: same ? !!old.ready : false,
       imgReady: false,                    // o celular avisa quando a imagem já está carregada e preparada
