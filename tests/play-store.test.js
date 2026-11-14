@@ -113,7 +113,7 @@ test('denúncia: o cliente usa a janela de denúncia no menu da sala, e nunca de
   assert.match(conta, /\$\('#rp-cancel'\)\.addEventListener\('click', function \(\) \{ QC\.closeModal\('#modal-report'\); rpCtx = null; \}\);/, 'Cancelar fecha a janela de denúncia');
   assert.match(game, /\$\('#menu-block'\)\.hidden = \$\('#menu-report'\)\.hidden = !\(window\.QC && window\.QC\.canBlock\) \|\| state\.solo;/);
   assert.match(game, /socket\.emit\('acc:reportPeer', p, function \(res\)/); assert.match(game, /setTimeout\(function \(\) \{ if \(!done\) \{ done = true; resolve\(\{ ok: false, error: 'offline' \}\); \} \}, 8000\);/, 'sem resposta em 8 s: libera o botão');
-  assert.match(game, /after: function \(res\) \{ if \(res\.blocked\) \{ if \(state\.duel\) leaveDuel\(\); else \{ socket\.disconnect\(\); reloadClean\(\); \} \} \}/, 'denunciar e bloquear na sala também sai da partida, como o bloquear');
+  assert.match(game, /after: function \(res\) \{ if \(res\.blocked\) \{ if \(state\.duel\) leaveDuel\(\); else leaveCoop\(\); \} \}/, 'denunciar e bloquear na sala também sai da partida, como o bloquear');
   for (const k of ['guest', 'no_peer', 'reason']) assert.match(conta, new RegExp('^\\s+' + k + ': ', 'm'));
 });
 test('denúncia: a migração existe, está travada por hash e tem as restrições', () => {
