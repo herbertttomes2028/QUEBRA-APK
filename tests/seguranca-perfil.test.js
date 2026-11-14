@@ -243,6 +243,51 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       const rr = await sb2.emitAck('chat', { text: 'oi', phraseId: 'oi' }).catch((e) => ({ erro: String(e.message) })); assert.ok(rr && (rr.ok === false || rr.erro), 'chat desligado no servidor');
     });
 
+    /* ============ 7b) privacidade da sala: nível e lista de bloqueados (rodada privacidade-sala, achados SEC-01 e SEC-05) ============ */
+    await t.test('7b) sala: o nível nunca circula; bloquear pela sala não revela ID, apelido, nível nem avatar; desbloqueio só por referência opaca', async () => {
+      const A = await novo(), B = await novo(), C = await novo();
+      await dbq('UPDATE users SET xp = 50000, xp_seeded = true WHERE id = $1', [B.uid]);              // B tem nível alto (29): não pode aparecer para A
+      const sa = await abre(S1), sb = await abre(S1);
+      await sa.emitAck('acc:auth', { token: A.token }); await sb.emitAck('acc:auth', { token: B.token });
+      const cr = await sa.emitAck('create', { pid: 'pid-a7b-' + crypto.randomUUID(), imageId: imagem, pieces: 12, avatar: '🐢' });
+      const jb = await sb.emitAck('join', { pid: 'pid-b7b-' + crypto.randomUUID(), code: cr.snapshot.code, avatar: '🦊' }); assert.equal(jb.ok, true);
+      await wait(300);
+      const niveis = sa.seen.filter(([e]) => e === 'meta').flatMap(([, a]) => a[0].players.map((p) => p.level));
+      assert.ok(niveis.length && niveis.every((l) => l === 0), 'cooperativo: o nível nos eventos é sempre 0 (recebido: ' + niveis.join(',') + ')');
+      assert.ok([...jb.snapshot.players, ...cr.snapshot.players].every((p) => p.level === 0), 'cooperativo: o nível no snapshot é sempre 0');
+      // Sala Desafio: o mesmo
+      const da = await abre(S1), dbs = await abre(S1);
+      await da.emitAck('acc:auth', { token: A.token }); await dbs.emitAck('acc:auth', { token: B.token });
+      const dc = await da.emitAck('ch:create', { pid: 'ch-a7b-' + crypto.randomUUID(), imageId: imagem, pieces: 12, mode: 'comum' }); assert.ok(dc.ok, JSON.stringify(dc).slice(0, 200));
+      const dj = await dbs.emitAck('ch:join', { pid: 'ch-b7b-' + crypto.randomUUID(), code: dc.lobby.code }); assert.ok(dj.ok);
+      await wait(300);
+      const lobbies = [dj.lobby, ...da.seen.filter(([e]) => e === 'ch:lobby').map(([, a]) => a[0])];
+      assert.ok(lobbies.every((l) => l.players.every((p) => p.level === 0)), 'Sala Desafio: o nível é sempre 0');
+      // A bloqueia B de dentro da sala cooperativa
+      assert.equal((await sa.emitAck('acc:blockPeer', {})).ok, true);
+      const bl = await http(S1, 'GET', '/blocks', { token: A.token });
+      assert.equal(bl.status, 200); assert.equal(bl.body.blocked.length, 1);
+      const txt = JSON.stringify(bl.body), linha = bl.body.blocked[0];
+      for (const [rotulo, bad] of [['ID cru de B', B.raw], ['ID de B', B.id], ['apelido de B', B.me.name], ['avatar de B', '🦊'], ['uid de B', B.uid]]) assert.ok(!txt.includes(bad), 'a lista de bloqueados NÃO pode conter: ' + rotulo);
+      assert.equal(linha.level, 0); assert.equal(linha.avatar, ''); assert.equal(linha.name, 'Jogador bloqueado');
+      assert.match(linha.ref, /^b[0-9a-f]{32}$/, 'referência opaca'); assert.equal(linha.code, linha.ref, 'code (app antigo) é a mesma referência, nunca o ID');
+      assert.ok(!Number.isNaN(Date.parse(linha.at)), 'data do bloqueio');
+      // a referência de A não serve para C, e um valor inventado não desbloqueia nada
+      assert.equal((await http(S1, 'POST', '/blocks/remove', { token: C.token, body: { ref: linha.ref } })).status, 404, 'a referência de A não vale na conta de C');
+      assert.equal((await http(S1, 'POST', '/blocks/remove', { token: A.token, body: { ref: 'b' + '0'.repeat(32) } })).status, 404, 'referência inventada');
+      assert.equal((await dbq('SELECT count(*)::int AS n FROM blocks WHERE blocker = $1 AND blocked = $2', [A.uid, B.uid])).rows[0].n, 1, 'o bloqueio continua');
+      // desbloquear pela referência (e pelo campo code, como o aplicativo antigo faz)
+      assert.equal((await http(S1, 'POST', '/blocks/remove', { token: A.token, body: { ref: linha.ref } })).status, 200);
+      assert.equal((await dbq('SELECT count(*)::int AS n FROM blocks WHERE blocker = $1 AND blocked = $2', [A.uid, B.uid])).rows[0].n, 0, 'desbloqueou');
+      await http(S1, 'POST', '/blocks', { token: A.token, body: { code: B.id } });                     // bloquear pelo ID continua possível
+      const l2 = (await http(S1, 'GET', '/blocks', { token: A.token })).body.blocked[0];
+      assert.ok(!JSON.stringify(l2).includes(B.raw), 'mesmo bloqueado pelo ID, a lista não mostra o ID');
+      assert.equal((await http(S1, 'POST', '/blocks/remove', { token: A.token, body: { code: l2.code } })).status, 200, 'app antigo: desbloqueia mandando code');
+      await http(S1, 'POST', '/blocks', { token: A.token, body: { code: B.id } });
+      assert.equal((await http(S1, 'POST', '/blocks/remove', { token: A.token, body: { code: B.id } })).status, 200, 'desbloquear pelo ID também continua possível');
+      assert.equal((await dbq('SELECT count(*)::int AS n FROM blocks WHERE blocker = $1', [A.uid])).rows[0].n, 0);
+    });
+
     /* ============ 8) Sala Desafio ============ */
     await t.test('8) Sala Desafio: terceira pessoa recusada e nomes neutros', async () => {
       const A = await novo(), B = await novo(); const sa = await abre(S1), sb = await abre(S1), sc = await abre(S1);

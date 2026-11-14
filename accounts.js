@@ -96,7 +96,6 @@ function createAccounts(d) {
 
   /* ----- consultas ----- */
   const one = async (text, params) => (await db.q(text, params)).rows[0] || null;
-  const publicUser = (u) => ({ code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, level: u.xp == null ? 0 : xpm.levelFromXp(u.xp) });
 
   async function createUser({ name, avatar, bests, secretHash, kind }) {
     for (let tries = 0; tries < 6; tries++) {
@@ -346,9 +345,17 @@ function createAccounts(d) {
     notify(me, { t: 'blocks' });
     return true;
   }
+  // A lista de bloqueados NUNCA mostra quem é a pessoa (nem ID, nem apelido, nem nível, nem avatar): quase sempre ela foi bloqueada
+  // de dentro de uma sala, onde só aparecia como "Jogador 1/2" (é o que a política de privacidade promete). Cada linha leva só a data
+  // e uma referência OPACA para desbloquear: HMAC com uma chave que nasce com o processo (não dá para deduzir o ID a partir dela e
+  // ela muda quando o servidor reinicia; a tela sempre relê a lista antes de desbloquear).
+  const BLOCK_REF_KEY = crypto.randomBytes(32);
+  const blockRef = (blocker, blocked) => 'b' + crypto.createHmac('sha256', BLOCK_REF_KEY).update(blocker + ':' + blocked).digest('hex').slice(0, 32);
+  const BLOCK_REF_RE = /^b[0-9a-f]{32}$/;
   r.get('/blocks', needUser, guard(async (req, res) => {
-    const rows = (await db.q('SELECT u.friend_code, u.name, u.avatar FROM blocks b JOIN users u ON u.id = b.blocked WHERE b.blocker = $1 ORDER BY b.created_at DESC', [req.user.id])).rows;
-    res.json({ ok: true, blocked: rows.map(publicUser) });
+    const rows = (await db.q('SELECT blocked, created_at FROM blocks WHERE blocker = $1 ORDER BY created_at DESC', [req.user.id])).rows;
+    // code = a MESMA referência opaca: o aplicativo antigo, guardado no celular, desbloqueia mandando "code" (nunca é o ID da pessoa)
+    res.json({ ok: true, blocked: rows.map((x) => { const ref = blockRef(req.user.id, x.blocked); return { ref, code: ref, name: 'Jogador bloqueado', avatar: '', level: 0, at: new Date(x.created_at).toISOString() }; }) });
   }));
   r.post('/blocks', needUser, guard(async (req, res) => {
     if (!allow('block:' + req.user.id, 30, 3600 * 1000)) return bad(res, 429, 'rate');
@@ -359,10 +366,19 @@ function createAccounts(d) {
     res.json({ ok: true });
   }));
   r.post('/blocks/remove', needUser, guard(async (req, res) => {
-    const t = await userByCode(normCode((req.body || {}).code));
-    if (!t) return bad(res, 404, 'notfound');
-    await db.q('DELETE FROM blocks WHERE blocker = $1 AND blocked = $2', [req.user.id, t.id]);
-    blockSet.delete(req.user.id + ':' + t.id);
+    const b = req.body || {}, raw = typeof b.ref === 'string' ? b.ref : (typeof b.code === 'string' ? b.code : '');
+    let otherId = null;
+    if (BLOCK_REF_RE.test(raw)) {                                   // referência opaca da lista: procura só entre os bloqueios DESTE jogador
+      const rows = (await db.q('SELECT blocked FROM blocks WHERE blocker = $1', [req.user.id])).rows;
+      const hit = rows.find((x) => blockRef(req.user.id, x.blocked) === raw);
+      otherId = hit ? hit.blocked : null;
+    } else {                                                        // compatibilidade: desbloquear pelo ID do perfil (quem bloqueou pelo ID já o conhece)
+      const t = await userByCode(normCode(raw));
+      otherId = t ? t.id : null;
+    }
+    if (!otherId) return bad(res, 404, 'notfound');
+    await db.q('DELETE FROM blocks WHERE blocker = $1 AND blocked = $2', [req.user.id, otherId]);
+    blockSet.delete(req.user.id + ':' + otherId);
     notify(req.user.id, { t: 'blocks' });
     res.json({ ok: true });
   }));

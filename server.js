@@ -650,7 +650,7 @@ function attach(room, socket, pid, name, avatar) {
     name: 'Jogador ' + (idx + 1),             // nomes e apelidos do perfil NUNCA circulam entre jogadores
     avatar: cleanAvatar(avatar) || prevAvatar || '',
     uid: socket.data.uid || null,           // conta do jogador (null = visitante)
-    level: socket.data.uid && accHooks.levelOf ? accHooks.levelOf(socket.data.uid) : 0,
+    level: roomLevel(socket.data.uid),        // sempre 0: o nível do perfil NÃO circula na sala (política de privacidade); o campo continua por compatibilidade
     push: same ? old.push || null : null,
     lastPush: 0
   };
@@ -739,13 +739,16 @@ function leaveCurrent(socket) {
 }
 
 const accHooks = { duelFinish: null, levelOf: null };
+// Nível mostrado DENTRO das salas (cooperativo e Sala Desafio): sempre 0. A política de privacidade promete que a outra pessoa vê só
+// "Jogador 1/2", nunca apelido, ID, nível, gemas, pet ou roupas. O campo `level` continua nos eventos (contrato e aplicativo antigo em cache).
+function roomLevel() { return 0; }
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
   io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
-  levelOf: (uid) => (accHooks.levelOf && uid ? accHooks.levelOf(uid) : 0),                          // nível do jogador (0 = visitante)
+  levelOf: roomLevel,                                                                                 // nível mostrado na Sala Desafio: sempre 0 (privacidade)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
   phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases,
   allowRoom: socket => protection.allowRoom(socket, rooms.size + challenge.size()),
@@ -802,7 +805,7 @@ function bindUserToRooms(socket, uid) {
     const pl = room.players[socket.data.idx];
     if (pl && pl.socketId === socket.id) {
       pl.uid = uid || null;
-      const lv = uid && accHooks.levelOf ? accHooks.levelOf(uid) : 0;
+      const lv = roomLevel(uid);                                                              // sempre 0 (o nível não circula na sala)
       if (lv !== pl.level) { pl.level = lv; io.to(room.code).emit('meta', meta(room)); }      // o login terminou DEPOIS de entrar na sala: avisa os outros do nível
     }
   }
