@@ -91,7 +91,7 @@ test('PostgreSQL: conquistas — estatísticas, pagamento em passadas, permanên
     const tokP = await mkSession(P);
     const me1 = (await call('/me', tokP)).body.me;
     assert.equal(me1.achievements.filter((a) => a.done).length, 6);
-    assert.equal(me1.achSummary.done, 6); assert.equal(me1.achMeta.groups.length, 10); assert.ok(me1.achSummary.total >= 100);
+    assert.equal(me1.achSummary.done, 6); assert.equal(me1.achMeta.groups.length, 9); assert.ok(me1.achSummary.total >= 90, 'sem as conquistas de amizade o catálogo tem um pouco menos de 100 visíveis');
     const fauna1 = me1.collections.find((c) => c.id === 'fauna');
     assert.equal(fauna1.done, 1); assert.equal(fauna1.total, 5); assert.equal(fauna1.open, true); assert.equal(fauna1.ach.done, 1);
     const seg = me1.achievements.find((a) => a.id === 'seg_devagar');
@@ -102,25 +102,6 @@ test('PostgreSQL: conquistas — estatísticas, pagamento em passadas, permanên
     assert.equal(me2.achievements.find((a) => a.id === 'cat_fauna_1').done, true, '...mas a conquista continua ganha');
     assert.equal(me2.achievements.find((a) => a.id === 'img_1').done, true);
     assert.equal(me2.collections.find((c) => c.id === 'fauna').done, 0, 'a coleção mostra o estado de agora');
-
-    /* ================= 4) perfil de AMIGO: só o público, sem progresso, sem segredos ================= */
-    const F = await mkUser('Fabi', 'FFFFFFF2', 0), G = await mkUser('Gabi', 'GGGGGGG2', 0);
-    const [x, y] = P < F ? [P, F] : [F, P];
-    await q("INSERT INTO friendships (user_a, user_b, requested_by, status) VALUES ($1, $2, $1, 'accepted')", [x, y]);
-    const tokF = await mkSession(F), tokG = await mkSession(G);
-    const fp = await call('/friends/profile', tokF, { code: 'PPPP-PPP2' });
-    assert.equal(fp.status, 200);
-    const prof = fp.body.profile;
-    assert.deepEqual(Object.keys(prof).sort(), ['achSummary', 'achievements', 'avatar', 'code', 'level', 'name', 'online', 'since', 'stats']);
-    const todas = ach.list(library), publicas = new Set(todas.filter((a) => a.pub && !a.secret && !a.retired).map((a) => a.id));
-    assert.ok(prof.achievements.length > 60 && prof.achievements.every((a) => publicas.has(a.id)), 'só conquistas públicas');
-    for (const privada of ['v6_45', 'amigo', 'turma', 'dias_3', 'junto_5', 'hora_1', 'seg_devagar', 'seg_lenda', 'imagem']) assert.ok(!prof.achievements.some((a) => a.id === privada), privada + ' é privada e não pode sair no perfil de amigo');
-    assert.ok(prof.achievements.every((a) => JSON.stringify(Object.keys(a).sort()) === JSON.stringify(['desc', 'done', 'g', 'icon', 'id', 'tier', 'title'])), 'sem xp, sem progresso (now/goal), sem tempos');
-    assert.equal(prof.achievements.find((a) => a.id === 'primeira').done, true);
-    assert.deepEqual(prof.achSummary, { done: 5, total: publicas.size }, 'públicas ganhas: primeira, missão cumprida, primeiro quadro, 1ª imagem de Fauna e Aprendiz (nível 3); a de tempo (v6_45) é privada e não conta');
-    assert.equal(prof.achievements.find((a) => a.id === 'nivel_3').done, true);
-    const nao = await call('/friends/profile', tokG, { code: 'PPPP-PPP2' });
-    assert.equal(nao.status, 403, 'quem não é amigo continua sem acesso');
 
     /* ================= 5) veterano: tudo o que já cumpria é pago de uma vez, em várias passadas, sem duplicar ================= */
     const V = await mkUser('Vera', 'VVVVVVV2', 3000);

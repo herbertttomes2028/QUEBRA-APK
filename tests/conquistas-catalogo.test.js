@@ -24,7 +24,7 @@ const done = (id, s, lib) => A.isDone(row(id, lib), st(s));
 test('catálogo íntegro: ids e títulos únicos, nível e grupo válidos, textos preenchidos e curtos', () => {
   for (const lib of [CATS5, CATS_REAL]) {
     const l = A.list(lib), grupos = new Set(A.GROUPS.map((g) => g.id));
-    assert.ok(l.length >= 110, 'poucas conquistas: ' + l.length);
+    assert.ok(l.length >= 100, 'poucas conquistas: ' + l.length);
     assert.equal(new Set(l.map((a) => a.id)).size, l.length, 'ids repetidos');
     assert.equal(new Set(l.filter((a) => !a.retired).map((a) => a.title)).size, l.filter((a) => !a.retired).length, 'títulos repetidos');
     for (const a of l) {
@@ -33,7 +33,7 @@ test('catálogo íntegro: ids e títulos únicos, nível e grupo válidos, texto
       assert.ok(Number.isFinite(a.goal) && a.goal > 0, a.id + ': meta inválida'); assert.ok(a.xp > 0, a.id + ': sem XP');
     }
   }
-  assert.equal(A.GROUPS.length, 10);
+  assert.equal(A.GROUPS.length, 9);
   assert.ok(A.list(CATS_REAL).length > A.list(CATS5).length, 'catálogo de imagens maior => mais conquistas por categoria');
 });
 
@@ -46,10 +46,11 @@ test('todo "stat" do catálogo existe (guarda contra erro de digitação) e nada
   assert.ok(!/require\('\.\/accounts'\)/.test(src), 'módulo puro: não depende de accounts.js');
 });
 
-test('as 10 conquistas antigas: mesmo id, mesmo XP e mesma regra de antes', () => {
+test('as 8 conquistas antigas que continuam: mesmo id, mesmo XP e mesma regra de antes ("amigo" e "turma" saíram junto com os amigos)', () => {
   const antigas = { primeira: [{ games: 1 }, { games: 0 }], dez: [{ games: 10 }, { games: 9 }], vitoria: [{ wins: 1 }, { wins: 0 }], campeao: [{ wins: 10 }, { wins: 9 }], montador: [{ completed: 5 }, { completed: 4 }],
-    mestre: [{ maxPieces: 48 }, { maxPieces: 30 }], veloz: [{ fastest20: 299999 }, { fastest20: 300000 }], imagem: [{ customGames: 1 }, { customGames: 0 }], amigo: [{ friends: 1 }, { friends: 0 }], turma: [{ friends: 5 }, { friends: 4 }] };
-  assert.deepEqual(Object.keys(antigas).sort(), Object.keys(xpm.ACH_XP).sort());
+    mestre: [{ maxPieces: 48 }, { maxPieces: 30 }], veloz: [{ fastest20: 299999 }, { fastest20: 300000 }], imagem: [{ customGames: 1 }, { customGames: 0 }], };
+  assert.deepEqual(Object.keys(antigas).sort(), Object.keys(xpm.ACH_XP).filter((k) => k !== 'amigo' && k !== 'turma').sort(), 'o XP antigo dessas duas fica em xp.js (quem já ganhou não perde), mas elas não existem mais no catálogo');
+  assert.ok(!A.list().some((x) => x.id === 'amigo' || x.id === 'turma' || x.g === 'amizade'), 'sem amigos, não há conquistas de amizade');
   for (const [id, [sim, nao]] of Object.entries(antigas)) {
     assert.equal(row(id).xp, xpm.ACH_XP[id], id + ': o XP antigo precisa continuar igual'); assert.equal(done(id, sim), true, id + ' deveria estar ganha'); assert.equal(done(id, nao), false, id + ' não deveria estar ganha');
   }
@@ -114,7 +115,7 @@ test('privacidade: o amigo só recebe as públicas, sem progresso, tempos, XP, s
   for (const r of fv) assert.deepEqual(Object.keys(r).sort(), ['desc', 'done', 'g', 'icon', 'id', 'tier', 'title']);
   const ids = new Set(fv.map((r) => r.id));
   for (const privada of ['amigo', 'turma', 'amigos_10', 'convite_1', 'junto_5', 'parceiros_3', 'dias_3', 'seq_7', 'hora_1', 'dia_5', 'v6_45', 'v6_20', 'v48_300', 'seg_devagar', 'seg_teimoso', 'seg_dia', 'seg_lenda', 'imagem']) assert.ok(!ids.has(privada), privada + ' vazaria para o amigo');
-  for (const g of ['velocidade', 'amizade', 'constancia', 'segredos']) for (const a of A.list().filter((x) => x.g === g && x.id !== 'veloz')) assert.equal(a.pub, false, a.id + ' (' + g + ') deveria ser privada');
+  for (const g of ['velocidade', 'constancia', 'segredos']) for (const a of A.list().filter((x) => x.g === g && x.id !== 'veloz')) assert.equal(a.pub, false, a.id + ' (' + g + ') deveria ser privada');
   for (const publica of ['veloz', 'vitoria', 'campeao', 'nivel_10', 'cat_fauna_1', 'img_10', 'mestre', 'primeira']) assert.ok(ids.has(publica), publica + ' deveria aparecer no perfil do amigo');
   assert.equal(A.friendSummary(rows).total, fv.length);
 });

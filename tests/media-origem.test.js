@@ -34,7 +34,7 @@ test('a MESMA origem entra no catálogo (com versão pelo sha256) e na CSP (img-
   assert.equal(com.m.origin, 'https://img.meujogo.com.br');
   assert.equal(com.url, 'https://img.meujogo.com.br/pasta/biblioteca/lib-fauna-01.webp');
   assert.equal(com.thumb, 'https://img.meujogo.com.br/pasta/biblioteca/mini/lib-fauna-01.webp');
-  assert.match(com.csp, /img-src 'self' data: blob: https:\/\/\*\.googleusercontent\.com https:\/\/img\.meujogo\.com\.br;/);
+  assert.match(com.csp, /img-src 'self' data: blob: https:\/\/img\.meujogo\.com\.br;/);
   assert.ok(!/script-src[^;]*img\.meujogo|connect-src[^;]*img\.meujogo|default-src[^;]*img\.meujogo/.test(com.csp), 'a origem das imagens NÃO ganha permissão de script, conexão nem padrão');
   const sem = run({ MEDIA_BASE_URL: '' });
   assert.equal(sem.m, null); assert.equal(sem.url, 'biblioteca/lib-fauna-01.webp');

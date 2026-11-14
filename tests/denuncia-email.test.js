@@ -149,6 +149,6 @@ test('código: o e-mail é disparado sem esperar, só para denúncia nova, sem d
 });
 test('documentos: a política conta que as denúncias chegam por e-mail (sem identificar quem denunciou) e o SEGURANCA.md ensina a configurar', () => {
   const t = read('public/privacidade.html').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  for (const x of ['Brevo', 'aviso de cada denúncia', 'sem o e-mail de ninguém', 'cada uma chega por e-mail a essa pessoa, sem identificar quem denunciou']) assert.ok(t.includes(x), x);
+  for (const x of ['Brevo', 'aviso de cada denúncia', 'nenhum e-mail de jogador é enviado', 'cada uma chega por e-mail a essa pessoa, sem identificar quem denunciou']) assert.ok(t.includes(x), x);
   const sg = read('SEGURANCA.md'); for (const x of ['REPORT_NOTIFY_EMAIL', 'REPORT_MAIL_MAX_PER_HOUR', 'avisos_de_denuncia_por_email']) assert.ok(sg.includes(x), x);
 });

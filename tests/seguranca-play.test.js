@@ -63,8 +63,8 @@ test('CSP: os três modos (report = padrão, enforce, off) montam os cabeçalhos
   assert.equal(padrao.csp, "frame-ancestors 'none'"); assert.match(padrao.ro, /default-src 'self'/, 'o padrão só RELATA');
   assert.equal(off.csp, "frame-ancestors 'none'"); assert.equal(off.ro, null);
   assert.equal(enf.ro, null, 'enforce não duplica o modo de relato');
-  for (const d of ["default-src 'self'", "script-src 'self' https://accounts.google.com/gsi/client", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "worker-src 'self'", "manifest-src 'self'", 'report-uri /api/csp-report']) assert.ok(enf.csp.includes(d), 'enforce: ' + d);
-  assert.match(enf.csp, /connect-src 'self' ws:\/\/127\.0\.0\.1:\d+ wss:\/\/127\.0\.0\.1:\d+ https:\/\/accounts\.google\.com\/gsi\//, 'o WebSocket do próprio site');
+  for (const d of ["default-src 'self'", "script-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "worker-src 'self'", "manifest-src 'self'", 'report-uri /api/csp-report']) assert.ok(enf.csp.includes(d), 'enforce: ' + d);
+  assert.match(enf.csp, /connect-src 'self' ws:\/\/127\.0\.0\.1:\d+ wss:\/\/127\.0\.0\.1:\d+;/, 'o WebSocket do próprio site');
   assert.doesNotMatch(enf.csp, /script-src[^;]*'unsafe-inline'|script-src[^;]*'unsafe-eval'/, 'scripts nunca inline nem eval');
 });
 test('CSP: o HTML não tem script embutido, atributo de evento (onclick...), javascript: nem recurso de outro site (só o login do Google), então o enforce não quebra a tela', () => {
@@ -86,7 +86,7 @@ test('aviso de segurança: janela acessível, três recomendações curtas em po
   assert.match(html, /<span id="lbl-safe" class="set-label">Jogue com segurança<\/span>\s*<button type="button" id="btn-safe" class="btn btn-secondary btn-small" aria-describedby="lbl-safe">🛡️ Ver dicas<\/button>/, 'atalho nos Ajustes');
   assert.match(read('public/telas.css'), /\.safe-list \{/);
 });
-test('aviso de segurança: aparece UMA vez por aparelho antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código, Amigos, aceitar convite) e NUNCA no modo solo', () => {
+test('aviso de segurança: aparece UMA vez por aparelho antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código) e NUNCA no modo solo', () => {
   assert.match(game, /var SAFE_KEY = 'qc\.safe\.v1', safeMem = false, safePending = null;/);
   assert.match(game, /function safeAcked\(\) \{ if \(safeMem\) return true; try \{ return localStorage\.getItem\(SAFE_KEY\) === '1'; \} catch \(e\) \{ return false; \} \}/);
   assert.match(game, /function safeThen\(fn\) \{\s+if \(safeAcked\(\)\) \{ fn\(\); return; \}\s+safePending = fn; openModal\('#modal-safe', '#safe-ok'\);/);
@@ -95,8 +95,7 @@ test('aviso de segurança: aparece UMA vez por aparelho antes de jogar com outra
   assert.match(game, /safeThen\(function \(\) \{ openPick\('duel'\); \}\);/); assert.match(game, /readName\(\); safeThen\(function \(\) \{ openPick\('create'\); \}\); \}\);/); assert.match(game, /safeThen\(function \(\) \{ doJoin\(code\); \}\);/);
   assert.match(game, /\$\('#btn-solo'\)\.addEventListener\('click', function \(\) \{ closeModal\('#modal-play'\); readName\(\); openPick\('solo'\); \}\);/, 'solo sem aviso');
   assert.match(game, /window\.QC = \{\s+safeThen: safeThen,/, 'dentro do objeto QC (um window.QC = {...} posterior apagaria uma atribuição solta)');
-  assert.match(conta, /var go = function \(\) \{ acc\.after = acc\.token \? null : 'friends'; openMe\('friends'\); \};\s+if \(QC\.safeThen\) QC\.safeThen\(go\); else go\(\);/);
-  assert.match(conta, /if \(QC\.safeThen\) QC\.safeThen\(function \(\) \{ respondInvite\(i, true\); \}\); else respondInvite\(i, true\);/);
+  assert.ok(!/safeThen|respondInvite|openFriends/.test(conta), 'sem Amigos e sem convites, o aviso fica só nos botões de sala do jogo');
 });
 
 /* ===================== documentação coerente com o código ===================== */

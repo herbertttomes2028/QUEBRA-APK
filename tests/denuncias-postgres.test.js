@@ -47,17 +47,20 @@ test('PostgreSQL: cadastro 16+ e denúncias (HTTP e sala), com limites, sigilo e
     const rep = async (token, b) => post('/reports', token, b);
     const linhas = async (w, p) => (await q('SELECT * FROM reports ' + (w || ''), p || [])).rows;
 
-    /* ================= 1) cadastro: só com a confirmação de 16+ ================= */
-    let ipN = 0; const reg = (b) => post('/register', null, b, '10.0.0.' + (++ipN));       // cada tentativa de outro IP (o limite de cadastros por IP já existe)
-    const senha = 'Aa1!' + crypto.randomBytes(12).toString('hex');                      // gerada a cada execução: nenhuma senha escrita no código
-    const base = { email: 'novo1@t.test', password: senha, name: 'Nina', consent: true };
+    /* ================= 1) criar perfil: só com a confirmação de 16+ (e a de privacidade) ================= */
+    let ipN = 0; const reg = (b) => post('/profile/new', null, b, '10.0.0.' + (++ipN));       // cada tentativa de outro IP (o limite de criações por IP já existe)
+    const nGerados = async () => (await q("SELECT count(*)::int AS n FROM users WHERE kind = 'gerado'")).rows[0].n;
+    const base = { consent: true };
     assert.equal((await reg(Object.assign({}, base, { consent: false, age16: true }))).body.error, 'consent', 'sem a caixa de privacidade: recusa');
     let r = await reg(base); assert.deepEqual([r.status, r.body.error], [400, 'age16'], 'sem confirmar 16+: recusa');
     r = await reg(Object.assign({}, base, { age16: false })); assert.equal(r.body.error, 'age16', 'age16 falso: recusa');
     for (const falso of ['true', 1, 'sim', {}, null]) assert.equal((await reg(Object.assign({}, base, { age16: falso }))).body.error, 'age16', 'só o booleano true vale: ' + JSON.stringify(falso));
-    assert.equal((await q("SELECT count(*)::int AS n FROM users WHERE email = 'novo1@t.test'")).rows[0].n, 0, 'nenhuma conta foi criada sem a confirmação');
-    r = await reg(Object.assign({}, base, { age16: true })); assert.equal(r.body.ok, true, 'com as duas caixas: cria a conta ' + JSON.stringify(r.body).slice(0, 160)); assert.ok(r.body.token);
-    assert.equal((await q("SELECT count(*)::int AS n FROM users WHERE email = 'novo1@t.test'")).rows[0].n, 1);
+    assert.equal(await nGerados(), 0, 'nenhum perfil foi criado sem a confirmação');
+    r = await reg(Object.assign({}, base, { age16: true })); assert.equal(r.body.ok, true, 'com as duas caixas: cria o perfil ' + JSON.stringify(r.body).slice(0, 160)); assert.ok(r.body.token);
+    assert.equal(await nGerados(), 1);
+    const novo = (await q("SELECT secret_hash, name, email FROM users WHERE kind = 'gerado'")).rows[0];
+    assert.ok(novo.secret_hash && novo.secret_hash !== r.body.secret && !novo.secret_hash.includes(String(r.body.secret).replace(/-/g, '')), 'o banco guarda só o resumo (hash) do código-chave, nunca o código');
+    assert.equal(novo.email, null, 'o perfil gerado não tem e-mail');
 
     /* ================= 2) denúncia por HTTP ================= */
     r = await rep(tA, { code: 'BBBBBBB2', reason: 'apelido', note: ' ofensivo\n\t' + 'x'.repeat(300) + '\u0000', context: 'amigos' });
@@ -69,7 +72,9 @@ test('PostgreSQL: cadastro 16+ e denúncias (HTTP e sala), com limites, sigilo e
     assert.equal((await linhas("WHERE reason = 'comportamento'"))[0].context, 'perfil', 'contexto desconhecido vira "perfil"');
     assert.deepEqual([(await rep(tA, { code: 'BBBBBBB2', reason: 'xingamento' })).body.error, (await rep(tA, { code: 'BBBBBBB2' })).body.error, (await rep(tA, { code: 'BBBBBBB2', reason: ['apelido'] })).body.error], ['reason', 'reason', 'reason'], 'motivo inválido, ausente ou fora da lista');
     r = await rep(tA, { code: 'AAAAAAA2', reason: 'apelido' }); assert.deepEqual([r.status, r.body.error], [400, 'self'], 'não dá para denunciar a si mesmo');
-    r = await rep(tA, { code: 'ZZZZZZZ9', reason: 'apelido' }); assert.deepEqual([r.status, r.body.error], [404, 'notfound']);
+    const nAntes = (await linhas()).length;
+    r = await rep(tA, { code: 'ZZZZZZZ9', reason: 'apelido' }); assert.deepEqual([r.status, r.body.ok, r.body.error], [200, true, undefined], 'ID que não existe: a MESMA resposta de sempre (ninguém descobre quais IDs existem)');
+    assert.equal((await linhas()).length, nAntes, '…e nada é gravado');
     r = await rep(null, { code: 'BBBBBBB2', reason: 'apelido' }); assert.equal(r.status, 401, 'sem login: não');
     r = await rep('token-falso', { code: 'BBBBBBB2', reason: 'apelido' }); assert.equal(r.status, 401);
     const antes = (await linhas()).length;

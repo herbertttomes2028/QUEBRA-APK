@@ -13,11 +13,11 @@ test('abas do meu espaço: Perfil, Conquistas, Coleções e Partidas, cada uma c
   for (const t of ['profile', 'ach', 'col', 'history']) assert.match(html, new RegExp('class="me-tab[^"]*" type="button" data-tab="' + t + '"'));
   for (const id of ['tab-ach', 'tab-col', 'ach-summary', 'ach-filters', 'ach-groups', 'ach-list', 'col-list', 'col-count', 'me-tab-ach-badge']) assert.ok(html.includes('id="' + id + '"'), id);
   assert.match(html, /<i id="me-tab-ach-badge" class="me-badge" hidden><\/i>/);
-  assert.match(html, /id="fp-ach" class="shelf"/);                                          // perfil de amigo: prateleira, não a grade do dono
-  assert.match(conta, /\['profile', 'ach', 'col', 'friends', 'history'\]\.forEach/);
+  assert.ok(!/id="fp-|id="fr-|id="inv-|id="fa-/.test(html), 'não existe mais perfil de outra pessoa, lista de amigos nem convites');
+  assert.match(conta, /\['profile', 'ach', 'col', 'history'\]\.forEach/);
   assert.match(conta, /if \(t === 'ach'\) renderAch\(\);\s*\n\s*if \(t === 'col'\) renderCol\(\);/);
   assert.match(conta, /paintStats\(\$\('#me-stats'\), \[\['Partidas', st\.games, 'c1'\][^\n]*\n\s*updateAchBadge\(\);/, 'o Perfil mostra só as estatísticas; o selo de novidades da aba do troféu continua');
-  assert.match(conta, /paintFriendAch\(\$\('#fp-ach'\), \$\('#fp-ach-count'\), p\.achievements, p\.achSummary\)/);
+  assert.ok(!/paintFriendAch|friendView/.test(conta), 'o cliente não desenha conquistas de outra pessoa');
 });
 
 test('o texto que vem do servidor nunca vira HTML: só textContent, nunca innerHTML com conteúdo', () => {
@@ -28,12 +28,10 @@ test('o texto que vem do servidor nunca vira HTML: só textContent, nunca innerH
   assert.match(bloco, /function el\(|el\('/);                                                // usa o helper el() (textContent)
 });
 
-test('privacidade nas rotas: meu perfil usa a visão completa, o do amigo SÓ a pública', () => {
+test('privacidade nas rotas: o perfil usa a visão completa DO DONO e não existe mais rota de perfil de outra pessoa', () => {
   assert.match(accounts, /achievements: ach\.meView\(achRows\)/);
-  assert.match(accounts, /achievements: ach\.friendView\(fr2\.rows\), achSummary: ach\.friendSummary\(fr2\.rows\)/);
-  const rota = accounts.slice(accounts.indexOf("r.get('/friends/profile'"), accounts.indexOf("r.get('/matches'"));
-  assert.ok(rota.includes('friendView') && !rota.includes('meView') && !/collections|achMeta/.test(rota), 'o perfil de amigo não recebe coleções, nem a visão do dono');
-  assert.match(rota, /velocidade|hábitos|segredas|secretas/, 'o comentário de privacidade da rota cita o que não sai');
+  assert.ok(!accounts.includes("r.get('/friends/profile'") && !accounts.includes("r.get('/friends'"), 'sem rotas de amigos');
+  assert.ok(!/inv:send|inv:respond/.test(accounts), 'sem convites de amigos');
 });
 
 test('pagamento: várias passadas com limite, XP do catálogo, ref única por conquista e dentro de accounts.js', () => {

@@ -53,7 +53,7 @@ test('eventos de socket do cooperativo, do Desafio e de contas existem', () => {
   const has = (src, ev) => new RegExp("socket\\.on\\('" + ev.replace(/[:*]/g, (c) => '\\' + c) + "'").test(src);
   const coop = ['create', 'join', 'grab', 'move', 'drop', 'rotate', 'hint', 'spot', 'chat', 'restart', 'rematch:answer', 'rematch:cancel', 'acc:continue', 'imgready', 'push:subscribe', 'push:unsubscribe'];
   const ch = ['ch:create', 'ch:join', 'ch:ready', 'ch:grab', 'ch:move', 'ch:drop', 'ch:rotate', 'ch:gift', 'ch:rematch', 'ch:leave', 'ch:chat', 'ch:hint', 'ch:spot', 'ch:imgready', 'ch:push:subscribe', 'ch:push:unsubscribe'];
-  const acc = ['acc:auth', 'acc:logout', 'acc:blockPeer', 'inv:send', 'inv:respond'];
+  const acc = ['acc:auth', 'acc:logout', 'acc:blockPeer', 'acc:reportPeer'];
   for (const e of coop) assert.ok(has(server, e), 'server.js perdeu ' + e);
   for (const e of ch) assert.ok(has(challenge, e), 'challenge.js perdeu ' + e);
   for (const e of acc) assert.ok(has(accounts, e), 'accounts.js perdeu ' + e);
@@ -73,7 +73,7 @@ test('XP: payMatch é a única entrada e só accounts.js o usa', () => {
 
 test('exports de createAccounts e das fábricas permanecem', () => {
   const ret = accounts.slice(accounts.lastIndexOf('return {'));
-  for (const k of ['enabled', 'config', 'noteCoop', 'flush', 'loadSave', 'deleteSave', 'finishCoop', 'finishDuel', 'levelOf', 'isOnline', 'expireInvites', 'allowedPhrases', 'blockedBetween', 'blockUser', 'verifyGoogleIdToken', 'close']) {
+  for (const k of ['enabled', 'config', 'noteCoop', 'flush', 'loadSave', 'deleteSave', 'finishCoop', 'finishDuel', 'levelOf', 'isOnline', 'allowedPhrases', 'blockedBetween', 'blockUser', 'close']) {
     assert.ok(new RegExp('\\b' + k + '\\b').test(ret), 'createAccounts deixou de devolver ' + k);
   }
   const xp = require('../xp');
