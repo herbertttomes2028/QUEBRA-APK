@@ -188,6 +188,25 @@
     if (cb) socket.emit(name, data, cb); else socket.emit(name, data);
   }
 
+  /* Posição da peça durante o arrasto (move / ch:move). Antes ia como "volatile": se a conexão estivesse ocupada naquele instante
+   * (modo polling, rede lenta, reconexão), a posição era JOGADA FORA e o amigo via a peça parada até ela encaixar (medido: de 60
+   * posições chegavam só 8 a 14). Agora nada é descartado: com a conexão livre sai na hora (como antes); ocupada, guarda só a ÚLTIMA
+   * posição e manda assim que a conexão liberar (nunca forma fila). Sem conexão, não guarda nada (ao reconectar a peça já foi solta). */
+  var movePend = null, moveWaitEngine = null;
+  function sendMove(ev, data) {
+    if (!socket.connected) { movePend = null; return; }
+    var eng = socket.io && socket.io.engine, tr = eng && eng.transport;
+    if (!eng || !tr || tr.writable !== false) { movePend = null; socket.emit(ev, data); return; }
+    movePend = { ev: ev, data: data };
+    if (moveWaitEngine === eng) return;                  // já está esperando esta conexão liberar
+    moveWaitEngine = eng;
+    eng.once('drain', function () {
+      if (moveWaitEngine === eng) moveWaitEngine = null;
+      var m = movePend; movePend = null;
+      if (m && socket.connected) socket.emit(m.ev, m.data);
+    });
+  }
+
   function popEl(el, cls) {
     el.classList.remove(cls);
     // No modo sem animacoes, nao reiniciar um efeito inexistente medindo layout.
@@ -1278,6 +1297,16 @@
           animating = true;
         }
         changed = true;
+      } else if (p.glide) {                                  // peça do amigo que acabou de encaixar: desliza até a casa (ver socket 'locked')
+        var gu = (now - p.glide.t0) / p.glide.dur;
+        if (gu >= 1 || !p.locked) { p.x = p.tx; p.y = p.ty; p.glide = null; }
+        else {
+          var ge = 1 - Math.pow(1 - Math.max(0, gu), 3);
+          p.x = p.glide.fx + (p.tx - p.glide.fx) * ge;
+          p.y = p.glide.fy + (p.ty - p.glide.fy) * ge;
+          animating = true;
+        }
+        changed = true;
       } else if (!p.locked && !dragging) {
         var dx = p.tx - p.x, dy = p.ty - p.y;
         if (Math.abs(dx) > 0.4 || Math.abs(dy) > 0.4) {
@@ -1499,7 +1528,7 @@
     var now = performance.now();
     if (now - d.last >= 50) {
       d.last = now;
-      socket.volatile.emit(state.duel ? 'ch:move' : 'move', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
+      sendMove(state.duel ? 'ch:move' : 'move', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });    // nunca descarta (ver sendMove)
     }
   }
 
@@ -2787,10 +2816,18 @@
   socket.on('locked', function (d) {
     var p = state.pieces[d.id];
     if (!p) return;
+    var fromX = p.x, fromY = p.y;
     p.locked = true;
     p.lockedBy = d.by;
     p.heldBy = null;
     p.x = d.x; p.y = d.y; p.tx = d.x; p.ty = d.y;
+    // Peça do OUTRO jogador: na tela de quem assiste ela ainda estava atrás (rede + ímã ao arrastar, que encaixa no meio do caminho e
+    // não manda a última posição). Antes ela PULAVA para a casa ("quando vi, já estava encaixada"); agora desliza até lá em 180 ms.
+    // Só o desenho: o encaixe já aconteceu no servidor. Quem encaixou a própria peça e quem pediu "menos animações" vê como antes.
+    if (d.by !== state.idx && !reducedMotion() && Math.hypot(fromX - d.x, fromY - d.y) > 2) {
+      p.x = fromX; p.y = fromY;
+      p.glide = { fx: fromX, fy: fromY, t0: performance.now(), dur: 180 };
+    }
     setAngle(p, 0);
     if (state.selectedId === p.id) { state.selectedId = null; clearTimeout(state.idleTimer); }
     if (state.drag && state.drag.id === p.id) {                       // o ímã puxou a peça com o dedo ainda segurando: o arrasto termina aqui

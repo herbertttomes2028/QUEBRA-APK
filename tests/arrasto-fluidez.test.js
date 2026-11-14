@@ -39,6 +39,7 @@ function fixture(pieces = 12, duel = false) {
     wakeFrame: () => order.push('raf'),
     resetIdle: () => order.push('resetIdle'),
     socket: { volatile: { emit: (name, data) => events.push({ name, data }) } },
+    sendMove: (name, data) => events.push({ name, data }),
     performance: { now: () => now }
   };
   for (const name of ['pointerCount', 'onPointerDown', 'onPointerMove', 'dropSelected', 'endPointer']) {
@@ -150,5 +151,5 @@ test('nenhum novo evento do jogo, mudança de SNAP, pinça ou giros', () => {
   assert.match(game, /gameEmit\('drop', \{ id: p\.id, x: Math\.round\(p\.x\), y: Math\.round\(p\.y\) \}\)/);
   assert.doesNotMatch(game, /rotateSelected/, 'não há mais giro em nenhum modo');
   assert.match(game, /dropSelected\(\);\s+\/\/ tocar novamente na peça escolhida apenas a solta/);
-  assert.match(game, /socket\.volatile\.emit\(state\.duel \? 'ch:move' : 'move'/);
+  assert.match(game, /sendMove\(state\.duel \? 'ch:move' : 'move'/);
 });
