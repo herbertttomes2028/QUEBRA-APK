@@ -23,7 +23,6 @@ const GROUPS = Object.freeze([
   { id: 'tamanho', icon: '📏', title: 'Mestre dos tamanhos', blurb: 'De 6 a 48 peças' },
   { id: 'velocidade', icon: '⚡', title: 'Velocidade', blurb: 'Só você vê estas' },
   { id: 'desafio', icon: '🏆', title: 'Desafio e equipe', blurb: 'Vitórias, duplas e foco' },
-  { id: 'amizade', icon: '🤝', title: 'Amizade', blurb: 'Só você vê estas' },
   { id: 'constancia', icon: '📅', title: 'Constância', blurb: 'Só você vê estas' },
   { id: 'colecao', icon: '🖼️', title: 'Coleção geral', blurb: 'Sua galeria de imagens' },
   { id: 'categorias', icon: '🗂️', title: 'Por categoria', blurb: 'Uma jornada em cada coleção' },
@@ -93,18 +92,6 @@ const STATIC = [
   def('coop_20', 'desafio', '🌠', 'Equipe dos sonhos', 'Conclua 20 quebra-cabeças em dupla', 'ouro', 'coopDone', 20),
   def('vit_25', 'desafio', '🛡️', 'Imbatível', 'Vença 25 desafios', 'ouro', 'wins', 25),
   def('vit_50', 'desafio', '🐉', 'Lenda do Desafio', 'Vença 50 desafios', 'diamante', 'wins', 50),
-
-  /* ---------- amizade (privadas: nunca mostram quantos amigos alguém tem) ---------- */
-  def('amigo', 'amizade', '🤝', 'Primeiro amigo', 'Adicione um amigo', 'bronze', 'friends', 1, { pub: false }),
-  def('convite_1', 'amizade', '💌', 'Convite aceito', 'Convide um amigo e ele aceite jogar', 'bronze', 'invitesOk', 1, { pub: false }),
-  def('junto_5', 'amizade', '🫶', 'Parceria', 'Conclua 5 partidas junto com amigos', 'bronze', 'friendMatches', 5, { pub: false }),
-  def('turma', 'amizade', '🎉', 'Turma', 'Tenha 5 amigos', 'prata', 'friends', 5, { pub: false }),
-  def('convite_5', 'amizade', '🏠', 'Anfitrião', 'Tenha 5 convites aceitos', 'prata', 'invitesOk', 5, { pub: false }),
-  def('junto_25', 'amizade', '🎶', 'Dupla afinada', 'Conclua 25 partidas junto com amigos', 'prata', 'friendMatches', 25, { pub: false }),
-  def('parceiros_3', 'amizade', '🌍', 'Mundo de amigos', 'Jogue com 3 amigos diferentes', 'prata', 'partners', 3, { pub: false }),
-  def('amigos_10', 'amizade', '🎪', 'Turma grande', 'Tenha 10 amigos', 'ouro', 'friends', 10, { pub: false }),
-  def('junto_100', 'amizade', '🧵', 'Inseparáveis', 'Conclua 100 partidas junto com amigos', 'ouro', 'friendMatches', 100, { pub: false }),
-  def('parceiros_8', 'amizade', '🎖️', 'Embaixador', 'Jogue com 8 amigos diferentes', 'ouro', 'partners', 8, { pub: false }),
 
   /* ---------- constância (privadas: não mostram dias nem horários de ninguém) ---------- */
   def('dias_3', 'constancia', '👋', 'Voltou!', 'Jogue em 3 dias diferentes', 'bronze', 'days', 3, { pub: false }),

@@ -1,9 +1,10 @@
 /*
- * ÁREA DE CONTA do Quebra-cabeça a dois: perfil, amigos, convites, "Continuar jogando" e histórico.
+ * ÁREA DO PERFIL do Quebra-cabeça a dois: perfil gerado pelo jogo, conquistas, "Continuar jogando" e histórico.
+ * Não existe e-mail, senha nem lista de amigos: o perfil é um ID + um código-chave mostrado uma única vez.
  * Organização:
  *   1) Serviços  : api (fala com /api/acc), sessão (token neste aparelho), tempo real (Socket.IO)
- *   2) Telas     : entrar/criar conta, perfil, amigos, partidas, convites
- *   3) Integração: botão no canto da tela inicial, "Continuar jogando" e convites ao criar uma sala
+ *   2) Telas     : criar perfil / entrar com o código, perfil, conquistas, partidas
+ *   3) Integração: botão no canto da tela inicial e "Continuar jogando"
  * Depende só da pequena ponte window.QC (criada no fim do game.js). Se o servidor não tiver banco de dados,
  * nada disto aparece e o jogo funciona como sempre (visitante).
  */
@@ -13,7 +14,7 @@
   if (!QC) return;
   var $ = QC.$, state = QC.state, socket = QC.socket, store = QC.store;
 
-  var acc = { enabled: false, mailOn: false, ver: null, google: null, token: store.get('token', '') || '', me: null, friends: null, tab: 'profile', view: 'profile', after: null, mode: 'in', pending: null, sent: {}, inv: null, invTimer: null, googleReady: false };
+  var acc = { enabled: false, token: store.get('token', '') || '', me: null, tab: 'profile', view: 'profile', mode: 'up', newKey: null };
   // Dados pesados (conquistas e coleções) ficam separados do /me: são pedidos só quando o perfil ou a aba abre (rota /achievements).
   // O /me leve é pedido na volta ao início apenas se algo mudou (acc.dirty) ou passou do prazo: antes era a CADA volta.
   acc.ach = null; acc.achAt = 0; acc.achStale = true; acc.achBusy = null; acc.meAt = 0; acc.dirty = false;
@@ -27,47 +28,23 @@
    * 1) SERVIÇOS
    * ========================================================= */
   var MSG = {
-    email: 'Confira o e-mail: ele precisa ter o formato nome@exemplo.com.',
-    password: 'A senha precisa ter pelo menos 8 caracteres.',
-    consent: 'Marque a caixa de privacidade para criar a conta.',
+    consent: 'Marque a caixa de privacidade para criar o perfil.',
     age16: 'Este jogo não é indicado para menores de 16 anos. Marque a caixa se você tem 16 anos ou mais.',
     reason: 'Escolha o motivo da denúncia.',
-    guest: 'Essa pessoa não tem conta, então não dá para denunciar por aqui. Você pode sair da partida pelo menu.',
+    guest: 'Essa pessoa não tem perfil, então não dá para denunciar por aqui. Você pode sair da partida pelo menu.',
     no_peer: 'Não há ninguém na sala para denunciar.',
-    email_taken: 'Já existe uma conta com este e-mail. Toque em "Entrar".',
-    bad_login: 'E-mail ou senha incorretos. Confira se o e-mail está igual ao do cadastro e toque no olho 👁 para ver a senha que está digitando.',
     rate: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
     server: 'Algo deu errado no servidor. Tente de novo daqui a pouco.',
     offline: 'Sem internet no momento. Confira a conexão.',
-    notfound: 'Não encontramos ninguém com esse código.',
-    code: 'Esse código não parece certo. Ele tem 8 letras e números, como ABCD-2XYZ.',
-    self: 'Esse é o seu próprio código. Compartilhe-o com um amigo!',
-    already_friends: 'Vocês já são amigos.',
-    already_sent: 'Você já enviou um pedido para essa pessoa.',
-    too_many: 'Você tem pedidos demais esperando resposta.',
-    name: 'Escolha um nome de jogador.',
+    notfound: 'Não encontramos esse jogador.',
     confirm: 'Digite EXCLUIR, em letras maiúsculas, para confirmar.',
-    google_token: 'Não consegui confirmar sua conta Google. Tente de novo.',
-    not_friends: 'Só dá para convidar quem já é seu amigo.',
-    no_room: 'Crie ou entre numa sala antes de convidar.',
-    room_full: 'A sala já está cheia.',
-    expired: 'O convite expirou.',
-    gone: 'Essa sala não existe mais.',
-    declined: 'O convite foi recusado.',
+    bad_login: 'ID ou código-chave incorretos. Confira os dois e tente de novo.',
+    id: 'O ID tem 8 letras e números, como ABCD-2XYZ.',
+    secret: 'O código-chave tem 20 letras e números, como ABCDE-FGHJK-MNPQR-STUVW.',
     nosave: 'Não há partida salva para continuar.',
     imagegone: 'A imagem dessa partida não está mais disponível. Você pode descartar o progresso e começar outra.',
-    auth: 'Entre na sua conta para fazer isso.',
-    mail: 'Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos.',
-    mail_off: 'O envio de e-mails está indisponível no momento. Tente de novo mais tarde.',
-    password_weak: 'Essa senha é fácil de adivinhar. Misture letras e números e não use seu nome.',
-    unverified: 'Falta confirmar o seu e-mail.',
-    bad_code: 'Código incorreto. Confira os 6 números do e-mail.',
-    expired: 'Esse código venceu. Peça um novo.',
-    too_many: 'Muitos erros. Peça um código novo.',
-    no_password: 'Sua conta entra pelo Google e não tem senha. Use "Esqueci minha senha" para criar uma.',
-    same: 'A senha nova precisa ser diferente da atual.'
+    auth: 'Entre no seu perfil para fazer isso.'
   };
-  MSG.forbidden = 'Não foi possível abrir este perfil. Só amigos podem ver.';
   var errText = function (e) { return MSG[e] || MSG.server; };
 
   // quiet = pedido de segundo plano: uma recusa dele nunca desconecta a pessoa
@@ -107,11 +84,10 @@
   function saveSession(token) { acc.token = token || ''; store.set('token', acc.token); }
   function logoutLocal(msg) {
     saveSession('');
-    acc.me = null; acc.friends = null; acc.pending = null; acc.ach = null; acc.achStale = true; acc.achAt = 0; acc.meAt = 0; acc.dirty = false;
+    acc.me = null; acc.ach = null; acc.achStale = true; acc.achAt = 0; acc.meAt = 0; acc.dirty = false; acc.newKey = null;
     QC.setLevelAccount(null, 0);
-    acc.mode = 'in';                                        // depois de sair, o formulário volta a ser "Entrar" (não "Criar conta")
-    $('#auth-pass').value = ''; $('#auth-consent').checked = false; $('#auth-age').checked = false; say('#auth-error', '');
-    acc.mode = 'in';                         // depois de sair, a tela volta para "Entrar" (e não "Criar conta")
+    acc.mode = 'up';                                        // depois de sair, a tela volta para "Criar perfil"
+    $('#auth-id').value = ''; $('#auth-secret').value = ''; $('#auth-consent').checked = false; $('#auth-age').checked = false; say('#auth-error', '');
     QC.canBlock = false; QC.setUnlocked(null);
     if (QC.onAccount) QC.onAccount(null);                   // a loja volta ao modo visitante
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
@@ -149,42 +125,17 @@
 
   socket.on('acc:ev', function (ev) {
     if (!ev || !acc.me) return;
-    if (ev.t !== 'presence') { acc.dirty = true; acc.achStale = true; }                 // partida, amigo, convite: o /me e as conquistas podem ter mudado
+    acc.dirty = true; acc.achStale = true;                                              // partida ou compra: o /me e as conquistas podem ter mudado
     var screenMe = $('#screen-me').classList.contains('active');
     if (ev.t === 'xp') {
       acc.me.xp = { total: ev.total, level: ev.level, into: ev.into, need: ev.need, pct: ev.pct, max: ev.max };
       if (Number.isSafeInteger(ev.gemsBalance) && ev.gemsBalance >= 0) acc.me.gems = Math.max(Number(acc.me.gems || 0), ev.gemsBalance);
       paintChip(); if (screenMe) renderProfile();
       QC.onXp(ev);
-    } else if (ev.t === 'req') {
-      QC.toast('👋 ' + ev.from.name + ' quer ser seu amigo!', 3200); QC.playSound('chime'); QC.vibrate(18);
-      loadFriends();
-    } else if (ev.t === 'friend') {
-      QC.toast('🤝 ' + ev.from.name + ' agora é seu amigo!', 3200); QC.playSound('chime');
-      try { if (window.Mascot && window.Mascot.note) window.Mascot.note('friend'); } catch (e) { /* o mascote nunca atrapalha */ }
-      loadFriends();
-    } else if (ev.t === 'unfriend' || ev.t === 'presence') {
-      if (ev.t === 'presence' && !screenMe) return;
-      loadFriends();
-    } else if (ev.t === 'inv') {
-      loadFriends();
-      if (state.inGame || state.duel) QC.toast('📨 ' + ev.invite.from.name + ' te convidou para jogar! Veja em Meu espaço.', 3600);
-      else showInvite(ev.invite);
-      QC.playSound('chime'); QC.vibrate([30, 40, 30]);
-    } else if (ev.t === 'inv-up') {
-      var who = acc.sent[ev.id];
-      if (who) {
-        if (ev.status === 'accepted') QC.toast('🎉 ' + who + ' aceitou o convite!', 3000);
-        else if (ev.status === 'declined') QC.toast(who + ' agora não pode jogar.', 3000);
-        else if (ev.status === 'expired') QC.toast('O convite para ' + who + ' expirou.', 3000);
-        delete acc.sent[ev.id];
-      }
-      if (acc.inv && acc.inv.id === ev.id && ev.status === 'expired') { closeInvite(); QC.toast('O convite expirou.', 2400); }
-      loadFriends();
     } else if (ev.t === 'blocks') {
       if (!$('#sec-blocked').hidden) loadBlocked();
     } else if (ev.t === 'deleted') {
-      logoutLocal('Conta excluída.');
+      logoutLocal('Perfil apagado.');
     }
   });
 
@@ -192,26 +143,16 @@
    * 2) TELAS
    * ========================================================= */
   /* ---------- botão do canto da tela inicial ---------- */
-  function badgeCount() {
-    var f = acc.friends;
-    if (f) return f.incoming.length + f.invites.length;
-    return acc.me ? acc.me.pending.requests + acc.me.pending.invites : 0;
-  }
   function paintChip() {
     var chip = $('#btn-me');
     chip.hidden = !acc.enabled;
     var me = acc.me;
     chip.classList.toggle('has', !!me);
     $('#me-chip-face').textContent = me ? faceOf(me) : '👤';
-    if (me) QC.nameLv($('#me-chip-text'), me.name.slice(0, 8), me.xp ? me.xp.level : 0); else $('#me-chip-text').textContent = 'Entrar';
+    if (me) QC.nameLv($('#me-chip-text'), me.name.slice(0, 14), me.xp ? me.xp.level : 0); else $('#me-chip-text').textContent = 'Entrar';
     $('#me-chip-gems').hidden = !me;
     if (me) $('#me-chip-gems').textContent = '💎 ' + Number(me.gems || 0).toLocaleString('pt-BR');
-    var n = badgeCount();
-    $('#link-friends').hidden = !acc.enabled;
-    $('#friends-badge').hidden = !(me && n > 0);
-    $('#friends-badge').textContent = n;
-    $('#link-friends').setAttribute('aria-label', 'Amigos' + (me && n ? ', ' + n + ' novidades' : ''));
-    chip.setAttribute('aria-label', me ? 'Meu perfil: ' + me.name : 'Entrar na conta');
+    chip.setAttribute('aria-label', me ? 'Meu perfil: ' + me.name : 'Criar perfil ou entrar com o código-chave');
   }
   function paintContinue() {
     var s = acc.me && acc.me.save;
@@ -247,239 +188,135 @@
     if (acc.tab === 'ach') renderAch(); else if (acc.tab === 'col') renderCol();
     updateAchBadge();
   }
-  function loadFriends() {
-    if (!acc.token) return Promise.resolve();
-    return api('GET', '/friends').then(function (j) {
-      if (j && j.ok) {
-        // Uma atualização sem mudanças não deve recriar nomes e botões na tela.
-        var changed = !acc.friends || JSON.stringify(acc.friends) !== JSON.stringify(j);
-        acc.friends = j; paintChip();
-        if (changed && $('#screen-me').classList.contains('active') && acc.view === 'friends') renderFriends();
-        if (!$('#modal-fprofile').hidden && fpUser && !j.friends.some(function (x) { return x.code === fpUser.code; })) { QC.closeModal('#modal-fprofile'); QC.toast('Esta pessoa não está mais na sua lista de amigos.', 3200); }
-      }
-    });
-  }
-
   /* ---------- abrir/fechar a área ---------- */
-  function openMe(view) {
-    acc.view = view === 'friends' ? 'friends' : 'profile';
+  function openMe() {
+    acc.view = 'profile';
     QC.showScreen('me');
     renderMe();
-    if (acc.token) { if (!meFresh()) loadMe(); loadFriends(); }
-  }
-  // botão "Amigos" da tela inicial: com conta abre a lista; sem conta pede para entrar e depois leva à lista
-  function openFriends() {
-    var go = function () { acc.after = acc.token ? null : 'friends'; openMe('friends'); };
-    if (QC.safeThen) QC.safeThen(go); else go();          // aviso de segurança online, uma vez por aparelho
+    if (acc.token && !meFresh()) loadMe();
   }
   function renderMe() {
-    var logged = !!acc.me;
-    show('#me-guest', !logged && !acc.token);
-    show('#me-user', logged);
-    var friendsView = acc.view === 'friends';
-    show('#me-tabs', logged && !friendsView);                 // as abas (Perfil, Partidas) só existem na visão do perfil
-    show('#me-head-title', friendsView);
+    var logged = !!acc.me, nk = !!acc.newKey;
+    show('#me-newkey', nk);
+    show('#me-guest', !logged && !acc.token && !nk);
+    show('#me-user', logged && !nk);
+    show('#me-tabs', logged && !nk);                          // as abas (Perfil, Conquistas, Coleções, Partidas) só existem com perfil
+    show('#me-head-title', false);
+    if (nk) { paintNewKey(); return; }
     if (!logged) { if (!acc.token) renderGuest(); return; }
-    setTab(friendsView ? 'friends' : (acc.tab === 'friends' ? 'profile' : acc.tab));
+    setTab(acc.tab);
   }
   function setTab(t) {
     acc.tab = t;
-    ['profile', 'ach', 'col', 'friends', 'history'].forEach(function (n) { $('#tab-' + n).hidden = n !== t; });
+    ['profile', 'ach', 'col', 'history'].forEach(function (n) { $('#tab-' + n).hidden = n !== t; });
     Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     $('#me-scroll').scrollTop = 0;
     if (t === 'profile') renderProfile();
-    if (t === 'friends') renderFriends(); // openMe/afterAuth já atualizam a lista; sem pedido duplicado
     if (t === 'history') loadHistory();
     if (t === 'ach') renderAch();
     if (t === 'col') renderCol();
     if (t === 'profile' || t === 'ach' || t === 'col') loadAch();                // em segundo plano; só pede se faltar ou estiver velho
   }
   Array.prototype.forEach.call(document.querySelectorAll('.me-tab'), function (b) { b.addEventListener('click', function () { setTab(b.dataset.tab); }); });
-  $('#me-back').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
-  $('#btn-me').addEventListener('click', function () { openMe('profile'); });
-  $('#link-friends').addEventListener('click', openFriends);
-  // O aviso de "conquista concluída" abre direto a aba Conquistas (só com conta).
-  QC.showAchievements = function () { if (!acc.token) return; acc.tab = 'ach'; openMe('profile'); };
+  $('#me-back').addEventListener('click', function () { QC.showScreen('home'); });
+  $('#btn-me').addEventListener('click', function () { openMe(); });
+  // O aviso de "conquista concluída" abre direto a aba Conquistas (só com perfil).
+  QC.showAchievements = function () { if (!acc.token) return; acc.tab = 'ach'; openMe(); };
 
-  /* ---------- entrar / criar conta ---------- */
-  function showAuthPanel(which) {            // 'main' | 'verify' | 'forgot'
-    $('#auth-card').hidden = which !== 'main'; $('#auth-verify').hidden = which !== 'verify'; $('#auth-forgot').hidden = which !== 'forgot'; $('#me-visitor').hidden = which !== 'main';
-  }
+  /* ---------- criar perfil / entrar com o código-chave ---------- */
   function renderGuest() {
-    showAuthPanel('main');
-    var h = $('#me-guest .me-hero');
-    h.querySelector('h2').textContent = acc.after === 'friends' ? 'Entre para ver seus amigos' : 'Guarde seu progresso';
-    h.querySelector('p').textContent = acc.after === 'friends' ? 'Com uma conta você acha amigos pelo código, recebe convites e joga junto com eles.' : 'Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.';
     setAuthMode(acc.mode);
-    if (!$('#auth-name').value) $('#auth-name').value = state.name || '';
-    setupGoogle();
   }
   function setAuthMode(m) {
     acc.mode = m;
     var up = m === 'up';
     $('#auth-tab-in').classList.toggle('on', !up); $('#auth-tab-up').classList.toggle('on', up);
     $('#auth-tab-in').setAttribute('aria-selected', String(!up)); $('#auth-tab-up').setAttribute('aria-selected', String(up));
-    show('#auth-name-wrap', up); show('#auth-consent-wrap', up); show('#auth-age-wrap', up);
-    $('#auth-pass').autocomplete = up ? 'new-password' : 'current-password';
-    $('#auth-go').textContent = up ? 'Criar minha conta' : 'Entrar';
-    show('#auth-forgot-link', !up);                          // sempre na área de entrada (sem e-mail ligado, a tela explica o que fazer)
+    show('#auth-up-wrap', up); show('#auth-in-wrap', !up);
+    $('#auth-go').textContent = up ? 'Criar meu perfil' : 'Entrar';
     say('#auth-error', '');
   }
   $('#auth-tab-in').addEventListener('click', function () { setAuthMode('in'); });
   $('#auth-tab-up').addEventListener('click', function () { setAuthMode('up'); });
   $('#auth-eye').addEventListener('click', function () {
-    var p = $('#auth-pass'), on = p.type === 'password';
+    var p = $('#auth-secret'), on = p.type === 'password';
     p.type = on ? 'text' : 'password';
-    $('#auth-eye').setAttribute('aria-label', on ? 'Esconder a senha' : 'Mostrar a senha');
+    $('#auth-eye').setAttribute('aria-label', on ? 'Esconder o código-chave' : 'Mostrar o código-chave');
   });
-  $('#me-visitor').addEventListener('click', function () { acc.after = null; QC.showScreen('home'); });
+  $('#me-visitor').addEventListener('click', function () { QC.showScreen('home'); });
+  // ID e código-chave: só letras e números, em maiúsculas, com o traço no lugar certo (a digitação e a colagem ficam iguais)
+  function groupText(v, size, max) {
+    v = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, max);
+    var out = []; for (var i = 0; i < v.length; i += size) out.push(v.slice(i, i + size)); return out.join('-');
+  }
+  $('#auth-id').addEventListener('input', function (e) { e.target.value = groupText(e.target.value, 4, 8); say('#auth-error', ''); });
+  $('#auth-secret').addEventListener('input', function (e) { e.target.value = groupText(e.target.value, 5, 20); say('#auth-error', ''); });
+  $('#me-del-secret').addEventListener('input', function (e) { e.target.value = groupText(e.target.value, 5, 20); say('#me-del-error', ''); });
+
+  // Mostra o ID e o código-chave UMA vez (perfil novo ou código trocado). O código só existe aqui: o servidor guarda apenas o resumo (hash).
+  function showNewKey(id, secret, why) {
+    acc.newKey = { id: id, secret: secret, why: why || 'new' };
+    $('#nk-saved').checked = false; $('#nk-done').disabled = true;
+    renderMe();
+  }
+  function paintNewKey() {
+    var k = acc.newKey; if (!k) return;
+    $('#nk-id').textContent = k.id; $('#nk-secret').textContent = k.secret;
+    $('#nk-done').textContent = k.why === 'rotate' ? 'Pronto, já anotei' : 'Começar a jogar';
+    $('#me-scroll').scrollTop = 0;
+  }
+  $('#nk-saved').addEventListener('change', function () { $('#nk-done').disabled = !this.checked; });
+  $('#nk-copy').addEventListener('click', function () {
+    var k = acc.newKey; if (k) copyText('ID: ' + k.id + '\nCódigo-chave: ' + k.secret, 'ID e código copiados!');
+  });
+  $('#nk-done').addEventListener('click', function () {
+    if (!acc.newKey || $('#nk-done').disabled) return;
+    acc.newKey = null; $('#nk-secret').textContent = '----'; $('#nk-id').textContent = '----';      // o código sai da tela e da memória
+    acc.tab = 'profile'; renderMe();
+  });
 
   function afterAuth(j, welcome) {
     saveSession(j.token);
     applyAccount(j.me);
-    acc.friends = null;
-    $('#auth-pass').value = '';
+    $('#auth-secret').value = ''; $('#auth-id').value = '';
     authSocket();
-    loadFriends();
     QC.toast(welcome + ', ' + j.me.name + '! 🎉', 2800);
     QC.playSound('chime');
-    if (acc.after === 'friends') { acc.view = 'friends'; acc.after = null; } else { acc.view = 'profile'; acc.tab = 'profile'; }
+    acc.view = 'profile'; acc.tab = 'profile';
     renderMe();
   }
   $('#auth-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
     var up = acc.mode === 'up', go = $('#auth-go');
-    var body = { email: $('#auth-email').value, password: $('#auth-pass').value };
-    if (!body.email.trim() || !body.password) { say('#auth-error', 'Preencha o e-mail e a senha.'); return; }
-    if (up) { body.name = $('#auth-name').value.trim() || state.name; body.avatar = state.avatar; body.consent = $('#auth-consent').checked; body.age16 = $('#auth-age').checked; body.bests = state.bests; }
-    go.disabled = true; say('#auth-error', '');
-    api('POST', up ? '/register' : '/login', body).then(function (j) {
-      go.disabled = false;
-      if (!j || !j.ok) {
-        if (up && j && j.error === 'email_taken') { setAuthMode('in'); say('#auth-error', 'Você já tem conta com este e-mail. Digite sua senha e toque em Entrar.'); QC.vibrate(30); return; }
-        if (j && j.error === 'unverified') { showVerify(body.email, j.email, j.sent, j.why); return; }
-        say('#auth-error', errText(j && j.error)); QC.vibrate(30); return;
-      }
-      if (j.needsVerify) { showVerify(body.email, j.email, true); return; }
-      afterAuth(j, up ? 'Conta criada! Bem-vindo(a)' : 'Que bom te ver de novo');
-      if (!up && Object.keys(state.bests || {}).length) api('POST', '/import', { bests: state.bests }, true);   // leva os melhores tempos do modo visitante (já com o login guardado)
-    });
-  });
-
-  /* ---------- confirmar o e-mail com o código ---------- */
-  var verTimer = null;
-  function startResendTimer(sec) {
-    clearInterval(verTimer);
-    var b = $('#ver-resend'), left = sec;
-    b.disabled = true; b.textContent = 'Reenviar código (' + left + ' s)';
-    verTimer = setInterval(function () {
-      left--;
-      if (left <= 0) { clearInterval(verTimer); b.disabled = false; b.textContent = 'Reenviar código'; }
-      else b.textContent = 'Reenviar código (' + left + ' s)';
-    }, 1000);
-  }
-  function showVerify(email, masked, sent, why) {
-    acc.ver = { email: String(email).trim().toLowerCase() };
-    $('#ver-email').textContent = masked || email;
-    $('#ver-code').value = '';
-    say('#ver-error', sent === false ? (why === 'mail' ? errText('mail') : 'Já enviamos um código há pouco. Use o do último e-mail ou espere para reenviar.') : '');   // 'mail' = o envio falhou: NÃO dizer que já foi enviado
-    showAuthPanel('verify');
-    startResendTimer(sent === false && why === 'mail' ? 10 : 60);
-    setTimeout(function () { try { $('#ver-code').focus(); } catch (e) { /* ignora */ } }, 200);
-  }
-  $('#ver-code').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); say('#ver-error', ''); });
-  $('#ver-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var code = $('#ver-code').value;
-    if (code.length !== 6) { say('#ver-error', 'Digite os 6 números do e-mail.'); return; }
-    $('#ver-go').disabled = true;
-    api('POST', '/verify', { email: acc.ver.email, code: code }).then(function (j) {
-      $('#ver-go').disabled = false;
-      if (!j || !j.ok) { say('#ver-error', errText(j && j.error)); QC.vibrate(30); return; }
-      showAuthPanel('main');
-      afterAuth(j, 'E-mail confirmado! Bem-vindo(a)');
-    });
-  });
-  $('#ver-resend').addEventListener('click', function () {
-    api('POST', '/verify/resend', { email: acc.ver.email }).then(function (j) {
-      if (j && j.ok) { QC.toast('Código reenviado ✉️', 2400); startResendTimer(60); } else say('#ver-error', errText(j && j.error));
-    });
-  });
-  $('#ver-back').addEventListener('click', function () { clearInterval(verTimer); showAuthPanel('main'); });
-
-  /* ---------- esqueci a senha ---------- */
-  $('#auth-forgot-link').addEventListener('click', function () {
-    $('#fg-email').value = $('#auth-email').value; $('#fg-code').value = ''; $('#fg-pass').value = '';
-    $('#fg-step2').hidden = true; $('#fg-go').textContent = 'Enviar código'; say('#fg-error', '');
-    show('#fg-off', !acc.mailOn); $('#fg-form').hidden = !acc.mailOn;     // sem e-mail ligado: só o aviso
-    showAuthPanel('forgot');
-  });
-  $('#fg-back').addEventListener('click', function () { showAuthPanel('main'); });
-  $('#fg-code').addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
-  $('#fg-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var email = $('#fg-email').value, step2 = !$('#fg-step2').hidden;
-    if (!email.trim()) { say('#fg-error', 'Digite o e-mail da conta.'); return; }
-    $('#fg-go').disabled = true; say('#fg-error', '');
-    if (!step2) {
-      api('POST', '/password/forgot', { email: email }).then(function (j) {
-        $('#fg-go').disabled = false;
-        if (!j || !j.ok) { say('#fg-error', errText(j && j.error)); return; }
-        $('#fg-step2').hidden = false; $('#fg-go').textContent = 'Trocar a senha';
-        QC.toast('Se esse e-mail tiver conta, o código já foi enviado ✉️', 3600);
-      });
+    var body;
+    if (up) {
+      body = { consent: $('#auth-consent').checked, age16: $('#auth-age').checked, avatar: state.avatar, bests: state.bests };
+      if (!body.consent) { say('#auth-error', errText('consent')); return; }
+      if (!body.age16) { say('#auth-error', errText('age16')); return; }
     } else {
-      api('POST', '/password/reset', { email: email, code: $('#fg-code').value, password: $('#fg-pass').value }).then(function (j) {
-        $('#fg-go').disabled = false;
-        if (!j || !j.ok) { say('#fg-error', errText(j && j.error)); QC.vibrate(30); return; }
-        showAuthPanel('main'); setAuthMode('in');
-        $('#auth-email').value = email.trim(); $('#auth-pass').value = '';
-        QC.toast('Senha trocada! Entre com a senha nova.', 3600); QC.playSound('chime');
-      });
+      body = { id: $('#auth-id').value, secret: $('#auth-secret').value };
+      if (body.id.replace(/-/g, '').length !== 8) { say('#auth-error', errText('id')); return; }
+      if (body.secret.replace(/-/g, '').length !== 20) { say('#auth-error', errText('secret')); return; }
     }
-  });
-
-  /* ---------- Google (só aparece se o servidor tiver o GOOGLE_CLIENT_ID) ---------- */
-  function setupGoogle() {
-    if (!acc.google) return;
-    function ready() {
-      try {
-        window.google.accounts.id.initialize({ client_id: acc.google, callback: onGoogle, auto_select: false });
-        window.google.accounts.id.renderButton($('#google-btn'), { theme: 'outline', size: 'large', shape: 'pill', text: 'continue_with', width: 260, locale: 'pt-BR' });
-        show('#google-box', true);
-        acc.googleReady = true;
-      } catch (e) { show('#google-box', false); }
-    }
-    if (window.google && window.google.accounts) { if (!acc.googleReady) ready(); return; }
-    if (document.getElementById('gsi-script')) return;
-    var s = document.createElement('script');
-    s.id = 'gsi-script'; s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
-    s.onload = ready; s.onerror = function () { show('#google-box', false); };
-    document.head.appendChild(s);
-  }
-  function onGoogle(resp) {
-    api('POST', '/google', { credential: resp.credential, consent: $('#auth-consent').checked, age16: $('#auth-age').checked, name: state.name, avatar: state.avatar, bests: state.bests }).then(function (j) {
-      if (!j || !j.ok) {
-        if (j && (j.error === 'consent' || j.error === 'age16')) { setAuthMode('up'); say('#auth-error', 'Primeira vez aqui? Marque as caixas de privacidade e de idade (16 anos ou mais) e toque no botão do Google de novo.'); }
-        else say('#auth-error', errText(j && j.error));
-        return;
-      }
-      afterAuth(j, 'Bem-vindo(a)');
+    go.disabled = true; say('#auth-error', '');
+    api('POST', up ? '/profile/new' : '/profile/login', body).then(function (j) {
+      go.disabled = false;
+      if (!j || !j.ok) { say('#auth-error', errText(j && j.error)); QC.vibrate(30); return; }
+      afterAuth(j, up ? 'Perfil criado! Bem-vindo(a)' : 'Que bom te ver de novo');
+      if (up) showNewKey(j.id, j.secret, 'new');
+      else if (Object.keys(state.bests || {}).length) api('POST', '/import', { bests: state.bests }, true);   // leva os melhores tempos do modo visitante
     });
-  }
+  });
 
   /* ---------- perfil ---------- */
   function renderProfile() {
     var me = acc.me; if (!me) return;
     $('#me-avatar-face').textContent = faceOf(me);
-    if (document.activeElement !== $('#me-name')) $('#me-name').value = me.name;
+    $('#me-name').textContent = me.name;
     $('#me-code').textContent = me.code;
     paintXpCard(me.xp);
     $('#me-gems').hidden = false;
     $('#me-gems-amount').textContent = Number(me.gems || 0).toLocaleString('pt-BR');
-    $('#me-email').textContent = me.email || '(conta Google)';
-    show('#me-del-pass', me.hasPassword);
-    $('#sec-pw-open').hidden = !me.hasPassword;
     var st = me.stats;
     paintStats($('#me-stats'), [['Partidas', st.games, 'c1'], ['Vitórias', st.wins, 'c2'], ['Derrotas', st.losses, 'c3'], ['Concluídos', st.completed, 'c4']]);
     updateAchBadge();
@@ -644,53 +481,44 @@
     $('#col-count').textContent = open + ' de ' + cols.length + ' abertas · ' + dn + ' de ' + tot + ' imagens';
     cols.forEach(function (c) { box.appendChild(colCard(c, me.achievements)); });
   }
-  // Perfil de amigo: uma prateleira só com o que ele ganhou (o servidor já mandou só o que é público).
-  function paintFriendAch(box, countEl, list, summary) {
-    box.innerHTML = '';
-    var got = (list || []).filter(function (a) { return a.done; }).sort(function (x, y) { return TIER_ORDER.indexOf(x.tier) - TIER_ORDER.indexOf(y.tier); });
-    countEl.textContent = summary ? summary.done + ' de ' + summary.total : got.length + ' de ' + (list || []).length;
-    if (!got.length) { box.appendChild(el('p', 'shelf-empty', 'Ainda sem conquistas.')); return; }
-    got.slice(0, 24).forEach(function (a) {
-      var b = el('span', 'shelf-badge t-' + a.tier, a.icon); b.setAttribute('role', 'img');
-      b.setAttribute('aria-label', a.title + ', ' + TIER_NAME[a.tier]); b.title = a.title + ' · ' + a.desc; box.appendChild(b);
-    });
-    if (got.length > 24) box.appendChild(el('span', 'shelf-more', '+' + (got.length - 24)));
-  }
   function renderAvatarChoices() {
     var g = $('#me-avatar-grid');
     g.innerHTML = '';
     function add(face, val, label) {
       var b = el('button', '', face); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-label', label);
       b.setAttribute('aria-checked', (acc.me.avatar || '') === val ? 'true' : 'false');
-      b.addEventListener('click', function () { saveProfile(acc.me.name, val); });
+      b.addEventListener('click', function () { saveAvatar(val); });
       g.appendChild(b);
     }
     add(initialOf(acc.me.name), '', 'Usar a inicial do meu nome');
     state.avatars.forEach(function (e) { add(e, e, 'Avatar ' + e); });
   }
-  function saveProfile(name, avatar) {
-    api('POST', '/profile', { name: name, avatar: avatar }).then(function (j) {
+  function saveAvatar(avatar) {
+    api('POST', '/profile', { avatar: avatar }).then(function (j) {
       if (!j || !j.ok) { QC.toast(errText(j && j.error), 2600); return; }
       applyAccount(j.me); renderProfile(); renderAvatarChoices();
-      QC.toast('Perfil atualizado ✓', 1800);
+      QC.toast('Avatar atualizado ✓', 1800);
     });
   }
   $('#me-avatar').addEventListener('click', function () { var box = $('#me-avatars'); box.hidden = !box.hidden; if (!box.hidden) renderAvatarChoices(); });
-  $('#me-name-save').addEventListener('click', function () { saveProfile($('#me-name').value.replace(/\s+/g, ' ').trim().slice(0, 12), acc.me.avatar); });
-  $('#me-name').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#me-name-save').click(); });
+  $('#me-name-new').addEventListener('click', function () {            // o apelido é sorteado pelo jogo: ninguém digita nome
+    var b = this; b.disabled = true;
+    api('POST', '/profile/nickname', {}).then(function (j) {
+      b.disabled = false;
+      if (!j || !j.ok) { QC.toast(errText(j && j.error), 2600); return; }
+      acc.me.name = j.me.name; applyAccount(acc.me); renderProfile();
+      QC.toast('Seu apelido agora é ' + j.me.name + ' ✓', 2400);
+    });
+  });
 
-  /* ---------- segurança: trocar senha, sair de todos os aparelhos, bloqueados ---------- */
-  $('#sec-pw-open').addEventListener('click', function () { var f = $('#sec-pw-form'); f.hidden = !f.hidden; });
-  $('#sec-pw-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    var cur = $('#sec-pw-cur').value, neu = $('#sec-pw-new').value;
-    if (!cur || !neu) { say('#sec-pw-error', 'Preencha a senha atual e a nova.'); return; }
-    $('#sec-pw-go').disabled = true; say('#sec-pw-error', '');
-    api('POST', '/password/change', { current: cur, password: neu }).then(function (j) {
-      $('#sec-pw-go').disabled = false;
-      if (!j || !j.ok) { say('#sec-pw-error', j && j.error === 'bad_login' ? 'A senha atual está incorreta.' : errText(j && j.error)); QC.vibrate(30); return; }
-      $('#sec-pw-cur').value = ''; $('#sec-pw-new').value = ''; $('#sec-pw-form').hidden = true;
-      QC.toast('Senha trocada! Os outros aparelhos saíram da conta.', 3600); QC.playSound('chime');
+  /* ---------- segurança: código-chave novo, sair de todos os aparelhos, bloqueados ---------- */
+  $('#sec-newkey').addEventListener('click', function () {
+    QC.confirm({ title: 'Gerar um código-chave novo?', text: 'O código antigo deixa de valer e os outros aparelhos saem do perfil. Você vai ver o código novo uma única vez.', ok: 'Gerar código novo', danger: true }).then(function (ok) {
+      if (!ok) return;
+      api('POST', '/profile/new-secret', {}).then(function (j) {
+        if (!j || !j.ok) { QC.toast(errText(j && j.error), 3000); return; }
+        showNewKey(acc.me.code, j.secret, 'rotate');
+      });
     });
   });
   $('#sec-logout-all').addEventListener('click', function () {
@@ -715,14 +543,6 @@
     });
   }
   $('#sec-blocked-open').addEventListener('click', function () { var b = $('#sec-blocked'); b.hidden = !b.hidden; if (!b.hidden) loadBlocked(); });
-  function blockPerson(u) {
-    QC.confirm({ title: 'Bloquear ' + u.name + '?', text: 'Essa pessoa não poderá mais te achar, te chamar para jogar nem entrar nas suas salas.', ok: 'Bloquear', danger: true }).then(function (ok) {
-      if (!ok) return;
-      api('POST', '/blocks', { code: u.code }).then(function (j) {
-        if (j && j.ok) { QC.toast(u.name + ' foi bloqueado(a).', 2800); QC.closeModal('#modal-fprofile'); loadFriends(); loadMe(); } else QC.toast(errText(j && j.error), 2600);
-      });
-    });
-  }
   /* ----- denunciar (apelido, avatar ou comportamento): só quem cuida do jogo lê; a outra pessoa não é avisada ----- */
   var rpCtx = null;
   function openReport(opts) {                    // opts: { name, send(payload) -> Promise<{ok, error, blocked}>, after(res) }
@@ -744,52 +564,30 @@
       else say('#rp-error', errText(res && res.error));
     });
   });
-  function reportPerson(u, where) {
-    openReport({
-      name: u.name,
-      send: function (p) { return api('POST', '/reports', { code: u.code, reason: p.reason, note: p.note, alsoBlock: p.alsoBlock, context: where }); },
-      after: function (res) { if (res.blocked) { QC.closeModal('#modal-fprofile'); loadFriends(); loadMe(); } }
-    });
-  }
   QC.reportPerson = openReport;                  // o menu da sala (game.js) usa a mesma janela
-  var faUser = null;
-  function openFriendActions(u) { faUser = u; $('#fa-title').textContent = u.name; QC.openModal('#modal-friend', '#fa-cancel'); }
-  $('#fa-cancel').addEventListener('click', function () { QC.closeModal('#modal-friend'); });
-  function removeFriend(u) {
-    QC.confirm({ title: 'Remover ' + u.name + '?', text: 'Vocês deixam de ser amigos. Dá para adicionar de novo depois.', ok: 'Remover', danger: true }).then(function (ok) { if (ok) api('POST', '/friends/remove', { code: u.code }).then(function (j) { if (j && j.ok) { QC.toast(u.name + ' foi removido(a).', 2200); QC.closeModal('#modal-fprofile'); loadFriends(); } }); });
-  }
-  $('#fa-report').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) reportPerson(u, 'amigos'); });
-  $('#fa-remove').addEventListener('click', function () {
-    var u = faUser; QC.closeModal('#modal-friend'); if (u) removeFriend(u);
-  });
-  $('#fa-block').addEventListener('click', function () { var u = faUser; QC.closeModal('#modal-friend'); if (u) blockPerson(u); });
-
   function copyText(t, ok) {
     function done() { QC.toast(ok, 1800); QC.vibrate(10); }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { QC.toast('Não consegui copiar. Anote: ' + t, 7000); });
     else QC.toast('Não consegui copiar. Anote: ' + t, 7000);
   }
-  $('#me-copy').addEventListener('click', function () { copyText(acc.me.code, 'Código copiado!'); });
-  $('#me-share').addEventListener('click', function () {
-    var text = 'Vem jogar quebra-cabeça comigo! Meu código de amigo no Quebra-cabeça a dois é ' + acc.me.code + '.';
-    if (navigator.share) navigator.share({ title: 'Quebra-cabeça a dois', text: text, url: location.origin }).catch(function () { /* cancelou */ });
-    else copyText(text, 'Convite copiado!');
-  });
+  $('#me-copy').addEventListener('click', function () { copyText(acc.me.code, 'ID copiado!'); });
   $('#me-logout').addEventListener('click', function () {
-    QC.confirm({ title: 'Sair da conta?', text: 'Seu progresso continua guardado na conta.', ok: 'Sair' }).then(function (ok) {
+    QC.confirm({ title: 'Sair deste aparelho?', text: 'Seu progresso continua guardado no perfil. Para voltar você vai precisar do ID e do código-chave.', ok: 'Sair' }).then(function (ok) {
       if (!ok) return;
-      api('POST', '/logout', {}).then(function () { logoutLocal('Você saiu da conta. Até logo! 👋'); QC.showScreen('home'); });
+      api('POST', '/logout', {}).then(function () { logoutLocal('Você saiu do perfil. Até logo! 👋'); QC.showScreen('home'); });
     });
   });
   $('#me-delete').addEventListener('submit', function (e) { e.preventDefault(); $('#me-delete-go').click(); });
   $('#me-delete-open').addEventListener('click', function () { var d = $('#me-delete'); d.hidden = !d.hidden; });
   $('#me-delete-go').addEventListener('click', function () {
-    var b = $('#me-delete-go'); b.disabled = true; say('#me-del-error', '');
-    api('POST', '/delete', { confirm: $('#me-del-word').value.trim(), password: $('#me-del-pass').value }).then(function (j) {
+    var b = $('#me-delete-go'), secret = $('#me-del-secret').value;
+    if (secret.replace(/-/g, '').length !== 20) { say('#me-del-error', errText('secret')); return; }
+    b.disabled = true; say('#me-del-error', '');
+    api('POST', '/delete', { confirm: $('#me-del-word').value.trim(), secret: secret }).then(function (j) {
       b.disabled = false;
-      if (!j || !j.ok) { say('#me-del-error', j && j.error === 'bad_login' ? 'Senha incorreta.' : errText(j && j.error)); return; }
-      $('#me-del-word').value = ''; $('#me-del-pass').value = ''; $('#me-delete').hidden = true;
-      logoutLocal('Sua conta foi excluída.'); QC.showScreen('home');
+      if (!j || !j.ok) { say('#me-del-error', j && j.error === 'bad_login' ? 'Código-chave incorreto.' : errText(j && j.error)); return; }
+      $('#me-del-word').value = ''; $('#me-del-secret').value = ''; $('#me-delete').hidden = true;
+      logoutLocal('Seu perfil foi apagado.'); QC.showScreen('home');
     });
   });
 
@@ -811,7 +609,7 @@
   $('#btn-continue').addEventListener('click', continueSaved);
   $('#me-save-card').addEventListener('click', continueSaved);
 
-  /* ---------- amigos ---------- */
+  /* ---------- linhas da lista de bloqueados ---------- */
   function avatarBox(u, online) {
     var a = el('span', 'fr-av', faceOf(u));
     if (online !== undefined) a.appendChild(el('i', 'fr-dot'));
@@ -824,94 +622,6 @@
     var i = el('div', 'fr-info'); var nb = el('b'); QC.nameLv(nb, u.name, u.level); i.appendChild(nb); i.appendChild(el('small', '', sub)); r.appendChild(i);
     return r;
   }
-  function renderFriends() {
-    var f = acc.friends;
-    var inv = $('#fr-invites'), req = $('#fr-requests'), list = $('#fr-list'), sent = $('#fr-sent');
-    [inv, req, list, sent].forEach(function (x) { x.innerHTML = ''; });
-    if (!f) { list.appendChild(el('p', 'me-small', 'Carregando…')); return; }
-    if (f.invites.length) {
-      var box = el('div', 'fr-box hot'); box.appendChild(el('h3', 'me-h', '📨 Convites para jogar'));
-      f.invites.forEach(function (i) {
-        var r = row(i.from, KIND[i.kind] + ' · ' + i.imageLabel + ' · ' + i.pieces + ' peças', undefined, 'bare');
-        var b = el('div', 'fr-btns');
-        b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { if (QC.safeThen) QC.safeThen(function () { respondInvite(i, true); }); else respondInvite(i, true); }));
-        b.appendChild(btn('✕', 'btn-secondary me-mini', function () { respondInvite(i, false); }, 'Recusar convite de ' + i.from.name));
-        b.appendChild(btn('⛔', 'btn-ghost me-mini', function () { blockPerson(i.from); }, 'Bloquear ' + i.from.name));
-        r.appendChild(b); box.appendChild(r);
-      });
-      inv.appendChild(box);
-    }
-    if (f.incoming.length) {
-      var rb = el('div', 'fr-box'); rb.appendChild(el('h3', 'me-h', '👋 Pedidos de amizade'));
-      f.incoming.forEach(function (u) {
-        var r = row(u, 'quer ser seu amigo', undefined, 'bare');
-        var b = el('div', 'fr-btns');
-        b.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { respondFriend(u, true); }));
-        b.appendChild(btn('Recusar', 'btn-secondary me-mini', function () { respondFriend(u, false); }));
-        b.appendChild(btn('⛔', 'btn-ghost me-mini', function () { blockPerson(u); }, 'Bloquear ' + u.name));
-        r.appendChild(b); rb.appendChild(r);
-      });
-      req.appendChild(rb);
-    }
-    $('#fr-count').textContent = f.friends.length ? f.friends.filter(function (x) { return x.online; }).length + ' online · ' + f.friends.length + ' no total' : '';
-    if (!f.friends.length) {
-      var empty = el('div', 'fr-empty'); empty.appendChild(el('span', '', '🤝')); empty.appendChild(el('p', '', 'Ainda sem amigos. Peça o código de alguém ou compartilhe o seu: ele fica no seu perfil (botão com o seu nome, no canto da tela inicial).'));
-      list.appendChild(empty);
-    }
-    f.friends.forEach(function (u) {
-      var r = row(u, u.online ? 'online agora' : 'offline', u.online);
-      var open = el('button', 'fr-open'); open.type = 'button'; open.setAttribute('aria-label', 'Ver o perfil de ' + u.name);
-      while (r.firstChild) open.appendChild(r.firstChild);
-      open.addEventListener('click', function () { openFriendProfile(u); });
-      r.appendChild(open);
-      var b = el('div', 'fr-btns');
-      b.appendChild(btn('Desafiar', 'btn-primary me-mini', function () { openChallenge(u); }, 'Desafiar ' + u.name));
-      b.appendChild(btn('⋯', 'btn-ghost me-mini', function () { openFriendActions(u); }, 'Mais opções de ' + u.name));
-      r.appendChild(b); list.appendChild(r);
-    });
-    if (f.outgoing.length) {
-      sent.appendChild(el('h3', 'me-h', 'Pedidos enviados'));
-      f.outgoing.forEach(function (u) { sent.appendChild(row(u, 'aguardando resposta…')); });
-    }
-  }
-  function respondFriend(u, ok) {
-    api('POST', '/friends/respond', { code: u.code, accept: ok }).then(function (j) {
-      if (!j || !j.ok) { QC.toast(errText(j && j.error), 2400); return; }
-      QC.toast(ok ? '🤝 Você e ' + u.name + ' agora são amigos!' : 'Pedido recusado.', 2400);
-      if (ok) QC.playSound('chime');
-      loadFriends(); loadMe();
-    });
-  }
-  $('#fr-code').addEventListener('input', function (e) {
-    var v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-    e.target.value = v.length > 4 ? v.slice(0, 4) + '-' + v.slice(4) : v;
-    say('#fr-error', ''); show('#fr-found', false);
-  });
-  $('#fr-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#fr-search').click(); });
-  $('#fr-search').addEventListener('click', function () {
-    var code = $('#fr-code').value;
-    if (code.replace('-', '').length !== 8) { say('#fr-error', errText('code')); return; }
-    say('#fr-error', ''); show('#fr-found', false);
-    api('POST', '/friends/search', { code: code }).then(function (j) {
-      if (!j || !j.ok) { say('#fr-error', errText(j && j.error)); return; }
-      var box = $('#fr-found'), u = j.user;
-      box.innerHTML = '';
-      box.appendChild(avatarBox(u));
-      var i = el('div', 'fr-info'); i.appendChild(el('b', '', u.name)); i.appendChild(el('small', '', u.code)); box.appendChild(i);
-      var act = el('div', 'fr-btns');
-      if (j.relation === 'none') act.appendChild(btn('Pedir amizade', 'btn-primary me-mini', function () {
-        api('POST', '/friends/request', { code: u.code }).then(function (r) {
-          if (!r || !r.ok) { say('#fr-error', errText(r && r.error)); return; }
-          QC.toast(r.state === 'accepted' ? '🤝 Vocês agora são amigos!' : 'Pedido enviado para ' + u.name + ' ✉️', 2600);
-          $('#fr-code').value = ''; show('#fr-found', false); loadFriends(); loadMe();
-        });
-      }));
-      else if (j.relation === 'pending_in') act.appendChild(btn('Aceitar', 'btn-primary me-mini', function () { respondFriend(u, true); show('#fr-found', false); }));
-      else act.appendChild(el('small', 'fr-tag', { friend: 'Já é seu amigo ✓', pending_out: 'Pedido enviado', self: 'Esse é você 🙂' }[j.relation] || ''));
-      box.appendChild(act);
-      show('#fr-found', true);
-    });
-  });
 
   /* ---------- partidas ---------- */
   function loadHistory() {
@@ -938,35 +648,6 @@
     });
   }
 
-  /* ---------- convites: enviar ---------- */
-  var challengeFriend = null;
-  function openChallenge(u) {
-    challengeFriend = u;
-    $('#chal-title').textContent = 'Desafiar ' + u.name;
-    QC.openModal('#modal-challenge', '.chal-opt');
-  }
-  Array.prototype.forEach.call(document.querySelectorAll('.chal-opt'), function (b) {
-    b.addEventListener('click', function () {
-      var u = challengeFriend, kind = b.dataset.kind;
-      QC.closeModal('#modal-challenge');
-      if (!u) return;
-      acc.pending = { to: u, kind: kind };
-      QC.goLabel = 'Criar e convidar ' + u.name;
-      if (kind === 'coop') QC.openPick('create'); else QC.openPick('duel', kind);
-    });
-  });
-  $('#chal-cancel').addEventListener('click', function () { QC.closeModal('#modal-challenge'); });
-  // chamado pelo jogo logo que a sala é criada: manda o convite pendente (se houver)
-  QC.afterEnter = function () {
-    var p = acc.pending;
-    QC.goLabel = null;
-    if (!p || !acc.me) return;
-    acc.pending = null;
-    socket.emit('inv:send', { to: p.to.code }, function (res) {
-      if (res && res.ok) { acc.sent[res.id] = p.to.name; QC.toast('✉️ Convite enviado para ' + p.to.name + '. Aguardando…', 3600); }
-      else QC.toast('Sala criada, mas não deu para convidar: ' + errText(res && res.error), 4200);
-    });
-  };
   QC.api = api;                                  // a loja usa a mesma chamada (com o crachá da sessão)
   QC.account = function () { return acc.me; };   // a loja pergunta quem está logado (caso a conta carregue antes dela)
   QC.libraryBalanceChanged = function (gems) {
@@ -975,90 +656,15 @@
     if ($('#screen-me').classList.contains('active')) renderProfile();
   };
   QC.onScreen = function (name) {
-    if (name === 'home') { acc.pending = null; QC.goLabel = null; if (acc.me && !meFresh()) loadMe(); }
+    if (name === 'home') { if (acc.me && !meFresh()) loadMe(); }
     else if (name !== 'me') acc.dirty = true;                       // jogou ou mexeu em algo: a próxima volta ao início atualiza (uma consulta leve)
   };
 
-  /* ---------- convites: receber ---------- */
-  function showInvite(inv) {
-    acc.inv = inv;
-    $('#inv-face').textContent = faceOf(inv.from);
-    $('#inv-title').textContent = inv.from.name + ' te chamou para jogar!';
-    $('#inv-text').textContent = KIND[inv.kind] + (inv.kind === 'coop' ? '' : ' (Sala Desafio)');
-    $('#inv-meta').textContent = inv.imageLabel + ' · ' + inv.pieces + ' peças';
-    var ms = Math.max(1000, new Date(inv.expiresAt).getTime() - Date.now());
-    var fill = $('#inv-bar-fill');
-    fill.style.animation = 'none'; void fill.offsetWidth;
-    fill.style.animation = 'rm-run ' + ms + 'ms linear forwards';
-    clearTimeout(acc.invTimer);
-    acc.invTimer = setTimeout(function () { if (acc.inv && acc.inv.id === inv.id) { closeInvite(); QC.toast('O convite expirou.', 2200); } }, ms + 300);
-    QC.openModal('#modal-invite', '#inv-yes');
-  }
-  function closeInvite() { clearTimeout(acc.invTimer); acc.inv = null; QC.closeModal('#modal-invite'); }
-  function respondInvite(inv, ok) {
-    socket.emit('inv:respond', { id: inv.id, accept: ok }, function (res) {
-      if (acc.inv && acc.inv.id === inv.id) closeInvite();
-      if (!res || !res.ok) { QC.toast(errText(res && res.error), 3200); loadFriends(); return; }
-      loadFriends();
-      if (!ok) return;
-      QC.showScreen('home');
-      QC.join(res.room);
-    });
-  }
-  $('#inv-yes').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, true); });
-  $('#inv-no').addEventListener('click', function () { if (acc.inv) respondInvite(acc.inv, false); });
-
-  /* ---------- PERFIL DO AMIGO ---------- */
-  var fpUser = null, fpSeq = 0;
-  function openFriendProfile(u) {
-    fpUser = u; var seq = ++fpSeq;
-    QC.nameLv($('#fp-name'), u.name, u.level);
-    var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(u));
-    $('#fp-status').textContent = 'Carregando…';
-    $('#fp-code').textContent = u.code;
-    $('#fp-body').hidden = true;
-    QC.openModal('#modal-fprofile', '.sheet-x');
-    api('GET', '/friends/profile?code=' + encodeURIComponent(u.code)).then(function (j) {
-      if (seq !== fpSeq || $('#modal-fprofile').hidden) return;       // já fechou ou abriu outro perfil
-      if (!j || !j.ok) { QC.toast(errText(j && j.error), 3400); QC.closeModal('#modal-fprofile'); return; }
-      paintFriendProfile(j.profile);
-    });
-  }
-  function paintFriendProfile(p) {
-    fpUser = { code: p.code, name: p.name, avatar: p.avatar, level: p.level };
-    QC.nameLv($('#fp-name'), p.name, p.level);
-    var av = $('#fp-av'); av.innerHTML = ''; av.appendChild(avatarBox(p, p.online));
-    var since = '';
-    try { since = ' · joga desde ' + new Date(p.since).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); } catch (e) { /* sem data */ }
-    $('#fp-status').textContent = (p.online ? '🟢 online agora' : 'offline') + since;
-    $('#fp-code').textContent = p.code;
-    var st = p.stats;
-    paintStats($('#fp-stats'), [['Partidas', st.games, 'c1'], ['Concluídos', st.completed, 'c4'], ['Desafios jogados', st.challenges, 'c1'], ['Vitórias', st.wins, 'c2']]);
-    paintFriendAch($('#fp-ach'), $('#fp-ach-count'), p.achievements, p.achSummary);
-    $('#fp-body').hidden = false;
-  }
-  $('#fp-copy').addEventListener('click', function () { if (fpUser) copyText(fpUser.code, 'Código de ' + fpUser.name + ' copiado!'); });
-  $('#fp-share').addEventListener('click', function () {
-    if (!fpUser) return;
-    var text = fpUser.name + ' joga Quebra-cabeça a dois! Código de amigo: ' + fpUser.code + '.';
-    if (navigator.share) navigator.share({ title: 'Quebra-cabeça a dois', text: text, url: location.origin }).catch(function () { /* cancelou */ });
-    else copyText(fpUser.code, 'Código copiado!');
-  });
-  $('#fp-invite').addEventListener('click', function () { if (fpUser) openChallenge(fpUser); });
-  $('#fp-remove').addEventListener('click', function () { if (fpUser) removeFriend(fpUser); });
-  $('#fp-block').addEventListener('click', function () { if (fpUser) blockPerson(fpUser); });
-  $('#fp-report').addEventListener('click', function () { if (fpUser) reportPerson(fpUser, 'perfil'); });
-
-  /* ---------- botão voltar do Android: reaproveita os botões "Voltar" que já existem ---------- */
-  QC.nav.add(function () {                                   // convite recebido: voltar só DISPENSA a janela (não recusa o convite)
-    if (!$('#modal-invite').hidden) { closeInvite(); return true; }
-    return false;
-  });
-  QC.nav.add(function () {                                   // telas internas do "Entrar": código e "esqueci a senha" voltam ao formulário
-    if (!$('#screen-me').classList.contains('active')) return false;
-    if (!$('#auth-verify').hidden) { $('#ver-back').click(); return true; }
-    if (!$('#auth-forgot').hidden) { $('#fg-back').click(); return true; }
-    return false;
+  /* ---------- botão voltar do Android ---------- */
+  QC.nav.add(function () {                                   // o código-chave novo só sai da tela pelo botão "Continuar" (depois de anotar)
+    if (!$('#screen-me').classList.contains('active') || !acc.newKey) return false;
+    QC.toast('Anote o ID e o código-chave e marque a caixa para continuar.', 3200);
+    return true;
   });
 
   /* =========================================================
@@ -1067,10 +673,8 @@
   QC.ready.then(function () {
     if (!state.accounts) return;                  // servidor sem banco: nada muda para ninguém
     acc.enabled = true;
-    acc.google = state.accounts.google || null;
-    acc.mailOn = !!state.accounts.mail;
     paintChip();
-    if (acc.token) loadMe().then(function (j) { if (j && j.ok) loadFriends(); });
+    if (acc.token) loadMe();
     if (socket.connected) authSocket();
   });
 })();

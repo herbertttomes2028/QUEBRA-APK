@@ -18,30 +18,25 @@ test('amigos e estatísticas não usam mais animação de entrada com opacidade 
   assert.match(css, /\.fr-row\.on \.fr-dot/);
 });
 
-test('estatísticas da conta e de amigo atualizadas sem apagar os cartões', () => {
+test('estatísticas da conta atualizadas sem apagar os cartões', () => {
   const js = read('public/conta.js');
   assert.match(js, /function paintStats\(box, rows\)/);
   assert.match(js, /if \(card\.firstChild\.textContent !== value\) card\.firstChild\.textContent = value;/);
   assert.match(js, /if \(card\.lastChild\.textContent !== x\[0\]\) card\.lastChild\.textContent = x\[0\];/);
   assert.match(js, /paintStats\(\$\('#me-stats'\)/);
-  assert.match(js, /paintStats\(\$\('#fp-stats'\)/);
   assert.doesNotMatch(js, /\$\('#me-stats'\);[\s\S]{0,40}innerHTML = ''/);
-  assert.doesNotMatch(js, /\$\('#fp-stats'\);[\s\S]{0,40}innerHTML = ''/);
 });
 
-test('amigos não refazem DOM quando resposta é idêntica e seguem reagindo a mudanças', () => {
+test('sem lista de amigos: o cliente não pede nem desenha amigos, convites ou presença', () => {
   const js = read('public/conta.js');
-  assert.match(js, /var changed = !acc\.friends \|\| JSON\.stringify\(acc\.friends\) !== JSON\.stringify\(j\);/);
-  assert.match(js, /if \(changed && \$\('#screen-me'\)\.classList\.contains\('active'\) && acc\.view === 'friends'\) renderFriends\(\);/);
-  assert.match(js, /if \(t === 'friends'\) renderFriends\(\);/);
-  assert.match(js, /if \(acc\.token\) \{ if \(!meFresh\(\)\) loadMe\(\); loadFriends\(\); \}/);   // os amigos (com o "online") sempre; o /me só se mudou ou passou do prazo
-  assert.match(js, /ev\.t === 'unfriend' \|\| ev\.t === 'presence'/);
+  assert.doesNotMatch(js, /\/friends|renderFriends|loadFriends|acc\.friends|'presence'|'unfriend'|'inv-up'/);
+  assert.match(js, /if \(acc\.token && !meFresh\(\)\) loadMe\(\);/);       // o /me só se mudou ou passou do prazo
 });
 
 test('novo cache da interface sem alterar rotas do jogo nem dados', () => {
   assert.match(read('public/sw.js'), /const CACHE = 'quebra-cabeca-v21'/);
   const source = read('public/conta.js');
-  assert.match(source, /api\('GET', '\/friends'\)/);
+  assert.doesNotMatch(source, /api\('GET', '\/friends'\)/, 'não há mais pedido de amigos');
   assert.match(source, /api\('GET', '\/me\?lite=1'\)/);
   assert.match(source, /api\('GET', '\/achievements'\)/);
   assert.doesNotMatch(source, /api\('GET', '\/me'\)/, 'o /me completo (pesado) não é mais pedido pelo aplicativo novo');

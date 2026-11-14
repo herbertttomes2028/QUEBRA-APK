@@ -1,11 +1,13 @@
 # Segurança: o que mudou e o passo a passo para colocar no ar
 
-> Este guia cobre: frases prontas, limite de tentativas no código da sala, bloquear jogadores, código de confirmação por e-mail,
-> recuperar e trocar a senha, cabeçalhos de segurança (CSP em modo "só relatar") e a verificação do certificado do banco.
+> Este guia cobre: frases prontas, limite de tentativas no código da sala, bloquear jogadores, **perfil gerado (ID + código-chave)**,
+> cabeçalhos de segurança (CSP em modo "só relatar") e a verificação do certificado do banco.
+> **Atualização (perfil gerado):** não existem mais e-mail, senha, Google, amigos nem convites no jogo. As seções 4 e 5 abaixo foram reescritas;
+> o relatório completo desta etapa está em `docs/AUDITORIA_SEGURANCA.md` (e `docs/SEGURANCA_INVENTARIO.md`, `docs/CONTROLES_LGPD_ECA.md`, `docs/RESPOSTA_INCIDENTES.md`, `docs/MIGRACAO_E_ROLLBACK.md`).
 
 ## 0. Token do `/diagnostico` (faça primeiro)
 
-O `/diagnostico` mostra configuração interna (e-mail, limites, CSP, contas). Por isso o detalhe só aparece com um token:
+O `/diagnostico` mostra configuração interna (limites, CSP, perfis). Por isso o detalhe só aparece com um token:
 
 1. No Render, **Environment > Add Environment Variable**: nome `DIAG_TOKEN`, valor = texto **aleatório de 24 caracteres ou mais** (por exemplo, gere com o botão de gerar valor do Render, ou `openssl rand -hex 24` no computador). Valores curtos são ignorados (e o log avisa).
 2. Abra `https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN`. Sem token, ou com token errado, aparece só o essencial (pacote Android e impressões digitais, que já são públicos).
@@ -17,9 +19,9 @@ O `/diagnostico` mostra configuração interna (e-mail, limites, CSP, contas). P
 
 ## 1. Ordem recomendada (leva uns 30 minutos)
 
-1. **Publicar o código** no GitHub (seção 2). O jogo continua funcionando como hoje: o e-mail ainda está desligado.
+1. **Publicar o código** no GitHub (seção 2). O jogo continua funcionando como hoje.
 2. **Conferir** em `https://SEU-APP.onrender.com/diagnostico?token=SEU_TOKEN` (seção 3).
-3. **Ligar o e-mail** (Brevo, seção 4). Só aqui as contas passam a pedir o código.
+3. **(Opcional) Ligar o aviso de denúncia por e-mail** (Brevo, seção 4). O jogo em si não envia e-mails a jogadores.
 4. **Testar com dois celulares** (seção 9).
 5. Depois de alguns dias, **ligar a CSP obrigatória** (seção 6).
 
@@ -46,55 +48,43 @@ Abra `/diagnostico?token=SEU_TOKEN`. Em `contas` deve aparecer `"ativas": true`.
 
 Se `contas.ativas` for `false` logo após esta atualização, quase certamente é o **certificado do banco** (seção 7): veja os registros (Logs) do Render.
 
-## 4. Código por e-mail (Brevo, plano gratuito)
+## 4. Brevo: só o aviso de denúncia ao responsável (opcional)
+
+**O jogo não envia mais código por e-mail a jogadores**: não há cadastro por e-mail, confirmação nem "esqueci minha senha". O Brevo ficou só para avisar o responsável de cada denúncia (seção 12).
 
 **Por que não SMTP:** o Render gratuito **bloqueia** as portas de SMTP (25, 465 e 587). Por isso o jogo envia e-mails por uma **API web** (HTTPS).
-Segundo o site do Brevo na minha consulta, o plano gratuito permite **300 e-mails por dia** (esses limites mudam: confira no site antes de depender disso).
+O plano gratuito do Brevo tem limite diário de envios (esses limites mudam: confira no site antes de depender disso).
 
 1. Crie uma conta em **brevo.com** (grátis, sem cartão) e confirme o seu e-mail. A Brevo pode pedir dados extras ou analisar a conta antes de liberar os envios.
-2. Cadastre o **remetente**: em *Senders, domains & dedicated IPs* > *Senders* > *Add a sender* (nome do jogo + um e-mail seu). Abra o e-mail que a Brevo enviar e confirme.
-   Dica: remetentes de e-mail gratuito (Gmail, Outlook) podem ter pior entrega e cair em **spam**; a tela do jogo já avisa para olhar a caixa de spam.
-3. Crie a **chave da API**: *SMTP & API* > *API keys* > *Generate a new API key*. Copie a chave (começa com `xkeysib-`); ela só aparece uma vez.
-   Se existir a opção de restringir por **IP autorizado**, deixe **desativada** (o Render gratuito não tem IP fixo).
-4. No Render, em *Environment*, crie estas variáveis (uma por linha, **sem espaços antes ou depois do valor**):
-   - `BREVO_API_KEY`: a chave da API (começa com `xkeysib-`).
-   - `BREVO_SENDER_EMAIL`: o e-mail remetente **já confirmado** no Brevo.
-   - `BREVO_SENDER_NAME` (opcional): o nome que aparece como remetente. Sem ela, usa "Quebra-cabeça a dois".
+2. Cadastre o **remetente**: em *Senders, domains & dedicated IPs* > *Senders* > *Add a sender*. Abra o e-mail que a Brevo enviar e confirme.
+3. Crie uma **chave de API** (começa com `xkeysib-`) e, no Render (**Environment**), as variáveis `BREVO_API_KEY` e `BREVO_SENDER_EMAIL` (o remetente já confirmado); opcional: `BREVO_SENDER_NAME`.
+4. Ao salvar, escolha **Save, rebuild & deploy** para o Render reiniciar com os valores novos.
+5. Faça uma denúncia de teste e confira o e-mail (seção 12). Sem as variáveis, as denúncias **continuam salvas no banco**; só o aviso por e-mail fica desligado.
 
-   O e-mail só fica **ligado** quando `BREVO_API_KEY` e `BREVO_SENDER_EMAIL` existem e não estão vazias. Ao salvar, escolha **Save, rebuild & deploy** (ou *Deploy only*) para o Render reiniciar com os valores novos.
-5. Confira em `/diagnostico`: `email: "configurado (brevo)"`. Crie uma conta de teste com um e-mail seu: o código deve chegar em até 1 minuto.
+**Se o e-mail parar** (chave errada, limite do dia): nada de perfil ou partida é afetado. No Render (Logs), `Brevo respondeu 401` = chave errada; `400/403` = remetente não confirmado ou restrição de IP.
 
-**Como funciona:** ao criar a conta, a pessoa recebe um código de 6 números (vale 15 minutos, no máximo 5 erros, depois o código "queima") e **só entra depois de digitá-lo**.
-O mesmo vale para **recuperar a senha** ("Esqueci minha senha" na tela de entrada). O código fica no banco só como hash.
+## 5. Perfil gerado: código-chave (substitui "trocar a senha")
 
-**Contas que já existem:** ao ligar o e-mail, elas pedem a confirmação **no próximo login** (o código é enviado na hora). Contas do Google já vêm confirmadas.
-Se uma conta nova nunca for confirmada **e estiver parada** (sem amigos, partidas ou progresso), o endereço **não fica preso**: o dono verdadeiro pode se cadastrar com ele.
-Se a conta não confirmada **já tem atividade**, ela **nunca é apagada** por um novo cadastro (ninguém destrói a conta de outra pessoa digitando o e-mail dela): o dono recupera pelo *Esqueci minha senha*.
-
-**Se o e-mail parar** (chave errada, limite do dia): novos cadastros e recuperações falham com aviso, e **nenhuma conta pela metade é criada**; quem já está confirmado continua entrando normalmente.
-No Render (Logs), `[contas] e-mail não enviado: Brevo respondeu 401` = chave errada; `400/403` = remetente não confirmado ou restrição de IP.
-
-## 5. Trocar a senha
-
-- **Logado:** Perfil > Segurança > *Trocar minha senha* (pede a senha atual; desconecta os outros aparelhos).
-- **Esqueci:** tela de entrada > *Esqueci minha senha* (código por e-mail; todas as sessões abertas caem).
+- **Criar:** o jogo gera o ID (8 caracteres, público) e o código-chave (20 caracteres, segredo, mostrado **uma vez**). No banco fica só o hash scrypt.
+- **Perdeu o código?** Não há recuperação (não existe e-mail). É um aviso que o jogo dá na criação e a pessoa confirma ("anotei").
+- **Suspeita de vazamento:** Perfil > Segurança > *Gerar código novo* (pede o código atual; o antigo deixa de valer na hora e os outros aparelhos saem).
 - **Sair de todos os aparelhos:** Perfil > Segurança.
-- Senhas: mínimo de 8 caracteres; recusamos as muito comuns (`12345678`, `senha123`…), repetidas e iguais ao nome ou ao e-mail.
+- **Apagar:** Perfil > *Apagar meus dados…* (digite EXCLUIR + código-chave).
+- Limites: 8 erros por ID e 20 por endereço a cada 15 minutos; 6 perfis novos por hora por endereço. Detalhes e testes: `docs/AUDITORIA_SEGURANCA.md`.
 
 ## 6. Cabeçalhos de segurança e CSP
 
 Todas as respostas agora levam: `Strict-Transport-Security` (180 dias, só em HTTPS), `X-Content-Type-Options: nosniff`,
 `X-Frame-Options: DENY` e `frame-ancestors 'none'` (**ninguém embute o jogo em outro site**), `Referrer-Policy`, `Permissions-Policy`
-(câmera, microfone, localização… desligados) e `Cross-Origin-Opener-Policy` (compatível com o login do Google).
+(câmera, microfone, localização… desligados) e `Cross-Origin-Opener-Policy` (sem login de terceiros).
 
 A **política de conteúdo (CSP)** começa em **`report`** (só relata, não bloqueia nada). Ela já é rígida: sem script inline (o único foi movido para `boot.js`),
-sem sites externos além do Google, e a conexão em tempo real só para o próprio endereço do jogo.
+sem nenhum site externo, e a conexão em tempo real só para o próprio endereço do jogo.
 
 - Veja o que ela relataria em `/diagnostico` > `seguranca.csp` (`violacoes_registradas`, `por_regra`, `ultimas`).
-- **Testada para `enforce` (rodada `seguranca-play`):** com `CSP_MODE=enforce` e o login do Google ligado, percorri o jogo inteiro (início com o pet, Ajustes, Loja, tutorial, partida solo com arrasto e recorte da imagem, Sala Desafio, conta e Amigos, tela de entrada e service worker) escutando todo evento de violação: **0 violações**, e o `/diagnostico` também ficou em 0. Foi em navegador de teste (desktop headless), não em Android real.
-- **Para ligar:** no Render crie `CSP_MODE` = `enforce`, jogue uma partida completa em dois celulares, abra Amigos e a Loja. Se algo quebrar, apague a variável (volta ao modo `report`). Acompanhe `seguranca.csp.violacoes_registradas` durante o teste fechado da Play: deve continuar em 0.
-- Os testes do projeto impedem o que quebraria o `enforce`: script embutido, atributo `onclick=` e similares, `javascript:`, `eval` e recurso de outro site (fora o login do Google).
-- Se for ligar o login do Google depois, repita o teste (a política já libera `accounts.google.com/gsi/`).
+- **Testada para `enforce` (rodada `seguranca-play`):** com `CSP_MODE=enforce` percorri o jogo (rodada `seguranca-play`: início com o pet, Ajustes, Loja, tutorial, partida solo com arrasto e recorte da imagem, Sala Desafio, tela de entrada e service worker; na rodada do perfil gerado, repeti criar perfil, copiar código, sair, entrar, gerar código novo e apagar, tudo com `enforce`) escutando todo evento de violação: **0 violações**, e o `/diagnostico` também ficou em 0. Foi em navegador de teste (desktop headless), não em Android real.
+- **Para ligar:** no Render crie `CSP_MODE` = `enforce`, jogue uma partida completa em dois celulares, abra o Perfil e a Loja. Se algo quebrar, apague a variável (volta ao modo `report`). Acompanhe `seguranca.csp.violacoes_registradas` durante o teste fechado da Play: deve continuar em 0.
+- Os testes do projeto impedem o que quebraria o `enforce`: script embutido, atributo `onclick=` e similares, `javascript:`, `eval` e recurso de outro site (não há exceção para o Google: o login dele foi removido).
 
 ## 7. Certificado do banco (Neon)
 
@@ -130,26 +120,26 @@ Ajustes pelo Render (opcionais): `CODE_LEN` (4 a 8), `JOIN_MAX_FAILS`, `JOIN_DAI
 - **10 frases básicas, sempre liberadas:** Oi! · Vamos jogar? · Boa! · Muito bem! · Quase lá! · Calma, vai dar certo! · Preciso de ajuda · Estou pensando... · Obrigado(a)! · Até logo!
 - **7 reações com emoji** (sempre liberadas): 👍 😂 👏 😮 🤔 ❤️ 🎉
 - **14 frases liberadas jogando** (só para quem tem conta, porque o servidor precisa saber o seu progresso): 1 partida (2 frases) · 3 partidas (2) · 5 partidas · 10 partidas (2) · 25 partidas ·
-  1 vitória (2) · 5 vitórias · 3 quebra-cabeças concluídos · 1 amigo · 1 imagem própria. As travadas aparecem com 🔒 e dizem o que falta.
+  1 vitória (2) · 5 vitórias · 3 quebra-cabeças concluídos. As travadas aparecem com 🔒 e dizem o que falta.
 - Limite de velocidade: não dá para "metralhar" frases.
 
-**Bloquear jogador:** em *Amigos* > **⋯** > *Bloquear*; ou no menu da partida > *⛔ Bloquear jogador* (quando o outro tem conta). Quem é bloqueado **não te acha na busca, não pede amizade, não te convida e não entra nas suas salas, nem sabendo o código**; a amizade acaba e **ele não recebe aviso de bloqueio** (para ele, a pessoa simplesmente some da lista de amigos, como se a amizade tivesse sido desfeita).
+**Bloquear jogador:** no menu da partida > *⛔ Bloquear jogador* (quando o outro tem perfil). Quem é bloqueado **não entra nas suas salas, nem sabendo o código**, e **não recebe aviso de bloqueio**.
 Desbloquear: Perfil > Segurança > *Jogadores bloqueados*. Visitantes (sem conta) não podem ser bloqueados individualmente; o limite de tentativas protege as salas.
 
 ## 9. Roteiro de teste com dois celulares (10 minutos)
 
-1. Celular 1: criar conta > aparece a tela do código > digitar o código do e-mail > entra.
-2. Celular 2: o mesmo com outro e-mail. Adicionem-se pelo código de amigo.
-3. Convite para jogar > os dois na mesma sala > abrir a conversa: **só botões de frases**, sem campo de texto.
-4. Celular 1: *Amigos* > **⋯** > *Bloquear* o celular 2 > ele some; o celular 2 não acha mais o código do 1. Desbloquear em Perfil > Segurança.
+1. Celular 1: criar perfil > aparece a tela do código-chave > anotar > marcar "anotei" > entrar.
+2. Celular 2: o mesmo (outro perfil). Cada um vê só o próprio apelido sorteado.
+3. Celular 1 cria uma sala e passa o código da sala > celular 2 entra > os dois aparecem como "Jogador 1/2" > abrir a conversa (se ligada): **só botões de frases**, sem campo de texto.
+4. Celular 1: menu da partida > *Bloquear jogador* > o celular 2 não entra mais nas salas do 1 (nem sabendo o código). Desbloquear em Perfil > Segurança.
 5. Em um terceiro aparelho (ou aba anônima): digitar 6 códigos de sala errados > aparece "Muitos códigos errados… espere 15 min".
-6. *Esqueci minha senha* > código > senha nova; e *Trocar minha senha* no perfil.
+6. *Gerar código novo* > o antigo não entra mais; *Sair* e *Entrar* com o novo.
 7. `/diagnostico`: `csp.violacoes_registradas` deve continuar em 0.
 
 ## 10. O que eu **não** consegui verificar (honestidade)
 
-- Neon, Brevo, Render e o login do Google **reais**: testei com simulações (banco PostgreSQL local, API de e-mail falsa, chaves do Google falsas).
-- O menu de preenchimento automático do navegador no seu celular: confirmei que não há mais campo de senha solto e que o campo do código está marcado como "não é login".
+- Neon, Brevo e Render **reais**: testei com simulações (banco PostgreSQL local e API de e-mail falsa).
+- O comportamento do preenchimento automático e do gerenciador de senhas no seu celular (o campo do código-chave é marcado como "não é senha", mas só o aparelho real confirma).
 - Aparelhos Android/iPhone de verdade (só celular simulado).
 - Um ataque coordenado com muitos endereços, ou com acesso pelo mesmo Wi-Fi da escola (todos compartilhariam o mesmo endereço e o mesmo limite).
 
@@ -184,7 +174,7 @@ update reports set status = 'analisado' where id = 123;
 
 ### Aviso por e-mail a cada denúncia nova
 
-Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). A mesma denúncia repetida em 24 h não gera outro e-mail. O e-mail traz o **código de amigo** da pessoa denunciada (já no formato certo para o SQL), o apelido, o motivo, onde foi feita, a nota e **os comandos prontos** para o Neon: trocar o apelido, excluir a conta ou marcar como analisada. É só abrir o **SQL Editor do Neon**, colar o comando e rodar.
+Cada denúncia **nova** chega ao seu e-mail (pelo Brevo). A mesma denúncia repetida em 24 h não gera outro e-mail. O e-mail traz o **ID** (coluna `friend_code`) da pessoa denunciada (já no formato certo para o SQL), o apelido, o motivo, onde foi feita, a nota e **os comandos prontos** para o Neon: trocar o apelido, excluir a conta ou marcar como analisada. É só abrir o **SQL Editor do Neon**, colar o comando e rodar.
 
 **Para quem vai:** por padrão, para o e-mail **remetente confirmado no Brevo** (`BREVO_SENDER_EMAIL`). Para mandar a outro endereço, crie no Render (Environment) a variável `REPORT_NOTIFY_EMAIL` com o seu e-mail. Um valor com formato estranho **desliga** o aviso (nunca envia a endereço duvidoso).
 
@@ -194,7 +184,7 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). 
 
 **Segurança do aviso:**
 - O e-mail **nunca** traz o e-mail, o código nem o apelido de **quem denunciou**, só o que é preciso para agir contra a pessoa denunciada.
-- Apelido e nota são texto de jogador: saem sem quebras de linha, escapados no HTML, sem links e **nunca dentro dos comandos SQL** (só o código de amigo, conferido contra o alfabeto do jogo).
+- Apelido e nota são texto de jogador: saem sem quebras de linha, escapados no HTML, sem links e **nunca dentro dos comandos SQL** (só o ID, conferido contra o alfabeto do jogo).
 - Ative a **verificação em duas etapas** no e-mail que recebe os avisos, não encaminhe esses e-mails e apague-os depois de resolver. **Só rode comandos de e-mails que chegaram do próprio jogo** e confira o código antes de executar.
 - O Brevo (plano gratuito) tem limite diário de envios, dividido com os códigos de confirmação.
 
@@ -208,7 +198,7 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). 
 
 **No Render (você):**
 1. Crie `DIAG_TOKEN` (seção 0) e, depois de testar, `CSP_MODE=enforce` (seção 6).
-2. Confira `DATABASE_URL`, `BREVO_API_KEY` e `GOOGLE_CLIENT_ID`; troque qualquer chave que já tenha aparecido em conversa, print ou arquivo. (`DB_SSL_VERIFY=0` é ignorado de propósito: o certificado do banco é sempre conferido.)
+2. Confira `DATABASE_URL` e `BREVO_API_KEY`; troque qualquer chave que já tenha aparecido em conversa, print ou arquivo. (`DB_SSL_VERIFY=0` é ignorado de propósito: o certificado do banco é sempre conferido.)
 3. O plano grátis **dorme**: o revisor da Play e os testadores veriam tela em branco por 20 a 60 s. Antes da revisão, use um plano que não durma (ou um ping de manutenção).
 4. Confirme a retenção de backup do banco (Neon) antes de ter jogadores reais.
 
@@ -219,5 +209,5 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo, o mesmo dos códigos). 
 
 **No Play Console:**
 8. Conta pessoal nova: teste fechado com **12 testadores por 14 dias seguidos**, depois o pedido de acesso à produção. Conta de organização é isenta.
-9. **Público-alvo (decidido em 13/11/2026):** **não indicado para menores de 16 anos** (marque 16–17 e 18 ou mais; ver `PLAY-STORE.md`, seção 3). A tela de idade neutra e o cadastro 16+ já estão no app. Leve ao profissional as perguntas jurídicas listadas em `PLAY-STORE.md` (ECA Digital, LGPD). O login com o Google está desligado no seu Render, então a dúvida sobre ele em app com menores não se aplica hoje.
+9. **Público-alvo (decidido em 13/11/2026):** **não indicado para menores de 16 anos** (marque 16–17 e 18 ou mais; ver `PLAY-STORE.md`, seção 3). A tela de idade neutra e a criação de perfil 16+ já estão no app. Leve ao profissional as perguntas jurídicas listadas em `PLAY-STORE.md` (ECA Digital, LGPD). O login com o Google está desligado no seu Render, então a dúvida sobre ele em app com menores não se aplica hoje.
 10. Formulários: segurança de dados (link de exclusão: `/excluir-conta.html`), classificação de conteúdo, instruções de acesso (o modo visitante entra sem conta), e-mail de suporte. **Reveja o e-mail de contato da política de privacidade** (`herbert.uva.unversidade@gmail.com`: confira se "unversidade" não é erro de digitação).

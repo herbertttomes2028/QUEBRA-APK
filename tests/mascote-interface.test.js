@@ -17,7 +17,7 @@ test('tela inicial: a subfrase saiu, ficam o nome, o mascote e os botões, na or
   assert.doesNotMatch(homeSec, /class="lead"/, 'a tela inicial não tem mais o parágrafo de subtítulo');
   const ordem = ['<h1>', 'id="mascot"', 'id="home-invite"', 'id="btn-continue"', 'id="cta-row"', 'class="join-card"', 'class="tabbar"'].map((t) => homeSec.indexOf(t));
   assert.ok(ordem.every((n) => n > 0), 'tudo continua presente: ' + ordem); assert.deepEqual(ordem.slice().sort((a, b) => a - b), ordem, 'ordem: título, mascote, convite, continuar, botões, código, barra de abas');
-  for (const id of ['btn-play', 'btn-duel', 'input-code', 'btn-join', 'link-settings', 'link-help', 'btn-me', 'link-friends', 'logo']) assert.ok(homeSec.includes('id="' + id + '"'), id + ' continua na tela inicial');
+  for (const id of ['btn-play', 'btn-duel', 'input-code', 'btn-join', 'link-settings', 'link-help', 'btn-me', 'logo']) assert.ok(homeSec.includes('id="' + id + '"'), id + ' continua na tela inicial');
 });
 
 test('o mascote só existe na tela inicial e é um botão acessível, com desenho de reserva escondido do leitor de tela', () => {

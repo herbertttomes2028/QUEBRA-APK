@@ -60,8 +60,8 @@ test('idade.js: só guarda mês e ano NO APARELHO, nunca envia a resposta; a ún
 
 /* ===================== servidor: cadastro e exclusão ===================== */
 const acc = read('accounts.js');
-test('servidor: o cadastro (e-mail e Google) exige age16 === true (só o booleano), e /underage apaga SÓ a conta da sessão, com limite, sem pedir senha, pelo mesmo apagador do /delete', () => {
-  assert.equal((acc.match(/if \(b\.age16 !== true\) return bad\(res, 400, 'age16'\);/g) || []).length, 2); assert.ok(!/age13/.test(acc));
+test('servidor: a criação do perfil exige age16 === true (só o booleano), e /underage apaga SÓ a conta da sessão, com limite, sem pedir senha, pelo mesmo apagador do /delete', () => {
+  assert.equal((acc.match(/if \(b\.age16 !== true\) return bad\(res, 400, 'age16'\);/g) || []).length, 1, 'um único ponto de criação: /profile/new'); assert.ok(!/age13/.test(acc));
   assert.match(acc, /async function eraseAccount\(user\) \{[\s\S]*?DELETE FROM users WHERE id = \$1[\s\S]*?revokeSocketSessions\(user\.id\);\s*\}/);
   assert.match(acc, /r\.post\('\/delete', needUser, guard\(async \(req, res\) => \{[\s\S]*?if \(b\.confirm !== 'EXCLUIR'\) return bad\(res, 400, 'confirm'\);[\s\S]*?bad_login[\s\S]*?await eraseAccount\(req\.user\);/, 'o /delete continua pedindo confirmação e senha');
   assert.match(acc, /r\.post\('\/underage', needUser, guard\(async \(req, res\) => \{\s+if \(!allow\('under:' \+ req\.user\.id, 5, 10 \* 60 \* 1000\)\) return bad\(res, 429, 'rate'\);\s+await eraseAccount\(req\.user\);/);
@@ -70,7 +70,7 @@ test('servidor: o cadastro (e-mail e Google) exige age16 === true (só o boolean
 });
 test('política de privacidade e textos: 16 anos em todo lugar, nada de "13 anos" nem de data de nascimento pedida ao servidor, e uma seção para pais e responsáveis', () => {
   const pol = read('public/privacidade.html').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  for (const t of ['não é indicado para menores de 16 anos', 'pedimos o mês e o ano do seu nascimento só para saber se você pode jogar', 'Ao criar uma conta, você confirma que tem 16 anos ou mais', 'Quem informa ter menos de 16 anos não consegue jogar, e a conta que existir neste aparelho é apagada', 'Para pais e responsáveis', 'nada disso é enviado ao servidor', 'atualizada em 13 de novembro de 2026']) assert.ok(pol.includes(t), t);
+  for (const t of ['não é indicado para menores de 16 anos', 'pedimos o mês e o ano do seu nascimento só para saber se você pode jogar', 'Ao criar um perfil, você confirma que tem 16 anos ou mais', 'Quem informa ter menos de 16 anos não consegue jogar, e o perfil que existir neste aparelho é apagado', 'Para pais e responsáveis', 'nada disso é enviado ao servidor', 'atualizada em 14 de novembro de 2026']) assert.ok(pol.includes(t), t);
   assert.ok(!/13 anos|data de nascimento nem localização/.test(pol));
   for (const f of ['public/manifest.webmanifest', 'public/index.html', 'public/conta.js', 'README.md', 'CONTAS.md', 'PLAY-STORE.md']) assert.ok(!/(?:para|tem|Tenho|menores de|maiores de)\s+13 anos|13\+/.test(read(f).replace(/ECA[^\n]*/g, '')), f + ' ainda fala em 13 anos');
   assert.match(read('PLAY-STORE.md'), /Marque 16–17 e 18 ou mais\. Não marque 5 ou menos, 6–8, 9–12 nem 13–15\./); assert.match(read('PLAY-STORE.md'), /informe um mês e um ano de nascimento de alguém com 16 anos ou mais/);

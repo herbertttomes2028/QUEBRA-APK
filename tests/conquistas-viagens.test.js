@@ -143,9 +143,9 @@ test('PostgreSQL: /me leve, /achievements e gatherStats em uma consulta == resul
     const semConq = Object.fromEntries(Object.entries(cheio).filter(([k]) => !ACH.includes(k)));
     assert.deepEqual(lite, semConq, 'o /me leve é EXATAMENTE o /me completo sem as 4 chaves de conquistas');
     assert.deepEqual(Object.fromEntries(ACH.map((k) => [k, conq[k]])), Object.fromEntries(ACH.map((k) => [k, cheio[k]])), '/achievements entrega exatamente o que o /me completo entregava');
-    assert.deepEqual(lite.stats, await statsAntigo(q, A), 'estatísticas básicas idênticas às de antes');
+    assert.deepEqual(lite.stats, Object.assign(await statsAntigo(q, A), { friends: 0 }), 'estatísticas básicas idênticas às de antes (menos o número de amigos, que não existe mais e vem 0)');
     assert.deepEqual(lite.save, salvo, 'a partida salva do /me é idêntica à da rota /save (inclusive a data)');
-    assert.deepEqual(lite.pending, { requests: 1, invites: 1 }, 'pedidos de amizade e convites pendentes');
+    assert.ok(!('pending' in lite), 'sem pedidos de amizade nem convites no /me');
     assert.equal(lite.gems, 0); assert.equal(lite.xp.total, 400);
 
     /* ================= 3) quem ainda não teve o histórico convertido em XP: converte na 1ª vez, igual nos dois formatos ================= */

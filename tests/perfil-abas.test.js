@@ -21,7 +21,7 @@ test('as conquistas continuam na aba do troféu (resumo, filtros, grupos e lista
   const a = pane('tab-ach');
   for (const id of ['ach-summary', 'ach-filters', 'ach-groups', 'ach-list']) assert.ok(a.includes('id="' + id + '"'), id);
   assert.match(html, /data-tab="ach"><span aria-hidden="true">🏆<\/span>Conquistas<i id="me-tab-ach-badge" class="me-badge" hidden><\/i>/);
-  assert.match(conta, /QC\.showAchievements = function \(\) \{ if \(!acc\.token\) return; acc\.tab = 'ach'; openMe\('profile'\); \};/);
+  assert.match(conta, /QC\.showAchievements = function \(\) \{ if \(!acc\.token\) return; acc\.tab = 'ach'; openMe\(\); \};/);
   assert.match(conta, /if \(acc\.tab === 'ach'\) renderAch\(\); else if \(acc\.tab === 'col'\) renderCol\(\);/, 'ao chegar os dados repinta só a aba aberta'); assert.match(conta, /paintStats\([^\n]*\n\s*updateAchBadge\(\);/, 'o Perfil só pinta estatísticas e atualiza o selo da aba do troféu');
   assert.ok(pane('tab-col').includes('id="col-list"'), 'a aba Coleções continua');
 });

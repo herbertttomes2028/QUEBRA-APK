@@ -24,7 +24,7 @@ As 10 conquistas que já existiam **mantêm o XP de antes** (25, 40, 40, 100, 50
 
 O perfil de **amigo** recebe **só as conquistas "Público"**, e só "ganhou ou não": nunca progresso, tempos, XP, número de amigos, dias ou horários de jogo, nem segredos. Velocidade, amizade, constância e segredos são **"Só você"**.
 
-**Total de XP das conquistas fixas:** 3.345. As conquistas por categoria somam até 160 XP **por categoria** (as 4 de cada uma).
+**Total de XP das conquistas fixas:** 3.085. As conquistas por categoria somam até 160 XP **por categoria** (as 4 de cada uma).
 
 ## 🌱 Primeiros passos
 
@@ -98,23 +98,6 @@ _Vitórias, duplas e foco_
 | 🌠 | **Equipe dos sonhos** | Conclua 20 quebra-cabeças em dupla | 🥇 Ouro | 40 | Público |
 | 🛡️ | **Imbatível** | Vença 25 desafios | 🥇 Ouro | 40 | Público |
 | 🐉 | **Lenda do Desafio** | Vença 50 desafios | 💎 Diamante | 100 | Público |
-
-## 🤝 Amizade
-
-_Só você vê estas_
-
-| | Conquista | Como ganhar | Nível | XP | Quem vê |
-|---|---|---|---|---:|---|
-| 🤝 | **Primeiro amigo** | Adicione um amigo | 🥉 Bronze | 25 | Só você |
-| 💌 | **Convite aceito** | Convide um amigo e ele aceite jogar | 🥉 Bronze | 5 | Só você |
-| 🫶 | **Parceria** | Conclua 5 partidas junto com amigos | 🥉 Bronze | 5 | Só você |
-| 🎉 | **Turma** | Tenha 5 amigos | 🥈 Prata | 60 | Só você |
-| 🏠 | **Anfitrião** | Tenha 5 convites aceitos | 🥈 Prata | 15 | Só você |
-| 🎶 | **Dupla afinada** | Conclua 25 partidas junto com amigos | 🥈 Prata | 15 | Só você |
-| 🌍 | **Mundo de amigos** | Jogue com 3 amigos diferentes | 🥈 Prata | 15 | Só você |
-| 🎪 | **Turma grande** | Tenha 10 amigos | 🥇 Ouro | 40 | Só você |
-| 🧵 | **Inseparáveis** | Conclua 100 partidas junto com amigos | 🥇 Ouro | 40 | Só você |
-| 🎖️ | **Embaixador** | Jogue com 8 amigos diferentes | 🥇 Ouro | 40 | Só você |
 
 ## 📅 Constância
 

@@ -172,7 +172,7 @@ const zlib = require('zlib');
 let configGz = { body: '', gz: null };
 app.get('/api/config', (req, res) => {
   res.set({ 'Cache-Control': 'no-cache', 'Vary': 'Accept-Encoding' });
-  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), shop: shopCatalog.catalog(), accounts: { enabled: !!accounts, google: accounts ? accounts.config.google : null, mail: !!mailer } });
+  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), shop: shopCatalog.catalog(), accounts: { enabled: !!accounts } });
   res.type('application/json');
   if (body.length > 1024 && /\bgzip\b/i.test(req.get('accept-encoding') || '')) {
     if (configGz.body !== body) configGz = { body, gz: zlib.gzipSync(body) };
@@ -263,8 +263,7 @@ app.get('/diagnostico', (req, res) => {
     contas: {
       ativas: !!accounts,
       banco_configurado: !!DATABASE_URL,
-      login_google: !!(accounts && accounts.config.google),
-      confirmacao_por_email: !!mailer,
+      login_por_codigo_chave: !!accounts,
       avisos_de_denuncia_por_email: accounts && accounts.reportMailInfo ? accounts.reportMailInfo() : { ligado: false },      // destino já mascarado (a***@dominio)
       dica: accounts ? 'Contas funcionando.' : (DATABASE_URL ? 'DATABASE_URL existe, mas o banco não respondeu: veja os registros (logs) do Render.' : 'Contas desligadas: crie um banco PostgreSQL e coloque o endereço na variável DATABASE_URL (veja o guia).')
     }
@@ -648,7 +647,7 @@ function attach(room, socket, pid, name, avatar) {
     pid,
     socketId: socket.id,
     connected: true,
-    name: cleanName(name) || prevName || 'Jogador ' + (idx + 1),
+    name: 'Jogador ' + (idx + 1),             // nomes e apelidos do perfil NUNCA circulam entre jogadores
     avatar: cleanAvatar(avatar) || prevAvatar || '',
     uid: socket.data.uid || null,           // conta do jogador (null = visitante)
     level: socket.data.uid && accHooks.levelOf ? accHooks.levelOf(socket.data.uid) : 0,
@@ -1117,12 +1116,11 @@ async function start() {
       if (applied.length) console.log('[contas] migrações aplicadas:', applied.join(', '));
       accounts = createAccounts({
         app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, elapsedOf: elapsed,
-        googleClientId: process.env.GOOGLE_CLIENT_ID || null,
         onAuth: bindUserToRooms, mailer, peerOf
       });
       accHooks.duelFinish = (room, result) => accounts.finishDuel(room, result);
       accHooks.levelOf = (uid) => accounts.levelOf(uid);
-      console.log('[contas] sistema de contas ATIVO' + (process.env.GOOGLE_CLIENT_ID ? ' (com login Google)' : ''));
+      console.log('[contas] perfis gerados ATIVOS (login por ID + código-chave, sem e-mail)');
       try {                                                                 // catálogo da biblioteca vindo do banco (validado; se falhar, vale o embutido)
         const ok = await library.loadFromDb(db);
         console.log('[biblioteca] catálogo ' + (ok ? 'carregado do banco' : 'embutido'));

@@ -43,7 +43,7 @@
       </svg>
 
       <button id="link-help" class="help-chip" type="button" aria-label="Como jogar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M9.4 9.4a2.7 2.7 0 1 1 3.9 2.4c-.8.5-1.3 1-1.3 1.9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="12" cy="16.9" r="1.3" fill="currentColor"/></svg></button>
-      <button id="btn-me" class="me-chip" type="button" hidden aria-label="Meu perfil, amigos e partidas">
+      <button id="btn-me" class="me-chip" type="button" hidden aria-label="Meu perfil e partidas">
         <span id="me-chip-face" class="me-chip-face" aria-hidden="true">👤</span>
         <span id="me-chip-text" class="me-chip-text">Entrar</span><span id="me-chip-gems" class="me-chip-gems" hidden aria-label="Meu saldo de gemas"></span>
       </button>
@@ -96,84 +96,67 @@
 
       </div>
     <nav class="tabbar" aria-label="Menu principal">
-      <button id="link-friends" class="tab" type="button" hidden><span class="tab-ico" data-ico="amigos" aria-hidden="true"></span><span class="tab-txt">Amigos</span><i id="friends-badge" class="me-badge" hidden>0</i></button>
       <button id="link-shop" class="tab" type="button" aria-label="Loja de bandejas, skins e roupas"><span class="tab-ico" data-ico="loja" aria-hidden="true"></span><span class="tab-txt">Loja</span></button>
       <button id="link-settings" class="tab" type="button"><span class="tab-ico" data-ico="ajustes" aria-hidden="true"></span><span class="tab-txt">Ajustes</span></button>
     </nav>
     </section>
 
-    <!-- ========== MEU ESPAÇO (perfil, amigos, partidas) ========== -->
+    <!-- ========== MEU ESPAÇO (perfil, conquistas, partidas) ========== -->
     <section id="screen-me" class="screen" data-fundo="conta">
       <div class="me-wrap">
         <header class="me-head">
           <button id="me-back" class="btn btn-ghost" type="button">‹ Voltar</button>
-          <span id="me-head-title" class="me-head-title" hidden>Meus amigos</span>
+          <span id="me-head-title" class="me-head-title" hidden>Meu perfil</span>
           <div class="me-blocks" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </header>
         <div id="me-scroll" class="me-scroll">
-          <!-- visitante: entrar ou criar conta -->
+          <!-- código-chave novo: aparece uma única vez (perfil criado ou código trocado) -->
+          <div id="me-newkey" hidden>
+            <div class="me-card me-newkey">
+              <h3 class="me-h-in">🔑 Guarde seu código-chave</h3>
+              <p class="me-small me-left">Este código aparece <b>só agora</b>. Como não pedimos e-mail, ele é a única forma de voltar ao perfil se você trocar de celular ou desinstalar o jogo. <b>Não compartilhe</b>: quem tiver o ID e o código entra no seu perfil.</p>
+              <div class="me-keybox">
+                <span class="me-label">Seu ID</span><b id="nk-id" class="me-code-val">----</b>
+                <span class="me-label">Código-chave</span><b id="nk-secret" class="me-code-val me-secret-val">----</b>
+              </div>
+              <div class="me-code-btns"><button id="nk-copy" class="btn btn-secondary me-mini" type="button">Copiar ID e código</button></div>
+              <label class="me-check"><input id="nk-saved" type="checkbox"><span>Anotei o ID e o código-chave em um lugar seguro.</span></label>
+              <button id="nk-done" class="btn btn-primary btn-xl" type="button" disabled>Continuar</button>
+            </div>
+          </div>
+          <!-- visitante: criar perfil ou entrar com o código-chave -->
           <div id="me-guest" hidden>
             <div class="me-hero">
               <h2>Guarde seu progresso</h2>
-              <p>Com uma conta você continua partidas, junta amigos e vê suas conquistas, em qualquer celular.</p>
+              <p>O jogo cria um perfil para você, com um apelido sorteado. Não pedimos e-mail, nome nem senha: você volta ao perfil com um ID e um código-chave que aparece uma única vez.</p>
             </div>
             <div id="auth-card" class="me-card">
-              <div class="me-seg" role="tablist" aria-label="Entrar ou criar conta">
-                <button id="auth-tab-in" class="me-seg-btn on" type="button" role="tab" aria-selected="true">Entrar</button>
-                <button id="auth-tab-up" class="me-seg-btn" type="button" role="tab" aria-selected="false">Criar conta</button>
+              <div class="me-seg" role="tablist" aria-label="Criar perfil ou entrar com o código-chave">
+                <button id="auth-tab-up" class="me-seg-btn on" type="button" role="tab" aria-selected="true">Criar perfil</button>
+                <button id="auth-tab-in" class="me-seg-btn" type="button" role="tab" aria-selected="false">Entrar com código</button>
               </div>
-              <form id="auth-form" novalidate>
-                <label id="auth-name-wrap" class="me-field" hidden><span>Nome de jogador</span>
-                  <input id="auth-name" type="text" maxlength="12" autocomplete="nickname" placeholder="Um apelido (não use o nome completo)"></label>
-                <label class="me-field"><span>E-mail</span>
-                  <input id="auth-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
-                <label class="me-field"><span>Senha</span>
-                  <span class="me-pw"><input id="auth-pass" type="password" autocomplete="current-password" minlength="8" placeholder="Pelo menos 8 caracteres">
-                  <button id="auth-eye" class="me-eye" type="button" aria-label="Mostrar a senha">👁</button></span></label>
-                <label id="auth-consent-wrap" class="me-check" hidden>
-                  <input id="auth-consent" type="checkbox">
-                  <span>Li a <a href="/privacidade.html" data-privacy>política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
-                <label id="auth-age-wrap" class="me-check" hidden>
-                  <input id="auth-age" type="checkbox">
-                  <span>Tenho 16 anos ou mais. (Este jogo não é indicado para menores de 16 anos.)</span></label>
-                <p id="auth-error" class="error" role="alert" hidden></p>
-                <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Entrar</button>
-                <button id="auth-forgot-link" class="me-link" type="button">Esqueci minha senha</button>
-              </form>
-              <div id="google-box" class="me-google" hidden><span class="me-or">ou</span><div id="google-btn"></div></div>
-            </div>
-            <div id="auth-verify" class="me-card" hidden>
-              <h3 class="me-h-in">Confirme seu e-mail ✉️</h3>
-              <p class="me-small me-left">Enviamos um código de 6 números para <b id="ver-email"></b>. Digite-o abaixo (ele vale por 15 minutos). Olhe também a caixa de spam.</p>
-              <form id="ver-form" novalidate autocomplete="off">
-                <label class="me-field"><span>Código</span>
-                  <input id="ver-code" name="codigo-email" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore="true" placeholder="000000"></label>
-                <p id="ver-error" class="error" role="alert" hidden></p>
-                <button id="ver-go" class="btn btn-primary btn-xl" type="submit">Confirmar</button>
-              </form>
-              <button id="ver-resend" class="btn btn-secondary" type="button">Reenviar código</button>
-              <button id="ver-back" class="btn btn-ghost" type="button">‹ Voltar</button>
-            </div>
-            <div id="auth-forgot" class="me-card" hidden>
-              <h3 class="me-h-in">Recuperar a senha</h3>
-              <p id="fg-off" class="me-notice" role="status" hidden>A recuperação de senha está <b>indisponível no momento</b>. Tente de novo mais tarde.<br><br>Se você ainda lembra da sua senha, é só voltar e entrar normalmente.</p>
-              <form id="fg-form" novalidate>
-                <label class="me-field"><span>E-mail da conta</span>
-                  <input id="fg-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
-                <div id="fg-step2" hidden>
-                  <p class="me-small me-left">Se esse e-mail tiver uma conta, enviamos um código de 6 números. Digite-o e escolha uma senha nova.</p>
-                  <label class="me-field"><span>Código</span>
-                    <input id="fg-code" name="codigo-senha" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" data-lpignore="true" data-1p-ignore="true" placeholder="000000"></label>
-                  <label class="me-field"><span>Senha nova</span>
-                    <input id="fg-pass" type="password" autocomplete="new-password" minlength="8" placeholder="Pelo menos 8 caracteres"></label>
+              <form id="auth-form" novalidate autocomplete="off">
+                <div id="auth-in-wrap" hidden>
+                  <label class="me-field"><span>ID do perfil</span>
+                    <input id="auth-id" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="ABCD-2XYZ"></label>
+                  <label class="me-field"><span>Código-chave</span>
+                    <span class="me-pw"><input id="auth-secret" name="codigo-chave" type="password" maxlength="27" autocomplete="off" autocapitalize="characters" spellcheck="false" data-lpignore="true" data-1p-ignore="true" placeholder="XXXXX-XXXXX-XXXXX-XXXXX">
+                    <button id="auth-eye" class="me-eye" type="button" aria-label="Mostrar o código-chave">👁</button></span></label>
                 </div>
-                <p id="fg-error" class="error" role="alert" hidden></p>
-                <button id="fg-go" class="btn btn-primary btn-xl" type="submit">Enviar código</button>
+                <div id="auth-up-wrap">
+                  <label id="auth-consent-wrap" class="me-check">
+                    <input id="auth-consent" type="checkbox">
+                    <span>Li a <a href="/privacidade.html" data-privacy>política de privacidade</a>. Se tenho menos de 18 anos, um responsável me autorizou.</span></label>
+                  <label id="auth-age-wrap" class="me-check">
+                    <input id="auth-age" type="checkbox">
+                    <span>Tenho 16 anos ou mais. (Este jogo não é indicado para menores de 16 anos.)</span></label>
+                </div>
+                <p id="auth-error" class="error" role="alert" hidden></p>
+                <button id="auth-go" class="btn btn-primary btn-xl" type="submit">Criar meu perfil</button>
               </form>
-              <button id="fg-back" class="btn btn-ghost" type="button">‹ Voltar</button>
             </div>
             <button id="me-visitor" class="btn btn-secondary btn-xl" type="button">Jogar como visitante</button>
-            <p class="me-small">Como visitante você joga normalmente; só não guarda progresso nem amigos.</p>
+            <p class="me-small">Como visitante você joga normalmente; só não guarda progresso, gemas nem conquistas. Se desinstalar o jogo ou perder o código-chave, não há como recuperar o perfil.</p>
           </div>
 
           <!-- conta: perfil -->
@@ -182,8 +165,9 @@
               <div class="me-card me-profile">
                 <button id="me-avatar" class="me-avatar" type="button" aria-label="Trocar meu avatar"><span id="me-avatar-face">👤</span><i class="me-avatar-pen" aria-hidden="true">✎</i></button>
                 <div class="me-profile-main">
-                  <label class="me-field me-field-tight"><span>Nome de jogador <span id="me-lv" hidden></span></span>
-                    <span class="me-name-row"><input id="me-name" type="text" maxlength="12" autocomplete="nickname"><button id="me-name-save" class="btn btn-secondary me-mini" type="button">Salvar</button></span></label>
+                  <span class="me-label">Meu apelido <span id="me-lv" hidden></span></span>
+                  <b id="me-name" class="me-name-val"></b>
+                  <button id="me-name-new" class="btn btn-secondary me-mini" type="button">🎲 Sortear outro apelido</button>
                 </div>
               </div>
               <div id="me-gems" class="me-card me-gems" hidden role="status"><span class="me-gems-icon" aria-hidden="true">💎</span><div><b>Minhas gemas</b><small>Ganhe ao concluir quebra-cabeças e subir de nível</small></div><strong id="me-gems-amount">0</strong></div>
@@ -194,8 +178,8 @@
               </div>
               <div id="me-avatars" class="me-card me-avatars" hidden><div id="me-avatar-grid" class="avatar-grid"></div></div>
               <div class="me-card me-code">
-                <div><span class="me-label">Meu código de amigo</span><b id="me-code" class="me-code-val">----</b></div>
-                <div class="me-code-btns"><button id="me-copy" class="btn btn-secondary me-mini" type="button">Copiar</button><button id="me-share" class="btn btn-primary me-mini" type="button">Compartilhar</button></div>
+                <div><span class="me-label">Meu ID (não é segredo)</span><b id="me-code" class="me-code-val">----</b></div>
+                <div class="me-code-btns"><button id="me-copy" class="btn btn-secondary me-mini" type="button">Copiar</button></div>
               </div>
               <button id="me-save-card" class="me-save" type="button" hidden>
                 <span class="cont-ico" aria-hidden="true">▶</span><span class="cont-text"><b>Continuar jogando</b><small id="me-save-sub"></small></span>
@@ -204,27 +188,21 @@
               <div id="me-stats" class="me-stats"></div>
               <div class="me-card me-sec">
                 <h3 class="me-h-in">🔒 Segurança</h3>
-                <button id="sec-pw-open" class="btn btn-secondary" type="button">Trocar minha senha</button>
-                <form id="sec-pw-form" novalidate hidden>
-                  <label class="me-field"><span>Senha atual</span><input id="sec-pw-cur" type="password" autocomplete="current-password"></label>
-                  <label class="me-field"><span>Senha nova</span><input id="sec-pw-new" type="password" autocomplete="new-password" minlength="8" placeholder="Pelo menos 8 caracteres"></label>
-                  <p id="sec-pw-error" class="error" role="alert" hidden></p>
-                  <button id="sec-pw-go" class="btn btn-primary" type="submit">Salvar a senha nova</button>
-                </form>
+                <p class="me-small me-left">O que protege o seu perfil é o código-chave. Se achar que alguém o viu, gere um novo: o antigo deixa de valer e os outros aparelhos saem do perfil.</p>
+                <button id="sec-newkey" class="btn btn-secondary" type="button">Gerar um código-chave novo</button>
                 <button id="sec-logout-all" class="btn btn-secondary" type="button">Sair de todos os aparelhos</button>
                 <button id="sec-blocked-open" class="btn btn-secondary" type="button">Jogadores bloqueados <span id="sec-blocked-n"></span></button>
                 <div id="sec-blocked" hidden></div>
               </div>
               <div class="me-card me-account">
-                <p class="me-small">Conta: <b id="me-email"></b></p>
-                <button id="me-logout" class="btn btn-secondary btn-xl" type="button">Sair da conta</button>
-                <button id="me-delete-open" class="btn btn-ghost" type="button">Excluir minha conta…</button>
+                <button id="me-logout" class="btn btn-secondary btn-xl" type="button">Sair deste aparelho</button>
+                <button id="me-delete-open" class="btn btn-ghost" type="button">Apagar meus dados…</button>
                 <form id="me-delete" class="me-delete" autocomplete="off" novalidate hidden>
-                  <p class="me-small">Isso apaga <b>para sempre</b> seu perfil, amigos, histórico e progresso. Para confirmar, digite <b>EXCLUIR</b>.</p>
+                  <p class="me-small">Isso apaga <b>para sempre</b> seu perfil, histórico e progresso. Para confirmar, digite o código-chave e a palavra <b>EXCLUIR</b>.</p>
                   <input id="me-del-word" name="confirmar-exclusao" type="text" autocomplete="off" data-lpignore="true" data-1p-ignore="true" autocapitalize="characters" placeholder="EXCLUIR">
-                  <input id="me-del-pass" name="senha-exclusao" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" placeholder="Sua senha" hidden>
+                  <input id="me-del-secret" name="codigo-exclusao" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" autocapitalize="characters" placeholder="Seu código-chave">
                   <p id="me-del-error" class="error" role="alert" hidden></p>
-                  <button id="me-delete-go" class="btn me-danger" type="button">Excluir de vez</button>
+                  <button id="me-delete-go" class="btn me-danger" type="button">Apagar de vez</button>
                 </form>
                 <p class="me-small"><a href="/privacidade.html" data-privacy>Privacidade</a></p>
               </div>
@@ -242,21 +220,6 @@
             <div id="tab-col" class="me-tabpane" hidden>
               <h3 class="me-h">Minhas coleções <small id="col-count"></small></h3>
               <div id="col-list" class="col-list"></div>
-            </div>
-
-            <!-- amigos -->
-            <div id="tab-friends" class="me-tabpane" hidden>
-              <div class="me-card">
-                <span class="me-label">Adicionar um amigo pelo código</span>
-                <div class="me-add-row"><input id="fr-code" type="text" maxlength="9" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Código" aria-label="Código do amigo (8 letras e números)"><button id="fr-search" class="btn btn-primary me-mini" type="button">Procurar</button></div>
-                <p id="fr-error" class="error" role="alert" hidden></p>
-                <div id="fr-found" class="fr-row fr-found" hidden></div>
-              </div>
-              <div id="fr-invites"></div>
-              <div id="fr-requests"></div>
-              <h3 class="me-h">Meus amigos <small id="fr-count"></small></h3>
-              <div id="fr-list"></div>
-              <div id="fr-sent"></div>
             </div>
 
             <!-- partidas -->
@@ -708,76 +671,7 @@
     </div>
 
     <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
-    <div id="modal-invite" class="modal modal-top" hidden role="alertdialog" aria-modal="true" aria-labelledby="inv-title">
-      <div class="sheet inv-sheet">
-        <div id="inv-face" class="inv-face" aria-hidden="true">🎮</div>
-        <h2 id="inv-title">Convite de jogo</h2>
-        <p id="inv-text" class="inv-text"></p>
-        <p id="inv-meta" class="inv-meta"></p>
-        <div class="inv-bar" aria-hidden="true"><i id="inv-bar-fill"></i></div>
-        <div class="sheet-actions">
-          <button id="inv-yes" class="btn btn-primary" type="button">Aceitar</button>
-          <button id="inv-no" class="btn btn-secondary" type="button">Agora não</button>
-        </div>
-      </div>
-    </div>
-
     <!-- ========== PERFIL DO AMIGO ========== -->
-    <div id="modal-fprofile" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fp-name">
-      <div class="sheet fp-sheet" data-janela="amigos">
-        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
-        <div class="fp-head">
-          <span id="fp-av" class="fp-av"></span>
-          <h3 id="fp-name">Amigo</h3>
-          <p id="fp-status" class="fp-status" role="status"></p>
-        </div>
-        <div class="fp-codebox">
-          <small>Código de amigo</small>
-          <b id="fp-code">----</b>
-          <div class="fp-codebtns">
-            <button id="fp-copy" class="btn btn-secondary" type="button">📋 Copiar</button>
-            <button id="fp-share" class="btn btn-secondary" type="button">↗ Compartilhar</button>
-          </div>
-        </div>
-        <div id="fp-body" hidden>
-          <div id="fp-stats" class="me-stats"></div>
-          <h4 class="fp-h">🏅 Conquistas <span id="fp-ach-count"></span></h4>
-          <div id="fp-ach" class="shelf"></div>
-        </div>
-        <div class="fp-actions">
-          <button id="fp-invite" class="btn btn-primary btn-block" type="button">🎮 Convidar para jogar</button>
-          <button id="fp-remove" class="btn btn-secondary btn-block" type="button">Remover dos amigos</button>
-          <button id="fp-report" class="btn btn-ghost btn-block" type="button">🚩 Denunciar</button>
-          <button id="fp-block" class="btn btn-ghost btn-block" type="button">⛔ Bloquear</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="modal-challenge" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="chal-title">
-      <div class="sheet">
-        <h2 id="chal-title">Desafiar</h2>
-        <p id="chal-sub" class="inv-text">Escolha como vocês vão jogar:</p>
-        <div class="chal-opts">
-          <button class="chal-opt" type="button" data-kind="coop"><span class="chal-ico" aria-hidden="true">🧩</span><span><b>Cooperativo</b><small>Montam juntos a mesma imagem</small></span></button>
-          <button class="chal-opt" type="button" data-kind="comum"><span class="chal-ico" aria-hidden="true">🏁</span><span><b>Desafio comum</b><small>Quem terminar primeiro vence</small></span></button>
-          <button class="chal-opt" type="button" data-kind="quebra"><span class="chal-ico" aria-hidden="true">🎁</span><span><b>Quebrando Cabeças</b><small>As peças saem de uma caixa</small></span></button>
-        </div>
-        <div class="sheet-actions"><button id="chal-cancel" data-back class="btn btn-secondary" type="button">Cancelar</button></div>
-      </div>
-    </div>
-
-    <div id="modal-friend" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="fa-title">
-      <div class="sheet" data-janela="amigos">
-        <h2 id="fa-title">Amigo</h2>
-        <div class="sheet-actions">
-          <button id="fa-remove" class="btn btn-secondary" type="button">Remover dos amigos</button>
-          <button id="fa-report" class="btn btn-secondary" type="button">🚩 Denunciar</button>
-          <button id="fa-block" class="btn me-danger" type="button">⛔ Bloquear</button>
-          <button id="fa-cancel" data-back class="btn btn-ghost" type="button">Cancelar</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Denúncia de jogador (apelido, avatar ou comportamento): só quem cuida do jogo lê; a outra pessoa não é avisada. -->
     <div id="modal-report" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="rp-title" aria-describedby="rp-help">
       <div class="sheet">

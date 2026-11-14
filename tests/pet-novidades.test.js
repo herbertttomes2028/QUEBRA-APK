@@ -178,11 +178,10 @@ test('a janela "Meu pet": acessível (diálogo, grupos de opções com nome, bot
   assert.match(css, /\.pet-opt \{[^}]*min-width: 44px; height: 44px;/); assert.match(css, /\.pet-opt:focus-visible/); assert.match(css, /#modal-pet\[hidden\] \{ display: none !important; \}/);
   assert.match(html, /<div id="modal-pet"[\s\S]*?<div id="modal-settings"/, 'a janela fica junto das outras janelas (o gerenciador do botão voltar fecha qualquer .modal aberta)');
 });
-test('ligações: o mascote ouve o botão Loja e o evento de amizade, e segurar o dedo faz carinho; a conta só AVISA o mascote (sem mexer nele) e nunca o deixa derrubar o jogo', () => {
+test('ligações: o mascote ouve o botão Loja, e segurar o dedo faz carinho; a conta só AVISA o mascote (sem mexer nele) e nunca o deixa derrubar o jogo', () => {
   assert.match(mas, /'link-shop': 'shop'/); assert.match(mas, /HOLD_MS = 650/); assert.match(mas, /brain\.react\('cuddle', \{ dirX: 1 \}\)/); assert.match(mas, /holdTimer = setTimeout\(function \(\) \{ holdTimer = 0; if \(!homeActive\(\)\) return;/, 'só faz carinho se o mascote está à mostra');
   assert.match(mas, /function pointerUp\(\) \{ brain\.pointerEnd\(\); clearHold\(\); \}/, 'soltar cancela'); assert.match(mas, /window\.Mascot\.note = function \(ev\) \{ if \(hidden\) return false;/);
-  assert.match(conta, /try \{ if \(window\.Mascot && window\.Mascot\.note\) window\.Mascot\.note\('friend'\); \} catch \(e\) \{[^}]*\}/);
-  assert.equal((conta.match(/Mascot\.note\(/g) || []).length, 1, 'um único aviso ao mascote, no evento de amizade');
+  assert.equal((conta.match(/Mascot\.note\(/g) || []).length, 0, 'sem amizades, a conta não avisa mais o mascote');
   assert.match(sw, /'\/mascot-core\.js', '\/mascot-looks\.js', '\/mascot\.js', '\/pet\.js', '\/pet\.css'/); assert.match(sw, /const CACHE = 'quebra-cabeca-v21';/, 'a versão do cache não mudou');
   const tags = [...html.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]); const i = (n) => tags.findIndex((t) => t.includes(n)); assert.ok(i('mascot-core.js') < i('mascot-looks.js') && i('mascot-looks.js') < i('mascot.js') && i('mascot.js') < i('pet.js'));
 });

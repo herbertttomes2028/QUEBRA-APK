@@ -32,15 +32,15 @@ test('galeria: o servidor oferece exatamente o que está na pasta (nada mais é 
 });
 
 /* ---------------- 16 anos ou mais ---------------- */
-test('16+: o servidor recusa o cadastro (e-mail e Google) sem a confirmação, e só aceita o booleano true', () => {
-  assert.equal((acc.match(/if \(b\.age16 !== true\) return bad\(res, 400, 'age16'\);/g) || []).length, 2, 'cadastro por e-mail e primeiro acesso pelo Google');
-  const reg = acc.slice(acc.indexOf("r.post('/register'"), acc.indexOf("r.post('/login'")); assert.ok(reg.indexOf("b.consent !== true") < reg.indexOf("b.age16 !== true") && reg.indexOf("b.age16 !== true") < reg.indexOf('createUser('), 'a conta só é criada depois das duas confirmações');
+test('16+: o servidor recusa a criação do perfil sem a confirmação, e só aceita o booleano true', () => {
+  assert.equal((acc.match(/if \(b\.age16 !== true\) return bad\(res, 400, 'age16'\);/g) || []).length, 1, 'único ponto de criação: /profile/new');
+  const reg = acc.slice(acc.indexOf("r.post('/profile/new'"), acc.indexOf("r.post('/profile/login'")); assert.ok(reg.indexOf("b.consent !== true") < reg.indexOf("b.age16 !== true") && reg.indexOf("b.age16 !== true") < reg.indexOf('createUser('), 'a conta só é criada depois das duas confirmações');
 });
 test('16+: o cadastro mostra a caixa "tenho 16 anos ou mais" (só ao criar conta) e a envia ao servidor', () => {
-  assert.match(html, /<label id="auth-age-wrap" class="me-check" hidden>\s*<input id="auth-age" type="checkbox">\s*<span>Tenho 16 anos ou mais\. \(Este jogo não é indicado para menores de 16 anos\.\)<\/span><\/label>/);
+  assert.match(html, /<label id="auth-age-wrap" class="me-check">\s*<input id="auth-age" type="checkbox">\s*<span>Tenho 16 anos ou mais\. \(Este jogo não é indicado para menores de 16 anos\.\)<\/span><\/label>/);
   assert.ok(html.indexOf('id="auth-consent-wrap"') < html.indexOf('id="auth-age-wrap"') && html.indexOf('id="auth-age-wrap"') < html.indexOf('id="auth-error"'));
-  assert.match(conta, /show\('#auth-consent-wrap', up\); show\('#auth-age-wrap', up\);/); assert.match(conta, /body\.age16 = \$\('#auth-age'\)\.checked;/);
-  assert.match(conta, /age16: \$\('#auth-age'\)\.checked, name: state\.name,/, 'o primeiro acesso pelo Google também envia'); assert.match(conta, /\$\('#auth-age'\)\.checked = false; say\('#auth-error', ''\);/, 'sair da conta desmarca');
+  assert.match(conta, /show\('#auth-up-wrap', up\); show\('#auth-in-wrap', !up\);/, 'as caixas só aparecem ao criar o perfil'); assert.match(conta, /age16: \$\('#auth-age'\)\.checked/);
+  assert.match(conta, /\$\('#auth-age'\)\.checked = false; say\('#auth-error', ''\);/, 'sair do perfil desmarca');
   assert.match(conta, /age16: 'Este jogo não é indicado para menores de 16 anos\. Marque a caixa se você tem 16 anos ou mais\.'/);
 });
 test('16+: nada do app, da loja ou dos documentos o apresenta como jogo infantil', () => {
@@ -56,7 +56,7 @@ test('16+: nada do app, da loja ou dos documentos o apresenta como jogo infantil
 /* ---------------- política de privacidade e exclusão (conferidas contra o app) ---------------- */
 test('privacidade: diz para quem é o jogo, o que guarda, com quem passa, por quanto tempo, os direitos e como excluir', () => {
   const t = text(priv);
-  for (const trecho of ['não é indicado para menores de 16 anos', 'Não coletamos dados de menores de 16 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', '15 minutos', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Excluir minha conta…', 'excluir-conta.html', 'frases prontas', 'não aceita fotos'])
+  for (const trecho of ['não é indicado para menores de 16 anos', 'Não coletamos dados de menores de 16 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Apagar meus dados…', 'código-chave', 'Jogador 1', 'excluir-conta.html', 'frases prontas', 'não aceita fotos'])
     assert.ok(t.includes(trecho), 'a política precisa dizer: ' + trecho);
   assert.match(priv, /<b id="contato">[^<@]+@[^<]+<\/b>/, 'e-mail de contato preenchido'); assert.doesNotMatch(priv, /PREENCHER/); assert.match(priv, /<html lang="pt-BR">/);
   assert.match(priv, /atualizada em \d{1,2} de [a-zç]+ de 20\d\d/, 'tem data');
@@ -65,11 +65,11 @@ test('privacidade: diz para quem é o jogo, o que guarda, com quem passa, por qu
 });
 test('exclusão de conta: a página pública traz os passos com as MESMAS palavras da tela do app, o que é apagado e o prazo', () => {
   const t = text(del);
-  for (const r of ['Excluir minha conta…', 'Excluir de vez', 'Meu espaço', 'EXCLUIR']) { assert.ok(t.includes(r), 'a página cita: ' + r); }
+  for (const r of ['Apagar meus dados…', 'Apagar de vez', 'EXCLUIR']) { assert.ok(t.includes(r), 'a página cita: ' + r); }
   const ui = text(html);
-  for (const r of ['Excluir minha conta…', 'Excluir de vez', 'EXCLUIR']) assert.ok(ui.includes(r), 'e o app TEM esse texto (se mudar um, o outro precisa mudar): ' + r);
+  for (const r of ['Apagar meus dados…', 'Apagar de vez', 'EXCLUIR']) assert.ok(ui.includes(r), 'e o app TEM esse texto (se mudar um, o outro precisa mudar): ' + r);
   assert.match(html, /id="tab-profile"/); assert.match(html, /data-tab="profile"[^>]*>(<span[^>]*>[^<]*<\/span>)?Perfil<\/button>/, 'a aba se chama Perfil');
-  for (const t2 of ['Quebra-Cabeça a Dois', 'Herbert', 'em até 15 dias', 'e-mail do cadastro', 'amigos', 'denúncias', 'XP', 'backup|Cópias de segurança'.split('|')[1]]) assert.ok(t.toLowerCase().includes(t2.toLowerCase()), t2);
+  for (const t2 of ['Quebra-Cabeça a Dois', 'Herbert', 'em até 15 dias', 'ID do perfil', 'código-chave', 'denúncias', 'XP', 'backup|Cópias de segurança'.split('|')[1]]) assert.ok(t.toLowerCase().includes(t2.toLowerCase()), t2);
   assert.match(del, /herbert\.[^<]*@gmail\.com/); assert.equal(priv.match(/herbert\.[a-z.]*@gmail\.com/)[0], del.match(/herbert\.[a-z.]*@gmail\.com/)[0], 'o mesmo e-mail nas duas páginas');
   assert.match(acc, /r\.post\('\/delete', needUser/); assert.match(acc, /b\.confirm !== 'EXCLUIR'/, 'o servidor exige a palavra que a página manda digitar');
 });
@@ -87,13 +87,13 @@ test('app: a política e a exclusão estão dentro dos Ajustes e no cadastro (a 
 });
 
 /* ---------------- denúncia ---------------- */
-test('denúncia: janela acessível com motivos, nota opcional de 200 letras e "também bloquear"; botões nos 3 lugares', () => {
+test('denúncia: janela acessível com motivos, nota opcional de 200 letras e "também bloquear"; botão no menu da sala', () => {
   const m = html.slice(html.indexOf('id="modal-report"'), html.indexOf('id="modal-rematch"'));
   assert.match(m, /role="dialog" aria-modal="true" aria-labelledby="rp-title" aria-describedby="rp-help"/); assert.match(m, /role="radiogroup" aria-labelledby="rp-title"/);
   for (const v of ['apelido', 'comportamento', 'outro']) assert.match(m, new RegExp('type="radio" name="rp-reason" value="' + v + '"'));
   assert.match(m, /<textarea id="rp-note" maxlength="200"/); assert.match(m, /id="rp-block" type="checkbox"/); assert.match(m, /id="rp-error" class="error" role="alert" hidden/); assert.match(m, /id="rp-cancel" data-back/);
   assert.match(m, /a outra pessoa não fica sabendo/);
-  for (const id of ['fp-report', 'fa-report', 'menu-report']) assert.match(html, new RegExp('<button id="' + id + '"[^>]*type="button"[^>]*>[^<]*Denunciar'));
+  for (const id of ['menu-report']) assert.match(html, new RegExp('<button id="' + id + '"[^>]*type="button"[^>]*>[^<]*Denunciar'));
   assert.match(html, /id="menu-report"[^>]*hidden/, 'na sala só aparece para quem tem conta, como o bloquear');
   assert.match(css, /\.me-field textarea \{[^}]*box-sizing: border-box/);
 });
@@ -106,9 +106,8 @@ test('denúncia: servidor valida (só texto, lista fechada), limita (15/hora), d
   const f = acc.slice(acc.indexOf('async function fileReport'), acc.indexOf("r.post('/reports'")); assert.doesNotMatch(f, /notify\(|io\.to\(/, 'quem foi denunciado nunca é avisado');
   assert.match(acc, /\.replace\(\/\[\\u0000-\\u001f\\u007f\]\/g, ' '\)[\s\S]{0,60}\.slice\(0, 200\)/, 'a nota perde caracteres de controle e é cortada em 200');
 });
-test('denúncia: o cliente usa a mesma janela no perfil, nas ações do amigo e no menu da sala, e nunca deixa o botão preso', () => {
-  assert.match(conta, /QC\.reportPerson = openReport;/); assert.match(conta, /\$\('#fp-report'\)\.addEventListener\('click', function \(\) \{ if \(fpUser\) reportPerson\(fpUser, 'perfil'\); \}\);/);
-  assert.match(conta, /\$\('#fa-report'\)\.addEventListener\('click', function \(\) \{ var u = faUser; QC\.closeModal\('#modal-friend'\); if \(u\) reportPerson\(u, 'amigos'\); \}\);/);
+test('denúncia: o cliente usa a janela de denúncia no menu da sala, e nunca deixa o botão preso', () => {
+  assert.match(conta, /QC\.reportPerson = openReport;/); assert.ok(!/fp-report|fa-report|reportPerson\(/.test(conta), 'não há mais denúncia a partir de perfil ou lista de amigos');
   assert.match(conta, /if \(!sel\) \{ say\('#rp-error', MSG\.reason\); return; \}/, 'sem motivo: não envia'); assert.match(conta, /btn\.disabled = true;[\s\S]*btn\.disabled = false;/);
   assert.match(conta, /Denúncia enviada\. Obrigado por ajudar a manter o jogo legal\./);
   assert.match(conta, /\$\('#rp-cancel'\)\.addEventListener\('click', function \(\) \{ QC\.closeModal\('#modal-report'\); rpCtx = null; \}\);/, 'Cancelar fecha a janela de denúncia');

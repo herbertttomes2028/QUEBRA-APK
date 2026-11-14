@@ -171,9 +171,10 @@ test('TLS de banco rejeita certificados inválidos em produção e preserva Post
   assert.deepEqual(sslOptions(false, { DB_SSL_VERIFY: '0', NODE_ENV: 'production' }), { rejectUnauthorized: true });
   assert.deepEqual(sslOptions(false, { DB_SSL_VERIFY: '0', NODE_ENV: 'test' }), { rejectUnauthorized: true });
 });
-test('sessões revogadas e códigos de email têm validação e consumo atômico', () => {
+test('sessões revogadas, código-chave novo e socket têm validação e revogação atômica', () => {
   const acc = read('accounts.js');
-  assert.match(acc, /DELETE FROM email_codes WHERE id = \$1 AND code_hash = \$2 AND attempts < \$3 AND expires_at > now\(\) RETURNING id/);
+  assert.match(acc, /DELETE FROM sessions WHERE user_id = \$1 AND token_hash <> \$2/, 'novo código-chave expulsa os outros aparelhos');
+  assert.match(acc, /revokeSocketSessions\(req\.user\.id, keep\)/);
   assert.match(acc, /revokeSocketSessions\(req\.user\.id\)/);
   assert.match(acc, /socketSessionValid\(socket\)/);
   assert.match(acc, /sequence !== authGeneration/);

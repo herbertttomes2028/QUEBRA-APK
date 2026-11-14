@@ -440,38 +440,27 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 
 Bom jogo! 🧩
 
-## Contas, amigos e convites (opcional)
+## Perfil gerado pelo jogo (opcional)
 
-O jogo pode ter **contas de jogador**: perfil com avatar e código de amigo, estatísticas e conquistas, **Meus amigos**, **convites** para jogar e **Continuar jogando** (progresso salvo). Tudo isso só liga quando existe um banco PostgreSQL configurado na variável `DATABASE_URL`; sem ela o jogo funciona como sempre (visitante) e nada novo aparece.
+O jogo pode ter um **perfil** (criado pelo próprio jogo, sem e-mail, senha, Google, lista de amigos nem convites): **apelido sorteado** (Animal + Cor), **ID público** e **código-chave** que aparece uma única vez. Com ele a pessoa guarda **gemas, pet, roupas, bandejas, conquistas, histórico e a partida salva** e volta a qualquer aparelho com ID + código-chave. Só liga quando existe um banco PostgreSQL na variável `DATABASE_URL`; sem ela o jogo funciona como visitante.
 
-- Guia completo, passo a passo (Neon, Render, Google, testes com dois celulares, custos e privacidade): **[CONTAS.md](CONTAS.md)**
-- Código: `accounts.js` (login, amigos, convites, salvamento, histórico), `db.js` (banco e migrações automáticas), `migrations/`, `public/conta.js` (telas).
-- Conferir se está ativo: abra `/diagnostico?token=SEU_TOKEN` (precisa da variável `DIAG_TOKEN`; ver a seção Segurança) e veja o campo `contas`.
-
-
-## Contas, amigos, convites e progresso salvo
-
-O jogo agora pode ter **contas** (opcional): perfil com estatísticas e conquistas, **Meus amigos** (por código), **convites** para jogar
-(cooperativo, Desafio comum e Quebrando Cabeças), **Continuar jogando** (a partida volta com as peças encaixadas e o tempo) e histórico.
-Quem não quiser conta continua jogando como visitante, exatamente como antes.
-
-- **Liga sozinho quando existe um banco de dados** (variável `DATABASE_URL`). Sem ela, nada muda e nada aparece.
-- Passo a passo completo (criar o banco gratuito, variáveis, publicar, testar em dois celulares): **`CONTAS.md`**.
-- Arquitetura: `db.js` (conexão e migrações automáticas), `accounts.js` (login, perfil, amigos, convites, salvamento, histórico),
-  `migrations/001_contas.sql` (tabelas), `public/conta.js` (telas), `public/privacidade.html` (aviso de privacidade).
-- Segurança: senhas com scrypt; sessões por token (no banco só o hash); busca de amigos só pelo código exato; nenhum e-mail aparece para outros jogadores;
-  limites de tentativas; cada rota só mexe nos dados de quem está logado; exclusão de conta apaga tudo.
+- Guia completo (como o código é protegido, Neon, Render, perfis antigos, testes com dois celulares): **[CONTAS.md](CONTAS.md)**
+- Segurança e LGPD/ECA: `docs/SEGURANCA_INVENTARIO.md`, `docs/AUDITORIA_SEGURANCA.md`, `docs/CONTROLES_LGPD_ECA.md`, `docs/RESPOSTA_INCIDENTES.md`, `docs/MIGRACAO_E_ROLLBACK.md`.
+- Código: `accounts.js` (perfil, login, salvamento, histórico, loja, denúncias), `names.js` (apelidos), `db.js` (banco e migrações automáticas), `migrations/`, `public/conta.js` (telas), `public/excluir-conta.html` (exclusão pública).
+- Salas privadas (cooperativo e Sala Desafio): entrada só pelo **código da sala**; os dois jogadores aparecem como "Jogador 1" e "Jogador 2"; nenhum dado do perfil vai para a outra pessoa.
+- Segurança: código-chave só como hash scrypt; sessões por token (no banco só o hash); resposta igual para ID inexistente e código errado; limites de tentativas; cada rota só mexe nos dados de quem está logado; apagar exige o código-chave e remove tudo em cascata.
 - Regras das partidas competitivas (inalteradas): quem cai tem 45 s para voltar; quem sai ou não volta perde; uma disputa encerrada nunca é retomada.
+- Conferir se está ativo: `/diagnostico?token=SEU_TOKEN` (precisa de `DIAG_TOKEN`) e o campo `contas`.
 
 ### Tela inicial (organização atual)
-- **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil/nome fica no canto oposto (só existe com contas ligadas).
-- **Amigos** (ao lado de **Ajustes**): abre "Meus amigos" (busca por código, pedidos, convites, desafiar). Fica fora do perfil; o perfil tem só as abas Perfil e Partidas.
+- **?** (canto superior esquerdo): abre "Como jogar". O botão do perfil fica no canto oposto ("Entrar" para quem ainda não tem perfil; só existe com o banco ligado).
+- Menu fixo: **Loja** e **Ajustes**. Não há mais "Amigos".
 
 ## Idade mínima: 16 anos
 - O jogo **não é indicado para menores de 16 anos** (decisão do proprietário). Ao abrir o app pela primeira vez, uma **tela de idade neutra** pede só o **mês e o ano de nascimento**, sem dizer qual é o limite. A resposta fica **só neste aparelho** e nunca é enviada ao servidor.
 - **16 anos ou mais:** o jogo segue e não pergunta de novo. **Menos de 16:** aparece o aviso e o jogo não abre (a idade é reavaliada a cada abertura, então libera sozinho quando a pessoa fizer 16). Como o dia do aniversário não é perguntado, só vale depois que o **mês** do 16º aniversário termina.
-- Se havia uma **conta** no aparelho e a pessoa informa menos de 16 anos, a conta é **apagada** no servidor.
-- Nada do jogo (sala por link de convite, conta, tutorial) começa antes da tela de idade. O cadastro pede também a confirmação "Tenho 16 anos ou mais".
+- Se havia um **perfil** no aparelho e a pessoa informa menos de 16 anos, o perfil é **apagado** no servidor.
+- Nada do jogo (sala por link, perfil, tutorial) começa antes da tela de idade. A criação do perfil pede também a confirmação "Tenho 16 anos ou mais".
 - Para testar ou para o revisor da Play: informe um mês e um ano de quem tem 16 anos ou mais (por exemplo, janeiro de 1990). Limpar os dados do app faz a pergunta voltar.
 - A idade é **autodeclarada**: não há como provar. As dúvidas jurídicas (ECA Digital, LGPD) estão em `PLAY-STORE.md`; **não há parecer de advogado**.
 
@@ -480,26 +469,26 @@ Quem não quiser conta continua jogando como visitante, exatamente como antes.
 - O pet mantém o movimento fluido até o fim de cada reação, e as peças ficam em camadas próprias (`public/suave.css`) para o arrastar ficar mais leve.
 
 ## Visual das telas (fundos)
-- **Fundo azul-marinho** com luzes suaves e peças de quebra-cabeça decorativas nas bordas, em todas as telas, com **uma variação para cada área** (tela inicial, categorias, coleções, montagem, Sala Desafio, Loja, Amigos, Ajustes e Meu espaço). Nas janelas aparecem só algumas peças, bem tênues. Na montagem, só 4 peças pequenas nos cantos; se você usa uma bandeja colorida da loja, a tela mantém a cor dela.
+- **Fundo azul-marinho** com luzes suaves e peças de quebra-cabeça decorativas nas bordas, em todas as telas, com **uma variação para cada área** (tela inicial, categorias, coleções, montagem, Sala Desafio, Loja, Ajustes e Meu espaço). Nas janelas aparecem só algumas peças, bem tênues. Na montagem, só 4 peças pequenas nos cantos; se você usa uma bandeja colorida da loja, a tela mantém a cor dela.
 - **O fundo acompanha o tema**: no tema escuro é o azul-marinho do JSON; no claro, o lavanda de sempre, com as mesmas peças em tons pastel.
-- **Menu fixo (barra de abas)** na tela inicial: **Amigos**, **Loja** e **Ajustes**, com ícones feitos de peças de quebra-cabeça (Amigos só aparece com a conta ligada).
+- **Menu fixo (barra de abas)** na tela inicial: **Loja** e **Ajustes**, com ícones feitos de peças de quebra-cabeça.
 - Nas **Categorias** e nas **Coleções**, o Voltar, os títulos (e, na coleção, o progresso e o selo) ficam **fixos** no topo e só a lista de categorias ou imagens rola.
 - **Categorias**: título **ESCOLHA UMA CATEGORIA** (com CATEGORIA em destaque), subtítulo e o botão Voltar menor no canto. **Coleções**: nome da coleção, **ESCOLHA SUA IMAGEM**, progresso em **peças encaixadas** (ex.: 7/19 concluídas) e o selo das coleções que o progresso libera.
 - Código: `scripts/fundos.js` gera os arquivos de `public/fundos/` e `public/fundos.css` (rode `node scripts/fundos.js` depois de mudar uma variação; **não edite os SVG à mão**), `public/telas.css` (cabeçalhos), `public/pecas.js` e `public/cabecalhos.js`.
 
 ## Mascote: reações, skins e roupas
-- **24 reações** na tela inicial. As 3 mais novas: **admire** (ao tocar no botão **Loja**: olhos brilhando e mãos juntas), **cuddle** (**segurar o dedo** no mascote por meio segundo: ele se abraça, fecha os olhos e ronrona) e **heart** (quando alguém **vira seu amigo**: abre os braços e cora).
+- **24 reações** na tela inicial. As 3 mais novas: **admire** (ao tocar no botão **Loja**: olhos brilhando e mãos juntas), **cuddle** (**segurar o dedo** no mascote por meio segundo: ele se abraça, fecha os olhos e ronrona) e **heart** (abre os braços e cora; antes disparava ao ganhar um amigo, hoje fica só como reação do mascote).
 - **Skins e roupas do pet** (na **Loja**, categorias 🎨 Skins e 👕 Roupas, e em Ajustes > Meu pet): **10 skins** e **10 roupas**. As 5 skins (Menta, Pôr do sol, Uva, Algodão-doce, Luar) e as 5 roupas (capa de herói, cachecol, chapéu de mago, saia de bailarina, macacão) de antes são **grátis** para todos. As novas se **desbloqueiam com gemas**, e as mais raras custam mais: skins Limão 100, Caramelo 100, Lavanda 180, Cereja 320, Ouro 500; roupas Bandana de pirata 150, Fones de ouvido 250, Cartola e gravata-borboleta 350, Asas de anjo 450, Coroa real 600. O que você equipou fica salvo na **conta** (visitantes usam só os grátis, guardados no aparelho). Sem WebGL, o desenho de reserva só ganha as cores da skin.
 - Código: `public/mascot-core.js` (reações), `public/mascot-looks.js` (skins e roupas), `public/mascot.js` (desenho), `public/pet.js` e `pet.css` (janela "Meu pet").
 
 ## Segurança (resumo; detalhes e passo a passo em `SEGURANCA.md`)
 - **Frases prontas** no lugar da conversa livre (10 básicas + reações; outras são liberadas jogando, para quem tem conta).
 - **Código da sala com 6 caracteres** e **limite de tentativas** por endereço (6 erros = 15 min de bloqueio, com aumento a cada reincidência).
-- **Bloquear jogadores** (amigos, partida e lista de bloqueados).
-- **Código de confirmação por e-mail** (cadastro e recuperação de senha) por API web (Brevo/Resend), mais **trocar senha** e **sair de todos os aparelhos**.
+- **Bloquear jogadores** (pelo menu da partida e lista de bloqueados).
+- **Perfil sem e-mail nem senha:** ID + código-chave (guardado só como hash), **código novo** a qualquer momento e **sair de todos os aparelhos**. O e-mail só é usado para avisar o responsável de cada denúncia (Brevo).
 - **Cabeçalhos de segurança** em todas as respostas e **CSP** (modo `report` por padrão; `CSP_MODE=enforce` para obrigar).
 - **Banco de dados**: o certificado TLS é obrigatoriamente verificado; `DB_SSL_VERIFY=0` não desativa essa checagem. Ver `AUDITORIA-SEGURANCA-2026-10-31.md`.
-- **Conferência (`/diagnostico`) protegida:** sem a variável `DIAG_TOKEN` (24 caracteres ou mais, aleatórios) só aparece o essencial (o pacote Android e as impressões digitais, que já são públicos em `/.well-known/assetlinks.json`). Com o token, no cabeçalho `Authorization: Bearer SEU_TOKEN` ou, para abrir no navegador, em `/diagnostico?token=SEU_TOKEN`, aparece o detalhe (e-mail, limites, CSP, contas). Dez tentativas erradas bloqueiam o endereço por 10 minutos. Guarde o token só no Render, nunca no GitHub.
-- **CSP pronta para `enforce`:** o jogo inteiro (início, pet, Ajustes, Loja, partida com arrasto, Sala Desafio, conta, Amigos, login do Google e service worker) foi percorrido com `CSP_MODE=enforce` **sem nenhuma violação**. O padrão continua `report`; para obrigar, crie `CSP_MODE` = `enforce` no Render e, se algo quebrar, apague a variável. Detalhes e roteiro em `SEGURANCA.md`.
-- **Aviso de segurança online:** uma vez por aparelho, antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código, Amigos, aceitar convite), aparece um aviso curto de três recomendações. O modo solo não mostra. Dá para reler em **Ajustes > Jogue com segurança**.
+- **Conferência (`/diagnostico`) protegida:** sem a variável `DIAG_TOKEN` (24 caracteres ou mais, aleatórios) só aparece o essencial (o pacote Android e as impressões digitais, que já são públicos em `/.well-known/assetlinks.json`). Com o token, no cabeçalho `Authorization: Bearer SEU_TOKEN` ou, para abrir no navegador, em `/diagnostico?token=SEU_TOKEN`, aparece o detalhe (limites, CSP, perfis). Dez tentativas erradas bloqueiam o endereço por 10 minutos. Guarde o token só no Render, nunca no GitHub.
+- **CSP pronta para `enforce`:** o jogo inteiro (início, pet, Ajustes, Loja, partida com arrasto, Sala Desafio, perfil e service worker) foi percorrido com `CSP_MODE=enforce` **sem nenhuma violação**. O padrão continua `report`; para obrigar, crie `CSP_MODE` = `enforce` no Render e, se algo quebrar, apague a variável. Detalhes e roteiro em `SEGURANCA.md`.
+- **Aviso de segurança online:** uma vez por aparelho, antes de jogar com outra pessoa (criar partida, Sala Desafio, entrar por código), aparece um aviso curto de três recomendações. O modo solo não mostra. Dá para reler em **Ajustes > Jogue com segurança**.
 - **Antes de publicar na Play Store:** siga o checklist da seção 13 do `SEGURANCA.md` (nível de API 36, teste fechado com 12 pessoas por 14 dias, chave de assinatura da Google no `assetlinks.json`, público-alvo e formulários).

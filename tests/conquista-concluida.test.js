@@ -89,7 +89,7 @@ test('aviso no topo: fila, espera o que importa, desiste sozinho e abre as conqu
   assert.match(step, /' conquistas concluídas' : 'Conquista concluída: '/);
   assert.doesNotMatch(step, /innerHTML/);
   assert.match(game, /else if \(currentScreen\(\) !== 'game'\) \{ toast\('⭐ \+' \+ ev\.gained \+ ' XP', 3000\); if \(ev\.ach && ev\.ach\.length\) achBannerShow\(ev\.ach\); \}/);
-  assert.match(conta, /QC\.showAchievements = function \(\) \{ if \(!acc\.token\) return; acc\.tab = 'ach'; openMe\('profile'\); \};/);
+  assert.match(conta, /QC\.showAchievements = function \(\) \{ if \(!acc\.token\) return; acc\.tab = 'ach'; openMe\(\); \};/);
 });
 
 test('CSS: o aviso fica abaixo do cartão de nível, alvos de toque grandes, e todo movimento só com transform/opacity e desligado em "movimento reduzido"', () => {
