@@ -54,7 +54,7 @@ Cooperativo: `create join grab move drop rotate hint spot chat imgready restart 
 | Denúncia | 15 por hora por jogador | `report:` |
 | Compras | limite por minuto por jogador; idempotentes sob trava de linha | `shop:`, `withUserLock` |
 | Sessão | 60 dias; só `sha256(token)` no banco | `SESSION_MS` |
-| Cabeçalhos | HSTS, `nosniff`, `frame-ancestors 'none'`, COOP, Permissions-Policy, CSP (`report` por padrão; `enforce` por variável) | `security.js` |
+| Cabeçalhos | HSTS, `nosniff`, `frame-ancestors 'none'`, COOP, Permissions-Policy, CSP (`report` por padrão; `enforce` por variável), Trusted Types só em relatório | `security.js` |
 | Proxy | `trust proxy` = 1 (o IP vem do Render) | `server.js` |
 
 ## 5. Dados pessoais tratados (mapa para a LGPD)

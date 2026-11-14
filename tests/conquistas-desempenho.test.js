@@ -27,15 +27,15 @@ test('desenho em lotes: a 1ª tela sai na hora (poucos cartões) e o resto entra
 
 test('desenho em lotes: trocar de filtro no meio cancela o desenho antigo (sem cartões misturados)', () => {
   assert.match(renderAch, /var token = acc\.achToken = \(acc\.achToken \|\| 0\) \+ 1, next = 0;/);
-  assert.match(renderAch, /acc\.achSig = sig; out\.innerHTML = '';/);
-  assert.equal((renderAch.match(/out\.innerHTML/g) || []).length, 1, 'a lista só é limpa num lugar, junto da troca do token');
+  assert.match(renderAch, /acc\.achSig = sig; out\.textContent = '';/);
+  assert.equal((renderAch.match(/out\.textContent/g) || []).length, 1, 'a lista só é limpa num lugar, junto da troca do token');
 });
 
 test('memória: se nada mudou desde o último desenho, não refaz os cartões, mas o que mudou (progresso, filtro, grupo, novas) refaz', () => {
   const m = renderAch.match(/var sig = \[([^\]]*)\]\.join\('\|'\);/); assert.ok(m, 'assinatura');
   for (const parte of ['s.done', 's.xpDone', 'a.now', 'filter', 'group', 'fresh.join']) assert.ok(m[0].includes(parte) || renderAch.includes(parte), 'a assinatura precisa cobrir: ' + parte);
   assert.match(renderAch, /if \(out\.childElementCount && acc\.achSig === sig\) \{ achMarkSeen\(list\); updateAchBadge\(\); return; \}/, 'mesmo sem refazer, as "novas" continuam sendo marcadas como vistas');
-  assert.ok(renderAch.indexOf('acc.achSig === sig') < renderAch.indexOf("out.innerHTML = ''"), 'a verificação vem ANTES de limpar a lista');
+  assert.ok(renderAch.indexOf('acc.achSig === sig') < renderAch.indexOf("out.textContent = ''"), 'a verificação vem ANTES de limpar a lista');
 });
 
 test('a ordem dos cartões não mudou: as novas no topo, depois cada grupo com título, texto e cartões', () => {

@@ -40,6 +40,11 @@ function cspPolicy(host, withAncestors) {
   ].concat(withAncestors ? ["frame-ancestors 'none'"] : [], ['report-uri /api/csp-report']).join('; ');
 }
 
+// Trusted Types (SÓ RELATÓRIO, nunca bloqueia): o navegador avisa quando algum código tenta gravar texto como HTML/script
+// (innerHTML, new Worker('texto'), eval...). Serve para provar que o cliente não depende disso antes de, um dia, obrigar.
+// Vai num cabeçalho Report-Only separado, então vale também com CSP_MODE=enforce e não afeta o que a CSP bloqueia.
+const TRUSTED_TYPES_REPORT = "require-trusted-types-for 'script'; report-uri /api/csp-report";
+
 function securityHeaders(req, res, next) {
   const h = {
     'X-Content-Type-Options': 'nosniff',
@@ -48,10 +53,10 @@ function securityHeaders(req, res, next) {
     'X-Frame-Options': 'DENY',
     'Cross-Origin-Opener-Policy': 'same-origin'
   };
-  if (CSP_MODE === 'enforce') h['Content-Security-Policy'] = cspPolicy(req.get('host'), true);
+  if (CSP_MODE === 'enforce') { h['Content-Security-Policy'] = cspPolicy(req.get('host'), true); h['Content-Security-Policy-Report-Only'] = TRUSTED_TYPES_REPORT; }
   else {
     h['Content-Security-Policy'] = "frame-ancestors 'none'";        // esta parte é sempre obrigatória
-    if (CSP_MODE === 'report') h['Content-Security-Policy-Report-Only'] = cspPolicy(req.get('host'), false);
+    if (CSP_MODE === 'report') h['Content-Security-Policy-Report-Only'] = cspPolicy(req.get('host'), false) + ', ' + TRUSTED_TYPES_REPORT;
   }
   res.set(h);
   if (req.secure) res.set('Strict-Transport-Security', 'max-age=15552000');      // 180 dias; só em conexões seguras
@@ -172,4 +177,4 @@ function createDiagGate(env, nowFn) {
   };
 }
 
-module.exports = { ipOfSocket, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE, createDiagGate };
+module.exports = { TRUSTED_TYPES_REPORT, ipOfSocket, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE, createDiagGate };

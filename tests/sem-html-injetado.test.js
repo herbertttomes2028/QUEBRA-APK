@@ -1,6 +1,7 @@
 'use strict';
 // Trava contra XSS por descuido: o cliente NÃO pode montar HTML a partir de dados.
-// Só são aceitos os 3 usos de innerHTML com texto FIXO abaixo (nenhum recebe dado de jogador, da URL ou do servidor).
+// Só é aceito 1 uso de innerHTML, com uma CONSTANTE do código (a caixa de presentes); nenhum dado de jogador, da URL ou do servidor vira HTML.
+// Para esvaziar um elemento use textContent = '' (innerHTML = '' também é reportado pelo Trusted Types).
 // Qualquer outro innerHTML com conteúdo, insertAdjacentHTML, outerHTML, document.write, eval ou new Function faz este teste falhar:
 // use textContent / createElement, ou, se for mesmo preciso, acrescente o caso aqui com uma justificativa revisada.
 const test = require('node:test');
@@ -12,9 +13,7 @@ const dir = path.join(__dirname, '..', 'public');
 const files = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'sw.js');
 const PERMITIDOS = new Map([
   ['game.js', [
-    "tx.innerHTML = 'Sem conexão com o servidor.<br>Verifique a internet e abra o jogo de novo.';",
-    'gift.innerHTML = GIFT_SVG;',
-    "inv.innerHTML = 'Você foi convidado para a sala <strong></strong>.<br>Toque em <b>Entrar</b>.';",
+    'gift.innerHTML = TT ? TT.createHTML(GIFT_SVG) : GIFT_SVG;',     // a caixa de presentes: constante do código, liberada pela política do Trusted Types
   ]],
 ]);
 
@@ -26,8 +25,7 @@ test('cliente: nenhum innerHTML com dados, nem insertAdjacentHTML/outerHTML/docu
     src.split('\n').forEach((linha, i) => {
       const t = linha.trim();
       if (/\binsertAdjacentHTML\b|\.outerHTML\s*=|document\.write\s*\(|\beval\s*\(|new Function\s*\(|\.srcdoc\s*=/.test(t) && !t.startsWith('//') && !t.startsWith('*')) achados.push(f + ':' + (i + 1) + ' ' + t.slice(0, 90));
-      for (const m of t.matchAll(/\.innerHTML\s*=\s*([^;]*);?/g)) {            // cada atribuição da linha (limpar com '' é sempre permitido)
-        if (/^(''|"")$/.test(m[1].trim())) continue;
+      for (const m of t.matchAll(/\.innerHTML\s*=\s*([^;]*);?/g)) {            // cada atribuição da linha; até innerHTML = '' é ponto de escrita para o Trusted Types: para limpar, use textContent = ''
         if (!ok.some((p) => p.includes(m[0].trim()) || m[0].trim().includes(p.replace(/;$/, '')))) achados.push(f + ':' + (i + 1) + ' ' + m[0].slice(0, 90));
       }
     });
@@ -44,4 +42,15 @@ test('botões de tamanho: o rótulo entra por textContent', () => {
   const src = fs.readFileSync(path.join(dir, 'game.js'), 'utf8');
   assert.ok(!src.includes("'<b>' + p.pieces"), 'voltou a montar HTML com p.pieces/p.label');
   assert.match(src, /nl\.textContent = String\(p\.label\)/);
+});
+
+test('Trusted Types: Worker e service worker só com a política; a política só libera o que o jogo usa', () => {
+  const src = fs.readFileSync(path.join(dir, 'game.js'), 'utf8');
+  assert.ok(!/new Worker\((?!scriptUrl\()/.test(src), 'new Worker com endereço solto (use scriptUrl)');
+  assert.ok(!/serviceWorker\.register\((?!scriptUrl\()/.test(src), 'register com endereço solto (use scriptUrl)');
+  assert.match(src, /createScriptURL: function \(u\) \{ if \(u === '\/sw\.js' \|\| u === 'crop-worker\.js'\) return u; throw/);
+  assert.match(src, /createHTML: function \(h\) \{ if \(h === GIFT_HTML_OK\) return h; throw/);
+  assert.ok(!/createPolicy\('default'/.test(src), 'não crie política "default" (ela liberaria tudo)');
+  const outros = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'game.js' && f !== 'sw.js');
+  for (const f of outros) { const t = fs.readFileSync(path.join(dir, f), 'utf8'); assert.ok(!/new (Shared)?Worker\(|serviceWorker\.register\(/.test(t), f + ' cria worker sem passar pela política'); }
 });

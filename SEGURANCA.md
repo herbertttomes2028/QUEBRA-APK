@@ -86,6 +86,15 @@ sem nenhum site externo, e a conexão em tempo real só para o próprio endereç
 - **Para ligar:** no Render crie `CSP_MODE` = `enforce`, jogue uma partida completa em dois celulares, abra o Perfil e a Loja. Se algo quebrar, apague a variável (volta ao modo `report`). Acompanhe `seguranca.csp.violacoes_registradas` durante o teste fechado da Play: deve continuar em 0.
 - Os testes do projeto impedem o que quebraria o `enforce`: script embutido, atributo `onclick=` e similares, `javascript:`, `eval` e recurso de outro site (não há exceção para o Google: o login dele foi removido).
 
+### 6.1 Trusted Types (só relatório, nunca obrigatório)
+
+Além da CSP, o servidor manda `Content-Security-Policy-Report-Only: require-trusted-types-for 'script'` (nos modos `report` e `enforce`). É um **segundo cinto**: o navegador **avisa** se algum código tentar escrever HTML ou carregar script por um caminho perigoso, mas **não bloqueia nada**.
+
+- No `game.js` existe uma política `qc` estreita: só libera os endereços `/sw.js` e `crop-worker.js` e o desenho fixo da caixa de presentes. Qualquer outro valor é recusado.
+- Para esvaziar um elemento o código usa `textContent = ''` (até `innerHTML = ''` aparece como aviso). O teste `tests/sem-html-injetado.test.js` falha se alguém voltar a usar `innerHTML` (fora da caixa de presentes).
+- Como ler: `/diagnostico?token=…` > `seguranca.csp.porRegra`. A regra `require-trusted-types-for` deve ficar em **0**. Se subir, algum código novo escreve HTML: corrija no código, não na política.
+- **Não** transforme em obrigatório (`Content-Security-Policy`) sem testar no Android real e sem pelo menos um ciclo sem avisos. Só navegadores baseados em Chromium aplicam isso; Safari e Firefox ignoram o cabeçalho, e isso **não foi testado** neles.
+
 ## 7. Certificado do banco (Neon)
 
 Antes a conexão era criptografada mas **aceitava qualquer certificado**. Agora o servidor **confere** o certificado do banco. Pelo que sei, o Neon usa certificado de uma autoridade pública e isso deve funcionar sem você fazer nada, **mas não consegui testar contra o Neon daqui**.

@@ -8,6 +8,20 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
+
+  /* Trusted Types (o servidor só pede relatório, nunca bloqueia): uma única política, bem estreita.
+   * - endereços de script: só o service worker e o worker de recorte do próprio jogo;
+   * - HTML: só a caixa de presentes (uma constante do código). Nenhum dado de jogador, da URL ou do servidor vira HTML. */
+  var TT = null, GIFT_HTML_OK = '';
+  try {
+    if (window.trustedTypes && window.trustedTypes.createPolicy) {
+      TT = window.trustedTypes.createPolicy('qc', {
+        createScriptURL: function (u) { if (u === '/sw.js' || u === 'crop-worker.js') return u; throw new TypeError('endereço de script não permitido'); },
+        createHTML: function (h) { if (h === GIFT_HTML_OK) return h; throw new TypeError('HTML não permitido'); }
+      });
+    }
+  } catch (e) { TT = null; }
+  function scriptUrl(u) { return TT ? TT.createScriptURL(u) : u; }
   var PLAYER_COLORS = ['#2a5ee8', '#d1245f'];   // azul e rosa um pouco mais fortes: texto branco legível (≥ 4,5:1)
   var HINT_MS = 4000;      // quanto tempo a imagem fica visível atrás das peças
   var ZOOM_MAX = 6;        // limite do zoom por pinça (também limitado pela largura da tela)
@@ -126,7 +140,7 @@
       ld.hidden = false;
       var sp = ld.querySelector('.spinner'); if (sp) sp.hidden = true;
       var tx = ld.querySelector('#loading-text');
-      if (tx) tx.innerHTML = 'Sem conexão com o servidor.<br>Verifique a internet e abra o jogo de novo.';
+      if (tx) { tx.textContent = 'Sem conexão com o servidor.'; tx.appendChild(document.createElement('br')); tx.appendChild(document.createTextNode('Verifique a internet e abra o jogo de novo.')); }
     }
     return;
   }
@@ -263,7 +277,7 @@
     cropWorker = false;
     try {
       if (window.Worker && window.OffscreenCanvas && window.createImageBitmap && typeof OffscreenCanvas.prototype.convertToBlob === 'function') {
-        var w = new Worker('crop-worker.js');
+        var w = new Worker(scriptUrl('crop-worker.js'));
         w.onmessage = function (e) { var d = e.data || {}, p = cropWait[d.id]; if (!p) return; delete cropWait[d.id]; if (d.blob) p.res(d.blob); else p.rej(new Error(d.erro || 'crop')); };
         w.onerror = function () { cropWorker = false; Object.keys(cropWait).forEach(function (k) { var p = cropWait[k]; delete cropWait[k]; p.rej(new Error('worker')); }); try { w.terminate(); } catch (e) { /* ok */ } };
         cropWorker = w;
@@ -692,7 +706,7 @@
 
   function renderPickGrid() {
     var grid = $('#pick-grid');
-    grid.innerHTML = ''; grid.hidden = false;
+    grid.textContent = ''; grid.hidden = false;
     grid.classList.toggle('library-gallery', libraryView === 'category');
     $('#library-categories').hidden = true; $('#library-nav').hidden = false;
     if (libraryView === 'legacy') {
@@ -802,7 +816,7 @@
 
   function renderSizes() {
     var grid = $('#size-grid');
-    grid.innerHTML = '';
+    grid.textContent = '';
     state.presets.forEach(function (p) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -972,7 +986,7 @@
       ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch'].forEach(closeModal);
       hideRematchWait();
       $('#field').classList.remove('won');
-      $('#confetti').innerHTML = '';
+      $('#confetti').textContent = '';
       closeHint();
       clearSpot();
       markMilestones();
@@ -1132,7 +1146,7 @@
     var cfg = state.cfg;
     var T = cfg.TILE;
     var field = $('#field');
-    field.innerHTML = '';
+    field.textContent = '';
     field.style.width = cfg.FIELD_W + 'px';
     field.style.height = cfg.FIELD_H + 'px';
     field.style.setProperty('--tile', T + 'px');
@@ -1607,7 +1621,7 @@
   function setChatHistory(arr) {
     state.chat = (arr || []).slice(-50);
     var l = $('#chat-list');
-    l.innerHTML = '';
+    l.textContent = '';
     state.chat.forEach(function (m) { l.appendChild(chatEl(m)); });
     scrollChat();
   }
@@ -1866,7 +1880,7 @@
 
   function showChatPop(m) {
     var p = $('#chat-pop');
-    p.innerHTML = '';
+    p.textContent = '';
     var n = document.createElement('b');
     nameLv(n, m.name || 'Amigo', lvOfIdx(m.idx)); n.appendChild(document.createTextNode(':'));
     p.appendChild(n);
@@ -1935,7 +1949,7 @@
   function renderPhrases() {
     var box = $('#chat-phrases');
     if (!box) return;
-    box.innerHTML = '';
+    box.textContent = '';
     var list = state.phrases.filter(function (p) { return p.group !== 'reacao'; });
     list.sort(function (a, b) { return (phraseOpen(b) ? 1 : 0) - (phraseOpen(a) ? 1 : 0); });
     list.forEach(function (p) {
@@ -3135,7 +3149,7 @@
       ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
       hideRematchWait();
       $('#field').classList.remove('won');
-      $('#confetti').innerHTML = '';
+      $('#confetti').textContent = '';
       closeHint();
       clearSpot();
       markMilestones();
@@ -3260,7 +3274,7 @@
     gift.className = 'gift';
     var gh = Math.round(g0.w * 1.09);
     gift.style.cssText = 'left:' + Math.round(g0.x - g0.w / 2) + 'px;top:' + Math.round(g0.y - gh / 2) + 'px;width:' + g0.w + 'px;height:' + gh + 'px';
-    gift.innerHTML = GIFT_SVG;
+    GIFT_HTML_OK = GIFT_SVG; gift.innerHTML = TT ? TT.createHTML(GIFT_SVG) : GIFT_SVG;
     gift.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
     field.appendChild(gift);
     clearInterval(state.duel.giftTimer);
@@ -3765,8 +3779,11 @@
       $('#input-code').value = param;
       if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
       var inv = $('#home-invite');
-      inv.innerHTML = 'Você foi convidado para a sala <strong></strong>.<br>Toque em <b>Entrar</b>.';
-      inv.querySelector('strong').textContent = param;
+      inv.textContent = 'Você foi convidado para a sala ';
+      var invSala = document.createElement('strong'), invEnt = document.createElement('b');
+      invSala.textContent = param; invEnt.textContent = 'Entrar';
+      inv.appendChild(invSala); inv.appendChild(document.createTextNode('.')); inv.appendChild(document.createElement('br'));
+      inv.appendChild(document.createTextNode('Toque em ')); inv.appendChild(invEnt); inv.appendChild(document.createTextNode('.'));
       inv.hidden = false;
       $('#btn-create').hidden = true;
       $('#cta-row').hidden = true;
@@ -3991,6 +4008,6 @@
 
   // permite instalar o jogo como aplicativo (tela inicial / APK)
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () { /* ignora */ }); });
+    window.addEventListener('load', function () { navigator.serviceWorker.register(scriptUrl('/sw.js')).catch(function () { /* ignora */ }); });
   }
 })();

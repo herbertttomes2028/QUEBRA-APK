@@ -23,7 +23,8 @@ test('abas do meu espaço: Perfil, Conquistas, Coleções e Partidas, cada uma c
 test('o texto que vem do servidor nunca vira HTML: só textContent, nunca innerHTML com conteúdo', () => {
   assert.ok(bloco.length > 3000, 'bloco de conquistas não encontrado');
   const atribuicoes = [...bloco.matchAll(/\.innerHTML\s*=\s*([^;]+);/g)].map((m) => m[1].trim());
-  assert.ok(atribuicoes.length >= 5 && atribuicoes.every((v) => v === "''"), 'innerHTML só para LIMPAR: ' + atribuicoes.join(' | '));
+  assert.deepEqual(atribuicoes, [], 'nenhum innerHTML (nem para limpar: o Trusted Types reporta): ' + atribuicoes.join(' | '));
+  assert.ok([...bloco.matchAll(/\.textContent = '';/g)].length >= 5, 'a limpeza é feita com textContent = \'\'');
   assert.doesNotMatch(bloco, /insertAdjacentHTML|outerHTML|document\.write|\.append\(\s*['"`]</);
   assert.match(bloco, /function el\(|el\('/);                                                // usa o helper el() (textContent)
 });
