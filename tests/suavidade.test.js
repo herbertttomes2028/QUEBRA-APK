@@ -40,7 +40,7 @@ test('worker: só calcula (sem rede, sem armazenamento, sem DOM) e o cálculo do
 const game = read('public/game.js');
 test('game.js: o recorte tenta o worker (se o aparelho tiver Worker, OffscreenCanvas, createImageBitmap e convertToBlob) e CAI no caminho antigo se algo falhar', () => {
   assert.match(game, /if \(window\.Worker && window\.OffscreenCanvas && window\.createImageBitmap && typeof OffscreenCanvas\.prototype\.convertToBlob === 'function'\)/);
-  assert.match(game, /new Worker\('crop-worker\.js'\)/); assert.match(game, /w\.postMessage\(\{ id: id, bm: bm, W: W, H: H \}, \[bm\]\)/, 'o bitmap é TRANSFERIDO (não copiado)');
+  assert.match(game, /new Worker\(scriptUrl\('crop-worker\.js'\)\)/); assert.match(game, /w\.postMessage\(\{ id: id, bm: bm, W: W, H: H \}, \[bm\]\)/, 'o bitmap é TRANSFERIDO (não copiado)');
   assert.match(game, /return cropInWorker\(img, W, H\)\.then\(function \(blob\) \{ return blobToUrl\(blob, fallbackUrl\); \}, function \(\) \{ return cropMain\(img, W, H, fallbackUrl\); \}\);/);
   assert.match(game, /w\.onerror = function \(\) \{ cropWorker = false; Object\.keys\(cropWait\)\.forEach\(function \(k\) \{ var p = cropWait\[k\]; delete cropWait\[k\]; p\.rej\(new Error\('worker'\)\); \}\);/, 'se o worker morrer, ninguém fica esperando para sempre');
   assert.match(game, /function blobToUrl\(blob, fallbackUrl\) \{\s+if \(!blob\) return fallbackUrl;\s+var url = URL\.createObjectURL\(blob\); ownedImageUrls\.add\(url\); return url;/, 'o endereço do blob continua registrado para ser liberado');

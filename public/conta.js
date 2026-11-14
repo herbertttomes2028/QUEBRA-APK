@@ -399,10 +399,10 @@
   }
   function renderAch() {
     var me = achData();
-    if (!me) { $('#ach-summary').innerHTML = ''; $('#ach-filters').innerHTML = ''; $('#ach-groups').innerHTML = ''; $('#ach-list').innerHTML = ''; acc.achSig = ''; $('#ach-summary').appendChild(el('p', 'ach-empty', 'Carregando suas conquistas…')); return; }
+    if (!me) { $('#ach-summary').textContent = ''; $('#ach-filters').textContent = ''; $('#ach-groups').textContent = ''; $('#ach-list').textContent = ''; acc.achSig = ''; $('#ach-summary').appendChild(el('p', 'ach-empty', 'Carregando suas conquistas…')); return; }
     var list = me.achievements, meta = me.achMeta || { groups: [] }, s = me.achSummary;
     var fresh = achNewIds(list), isFresh = {}; fresh.forEach(function (id) { isFresh[id] = true; });
-    var box = $('#ach-summary'); box.innerHTML = '';
+    var box = $('#ach-summary'); box.textContent = '';
     var big = el('div', 'ach-big'); big.appendChild(el('b', '', String(s.done))); big.appendChild(el('span', '', ' de ' + s.total + ' concluídas')); box.appendChild(big);
     var bar = el('span', 'ach-bar ach-bar-lg'), fill = el('i'); fill.style.width = Math.round(100 * s.done / Math.max(1, s.total)) + '%'; bar.appendChild(fill); bar.setAttribute('aria-hidden', 'true'); box.appendChild(bar);
     var tiers = el('div', 'ach-tiers');
@@ -411,9 +411,9 @@
     box.appendChild(el('p', 'ach-xp-line', 'XP das conquistas: ' + s.xpDone.toLocaleString('pt-BR') + ' de ' + s.xpTotal.toLocaleString('pt-BR')));
     var filter = acc.achFilter || 'all', group = acc.achGroup || 'all';
     function chip(host, text, on, fn, label) { var b = el('button', 'ach-chip' + (on ? ' on' : ''), text); b.type = 'button'; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if (label) b.setAttribute('aria-label', label); b.addEventListener('click', fn); host.appendChild(b); }
-    var fbox = $('#ach-filters'); fbox.innerHTML = '';
+    var fbox = $('#ach-filters'); fbox.textContent = '';
     [['all', 'Todas'], ['done', 'Concluídas'], ['todo', 'Faltam']].forEach(function (f) { chip(fbox, f[1], filter === f[0], function () { acc.achFilter = f[0]; renderAch(); }); });
-    var gbox = $('#ach-groups'); gbox.innerHTML = '';
+    var gbox = $('#ach-groups'); gbox.textContent = '';
     chip(gbox, 'Todos os grupos', group === 'all', function () { acc.achGroup = 'all'; renderAch(); });
     meta.groups.forEach(function (g) {
       var rows = list.filter(function (a) { return a.g === g.id; }), dn = rows.filter(function (a) { return a.done; }).length;
@@ -445,7 +445,7 @@
     // Nada mudou desde o último desenho (mesmos números, filtro e grupo)? Não refaz os 120 cartões.
     var sig = [s.done, s.xpDone, list.reduce(function (n, a) { return n + (a.now || 0); }, 0), filter, group, fresh.join(',')].join('|');
     if (out.childElementCount && acc.achSig === sig) { achMarkSeen(list); updateAchBadge(); return; }
-    acc.achSig = sig; out.innerHTML = '';
+    acc.achSig = sig; out.textContent = '';
     var token = acc.achToken = (acc.achToken || 0) + 1, next = 0;
     function lote(n) { var frag = document.createDocumentFragment(); for (var k = 0; k < n && next < plan.length; k++, next++) frag.appendChild(plan[next]()); out.appendChild(frag); }
     lote(ACH_FIRST_BATCH);
@@ -474,8 +474,8 @@
   }
   function renderCol() {
     var me = achData(), box = $('#col-list');
-    if (!me) { box.innerHTML = ''; $('#col-count').textContent = 'Carregando…'; return; }
-    var cols = me.collections || []; box.innerHTML = '';
+    if (!me) { box.textContent = ''; $('#col-count').textContent = 'Carregando…'; return; }
+    var cols = me.collections || []; box.textContent = '';
     var tot = 0, dn = 0, open = 0;
     cols.forEach(function (c) { tot += c.total; dn += c.done; if (c.open) open++; });
     $('#col-count').textContent = open + ' de ' + cols.length + ' abertas · ' + dn + ' de ' + tot + ' imagens';
@@ -483,7 +483,7 @@
   }
   function renderAvatarChoices() {
     var g = $('#me-avatar-grid');
-    g.innerHTML = '';
+    g.textContent = '';
     function add(face, val, label) {
       var b = el('button', '', face); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-label', label);
       b.setAttribute('aria-checked', (acc.me.avatar || '') === val ? 'true' : 'false');
@@ -529,7 +529,7 @@
   });
   function loadBlocked() {
     return api('GET', '/blocks').then(function (j) {
-      var box = $('#sec-blocked'); box.innerHTML = '';
+      var box = $('#sec-blocked'); box.textContent = '';
       var list = (j && j.ok) ? j.blocked : [];
       $('#sec-blocked-n').textContent = list.length ? '(' + list.length + ')' : '';
       if (!list.length) box.appendChild(el('p', 'me-small', 'Você não bloqueou ninguém.'));
@@ -626,10 +626,10 @@
   /* ---------- partidas ---------- */
   function loadHistory() {
     var box = $('#hist-list');
-    box.innerHTML = '';
+    box.textContent = '';
     box.appendChild(el('p', 'me-small', 'Carregando…'));
     api('GET', '/matches').then(function (j) {
-      box.innerHTML = '';
+      box.textContent = '';
       if (!j || !j.ok) { box.appendChild(el('p', 'me-small', errText(j && j.error))); return; }
       if (!j.matches.length) {
         var empty = el('div', 'fr-empty'); empty.appendChild(el('span', '', '🧩')); empty.appendChild(el('p', '', 'Suas partidas vão aparecer aqui. Que tal montar um quebra-cabeça?'));

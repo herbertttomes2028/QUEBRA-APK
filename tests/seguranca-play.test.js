@@ -62,7 +62,7 @@ test('CSP: os três modos (report = padrão, enforce, off) montam os cabeçalhos
   const padrao = await cabecalhos(), enf = await cabecalhos('enforce'), off = await cabecalhos('off');
   assert.equal(padrao.csp, "frame-ancestors 'none'"); assert.match(padrao.ro, /default-src 'self'/, 'o padrão só RELATA');
   assert.equal(off.csp, "frame-ancestors 'none'"); assert.equal(off.ro, null);
-  assert.equal(enf.ro, null, 'enforce não duplica o modo de relato');
+  assert.equal(enf.ro, "require-trusted-types-for 'script'; report-uri /api/csp-report", 'enforce não repete o relato da CSP; só relata Trusted Types (nunca obrigatório)'); assert.doesNotMatch(enf.csp, /trusted-types/, 'Trusted Types nunca no cabeçalho que bloqueia');
   for (const d of ["default-src 'self'", "script-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", "worker-src 'self'", "manifest-src 'self'", 'report-uri /api/csp-report']) assert.ok(enf.csp.includes(d), 'enforce: ' + d);
   assert.match(enf.csp, /connect-src 'self' ws:\/\/127\.0\.0\.1:\d+ wss:\/\/127\.0\.0\.1:\d+;/, 'o WebSocket do próprio site');
   assert.doesNotMatch(enf.csp, /script-src[^;]*'unsafe-inline'|script-src[^;]*'unsafe-eval'/, 'scripts nunca inline nem eval');
