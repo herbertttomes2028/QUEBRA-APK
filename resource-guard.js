@@ -5,6 +5,7 @@ function boundedInt(value, fallback, min, max) {
   const n = Number(value);
   return Number.isSafeInteger(n) && n >= min && n <= max ? n : fallback;
 }
+const HEAVY_AUTH_RE = /^\/api\/acc\/(profile\/(login|new|erase|new-secret)|delete)$/;
 function windowGate({ max, windowMs, entries = 6000, now = Date.now }) {
   const map = new Map();
   function allow(key) {
@@ -59,7 +60,9 @@ function makeProtection(env = process.env) {
     // A small global concurrency budget protects the PostgreSQL pool and scrypt workers
     // when traffic comes from many IPs and per-IP limits alone cannot stop exhaustion.
     if (pathname.startsWith('/api/')) {
-      const heavy = req.method === 'POST' && /^\/api\/acc\/(login|register|verify|password\/reset|password\/change|google|delete)$/.test(pathname);
+      // Rotas que rodam scrypt (código-chave). Eram as do login antigo (login, register, verify, password/*, google), que não existem
+      // mais desde o perfil gerado: as novas passavam sem este limite (auditoria de 14/11/2026, SEC-03). Um teste confere a lista.
+      const heavy = req.method === 'POST' && HEAVY_AUTH_RE.test(pathname);
       if (activeApi >= maxInflightApi || (heavy && costlyAuth >= maxCostlyAuth))
         return res.status(503).json({ ok: false, error: 'busy' });
       activeApi++; if (heavy) costlyAuth++;
@@ -113,4 +116,4 @@ function makeProtection(env = process.env) {
       for (const gate of [createRoomGate, apiGate, downloadGate, staticGate, diagGate, motionGate, controlGate]) gate.close();
     } };
 }
-module.exports = { boundedInt, windowGate, makeProtection };
+module.exports = { boundedInt, windowGate, makeProtection, HEAVY_AUTH_RE };

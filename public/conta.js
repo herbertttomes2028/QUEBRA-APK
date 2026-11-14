@@ -34,6 +34,7 @@
     guest: 'Essa pessoa não tem perfil, então não dá para denunciar por aqui. Você pode sair da partida pelo menu.',
     no_peer: 'Não há ninguém na sala para denunciar.',
     rate: 'Muitas tentativas. Espere alguns minutos e tente de novo.',
+    busy: 'O jogo está com muitos acessos agora. Tente de novo em alguns segundos.',
     server: 'Algo deu errado no servidor. Tente de novo daqui a pouco.',
     offline: 'Sem internet no momento. Confira a conexão.',
     notfound: 'Não encontramos esse jogador.',
