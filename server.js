@@ -623,14 +623,17 @@ function cleanPid(pid) {
   return typeof pid === 'string' && pid.length >= 6 && pid.length <= 64 ? pid : null;
 }
 
-// coloca o socket dentro da sala (novo jogador, reconexão ou vaga de quem saiu)
+// coloca o socket dentro da sala (novo jogador ou reconexão).
+// VAGA RESERVADA (decisão do proprietário, 14/11/2026; auditoria SEC-04): quem CAIU (internet, app fechado sem querer) continua dono
+// da vaga até o fim da partida; antes, qualquer pessoa com o código tomava a vaga de quem caiu, mesmo no meio da partida.
+// Quem SAIU de propósito (botão Sair) não volta, e a sala FECHA: o código não serve mais para ninguém entrar; quem ficou termina sozinho.
 function attach(room, socket, pid, name, avatar) {
   let idx = room.players.findIndex((p) => p && p.pid === pid);
+  if (idx !== -1 && room.players[idx].left) return { error: 'closed' };        // saiu pelo botão Sair: não volta
   if (idx === -1) {
-    idx = room.players.findIndex((p) => !p);
-    if (idx === -1) idx = room.players.findIndex((p) => p && !p.connected); // assume a vaga de quem caiu
-    if (idx === -1) return { error: 'full' };
-    if (room.players[idx]) releaseHeldBy(room, idx, -1);
+    if (room.closed) return { error: 'closed' };                                  // alguém saiu de propósito: o código não vale mais
+    idx = room.players.findIndex((p) => !p);                                      // só vaga NUNCA ocupada
+    if (idx === -1) return { error: 'full' };                                     // a vaga de quem caiu continua reservada para ele
   }
   const old = room.players[idx];
   if (old && old.connected && old.socketId && old.socketId !== socket.id) {
@@ -715,7 +718,8 @@ function sendPush(room, idx, payload) {
     });
 }
 
-function leaveCurrent(socket) {
+// explicit = a pessoa saiu de propósito (botão Sair, foi para outra sala). Sem explicit = caiu (internet, app fechado): vaga reservada.
+function leaveCurrent(socket, explicit) {
   const code = socket.data.code;
   if (!code) return;
   const room = rooms.get(code);
@@ -727,6 +731,7 @@ function leaveCurrent(socket) {
   if (pl && pl.socketId === socket.id) {
     pl.connected = false;
     pl.socketId = null;
+    if (explicit === true && !room.solo) { pl.left = true; room.closed = true; }   // cooperativo: saiu de propósito → a sala fecha para novos
     releaseHeldBy(room, idx, -1);
     if (room.rematch) {                       // quem sai cancela o pedido de recomeçar
       clearRematch(room);
@@ -791,7 +796,7 @@ function imageLabel(id) {
 // resumo de uma sala (comum ou desafio) para o sistema de convites
 function roomInfo(code) {
   const r = rooms.get(code);
-  if (r) return { code, kind: 'coop', free: r.status !== 'won' && connectedCount(r) < 2 && r.players.some((p) => !p || !p.connected), hostConnected: connectedCount(r) > 0, imageId: r.imageId, pieces: r.pieces.length };
+  if (r) return { code, kind: 'coop', free: r.status !== 'won' && !r.closed && r.players.some((p) => !p), hostConnected: connectedCount(r) > 0, imageId: r.imageId, pieces: r.pieces.length };
   return challenge.info(code);
 }
 function roomOfSocket(socket) {
@@ -829,7 +834,7 @@ io.on('connection', (socket) => {
     const code = newCode();
     if (!code) return reply(cb, { ok: false, error: 'busy' });
 
-    leaveCurrent(socket);
+    leaveCurrent(socket, true);                                   // criar outra sala = sair da atual de propósito
     const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES), data.solo === true);
     rooms.set(code, room);
     const res = attach(room, socket, pid, data.name, data.avatar);
@@ -852,7 +857,7 @@ io.on('connection', (socket) => {
       if (!protection.allowRoom(socket, rooms.size + challenge.size())) return reply(cb, { ok: false, error: 'busy' });
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
-      leaveCurrent(socket);
+      leaveCurrent(socket, true);
       const room = createRoom(code, imageId, validPieces(save.pieces, DEFAULT_PIECES));
       room.carriedMs = save.elapsedMs || 0;
       const ids = new Set((Array.isArray(save.locked) ? save.locked : []).map(Number));
@@ -882,9 +887,13 @@ io.on('connection', (socket) => {
       const m = joinGuard.fail(security.ipOfSocket(socket), code);             // e a tentativa conta como palpite errado (joinMiss não contaria, porque a sala existe): sem diferença que revele a sala
       return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' });
     }
+    if (room.closed && !room.players.some((p) => p && p.pid === pid && !p.left)) {   // alguém saiu de propósito: o código não serve mais (só quem ficou volta)
+      const m = joinGuard.fail(security.ipOfSocket(socket), code);                     // mesma resposta (e mesma contagem) de código inexistente
+      return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' });
+    }
     if (blockedWithRoom(socket, room.players)) return reply(cb, { ok: false, error: 'notfound' });    // alguém da sala bloqueou esta pessoa
 
-    if (socket.data.code && socket.data.code !== code) leaveCurrent(socket);
+    if (socket.data.code && socket.data.code !== code) leaveCurrent(socket, true);      // entrar em outra sala = sair desta de propósito
     const res = attach(room, socket, pid, data.name, data.avatar);
     if (res.error) return reply(cb, { ok: false, error: res.error });
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
@@ -1092,7 +1101,9 @@ io.on('connection', (socket) => {
     reply(cb, { ok: true });
   });
 
-  socket.on('disconnect', () => leaveCurrent(socket));
+  // "client namespace disconnect" = o próprio aplicativo chamou socket.disconnect() (botão Sair, bloquear e sair). Qualquer outro motivo
+  // (transport close = app/aba fechada, ping timeout/transport error = internet) é QUEDA: a vaga fica reservada para a pessoa voltar.
+  socket.on('disconnect', (reason) => leaveCurrent(socket, reason === 'client namespace disconnect'));
 });
 
 /* ---------- Limpeza de salas antigas ---------- */

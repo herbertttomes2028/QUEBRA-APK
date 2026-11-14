@@ -957,6 +957,7 @@
   function doJoin(code) {
     setLoading(true, 'Entrando na sala…');
     leaveDuelQuiet();
+    state.pid = coopPidFor(code);                                  // quem caiu (ou fechou o app) volta para a vaga reservada
     socket.emit('join', { pid: state.pid, code: code, name: readName(), avatar: state.avatar }, function (res) {
       if (res && res.ok) { enterRoom(res); return; }
       if (res && res.error === 'notfound') {                     // pode ser uma Sala Desafio
@@ -977,6 +978,7 @@
 
   function enterRoom(res) {
     state.idx = res.idx;
+    if (res.snapshot && res.snapshot.code && !res.snapshot.solo) saveCoopLocal(res.snapshot.code); else clearCoopLocal();
     if (window.QC && window.QC.afterEnter) window.QC.afterEnter('coop');
     startGame(res.snapshot);
   }
@@ -2915,6 +2917,7 @@
   }
 
   function goHome() {
+    clearCoopLocal();
     closeChat();
     state.chat = [];
     state.unread = 0;
@@ -2942,6 +2945,27 @@
   function duelPidFor(code) { var d = duelStored(); return d && d.code === code ? d.pid : state.pid; }
   function saveDuelLocal() { if (state.duel) store.set(DUEL_KEY, { code: state.duel.code, pid: state.pid, t: Date.now() }); }
   function clearDuelLocal() { store.set(DUEL_KEY, null); }
+  // Sala COOPERATIVA aberta neste aparelho: se a internet cair ou o app fechar sem querer, a vaga fica reservada no servidor e o
+  // aparelho volta para ela com a MESMA identidade (pid). Apagada ao sair pelo botão Sair (aí a sala fecha e não se volta mais).
+  var COOP_KEY = 'coop';
+  function coopStored() {
+    var c = store.get(COOP_KEY, null);
+    return c && c.code && c.pid && Date.now() - (c.t || 0) < 8 * 3600 * 1000 ? c : null;      // o servidor apaga a sala em até 8 h
+  }
+  function coopPidFor(code) { var c = coopStored(); return c && c.code === code ? c.pid : state.pid; }
+  function saveCoopLocal(code) { store.set(COOP_KEY, { code: code, pid: state.pid, t: Date.now() }); }
+  function clearCoopLocal() { store.set(COOP_KEY, null); }
+  function leaveCoop() { clearCoopLocal(); socket.disconnect(); reloadClean(); }      // saída DE PROPÓSITO: o servidor fecha a sala para novos
+  function maybeResumeCoop() {
+    var c = coopStored();
+    if (!c) return false;
+    state.pid = c.pid;
+    socket.emit('join', { pid: c.pid, code: c.code, name: state.name, avatar: state.avatar }, function (res) {
+      if (!res || !res.ok || !res.snapshot || res.snapshot.status === 'won') { clearCoopLocal(); return; }   // sala acabou ou não existe mais
+      enterRoom(res);
+    });
+    return true;
+  }
   function modeLabel(m) { return m === 'quebra' ? '🎁 Quebrando Cabeças' : '🧩 Modo Comum'; }
   function imageItem(file) {
     var base = state.images.filter(function (i) { return i.file === file; })[0];
@@ -3661,7 +3685,7 @@
     socket.emit('acc:blockPeer', {}, function (res) {
       if (res && res.ok) {
         toast((res.name || 'A pessoa') + ' foi bloqueada.', 3200);
-        if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
+        if (state.duel) leaveDuel(); else leaveCoop();
       } else if (res && res.error === 'guest') toast('Essa pessoa não tem conta, então não dá para bloquear. Você pode sair da partida pelo menu.', 5200);
       else if (res && res.error === 'no_peer') toast('Não há ninguém na sala para bloquear.', 3200);
       else toast('Não foi possível bloquear agora. Tente de novo.', 3200);
@@ -3679,7 +3703,7 @@
           socket.emit('acc:reportPeer', p, function (res) { if (!done) { done = true; clearTimeout(t); resolve(res || { ok: false, error: 'server' }); } });
         });
       },
-      after: function (res) { if (res.blocked) { if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); } } }
+      after: function (res) { if (res.blocked) { if (state.duel) leaveDuel(); else leaveCoop(); } }
     });
   });
   $('#menu-close').addEventListener('click', function () { closeModal('#modal-menu'); });
@@ -3811,7 +3835,7 @@
     updatePushNote();
     var param = '';
     try { param = (new URLSearchParams(location.search).get('sala') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, state.codeLen); } catch (e) { /* ignora */ }
-    if (!param && maybeResumeDuel()) return;                    // uma Sala Desafio ficou aberta neste aparelho
+    if (!param && (maybeResumeDuel() || maybeResumeCoop())) return;   // uma Sala Desafio ou uma sala cooperativa ficou aberta neste aparelho
     if (param.length === state.codeLen) {
       $('#input-code').value = param;
       if (state.name) { doJoin(param); return; }          // já conhecemos você: entra direto (ex.: ao tocar no aviso)
@@ -3922,7 +3946,7 @@
   // sair de verdade (sem perguntar): usado pela confirmação acima e pelo X da partida concluída
   function leaveNow() {
     cancelVictoryFlight();
-    if (state.duel) leaveDuel(); else { socket.disconnect(); reloadClean(); }
+    if (state.duel) leaveDuel(); else leaveCoop();
   }
 
   /* ---------------------------------------------------------

@@ -184,7 +184,8 @@ test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, 
   assert.ok(/addEventListener\('click', leaveNow\)/.test(game), 'o X deve chamar leaveNow');
   const leave = body(game, /function leaveNow\(\)/);
   assert.ok(/cancelVictoryFlight\(\);/.test(leave), 'leaveNow deve cancelar a animação ao sair');
-  assert.ok(/if \(state\.duel\) leaveDuel\(\); else \{ socket\.disconnect\(\); reloadClean\(\); \}/.test(leave), 'leaveNow mudou');
+  assert.ok(/if \(state\.duel\) leaveDuel\(\); else leaveCoop\(\);/.test(leave), 'leaveNow mudou');
+  assert.match(game, /function leaveCoop\(\) \{ clearCoopLocal\(\); socket\.disconnect\(\); reloadClean\(\); \}/, 'sair do cooperativo: esquece a sala, desconecta de propósito e recarrega');
   assert.ok(leave.indexOf('cancelVictoryFlight();') < leave.indexOf('if (state.duel)'), 'cancelar a animação antes de sair');
   const ask = body(game, /function askLeave\(\)/);
   assert.ok(/leaveNow\(\)/.test(ask), 'askLeave deve usar o mesmo caminho (leaveNow)');
