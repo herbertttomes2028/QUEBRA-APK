@@ -924,7 +924,7 @@ io.on('connection', (socket) => {
     p.x = q.x; p.y = q.y;
     if (magnet.ENABLED && tryLock(c.room, p, c.idx)) return;
     p.x = nx; p.y = ny;
-    socket.to(c.room.code).volatile.emit('moved', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });
+    socket.to(c.room.code).emit('moved', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });      // sem "volatile": com o amigo em polling/rede lenta, o volatile descartava 75–87% das posições
   });
 
   socket.on('rotate', (data) => {

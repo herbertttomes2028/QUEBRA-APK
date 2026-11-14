@@ -145,6 +145,6 @@ test('contratos de encaixe, giros, pinça e recompensa intactos', () => {
   assert.match(game, /p\.locked = true;/);
   assert.match(game, /function startPinch\(/);
   assert.match(game, /function setZoom\(/);
-  assert.match(game, /socket\.volatile\.emit\(state\.duel \? 'ch:move' : 'move'/);
+  assert.match(game, /sendMove\(state\.duel \? 'ch:move' : 'move'/);
   assert.match(fs.readFileSync(path.join(root, 'accounts.js'), 'utf8'), /async function payMatch\(/);
 });

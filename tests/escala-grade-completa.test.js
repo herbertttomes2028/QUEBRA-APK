@@ -54,6 +54,7 @@ function build(pieces = 6) {
     classify: () => {}, updateUi: () => {}, refreshLamp: () => {}, wakeFrame: () => painted.push('wake'),
     gameEmit: (name, payload) => sent.push([name, payload]),
     socket: { volatile: { emit: (name, payload) => sent.push([name, payload]) } },
+    sendMove: (name, payload) => sent.push([name, payload]),
     document: { hidden: false }, lastTimerPaint: 1000, paintTimer: () => {},
     currentScreen: () => 'game', frameTimer: 0, setTimeout: () => 10,
     paintTag: () => {},
@@ -283,7 +284,7 @@ test('orientação correta nos três modos: Solo/Coop como antes e Sala Desafio 
   assert.doesNotMatch(game, /rotateSelected/);
   assert.match(game, /function setZoom\(/);
   assert.match(game, /Ela só cresce quando entra completamente na grade/);
-  assert.match(game, /socket\.volatile\.emit\(state\.duel \? 'ch:move' : 'move'/);
+  assert.match(game, /sendMove\(state\.duel \? 'ch:move' : 'move'/);
 });
 
 test('cache PWA v21 verifica atualizações sem remover dados locais do jogador', () => {

@@ -114,6 +114,6 @@ test('código: o fator é definido UMA vez no servidor e usado nos dois layouts;
   assert.doesNotMatch(ch, /const SNAP_FACTOR/, 'o Desafio recebe o valor do servidor (não tem cópia própria)');
   for (const src of [sv, ch]) { assert.match(src, /if \(p\.rot !== 0\) return false;\n\s+if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/, 'tryLock igual: giro 0 e distância ≤ SNAP'); assert.match(src, /p\.x = tx;/); }
   assert.doesNotMatch(gm, /SNAP_FACTOR|cfg\.SNAP/, 'o cliente nunca decide o encaixe: a regra vive só no servidor');
-  assert.match(sv, /socket\.on\('move', \(data\) => \{[\s\S]{0,1100}?magnet\.pullPoint[\s\S]{0,300}?tryLock\(c\.room, p, c\.idx\)[\s\S]{0,200}?volatile\.emit\('moved'/, 'o ímã também puxa ENQUANTO se arrasta (ver tests/ima-arrastando.test.js)');
+  assert.match(sv, /socket\.on\('move', \(data\) => \{[\s\S]{0,1100}?magnet\.pullPoint[\s\S]{0,300}?tryLock\(c\.room, p, c\.idx\)[\s\S]{0,200}?socket\.to\(c\.room\.code\)\.emit\('moved'/, 'o ímã também puxa ENQUANTO se arrasta (ver tests/ima-arrastando.test.js)');
   assert.match(ch, /socket\.on\('ch:move'[\s\S]{0,1100}?tryLock\(c\.room, c\.idx, c\.board, p, socket\)/, 'a Sala Desafio também puxa ao arrastar');
 });

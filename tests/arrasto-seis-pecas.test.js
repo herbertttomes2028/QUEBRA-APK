@@ -46,6 +46,7 @@ function build(pieces = 6) {
     gameEmit: (name, payload) => sent.push([name, payload]),
     clearTimeout: () => {},
     socket: { volatile: { emit: (name, payload) => sent.push([name, payload]) } },
+    sendMove: (name, payload) => sent.push([name, payload]),
     stateSent: sent,
   };
   for (const name of ['fullyInsideBoard', 'baseScale', 'targetScale', 'pointerCount', 'onPointerDown', 'startPinch', 'setZoom', 'onPointerMove']) {
