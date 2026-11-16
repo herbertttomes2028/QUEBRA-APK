@@ -98,7 +98,7 @@ O jogo **não aceita fotos nem imagens enviadas pelos jogadores** (o recurso "Mi
 6. **Vence quem encaixar a última peça primeiro.** Os dois celulares recebem o resultado: quem venceu, o **tempo de conclusão** e o **progresso de cada um**, com animação de comemoração. Há botão de **Revanche**: quando os dois tocam, começa uma nova contagem com o mesmo adversário (peças sorteadas de novo).
 
 ### Os dois modos
-- **🧩 Modo Comum:** a mecânica de sempre (bandeja de peças embaixo, arrastar, tocar para girar, pinça). Os dois recebem as peças **nas mesmas posições e giros**.
+- **🧩 Modo Comum:** a mecânica de sempre (bandeja de peças embaixo, arrastar, tocar para girar, pinça). Os dois recebem as peças **nas mesmas posições e giros**. Com 20, 30 ou 48 peças, cada um tem a sua **fileira de 5** e as peças aparecem na mesma ordem para os dois.
 - **🎁 Quebrando Cabeças:** a grade ocupa quase toda a largura da tela e **não há bandeja**. Uma **caixa de presentes animada** (no canto de baixo) solta as peças:
   - **cada toque na caixa solta UMA peça surpresa**, que sai girando em arco e pousa em uma das 3 vagas ao lado dela; você arrasta a peça para o lugar certo;
   - dá para pedir **até 3 peças por rodada**; os 3 pontinhos da caixa mostram quantas já saíram;
@@ -176,11 +176,13 @@ Com os avisos ligados, o aparelho mostra uma notificação quando **o amigo entr
 |---|---|---|---|---|---|
 | 6 | 2 × 3 | Bem fácil | ~320 px | ~160 px | ~92 px |
 | 12 | 3 × 4 | Fácil | ~365 px | ~120 px | ~61 px |
-| 20 | 4 × 5 | Médio | ~365 px | ~90 px | ~52 px |
-| 30 | 5 × 6 | Difícil | ~365 px | ~73 px | ~46 px |
-| 48 | 6 × 8 | Desafio | ~300 px | ~50 px | ~42 px (pequena; melhor em tela grande) |
+| 20 | 4 × 5 | Médio | ~374 px | ~94 px | ~61 px (fileira de 5) |
+| 30 | 5 × 6 | Difícil | ~374 px | ~75 px | ~61 px (fileira de 5) |
+| 48 | 6 × 8 | Desafio | ~374 px | ~62 px | ~61 px (fileira de 5) |
 
-\* Em um celular de 390 × 844 px, com o aparelho em pé. Para comparar: antes das últimas melhorias, com 12 peças, o tabuleiro tinha cerca de 227 px e cada peça montada, 75 px. Com a pinça você amplia qualquer peça escolhida para ver os detalhes.
+\* Em um celular de 390 × 844 px, com o aparelho em pé (medido no Chrome sem tela em 16/11/2026 para 20, 30 e 48 peças).
+
+**Fileira de 5 (20, 30 e 48 peças, desde 16/11/2026).** Não há bandeja grande: embaixo da grade fica **uma fileira com 5 peças** e as outras aparecem aos poucos, sempre na vaga que ficou livre. Você pode puxar até **3 peças** para a grade sem encaixar e a fileira continua sendo completada; com 3 soltas (8 peças à vista), só um **encaixe certo** traz a próxima. Vale no Sozinho, no Cooperativo (uma fileira para os dois) e no Desafio Comum (uma para cada um, com as peças na mesma ordem). O Quebrando Cabeças continua com a caixa de presentes. Para voltar à bandeja grande sem mexer no código: `FILEIRA=0` no Render. Para comparar: antes das últimas melhorias, com 12 peças, o tabuleiro tinha cerca de 227 px e cada peça montada, 75 px. Com a pinça você amplia qualquer peça escolhida para ver os detalhes.
 
 As peças são sempre quadradas. Como cada grade tem uma proporção um pouco diferente (por exemplo, 4 × 5 é mais "quadrada" que 3 × 4), o jogo **recorta o centro da imagem** para encaixar. Com imagens em pé 3:4 (como as incluídas), o recorte é de apenas 6% a 11% nas bordas. A lâmpada 💡 e o tabuleiro sempre mostram a imagem já recortada, exatamente como será montada.
 

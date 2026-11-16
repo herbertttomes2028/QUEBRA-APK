@@ -24,6 +24,7 @@ Leva cerca de 45 a 60 segundos e termina com `# fail 0` e `# skipped 0`.
 | --- | --- |
 | `contratos.test.js` | Migrações imutáveis (hash em `migrations.sha256.json`), as duas cópias de `tryLock` iguais, `SNAP`, nomes dos eventos de socket, `payMatch` como única entrada de XP, sessão só com hash, frases só por código, CSP, `render.yaml` (`npm ci`, sem chave duplicada, sem valores) e `.gitignore` |
 | `coop.test.js`, `solo.test.js`, `desafio.test.js` | Partidas reais: cooperativo, Solo (ninguém entra pelo código), Sala Desafio |
+| `fileira-cinco.test.js` | **Fileira de 5** (20, 30 e 48 peças): 5 à vista na largada, peça guardada não se pega, a nova aparece na vaga livre, até 3 soltas, teto de 8, partida inteira; cooperativo, Desafio Comum (mesma ordem para os dois), celular antigo sem fileira; 6/12 peças e Quebrando Cabeças sem mudança |
 | `seguranca-perfil.test.js` | **Com banco.** Perfil gerado: código-chave, força bruta, sessões, no máximo 5 aparelhos (3b), acesso a dados de outro perfil com dados reais de B (5), gemas e XP forjados, salas, privacidade da sala e lista de bloqueados (7b), mapa de limites cheio (9c), denúncia que não revela IDs |
 | `privacidade-sala.test.js` | Nível sempre 0 na sala; lista de bloqueados sem ID, apelido, nível nem avatar |
 | `arrasto-sem-perda.test.js` | O arrasto não é descartado com a conexão ocupada (o amigo em polling atrás de rede lenta recebe todas as posições); a peça do amigo desliza ao encaixar |

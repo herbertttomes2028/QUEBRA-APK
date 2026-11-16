@@ -34,8 +34,9 @@ async function startServer(extraEnv) {
   return { url, port, stop: () => new Promise((r) => { child.once('exit', r); child.kill(); }), log: () => log };
 }
 
-function client(url) {
-  const s = io(url, { transports: ['websocket'], reconnection: false, forceNew: true });
+// opts.fila: conecta como o jogo NOVO (sabe mostrar a fileira de 5, como o game.js faz com auth: { fila: 1 }); sem ele, como uma cópia antiga
+function client(url, opts) {
+  const s = io(url, Object.assign({ transports: ['websocket'], reconnection: false, forceNew: true }, opts && opts.fila ? { auth: { fila: 1 } } : {}));
   s.emitAck = (ev, data) => new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error('sem resposta de ' + ev)), 5000);
     s.emit(ev, data, (r) => { clearTimeout(t); res(r); });

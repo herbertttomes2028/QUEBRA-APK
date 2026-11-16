@@ -1,6 +1,7 @@
 'use strict';
 const magnet = require('./magnet');       // ímã ao arrastar (a regra de encaixe continua só no tryLock)
 const dragDwell = magnet.createDwell();   // "ficou perto por um instante" (Sala Desafio)
+const fileira = require('./fila');        // Desafio Comum com 20, 30 ou 48 peças: fileira de 5 (uma por jogador); o Quebrando Cabeças segue com a caixa
 /*
  * SALA DESAFIO — dois jogadores montam a MESMA imagem ao mesmo tempo, cada um no SEU tabuleiro.
  * Vence quem encaixar a última peça primeiro. O servidor é a autoridade: ele decide a largada,
@@ -8,6 +9,7 @@ const dragDwell = magnet.createDwell();   // "ficou perto por um instante" (Sala
  *
  * Modos:
  *   comum  — a bandeja de sempre; os dois recebem as peças nas MESMAS posições, todas já na orientação certa (não há giro).
+ *            Com 20, 30 ou 48 peças: fileira de 5 (fila.js), cada um na sua, com as peças aparecendo na MESMA ordem para os dois.
  *   quebra — "Quebrando Cabeças": grade maior, sem bandeja; uma caixa mágica cospe as peças SOZINHA: já na largada
  *            (1ª rodada de até 3) e, depois, as próximas 3 sempre que as que saíram forem encaixadas. Ninguém toca na caixa.
  *
@@ -26,7 +28,7 @@ const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem 
 module.exports = function createChallenge(d) {
   const {
     io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
-    validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
+    validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces, filaClient,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
     phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
   } = d;
@@ -80,6 +82,8 @@ module.exports = function createChallenge(d) {
 
   /* ---------- tabuleiros ---------- */
   function buildBoards(room) {
+    // Desafio Comum: a fileira de 5 (20, 30 e 48 peças) só vale se os DOIS celulares já têm o jogo novo (senão, a bandeja de antes)
+    if (room.mode !== 'quebra') room.cfg = layoutFor(room.cfg.PIECES, room.players.every((pl) => pl && filaClient && filaClient(pl.socketId)));
     const cfg = room.cfg, total = cfg.COLS * cfg.ROWS;
     let template;
     if (room.mode === 'quebra') {
@@ -96,6 +100,15 @@ module.exports = function createChallenge(d) {
       next: 0, round: [],
       hints: HINTS, spots: SPOTS, z: 100, locked: 0, finishedAt: null, lastMove: 0, lastGift: 0
     }));
+    if (room.mode !== 'quebra') for (const b of room.boards) fileira.init(cfg, b.pieces, b.order);     // só faz algo se o layout tiver a fileira
+  }
+
+  // fileira de 5 (Desafio Comum): mostra, só para o dono do tabuleiro, as peças que cabem agora
+  function revealFila(room, board, socket) {
+    if (room.mode === 'quebra') return [];
+    const novas = fileira.refill(room.cfg, board.pieces, () => ++board.z);
+    if (novas.length) socket.emit('ch:fila', { pieces: novas });
+    return novas;
   }
 
   function totalOf(room) { return room.cfg.COLS * room.cfg.ROWS; }
@@ -351,6 +364,7 @@ module.exports = function createChallenge(d) {
     board.locked++;
     const counts = [0, 0]; counts[idx] = board.locked;
     socket.emit('locked', { id: p.id, x: tx, y: ty, by: idx, counts, locked: board.locked });
+    revealFila(room, board, socket);                     // Desafio Comum com fileira: a vaga livre ganha a próxima peça
 
     let autoSpit = false;
     if (room.mode === 'quebra' && board.round.length && board.round.every((id) => board.pieces[id].locked)) {
@@ -514,6 +528,7 @@ module.exports = function createChallenge(d) {
       p.heldBy = null;
       p.rotUsed = 0;
       socket.emit('released', { id: p.id, by: c.idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
+      revealFila(c.room, c.board, socket);
     });
 
     // 🎁 a caixa agora é automática (largada e a cada rodada completa): pedir peça por toque não existe mais.
