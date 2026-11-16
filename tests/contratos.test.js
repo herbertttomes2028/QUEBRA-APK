@@ -51,8 +51,9 @@ test('SNAP = round(TILE × SNAP_FACTOR) nos dois layouts (cooperativo e Desafio)
 
 test('eventos de socket do cooperativo, do Desafio e de contas existem', () => {
   const has = (src, ev) => new RegExp("socket\\.on\\('" + ev.replace(/[:*]/g, (c) => '\\' + c) + "'").test(src);
-  const coop = ['create', 'join', 'grab', 'move', 'drop', 'rotate', 'hint', 'spot', 'chat', 'restart', 'rematch:answer', 'rematch:cancel', 'acc:continue', 'imgready', 'push:subscribe', 'push:unsubscribe'];
-  const ch = ['ch:create', 'ch:join', 'ch:ready', 'ch:grab', 'ch:move', 'ch:drop', 'ch:rotate', 'ch:gift', 'ch:rematch', 'ch:leave', 'ch:chat', 'ch:hint', 'ch:spot', 'ch:imgready', 'ch:push:subscribe', 'ch:push:unsubscribe'];
+  // (exceção autorizada de 16/11/2026: 'chat' e 'ch:chat' saíram junto com o bate-papo; ver tests/sem-bate-papo.test.js)
+  const coop = ['create', 'join', 'grab', 'move', 'drop', 'rotate', 'hint', 'spot', 'restart', 'rematch:answer', 'rematch:cancel', 'acc:continue', 'imgready', 'push:subscribe', 'push:unsubscribe'];
+  const ch = ['ch:create', 'ch:join', 'ch:ready', 'ch:grab', 'ch:move', 'ch:drop', 'ch:rotate', 'ch:gift', 'ch:rematch', 'ch:leave', 'ch:hint', 'ch:spot', 'ch:imgready', 'ch:push:subscribe', 'ch:push:unsubscribe'];
   const acc = ['acc:auth', 'acc:logout', 'acc:blockPeer', 'acc:reportPeer'];
   for (const e of coop) assert.ok(has(server, e), 'server.js perdeu ' + e);
   for (const e of ch) assert.ok(has(challenge, e), 'challenge.js perdeu ' + e);
@@ -73,7 +74,7 @@ test('XP: payMatch é a única entrada e só accounts.js o usa', () => {
 
 test('exports de createAccounts e das fábricas permanecem', () => {
   const ret = accounts.slice(accounts.lastIndexOf('return {'));
-  for (const k of ['enabled', 'config', 'noteCoop', 'flush', 'loadSave', 'deleteSave', 'finishCoop', 'finishDuel', 'levelOf', 'isOnline', 'allowedPhrases', 'blockedBetween', 'blockUser', 'close']) {
+  for (const k of ['enabled', 'config', 'noteCoop', 'flush', 'loadSave', 'deleteSave', 'finishCoop', 'finishDuel', 'levelOf', 'isOnline', 'blockedBetween', 'blockUser', 'close']) {
     assert.ok(new RegExp('\\b' + k + '\\b').test(ret), 'createAccounts deixou de devolver ' + k);
   }
   const xp = require('../xp');
@@ -85,15 +86,13 @@ test('sessão: o token cru nunca é guardado (só sha256)', () => {
   assert.ok(!/INSERT INTO sessions\s*\([^)]*\btoken\b[^_]/.test(accounts), 'INSERT em sessions com coluna token crua');
 });
 
-test('frases só por código; nada de texto livre no bate-papo', () => {
-  const ph = require('../phrases');
-  assert.equal(ph.BASE.length, 10);
-  assert.equal(ph.REACTIONS.length, 7);
-  assert.equal(ph.UNLOCK.length, 14);
-  assert.equal(ph.BASE.length + ph.REACTIONS.length + ph.UNLOCK.length, 31);
-  assert.equal(typeof ph.byId, 'function');
-  assert.equal(ph.byId('<script>alert(1)</script>'), null);
-  assert.ok(ph.byId('oi'));
+test('não existe bate-papo de nenhum tipo (retirado em 16/11/2026): nem texto livre, nem frases prontas, nem reações', () => {
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'phrases.js')), 'phrases.js foi apagado');
+  for (const [nome, src] of [['server.js', server], ['challenge.js', challenge], ['accounts.js', accounts]]) {
+    assert.ok(!/socket\.on\('(ch:)?chat'/.test(src), nome + ' não recebe mensagens');
+    assert.ok(!/emit\('chat'/.test(src), nome + ' não envia mensagens');
+    assert.ok(!/require\('\.\/phrases'\)/.test(src), nome + ' não usa frases');
+  }
 });
 
 test('CSP: script-src estrito, sem script embutido, frame-ancestors none sempre', () => {
@@ -210,7 +209,7 @@ test('Solo: o progresso salvo do cooperativo (saves) e a entrada pelo código t�
   assert.ok(/accounts && !room\.solo\) for \(const p of room\.players\) if \(p && p\.uid\) accounts\.deleteSave/.test(srv), 'reiniciar não pode apagar o progresso salvo no Solo');
   assert.ok(/if \(room\.solo && !room\.players\.some\(\(p\) => p && p\.pid === pid\)\)/.test(srv), 'join precisa recusar quem não é o dono da sala Solo');
   assert.ok(/joinGuard\.fail\(security\.ipOfSocket\(socket\), code\)/.test(srv), 'a recusa do Solo precisa contar como palpite errado (joinMiss não conta salas que existem)');
-  assert.ok(/if \(c\.room\.solo\) return reply\(cb, \{ ok: false, error: 'solo' \}\)/.test(srv), 'o bate-papo precisa ser recusado no Solo');
+  assert.ok(!/socket\.on\('chat'/.test(srv), 'não existe bate-papo (nem no Solo, nem em sala nenhuma; apagado em 16/11/2026)');
 });
 
 test('tela inicial: "Jogar" vai direto para as coleções (Sozinho); "Jogar com amigos" reúne Cooperativo, Desafio Comum e Quebrando Cabeças', () => {

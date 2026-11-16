@@ -22,15 +22,16 @@ Leva cerca de 45 a 60 segundos e termina com `# fail 0` e `# skipped 0`.
 
 | Arquivo | O que verifica |
 | --- | --- |
-| `contratos.test.js` | Migrações imutáveis (hash em `migrations.sha256.json`), as duas cópias de `tryLock` iguais, `SNAP`, nomes dos eventos de socket, `payMatch` como única entrada de XP, sessão só com hash, frases só por código, CSP, `render.yaml` (`npm ci`, sem chave duplicada, sem valores) e `.gitignore` |
+| `contratos.test.js` | Migrações imutáveis (hash em `migrations.sha256.json`), as duas cópias de `tryLock` iguais, `SNAP`, nomes dos eventos de socket, `payMatch` como única entrada de XP, sessão só com hash, nenhum bate-papo, CSP, `render.yaml` (`npm ci`, sem chave duplicada, sem valores) e `.gitignore` |
 | `coop.test.js`, `solo.test.js`, `desafio.test.js` | Partidas reais: cooperativo, Solo (ninguém entra pelo código), Sala Desafio |
+| `sem-bate-papo.test.js` | **Não existe bate-papo** (nem com `CHAT_ENABLED=true`): configuração, salas e Desafio sem conversa, `phrases.js` apagado, sem aviso de frase nova; janelas abertas dos Ajustes ficam por cima; Loja e Ajustes maiores |
 | `fileira-cinco.test.js` | **Fileira de 5** (20, 30 e 48 peças): 5 à vista na largada, peça guardada não se pega, a nova aparece na vaga livre, até 3 soltas, teto de 8, partida inteira; cooperativo, Desafio Comum (mesma ordem para os dois), celular antigo sem fileira; 6/12 peças e Quebrando Cabeças sem mudança |
 | `seguranca-perfil.test.js` | **Com banco.** Perfil gerado: código-chave, força bruta, sessões, no máximo 5 aparelhos (3b), acesso a dados de outro perfil com dados reais de B (5), gemas e XP forjados, salas, privacidade da sala e lista de bloqueados (7b), mapa de limites cheio (9c), denúncia que não revela IDs |
 | `privacidade-sala.test.js` | Nível sempre 0 na sala; lista de bloqueados sem ID, apelido, nível nem avatar |
 | `arrasto-sem-perda.test.js` | O arrasto não é descartado com a conexão ocupada (o amigo em polling atrás de rede lenta recebe todas as posições); a peça do amigo desliza ao encaixar |
 | `limites-disponibilidade.test.js` | Limites por grupo (nenhum grupo cheio barra quem chega); toda rota com scrypt no limite de operações caras |
 | `vaga-reservada.test.js` | Quem cai mantém a vaga; quem sai pelo botão Sair fecha a sala para novos; quem ficou termina sozinho |
-| `endurecimento.test.js` | Chat e avisos desligados sem a variável; teto de 5 aparelhos e limpeza de sessões; ordem da conferência na denúncia; `.gitignore` do Android |
+| `endurecimento.test.js` | Avisos desligados sem a variável (o bate-papo nem existe mais); teto de 5 aparelhos e limpeza de sessões; ordem da conferência na denúncia; `.gitignore` do Android |
 | `sem-html-injetado.test.js`, `trusted-types-relatorio.test.js` | Nenhum HTML montado com dados (inclui `innerHTML +=`, colchetes, `srcdoc`, `javascript:`…); política Trusted Types estreita; política de privacidade dentro do app pela política `qc` |
 | `sem-segredos.test.js`, `seguranca-repositorio.test.js` | Nenhum segredo, chave, APK/AAB ou arquivo de nuvem no repositório |
 | `xp.test.js`, `gemas*.test.js`, `loja*.test.js` | Curva de níveis, gemas, loja (compras simultâneas cobram uma vez só) |

@@ -11,7 +11,7 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 - **🧩 Jogar com amigos** (era "Sala Desafio"; desde 15/11/2026 o botão **Jogar** vai direto para as coleções, no modo Sozinho): três modos, **Cooperativo** (os dois montam a mesma imagem juntos), **Desafio Comum** e **Quebrando Cabeças**. Nos dois desafios, dois jogadores montam a MESMA imagem ao mesmo tempo, cada um no seu tabuleiro; vence quem terminar primeiro. Dois modos: **Comum** e **Quebrando Cabeças** (caixa de presentes que solta as peças).
 - **Tutorial animado** na primeira vez, **avatares**, **modo escuro**, **texto maior**, **sons** e **marcos de progresso** (25%, 50% e 75%).
 - **Dica de lugar 📍**, **recomeçar só com a confirmação do amigo** e **avisos com o aplicativo fechado** (opcionais).
-- **Conversa entre os dois jogadores:** **retirado do jogo** (decisão do proprietário): o código ainda existe, mas fica **desligado** (`CHAT_ENABLED` sem valor ou `false` no Render). **Não ligue.**
+- **Não existe conversa entre os jogadores** (decisão do proprietário): nem texto, nem frases prontas, nem reações/emojis enviados ao outro. O código do bate-papo foi **apagado** em 16/11/2026 (a variável `CHAT_ENABLED` não tem mais efeito).
 - Não precisa instalar nada no seu computador: tudo é feito pelos sites do **GitHub** e do **Render**.
 - Cada jogador digita o **próprio nome**; a pessoa que cria escolhe a **imagem** e a **quantidade de peças**.
 - O código da sala é **gerado automaticamente** e o amigo entra digitando esse código de 4 caracteres.
@@ -32,8 +32,8 @@ Jogo de quebra-cabeça cooperativo online: duas pessoas, cada uma no seu celular
 10. **Exclusividade:** enquanto uma pessoa segura uma peça (contorno colorido e etiqueta com o nome dela), a outra **não consegue** pegá-la, movê-la nem girá-la.
 11. **💡 Lâmpada:** fica no topo, ao lado do menu, e é só o ícone. Ao apertar, a **imagem completa aparece esmaecida no tabuleiro, atrás das peças, por 4 segundos** e depois some sozinha. Cada jogador pode usar **10 vezes por partida** (o número pequeno no botão mostra quantas restam). Apertar de novo enquanto a imagem está visível não gasta outra dica, e só quem apertou vê a imagem. Recarregar a página não renova as dicas.
 12. **📍 Dica de lugar:** com uma peça **escolhida**, o mesmo botão vira **📍**. Ao apertar, a **casa certa da peça pisca no tabuleiro por cerca de 4 segundos**. É só um destaque: a peça não se mexe sozinha. São **5 usos por jogador** por partida (o número no botão mostra quantos restam), e só quem apertou vê o destaque. Se a peça já estiver no lugar, o jogo avisa e não gasta o uso.
-13. **💬 Conversa (frases prontas):** **retirado do jogo** (decisão do proprietário): o código ainda existe, mas fica **desligado** (`CHAT_ENABLED` sem valor ou `false` no Render). **Não ligue.** O botão 💬 não aparece.
-14. **Marcos e sons:** ao chegar a **25%, 50% e 75%** das peças encaixadas aparece uma mensagem curta ("Um quarto!", "Metade!", "Falta pouco!"). Há sons curtos ao encaixar, ao vencer, ao chegar mensagem e ao chegar um pedido de recomeçar. Eles são gerados pelo próprio navegador, e o **botão de silêncio** fica no Menu (☰) e em Ajustes.
+13. **Sem conversa:** não há bate-papo, frases prontas nem reações entre os jogadores (o código foi apagado em 16/11/2026).
+14. **Marcos e sons:** ao chegar a **25%, 50% e 75%** das peças encaixadas aparece uma mensagem curta ("Um quarto!", "Metade!", "Falta pouco!"). Há sons curtos ao encaixar, ao vencer e ao chegar um pedido de recomeçar. Eles são gerados pelo próprio navegador, e o **botão de silêncio** fica no Menu (☰) e em Ajustes.
 15. **Vitória:** aparece a **imagem completa** (sem nenhuma linha de grade), o **tempo**, quantas peças cada um encaixou (com avatar e nome) e o seu **melhor tempo** para aquela imagem e quantidade de peças (aparece "🏆 Novo recorde!" quando você bate o seu melhor). Os botões **⬇ Salvar imagem** e **↗ Compartilhar** geram uma figura com a imagem pronta e uma faixa com os nomes, a quantidade de peças e o tempo. Se o aparelho não permitir compartilhar direto, a imagem é salva para você enviar.
 16. **Recomeçar com a confirmação do amigo:** "Jogar de novo", "Recomeçar esta imagem" e "Trocar imagem ou peças" **pedem o aceite do outro jogador**. Ele vê "Fulano quer recomeçar" (com a imagem e a quantidade de peças) e pode **Aceitar** ou dizer **Agora não**, e tem **30 segundos** para responder. Quem pediu vê "Esperando…" e pode **Cancelar**. Se o amigo não estiver na sala, recomeça na hora. Assim ninguém perde a partida sem querer.
 
@@ -41,14 +41,9 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 
 ---
 
-## Conversa (frases prontas): RETIRADA
+## Conversa entre jogadores: NÃO EXISTE
 
-> O bate-papo de frases prontas foi **retirado do jogo** (decisão do proprietário): o código ainda existe, mas fica **desligado** (`CHAT_ENABLED` sem valor ou `false` no Render). **Não ligue.** O texto abaixo descreve como o código desligado funciona, só como registro; a remoção do código é uma rodada futura.
-
-- **Só frases prontas e reações:** não existe campo de texto. O jogador toca numa frase (ou reação) da lista; o servidor só aceita frases dessa lista (`phrases.js`) e recusa qualquer outro texto. Cada mensagem mostra o nome de quem a enviou, com a cor do jogador. Há 10 frases básicas; outras são liberadas jogando, para quem tem conta.
-- **Limites:** no máximo 12 mensagens a cada 10 segundos por pessoa, com pelo menos 0,4 s entre elas. No modo solo não há conversa.
-- **Histórico:** o servidor guarda só as últimas mensagens da sala, na memória. Elas somem quando a sala é apagada (cerca de 15 minutos depois de todos saírem) ou quando o Render reinicia o serviço. Nada é gravado em arquivo.
-- **Moderação:** não há texto livre (e hoje nem o bate-papo de frases). Há **Bloquear** e **Denunciar** (ver `SEGURANCA.md`). O bate-papo só funcionaria com `CHAT_ENABLED` = `true` no Render, e isso **não deve ser feito**: sem a variável ou com `false`, o botão 💬 não aparece.
+> Decisão do proprietário: o jogo **não tem** bate-papo de nenhum tipo: não existe campo de texto, nem frases prontas, nem reações/emojis enviados ao outro jogador, nem aviso de "nova frase liberada". Até 15/11/2026 o código existia desligado; em 16/11/2026 ele foi **apagado** (`phrases.js`, eventos `chat`/`ch:chat`, painel 💬, estilos e o aviso de frases). Os dois jogadores se veem só como "Jogador 1" e "Jogador 2", e há **Bloquear** e **Denunciar** (ver `SEGURANCA.md`). Não reintroduzir.
 
 ---
 
@@ -111,7 +106,7 @@ O jogo **não aceita fotos nem imagens enviadas pelos jogadores** (o recurso "Mi
 
 ### Ajudas e extras
 - **💡 Lâmpada** (10 usos) e **📍 dica de lugar** (5 usos) valem na disputa, **contados separadamente para cada um**.
-- **💬 Conversa:** retirada do jogo (desligada), também na disputa.
+- **Sem conversa** também na disputa (não existe bate-papo no jogo).
 - **Avisos na corrida:** "Fulano passou você!" / "Você passou Fulano!" e "⚠️ Fulano está quase terminando!" quando faltam 2 peças.
 - **Marcos** de 25%, 50% e 75% continuam aparecendo para você.
 - Os **sons** (contagem, "TANNN", caixa, vitória) obedecem ao botão de silêncio; com **reduzir movimento** as animações ficam estáticas (a peça já aparece na vaga).
@@ -402,8 +397,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **A pinça não amplia:** a peça precisa estar escolhida antes (um toque nela). Depois, use dois dedos ao mesmo tempo, em qualquer lugar da área de jogo.
 - **Não aparece "Instalar app" no Chrome:** abra o jogo pelo endereço `https://` do Render (não por link de WhatsApp dentro do app) e espere carregar a tela inicial. Se já estiver instalado, a opção não aparece de novo.
 - **O aplicativo (APK) mostra uma barra com o endereço no topo:** o Android não conseguiu verificar o aplicativo. Abra `SEU-LINK/diagnostico`: se `encontrado_em` disser "nenhuma", ou se o pacote ou a impressão digital forem diferentes dos do seu `signing-key-info.txt`/APK, corrija o `assetlinks.json` (ou a variável `ASSETLINKS_JSON`). Se estiver certo, abra o jogo no navegador para o servidor acordar, feche o aplicativo e abra de novo; se persistir, desinstale e instale de novo. Se você gerou um APK novo no PWABuilder, a chave mudou: atualize o `assetlinks.json` e desinstale o APK antigo antes de instalar o novo.
-- **O botão 💬 não aparece:** é o esperado: o bate-papo foi retirado do jogo e fica desligado.
-- **Mensagem recusada ("Calma!"):** é o limite de velocidade; espere um instante.
+- **Não há botão 💬 na partida:** é o esperado: o jogo não tem bate-papo.
 - **O tutorial abre toda vez:** ele só é lembrado enquanto os dados do site/aplicativo não forem apagados no celular. Toque em **Entendi** no último passo (ou **Pular**) para marcá-lo como visto.
 - **Os avisos não chegam:** confira (1) *Ajustes > 🔔* está ligado, (2) a permissão de notificações do celular/aplicativo está liberada, (3) o jogo está **fechado** (com o jogo aberto na tela, o aviso não aparece), (4) vocês estão **na mesma sala** (o aviso só vale enquanto a sala existe) e (5) `PUSH_ENABLED` não está como `false` no Render.
 - **O pedido para recomeçar não aparece para o amigo:** ele pode ter saído da sala (aí recomeça na hora) ou o pedido venceu em 30 segundos. Peça de novo.
@@ -431,7 +425,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - [ ] Testei a quantidade de peças que pretendo usar (6, 12, 20, 30 ou 48) no celular.
 - [ ] Testei arrastar, girar tocando de novo na peça escolhida (máx. 3 giros), a pinça (zoom), encaixar e a tela de vitória com os nomes.
 - [ ] Testei a lâmpada 💡: a imagem aparece atrás das peças, some sozinha depois de 4 segundos e cada jogador tem 10 usos.
-- [ ] Conferi que o botão 💬 **não** aparece na partida (o bate-papo foi retirado).
+- [ ] Conferi que **não** há botão 💬 na partida nem aviso de "nova frase" (o jogo não tem bate-papo).
 - [ ] Vi o tutorial animado na primeira partida e escolhi nome e avatar; testei o modo escuro e o texto A++ nas telas principais.
 - [ ] Testei a dica de lugar 📍, os marcos (25/50/75%), os sons e o botão de silêncio.
 - [ ] Testei recomeçar com a confirmação do amigo (aceitar, recusar e deixar vencer) e a vitória (recorde, salvar e compartilhar).
@@ -486,7 +480,7 @@ O jogo pode ter um **perfil** (criado pelo próprio jogo, sem e-mail, senha, Goo
 - Código: `public/mascot-core.js` (reações), `public/mascot-looks.js` (skins e roupas), `public/mascot.js` (desenho), `public/pet.js` e `pet.css` (janela "Meu pet").
 
 ## Segurança (resumo; detalhes e passo a passo em `SEGURANCA.md`)
-- **Frases prontas** no lugar da conversa livre (hoje **retiradas**: o bate-papo fica desligado).
+- **Sem bate-papo:** nenhuma mensagem, frase ou reação passa de um jogador para o outro.
 - **Código da sala com 6 caracteres** e **limite de tentativas** por endereço (6 erros = 15 min de bloqueio, com aumento a cada reincidência).
 - **Bloquear jogadores** (pelo menu da partida e lista de bloqueados).
 - **Perfil sem e-mail nem senha:** ID + código-chave (guardado só como hash), **código novo** a qualquer momento e **sair de todos os aparelhos**. O e-mail só é usado para avisar o responsável de cada denúncia (Brevo).

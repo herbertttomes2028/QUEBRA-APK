@@ -45,15 +45,7 @@
     ptrs: {},          // dedos/ponteiros que estão tocando na tela
     pinch: null,       // gesto de pinça em andamento
     tipShown: false,
-    chat: [],          // últimas mensagens da conversa
-    chatOn: true,
     codeLen: 6,          // tamanho do código da sala (o servidor informa)
-    phrases: [],         // catálogo de frases prontas
-    unlocked: null,      // frases liberadas (null = só as básicas)
-    chatOpen: false,
-    comm: 'closed',          // visão do bate-papo: 'closed' | 'chat' | 'phrases' (nunca duas ao mesmo tempo)
-    unread: 0,
-    popTimer: null,
     names: ['', ''],
     idx: null,
     code: null,
@@ -356,9 +348,7 @@
         state.pickPieces = state.defaultPieces;
         if (c.upload && c.upload.maxBytes) state.upload = c.upload;
         state.hints = c.hints || 10;
-        state.chatOn = c.chat !== false;
         state.codeLen = c.codeLen || 6;
-        state.phrases = Array.isArray(c.phrases) ? c.phrases : [];
         var ic = $('#input-code'); ic.maxLength = state.codeLen; ic.placeholder = 'ABCDEFGH'.slice(0, state.codeLen);
         if (Array.isArray(c.avatars) && c.avatars.length) state.avatars = c.avatars;
         state.spots = c.spots || 5;
@@ -1011,8 +1001,6 @@
       currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
       trimPreparedImages();
       applyMeta(snap);
-      setChatAvailability(snap.chatOn !== false);
-      setChatHistory(snap.chat || []);
       $('#room-code').textContent = snap.code;
       ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch'].forEach(closeModal);
       hideRematchWait();
@@ -1654,59 +1642,13 @@
   /* ---------------------------------------------------------
    * 💬 Conversa (painel que abre por cima do jogo; não ocupa espaço do tabuleiro)
    * --------------------------------------------------------- */
-  var EMOJI_ONLY = null;
-  try { EMOJI_ONLY = new RegExp('^(?:\\p{Extended_Pictographic}|\\u200d|\\ufe0f|\\s){1,8}$', 'u'); } catch (e) { /* navegador antigo: sem destaque */ }
 
-  // Solo: sem tela de código, sem amigo e sem bate-papo.
+  // Solo: sem tela de código e sem amigo. (Não existe bate-papo no jogo: foi retirado por decisão do proprietário em 16/11/2026.)
   function setSolo(on) {
     state.solo = !!on;
     $('#screen-game').classList.toggle('solo', state.solo);
     $('#screen-game').classList.remove('rotation-enabled');              // não há giro em nenhum modo: o ▲ de "lado de cima" fica sempre escondido
   }
-  function setChatAvailability(on) {
-    state.chatOn = !!on && !state.solo;
-    $('#btn-chat').hidden = !state.chatOn;
-    if (!state.chatOn) closeChat();
-  }
-
-  function chatEl(m) {
-    var li = document.createElement('li');
-    var mine = m.idx === state.idx;
-    li.className = 'chat-msg ' + (mine ? 'me' : 'friend');
-    li.style.setProperty('--c', PLAYER_COLORS[m.idx] || '#1b2559');
-    if (EMOJI_ONLY && EMOJI_ONLY.test(m.text)) li.classList.add('big');
-    if (!mine) {
-      var who = document.createElement('span');
-      who.className = 'who';
-      nameLv(who, m.name || 'Amigo', lvOfIdx(m.idx), state.players && state.players[m.idx] && state.players[m.idx].avatar ? state.players[m.idx].avatar + ' ' : '');
-      li.appendChild(who);
-    }
-    var tx = document.createElement('span');
-    tx.className = 'txt';
-    tx.textContent = m.text;                 // sempre como texto: nada vira HTML nem link
-    li.appendChild(tx);
-    return li;
-  }
-
-  function scrollChat() {
-    var l = $('#chat-list');
-    l.scrollTop = l.scrollHeight;
-  }
-
-  function setChatHistory(arr) {
-    state.chat = (arr || []).slice(-50);
-    var l = $('#chat-list');
-    l.textContent = '';
-    state.chat.forEach(function (m) { l.appendChild(chatEl(m)); });
-    scrollChat();
-  }
-
-  function updateChatBadge() {
-    var b = $('#chat-badge');
-    b.hidden = state.unread <= 0;
-    b.textContent = state.unread > 9 ? '9+' : String(state.unread);
-  }
-
   /* ---------- XP: o que foi ganho na partida e a animação de subir de nível ---------- */
   var XP_LABEL = { completion: 'Conclusão', friend: 'Amigo', win: 'Vitória', participation: 'Participação' };
   function xpBox(box, ev) {
@@ -1953,97 +1895,13 @@
   }
   function lvOfIdx(i) { var p = state.players && state.players[i]; return p && p.level ? p.level : 0; }
 
-  function showChatPop(m) {
-    var p = $('#chat-pop');
-    p.textContent = '';
-    var n = document.createElement('b');
-    nameLv(n, m.name || 'Amigo', lvOfIdx(m.idx)); n.appendChild(document.createTextNode(':'));
-    p.appendChild(n);
-    p.appendChild(document.createTextNode(m.text));
-    p.hidden = false;
-    clearTimeout(state.popTimer);
-    state.popTimer = setTimeout(function () { p.hidden = true; }, 4000);
-  }
-
-  function onChatMessage(m) {
-    if (!m || typeof m.text !== 'string') return;
-    var last = state.chat.length ? state.chat[state.chat.length - 1].id : 0;
-    if (m.id <= last) return;                // já mostrada (ex.: histórico recebido ao reconectar)
-    state.chat.push(m);
-    if (state.chat.length > 50) { state.chat.shift(); if ($('#chat-list').firstChild) $('#chat-list').removeChild($('#chat-list').firstChild); }
-    $('#chat-list').appendChild(chatEl(m));
-    if (m.idx !== state.idx) { playSound('msg'); announce((m.name || 'Amigo') + ' escreveu: ' + m.text); }
-    if (state.comm === 'chat') { scrollChat(); return; }
-    if (m.idx !== state.idx) {               // chegou do amigo com a conversa fechada (ou na tela de frases)
-      state.unread++;
-      updateChatBadge();
-      showChatPop(m);
-      vibrate(15);
-    }
-  }
-
-  // O painel mostra UMA visão por vez: 'chat' (histórico + reações) OU 'phrases' (frases prontas). O histórico fica guardado
-  // no mesmo elemento (não é recriado), então trocar de visão não perde nada nem duplica mensagens.
-  function setComm(v) {
-    state.comm = v;
-    var open = v !== 'closed';
-    state.chatOpen = open;
-    $('#chat-panel').hidden = !open;
-    $('#chat-view-chat').hidden = v !== 'chat';
-    $('#chat-view-phrases').hidden = v !== 'phrases';
-    $('#chat-back').hidden = v !== 'phrases';
-    $('#chat-title').textContent = v === 'phrases' ? 'Frases prontas' : 'Conversa';
-    if (v !== 'closed') $('#chat-pop').hidden = true;
-    if (open) renderPhrases();                // as frases ficam prontas (e com o estado de liberação em dia) sempre que o painel abre
-    if (v === 'chat') { state.unread = 0; updateChatBadge(); updateKeyboardOffset(); scrollChat(); }
-    if (v === 'phrases') { updateKeyboardOffset(); $('#chat-phrases').scrollTop = 0; }
-  }
-  function openChat() {
-    if (!state.chatOn) return;
-    setComm('chat');
-  }
-  function closeChat() {
-    setComm('closed');
-  }
-
-  // manda uma FRASE PRONTA (só o código dela; o servidor confere se está liberada e escreve o texto)
-  function sendChat(id) {
-    if (!id || !state.chatOn) return;
-    gameEmit('chat', { p: id }, function (res) {
-      if (res && res.ok) return;
-      if (res && res.error === 'rate') toast('Calma! Espere um instante para enviar de novo.');
-      else if (res && res.error === 'locked') toast('Essa frase ainda está bloqueada. Jogue mais para liberar!');
-      else if (res && res.error === 'off') toast('A conversa está desligada neste jogo.');
-      else toast('Não foi possível enviar. Tente de novo.');
-    });
-  }
-  function phraseOpen(p) {
-    if (p.group !== 'liberar') return true;
-    return !!(state.unlocked && state.unlocked[p.id]);
-  }
-  function renderPhrases() {
-    var box = $('#chat-phrases');
-    if (!box) return;
-    box.textContent = '';
-    var list = state.phrases.filter(function (p) { return p.group !== 'reacao'; });
-    list.sort(function (a, b) { return (phraseOpen(b) ? 1 : 0) - (phraseOpen(a) ? 1 : 0); });
-    list.forEach(function (p) {
-      var open = phraseOpen(p), b = document.createElement('button');
-      b.type = 'button'; b.className = 'ph' + (open ? '' : ' lock'); b.dataset.p = p.id;
-      b.textContent = open ? p.text : '🔒 ' + p.need;
-      if (!open) b.setAttribute('aria-label', 'Frase bloqueada. Para liberar: ' + p.need);
-      box.appendChild(b);
-    });
-  }
-
-  // o teclado do celular cobre a parte de baixo da tela: o painel sobe junto com ele
+  // o teclado do celular cobre a parte de baixo da tela: o conteúdo sobe junto com ele
   function updateKeyboardOffset() {
     var vv = window.visualViewport;
     var kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
     document.documentElement.style.setProperty('--kb', kb + 'px');
   }
 
-  socket.on('chat', onChatMessage);
 
   /* ---------------------------------------------------------
    * Interface: HUD e dicas
@@ -2294,12 +2152,26 @@
     lastBtn = b;
     if (!b.disabled && b.getAttribute('aria-disabled') !== 'true') playSound('snap');       // "dois tons" em todos os botões
   }, true);
+  // A janela que ABRE fica sempre POR CIMA das que já estão abertas (ex.: "Ver dicas" e "Privacidade e exclusão de conta" de dentro
+  // dos Ajustes). Antes, as janelas tinham a mesma camada e ganhava a que vem depois no HTML: as dicas e a privacidade abriam ATRÁS
+  // dos Ajustes e só apareciam ao fechá-los (relato do proprietário, 16/11/2026). Ao fechar, a janela volta à camada normal.
+  function raiseModal(m) {
+    m.style.zIndex = '';
+    var own = parseInt(getComputedStyle(m).zIndex, 10) || 0, top = 0;
+    Array.prototype.forEach.call(document.querySelectorAll('.modal:not([hidden])'), function (o) {
+      if (o === m) return;
+      var z = parseInt(getComputedStyle(o).zIndex, 10) || 0;
+      if (z > top) top = z;
+    });
+    if (top >= own) m.style.zIndex = String(top + 1);
+  }
   function openModal(sel, focusSel) {
     var m = $(sel);
     if (!m) return;
     if (m.hidden) {
       var usable = lastBtn && document.contains(lastBtn) && !(lastBtn.closest && lastBtn.closest('[hidden]'));
       m._ret = usable ? lastBtn : document.activeElement;
+      raiseModal(m);
     }
     m.hidden = false;
     var f = focusSel ? m.querySelector(focusSel) : m.querySelector('button');
@@ -2310,6 +2182,7 @@
     var m = $(sel);
     if (!m || m.hidden) return;
     m.hidden = true;
+    m.style.zIndex = '';
     var r = m._ret;
     m._ret = null;
     try { if (r && r.focus && document.contains(r)) r.focus({ preventScroll: true }); } catch (e) { /* ignora */ }
@@ -2436,7 +2309,6 @@
     tick2: function (c) { tone(c, 760, 0, .18, 'sine', .17); },
     snap: function (c) { tone(c, 523, 0, .09, 'triangle', .13); tone(c, 784, .07, .15, 'triangle', .13); },
     win: function (c) { [523, 659, 784, 1047].forEach(function (f, i) { tone(c, f, i * .13, .28, 'triangle', .15); }); tone(c, 1319, .55, .5, 'sine', .12); },
-    msg: function (c) { tone(c, 880, 0, .1, 'sine', .09); tone(c, 1175, .09, .16, 'sine', .09); },
     chime: function (c) { tone(c, 659, 0, .12, 'triangle', .11); tone(c, 988, .1, .22, 'triangle', .11); },
     ping: function (c) { tone(c, 740, 0, .1, 'sine', .1); tone(c, 740, .2, .1, 'sine', .1); },
     blip: function (c) { tone(c, 1046, 0, .08, 'sine', .07); }
@@ -2959,16 +2831,12 @@
     });
     applyMeta(snap);
     markMilestones();
-    setChatHistory(snap.chat || []);
     updateUi();
     ensurePush();
   }
 
   function goHome() {
     clearCoopLocal();
-    closeChat();
-    state.chat = [];
-    state.unread = 0;
     state.inGame = false;
     setSolo(false);
     state.code = null;
@@ -3065,8 +2933,6 @@
     state.code = l.code;
     state.imageId = l.imageId;
     setSolo(false);
-    setChatAvailability(res.chatOn !== false);
-    setChatHistory(res.chat || []);
     saveDuelLocal();
     try { urlSet('?sala=' + l.code); } catch (e) { /* ignora */ }
     setLoading(false);
@@ -3192,7 +3058,6 @@
     d.phase = 'countdown';
     closeModal('#modal-duel');
     closeModal('#modal-menu');
-    closeChat();
     $('#cd-img').style.backgroundImage = 'url("' + imageItem(d.imageId).url + '")';
     $('#cd-vs').textContent = (state.names[state.idx] || 'Você') + '  ×  ' + friendName();
     $('#countdown').style.pointerEvents = '';
@@ -3253,8 +3118,6 @@
       currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
       trimPreparedImages();
       setSolo(false);
-      setChatAvailability(snap.chatOn !== false);
-      setChatHistory(snap.chat || []);
       ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
       hideRematchWait();
       $('#field').classList.remove('won');
@@ -3708,22 +3571,6 @@
   $('#btn-hint').addEventListener('click', useHint);
   $('#btn-spot').addEventListener('click', useSpot);
 
-  $('#btn-chat').addEventListener('click', function () { if (state.chatOpen) closeChat(); else openChat(); });
-  $('#chat-close').addEventListener('click', closeChat);
-  $('#chat-open-phrases').addEventListener('click', function () { setComm('phrases'); });
-  $('#chat-back').addEventListener('click', function () { setComm('chat'); });
-  $('#chat-pop').addEventListener('click', openChat);
-  $('#chat-quick').addEventListener('click', function (e) {
-    var b = e.target.closest ? e.target.closest('button') : null;
-    if (b && b.dataset.p) sendChat(b.dataset.p);
-  });
-  $('#chat-phrases').addEventListener('click', function (e) {
-    var b = e.target.closest ? e.target.closest('button') : null;
-    if (!b) return;
-    if (b.classList.contains('lock')) { toast(window.QC && window.QC.canBlock ? 'Para liberar: ' + (b.textContent.replace('🔒 ', '')) + '.' : 'Entre na sua conta e jogue para liberar mais frases!', 3200); return; }
-    sendChat(b.dataset.p);
-    setComm('chat');                        // depois de mandar a frase, volta para a conversa (as frases saem da tela)
-  });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', updateKeyboardOffset);
     window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
@@ -4058,8 +3905,6 @@
     if (!$('#loading').hidden) return true;
     if (!$('#go-splash').hidden) { var gc = $('#go-cancel'); if (!gc.hidden) gc.click(); return true; }
     if (!$('#countdown').hidden) return true;
-    if (state.comm === 'phrases') { setComm('chat'); return true; }
-    if (state.comm === 'chat') { closeChat(); return true; }
     var scr = currentScreen();
     if (scr === 'pick') { if (!$('#pick-sheet').hidden) $('#ps-close').click(); else $('#btn-pick-back').click(); return true; }
     if (scr === 'me') { $('#me-back').click(); return true; }
@@ -4128,8 +3973,7 @@
       state.avatar = avatar || '';
       store.set('avatar', state.avatar);
     },
-    afterEnter: null, onScreen: null, canBlock: false,
-    setUnlocked: function (ids) { state.unlocked = null; if (ids) { state.unlocked = {}; ids.forEach(function (id) { state.unlocked[id] = true; }); } if (state.chatOpen) renderPhrases(); }
+    afterEnter: null, onScreen: null, canBlock: false
   };
 
   wakeFrame();

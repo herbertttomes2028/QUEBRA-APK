@@ -89,7 +89,7 @@
     QC.setLevelAccount(null, 0);
     acc.mode = 'up';                                        // depois de sair, a tela volta para "Criar perfil"
     $('#auth-id').value = ''; $('#auth-secret').value = ''; $('#auth-consent').checked = false; $('#auth-age').checked = false; say('#auth-error', '');
-    QC.canBlock = false; QC.setUnlocked(null);
+    QC.canBlock = false;
     if (QC.onAccount) QC.onAccount(null);                   // a loja volta ao modo visitante
     try { socket.emit('acc:logout'); } catch (e) { /* ignora */ }
     paintChip(); paintContinue();
@@ -101,18 +101,8 @@
     QC.setLevelAccount(me.code, me.xp && me.xp.level);
     QC.canBlock = true;
     if (QC.onAccount) QC.onAccount(me);                     // a loja carrega as bandejas e o saldo desta conta
-    QC.setUnlocked(me.phrases);
-    var key = 'seen.' + me.code, seen = store.get(key, null);        // frases que a pessoa já conhece: avisa quando liberar uma nova
-    if (!seen) store.set(key, me.phrases);
-    else {
-      var fresh = me.phrases.filter(function (id) { return seen.indexOf(id) < 0; });
-      if (fresh.length) {
-        store.set(key, me.phrases);
-        var ph = state.phrases.filter(function (x) { return x.id === fresh[0]; })[0];
-        QC.toast('💬 Nova frase liberada: ' + (ph ? ph.text : '') + (fresh.length > 1 ? ' (+' + (fresh.length - 1) + ')' : ''), 4600);
-        QC.playSound('chime');
-      }
-    }
+    // (16/11/2026) o aviso de frase nova saiu junto com o bate-papo: o jogo não tem conversa nem frases entre jogadores
+    try { if (me.code) localStorage.removeItem('qc.seen.' + me.code); } catch (e) { /* ignora */ }    // limpa a lista antiga de frases vistas
     QC.applyProfile(me.name, me.avatar);
     paintChip(); paintContinue();
   }

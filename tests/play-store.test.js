@@ -56,7 +56,7 @@ test('16+: nada do app, da loja ou dos documentos o apresenta como jogo infantil
 /* ---------------- política de privacidade e exclusão (conferidas contra o app) ---------------- */
 test('privacidade: diz para quem é o jogo, o que guarda, com quem passa, por quanto tempo, os direitos e como excluir', () => {
   const t = text(priv);
-  for (const trecho of ['não é indicado para menores de 16 anos', 'Não coletamos dados de menores de 16 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Apagar meus dados…', 'código-chave', 'Jogador 1', 'excluir-conta.html', 'frases prontas', 'não aceita fotos'])
+  for (const trecho of ['não é indicado para menores de 16 anos', 'Não coletamos dados de menores de 16 anos', 'visitante', 'Render', 'Neon', 'Brevo', 'fora do Brasil', '60 dias', 'LGPD', 'ANPD', 'em até 15 dias', 'bloquear', 'denunciar', 'não fica sabendo', 'Meu espaço', 'Apagar meus dados…', 'código-chave', 'Jogador 1', 'excluir-conta.html', 'Não há bate-papo', 'não aceita fotos'])
     assert.ok(t.includes(trecho), 'a política precisa dizer: ' + trecho);
   assert.match(priv, /<b id="contato">[^<@]+@[^<]+<\/b>/, 'e-mail de contato preenchido'); assert.doesNotMatch(priv, /PREENCHER/); assert.match(priv, /<html lang="pt-BR">/);
   assert.match(priv, /atualizada em \d{1,2} de [a-zç]+ de 20\d\d/, 'tem data');

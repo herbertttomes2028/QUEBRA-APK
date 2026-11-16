@@ -20,7 +20,7 @@ const alvo = (cfg, p) => ({ x: cfg.BOARD_X + p.col * cfg.TILE + cfg.TILE / 2, y:
 const fecha = (...s) => s.forEach((x) => x.close());
 
 test('/api/config traz os campos que o cliente lê', () => {
-  for (const k of ['images', 'presets', 'defaultPieces', 'hints', 'spots', 'maxName', 'chat', 'codeLen', 'phrases', 'avatars', 'push', 'accounts']) assert.ok(k in cfgJson, 'faltou ' + k);
+  for (const k of ['images', 'presets', 'defaultPieces', 'hints', 'spots', 'maxName', 'codeLen', 'avatars', 'push', 'accounts']) assert.ok(k in cfgJson, 'faltou ' + k);
   assert.equal(cfgJson.accounts.enabled, false, 'sem DATABASE_URL as contas ficam desligadas');
   assert.deepEqual(cfgJson.presets.map((p) => p.pieces), [6, 12, 20, 30, 48]);
   assert.equal(cfgJson.codeLen, 6);
@@ -130,17 +130,11 @@ test('vitória: encaixar todas as peças dispara "won" nos dois e o jogo trava',
   fecha(a, b);
 });
 
-test('bate-papo: só frases prontas; texto livre é recusado', async () => {
+test('bate-papo não existe: nada do que um celular manda como mensagem chega ao outro (nem com CHAT_ENABLED=true no ambiente dos testes)', async () => {
   const { a, b } = await novaSala(6);
-  const recebe = b.once_('chat', null, 3000);
-  a.emit('chat', { p: 'oi' });
-  const m = await recebe;
-  assert.equal(m.p, 'oi');
-  let livre = false; b.on('chat', (d) => { if (JSON.stringify(d).includes('ATAQUE-LIVRE')) livre = true; });
-  const r1 = await a.emitAck('chat', { text: 'ATAQUE-LIVRE' });
-  const r2 = await a.emitAck('chat', { p: 'ATAQUE-LIVRE' });
-  assert.deepEqual([r1.ok, r2.ok], [false, false]);
-  await new Promise((r) => setTimeout(r, 300));
-  assert.equal(livre, false, 'texto livre chegou ao outro jogador');
+  let chegou = false; b.on('chat', () => { chegou = true; });
+  a.emit('chat', { p: 'oi' }); a.emit('chat', { text: 'ATAQUE-LIVRE' }); a.emit('chat', { p: 'r_like' });
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(chegou, false, 'mensagem chegou ao outro jogador');
   fecha(a, b);
 });

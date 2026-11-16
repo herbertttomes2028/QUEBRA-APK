@@ -37,13 +37,12 @@ test('o convite (?sala=) e o resto do app não dependem mais do botão "Com um a
   assert.ok(!/modal-play|btn-solo|btn-create/.test(read('public/style.css') + read('public/mascot.js')));
 });
 
-test('bate-papo retirado: o tutorial não fala de conversa e a documentação diz para não ligar', () => {
+test('bate-papo apagado (16/11/2026): o tutorial não fala de conversa e a documentação diz que não existe', () => {
   assert.ok(!/💬 abre a conversa/.test(game), 'tutorial sem a conversa');
   const readme = read('README.md');
-  assert.match(readme, /## Conversa \(frases prontas\): RETIRADA/);
-  assert.match(readme, /\*\*retirado do jogo\*\* \(decisão do proprietário\)/);
+  assert.match(readme, /## Conversa entre jogadores: NÃO EXISTE/);
   assert.ok(!/A conversa só funciona com a variável `CHAT_ENABLED` = `true`/.test(readme), 'nada de instrução para ligar');
   assert.ok(!/CHAT_ENABLED/.test(read('render.yaml')), 'o render.yaml não oferece a variável');
-  assert.match(read('server.js'), /RETIRADA DO JOGO por decisão do proprietário: fica desligada/);
-  assert.match(read('server.js'), /const CHAT_ENABLED = envOn\(process\.env\.CHAT_ENABLED\);/, 'continua desligado sem a variável');
+  assert.match(read('server.js'), /NÃO EXISTE conversa entre jogadores/);
+  assert.ok(!/CHAT_ENABLED = /.test(read('server.js')), 'nenhuma chave liga o bate-papo');
 });
