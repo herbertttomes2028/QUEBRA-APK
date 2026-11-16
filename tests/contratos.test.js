@@ -161,11 +161,13 @@ test('o detector de chaves duplicadas funciona (pega o defeito antigo do render.
   assert.deepEqual(chavesDuplicadas(bom), []);
 });
 
-test('render.yaml: sem chaves duplicadas e com as 5 variáveis de ambiente, todas só no painel (sync: false)', () => {
+test('render.yaml: sem chaves duplicadas, npm ci e as variáveis atuais, todas só no painel (sync: false)', () => {
   const yml = read('render.yaml');
   assert.deepEqual(chavesDuplicadas(yml), [], 'render.yaml tem chave repetida: o YAML é inválido ou perde variáveis');
   assert.equal((yml.match(/^\s+envVars:/gm) || []).length, 1, 'deve haver um único bloco envVars');
-  for (const k of ['DATABASE_URL', 'GOOGLE_CLIENT_ID', 'BREVO_API_KEY', 'BREVO_SENDER_EMAIL', 'BREVO_SENDER_NAME']) {
+  assert.match(yml, /^\s+buildCommand: npm ci\b/m, 'instala exatamente o package-lock.json');
+  assert.ok(!/GOOGLE_CLIENT_ID/.test(yml), 'o login com Google não existe mais (perfil gerado)');
+  for (const k of ['DATABASE_URL', 'BREVO_API_KEY', 'BREVO_SENDER_EMAIL', 'BREVO_SENDER_NAME', 'CHAT_ENABLED', 'PUSH_ENABLED', 'CSP_MODE', 'DIAG_TOKEN']) {
     assert.equal((yml.match(new RegExp('- key: ' + k + '\\b', 'g')) || []).length, 1, k + ' deve aparecer uma vez');
     assert.ok(new RegExp('- key: ' + k + '\\s*\\n\\s+sync: false').test(yml), k + ' precisa de sync: false (segredo só no painel do Render)');
   }

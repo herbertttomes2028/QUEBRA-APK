@@ -1,14 +1,17 @@
 'use strict';
 /*
- * CONTAS DO QUEBRA-CABEÇA A DOIS
- * Login (e-mail+senha e Google), perfil, estatísticas, amigos, convites, "Continuar jogando" e histórico.
+ * PERFIS DO QUEBRA-CABEÇA A DOIS (perfil gerado, desde a rodada "perfil-gerado")
+ * Perfil com ID público (8 símbolos) + código-chave secreto (20 símbolos), apelido sorteado, avatar, estatísticas, XP e gemas
+ * (só pelo servidor: payMatch), loja, conquistas, "Continuar jogando", histórico, bloqueios e denúncias.
+ * NÃO existem: e-mail, senha, Google, amigos, convites, busca de jogadores nem chat livre (não reintroduzir).
  *
  * Regras de segurança e privacidade:
- *  - O navegador NUNCA fala com o banco: tudo passa por aqui, e cada rota só mexe nos dados de quem está logado.
- *  - Senha: guardada com scrypt (sal aleatório). Sessão: token aleatório; no banco fica só o hash dele.
- *  - Busca de amigos: só pelo código exato. Nenhuma resposta traz e-mail; amigos veem só nome, avatar e se estão online.
- *  - Limites de tentativas (login, cadastro, buscas, pedidos de amizade, convites) para barrar abuso.
- *  - Coletamos o mínimo: e-mail (só para entrar), nome e avatar de jogo, partidas e estatísticas. Sem chat público.
+ *  - O navegador NUNCA fala com o banco: tudo passa por aqui, e cada rota só mexe nos dados de quem está logado (req.user.id).
+ *  - Código-chave: mostrado uma vez; no banco só o hash scrypt (sal aleatório). Sessão: token aleatório; no banco só o hash dele;
+ *    no máximo 5 aparelhos por perfil (MAX_SESSIONS) e sessões vencidas apagadas a cada hora.
+ *  - Na sala, a outra pessoa vê só "Jogador 1/2": nenhuma resposta ou evento traz ID, apelido ou nível de outro jogador
+ *    (a lista de bloqueados também não). Denúncia e bloqueio não revelam se um ID existe (a denúncia não; ver /blocks).
+ *  - Limites de tentativas por grupo (makeLimiter): login, criação, código novo, apagar, denúncias, compras.
  */
 const crypto = require('crypto');
 const phrases = require('./phrases');
@@ -21,6 +24,7 @@ const { reportEmail, reportTarget, FRIEND_CODE_RE } = require('./mailer');
 const names = require('./names');
 
 const SESSION_MS = 60 * 24 * 3600 * 1000;       // login vale 60 dias
+const MAX_SESSIONS = 5;                          // aparelhos conectados ao MESMO perfil ao mesmo tempo (decisão do proprietário, 15/11/2026)
 const RATE_MULT = Number(process.env.ACC_RATE_MULT) || 1;     // só para testes: afrouxa os limites por endereço (IP)
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';   // sem 0/O/1/I/L, que se confundem
 const SAVE_DEBOUNCE_MS = Number(process.env.SAVE_DEBOUNCE_MS) || 2000;
@@ -147,10 +151,38 @@ function createAccounts(d) {
     throw new Error('não consegui gerar o ID do perfil');
   }
 
+  // Cada entrada cria uma sessão. Antes não havia teto nem limpeza (auditoria SEC-09): agora o perfil fica conectado em no máximo
+  // MAX_SESSIONS aparelhos; ao entrar no seguinte, sai o que entrou há MAIS tempo (a sessão é apagada e o socket dele perde o acesso).
   async function newSession(uid) {
-    const token = crypto.randomBytes(32).toString('base64url');
-    await db.q('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [sha256(token), uid, new Date(Date.now() + SESSION_MS)]);
+    const token = crypto.randomBytes(32).toString('base64url'), hash = sha256(token);
+    await db.q('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES ($1,$2,$3)', [hash, uid, new Date(Date.now() + SESSION_MS)]);
+    const old = (await db.q(
+      `DELETE FROM sessions WHERE user_id = $1 AND token_hash IN (
+         SELECT token_hash FROM sessions WHERE user_id = $1 AND token_hash <> $2
+          ORDER BY (expires_at > now()) DESC, created_at DESC, token_hash DESC OFFSET $3)
+       RETURNING token_hash`, [uid, hash, MAX_SESSIONS - 1])).rows;
+    if (old.length) revokeSocketHashes(uid, new Set(old.map((r) => r.token_hash)));
     return token;
+  }
+  // Sessões vencidas eram guardadas para sempre: limpeza a cada hora (e uma vez logo depois de ligar).
+  async function purgeExpiredSessions() {
+    try { await db.q('DELETE FROM sessions WHERE expires_at <= now()'); } catch (e) { console.error('[contas] limpeza de sessões vencidas falhou:', e.message); }
+  }
+  setTimeout(purgeExpiredSessions, 30 * 1000).unref();
+  setInterval(purgeExpiredSessions, 3600 * 1000).unref();
+  // tira o acesso dos sockets ligados a ESTAS sessões (as outras continuam)
+  function revokeSocketHashes(uid, hashes) {
+    const ids = online.get(uid);
+    if (!ids) return;
+    for (const sid of [...ids]) {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock && hashes.has(sock.data.sessionHash)) {
+        sock.data.uid = null; sock.data.sessionHash = null; sock.leave('u:' + uid);
+        ids.delete(sid);
+        if (onAuth) onAuth(sock, null);
+      }
+    }
+    if (!ids.size) online.delete(uid);
   }
   // Invalidated HTTP sessions cannot keep accessing privileged socket events.
   function revokeSocketSessions(uid, keepHash = null) {
@@ -451,6 +483,9 @@ function createAccounts(d) {
   r.post('/reports', needUser, guard(async (req, res) => {         // denunciar pelo ID do perfil (a denúncia DENTRO da sala é por socket: acc:reportPeer)
     if (!allow('report:' + req.user.id, 15, 3600 * 1000)) return bad(res, 429, 'rate');
     const b = req.body || {};
+    // o motivo é conferido ANTES de procurar o ID: antes, motivo inválido respondia "reason" para ID real e "ok" para ID inexistente,
+    // o que servia para confirmar se um ID existe (auditoria SEC-06)
+    if (typeof b.reason !== 'string' || !REPORT_REASONS.has(b.reason)) return bad(res, 400, 'reason');
     const t = await userByCode(normCode(b.code));
     if (!t) return res.json({ ok: true, blocked: false });          // mesma resposta de sempre: a denúncia não revela quais IDs existem
     if (t.id === req.user.id) return bad(res, 400, 'self');

@@ -18,7 +18,7 @@ function freePort() {
 const DIAG_TOKEN = 'token-de-teste-do-diagnostico-0123456789';       // os servidores de teste liberam o /diagnostico completo com este token
 async function startServer(extraEnv) {
   const port = await freePort();
-  const env = Object.assign({}, process.env, { PORT: String(port), PUSH_ENABLED: 'false', CH_COUNTDOWN_MS: '300', DIAG_TOKEN: DIAG_TOKEN }, extraEnv || {});
+  const env = Object.assign({}, process.env, { PORT: String(port), PUSH_ENABLED: 'false', CHAT_ENABLED: 'true', CH_COUNTDOWN_MS: '300', DIAG_TOKEN: DIAG_TOKEN }, extraEnv || {});
   delete env.DATABASE_URL;
   const child = spawn(process.execPath, ['server.js'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';

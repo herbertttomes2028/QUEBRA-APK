@@ -135,6 +135,30 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       assert.equal((await http(S1, 'POST', '/profile/nickname', { token: 'qualquer-coisa' })).status, 401);
     });
 
+    /* ============ 3b) no máximo 5 aparelhos por perfil (auditoria SEC-09; decisão do proprietário, 15/11/2026) ============ */
+    await t.test('3b) entrar no 6º aparelho desconecta o que entrou há mais tempo (sessão e socket); os outros 5 continuam; vencidas são apagadas', async () => {
+      const a = await novo();                                                                    // aparelho 1 (criou o perfil)
+      const s1 = await abre(S1); assert.equal((await s1.emitAck('acc:auth', { token: a.token })).ok, true);
+      const toks = [a.token];
+      for (let i = 2; i <= 5; i++) { await wait(15); toks.push((await http(S1, 'POST', '/profile/login', { body: { id: a.id, secret: a.secret } })).body.token); }
+      const conta = async () => (await dbq('SELECT count(*)::int AS n FROM sessions WHERE user_id = $1', [a.uid])).rows[0].n;
+      assert.equal(await conta(), 5);
+      for (const t of toks) assert.equal((await http(S1, 'GET', '/me?lite=1', { token: t })).status, 200, 'com 5 aparelhos todos continuam');
+      await wait(15);
+      const sexto = (await http(S1, 'POST', '/profile/login', { body: { id: a.id, secret: a.secret } })).body.token;
+      assert.equal(await conta(), 5, 'nunca passa de 5');
+      assert.equal((await http(S1, 'GET', '/me?lite=1', { token: toks[0] })).status, 401, 'o aparelho que entrou há mais tempo saiu');
+      assert.equal((await s1.emitAck('acc:reportPeer', { reason: 'outro' })).error, 'auth', 'e o socket dele perdeu a conta');
+      for (const t of [...toks.slice(1), sexto]) assert.equal((await http(S1, 'GET', '/me?lite=1', { token: t })).status, 200, 'os outros 5 continuam');
+      // uma sessão vencida não ocupa lugar: entrar de novo apaga a vencida antes das válidas
+      await dbq("UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE token_hash = $1", [crypto.createHash('sha256').update(toks[1]).digest('hex')]);
+      await wait(15);
+      const setimo = (await http(S1, 'POST', '/profile/login', { body: { id: a.id, secret: a.secret } })).body.token;
+      assert.equal(await conta(), 5);
+      for (const t of [...toks.slice(2), sexto, setimo]) assert.equal((await http(S1, 'GET', '/me?lite=1', { token: t })).status, 200, 'saiu a vencida, não uma válida');
+      s1.close();
+    });
+
     /* ============ 4) toda rota privada exige sessão ============ */
     await t.test('4) rotas privadas: sem token, com token falso ou malformado → sempre 401 (nunca 200 nem 500)', async () => {
       const rotas = [['GET', '/me'], ['GET', '/achievements'], ['GET', '/matches'], ['GET', '/library'], ['GET', '/shop'], ['GET', '/save'], ['GET', '/blocks'],
@@ -168,6 +192,19 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       assert.deepEqual([del.status, del.body.error], [401, 'bad_login'], 'apagar com o token de A exige o código de A (o de B não serve)');
       assert.equal((await dbq('SELECT count(*)::int AS n FROM users WHERE id IN ($1,$2)', [A.uid, B.uid])).rows[0].n, 2, 'ninguém foi apagado');
       const bl = await http(S1, 'POST', '/blocks/remove', { token: A.token, body: { code: B.raw } }); assert.ok([200, 404].includes(bl.status));
+      // B tem dados DE VERDADE (partida e partida salva com marcas únicas): sem isso, um filtro de dono apagado passaria despercebido
+      // (auditoria de 14/11/2026: tirar o WHERE user_id de /matches não reprovava este grupo)
+      const marca = 'MARCA-B-' + crypto.randomBytes(4).toString('hex');
+      await dbq("INSERT INTO matches (user_id, mode, image_label, pieces, result, completed, opponent) VALUES ($1, 'coop', $2, 12, 'done', true, $2)", [B.uid, marca]);
+      await dbq("INSERT INTO saves (user_id, image_id, image_label, pieces, partner_name) VALUES ($1, 'x.jpg', $2, 12, $2) ON CONFLICT (user_id) DO UPDATE SET image_label = $2, partner_name = $2", [B.uid, marca]);
+      const mb = await http(S1, 'GET', '/matches', { token: B.token }); assert.ok(JSON.stringify(mb.body).includes(marca), 'controle: B vê a própria partida');
+      const sb = await http(S1, 'GET', '/save', { token: B.token }); assert.ok(JSON.stringify(sb.body).includes(marca), 'controle: B vê a própria partida salva');
+      for (const r of ['/matches', '/save', '/library', '/shop', '/achievements', '/blocks', '/me']) {
+        const x = await http(S1, 'GET', r + '?uid=' + B.uid + '&user=' + B.raw, { token: A.token });
+        assert.ok(!JSON.stringify(x.body).includes(marca), r + ': A não vê a partida nem a partida salva de B');
+      }
+      await http(S1, 'POST', '/save/discard', { token: A.token, body: forjado });
+      assert.equal((await dbq('SELECT count(*)::int AS n FROM saves WHERE user_id = $1', [B.uid])).rows[0].n, 1, 'descartar com o token de A não apaga a partida salva de B');
       for (const r of ['/matches', '/save', '/library', '/shop', '/achievements', '/blocks']) {
         const x = await http(S1, 'GET', r + '?uid=' + B.uid + '&user=' + B.raw, { token: A.token }); assert.equal(x.status, 200, r);
         assert.ok(!JSON.stringify(x.body).includes(B.raw) && !JSON.stringify(x.body).includes(B.id), r + ' não vaza o ID de B');
@@ -175,6 +212,11 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       const rep = await http(S1, 'POST', '/reports', { token: A.token, body: { code: B.raw, reason: 'apelido' } });
       const rep2 = await http(S1, 'POST', '/reports', { token: A.token, body: { code: randId(), reason: 'apelido' } });
       assert.deepEqual(rep.body, rep2.body, 'denunciar um ID que existe e um que não existe: mesma resposta (não revela IDs)');
+      // motivo inválido também não pode diferenciar (antes: 400 "reason" para ID real e 200 "ok" para inexistente; auditoria SEC-06)
+      const ri = await http(S1, 'POST', '/reports', { token: A.token, body: { code: B.raw, reason: 'x' } });
+      const ri2 = await http(S1, 'POST', '/reports', { token: A.token, body: { code: randId(), reason: 'x' } });
+      assert.deepEqual([ri.status, ri.body], [ri2.status, ri2.body], 'motivo inválido: mesma resposta para ID real e inexistente');
+      assert.deepEqual([ri.status, ri.body.error], [400, 'reason']);
     });
 
     /* ============ 6) adulteração de gemas e XP ============ */

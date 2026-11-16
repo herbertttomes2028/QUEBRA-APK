@@ -1,22 +1,29 @@
 # Opcional: permite criar o serviço no Render com "New + > Blueprint".
-# Se preferir o caminho manual (descrito no README), ignore este arquivo.
+# Se preferir o caminho manual (descrito no README), ignore este arquivo. Mudar este arquivo NÃO altera um serviço que já existe
+# e foi criado pelo caminho manual: as variáveis continuam sendo as do painel do Render.
 services:
   - type: web
     name: quebra-cabeca-a-dois
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci          # instala exatamente o que está no package-lock.json (igual aos testes do GitHub Actions)
     startCommand: npm start
     healthCheckPath: /health
     envVars:
-      # Contas, amigos e progresso salvo (veja CONTAS.md). Sem DATABASE_URL o jogo funciona como visitante.
+      # Nenhum valor fica aqui: todos são preenchidos só no painel do Render (sync: false), nunca no GitHub.
       - key: DATABASE_URL
-        sync: false          # você cola o endereço do banco no painel do Render (nunca no GitHub)
-      - key: GOOGLE_CLIENT_ID
-        sync: false          # opcional: ativa o botão "Continuar com o Google"
+        sync: false          # endereço do banco (Neon). Sem ele o jogo funciona só como visitante
       - key: BREVO_API_KEY
-        sync: false          # chave da API do Brevo (envio do código por e-mail). Só no painel do Render, nunca no GitHub
+        sync: false          # chave da API do Brevo: só para o aviso de denúncia ao responsável (ninguém joga com e-mail)
       - key: BREVO_SENDER_EMAIL
         sync: false          # e-mail remetente já confirmado no Brevo
       - key: BREVO_SENDER_NAME
         sync: false          # opcional: nome do remetente
+      - key: CHAT_ENABLED
+        sync: false          # true liga o bate-papo de frases prontas; sem a variável (ou false), fica desligado
+      - key: PUSH_ENABLED
+        sync: false          # true liga os avisos com o app fechado; sem a variável (ou false), ficam desligados
+      - key: CSP_MODE
+        sync: false          # report (padrão) ou enforce, depois de testar no Android
+      - key: DIAG_TOKEN
+        sync: false          # token do /diagnostico (crie um valor longo e aleatório no painel)

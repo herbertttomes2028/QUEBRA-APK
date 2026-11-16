@@ -10,6 +10,14 @@ node_modules/
 *.jks
 *.keystore
 signing-key-info.txt
+# Android (PWABuilder): o APK/AAB e os arquivos da chave de assinatura ficam só no computador do proprietário.
+# Atenção: o .gitignore vale para quem usa o git no computador; o envio pelo site do GitHub ("Upload files") NÃO o respeita
+# (por isso o teste sem-segredos também reprova esses arquivos no GitHub Actions).
+*.apk
+*.aab
+*.idsig
+dados-da-chave*
+chave-de-envio/
 
 # Logs
 *.log
