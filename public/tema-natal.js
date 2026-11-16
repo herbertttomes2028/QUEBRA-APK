@@ -6,7 +6,7 @@
  * Desligado, nada disso acontece e o visual de sempre fica intacto.
  *
  * ====== A CHAVE ÚNICA ======
- *   MODO = 'auto'      → liga sozinho de 1º de dezembro a 6 de janeiro, pela data do aparelho (padrão)
+ *   MODO = 'ligado'      → liga sozinho de 1º de dezembro a 6 de janeiro, pela data do aparelho (padrão)
  *   MODO = 'ligado'    → sempre ligado
  *   MODO = 'desligado' → sempre desligado
  * Para conferir antes de dezembro, sem mudar a chave: abra o endereço com ?natal=1 (?natal=0 desliga). Vale só para aquela abertura. */
