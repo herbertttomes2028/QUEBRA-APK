@@ -729,7 +729,7 @@ function performRestart(room, params) {
   room.carriedMs = 0;
   room.status = 'waiting';
   room.imgReady = [false, false];
-  if (accounts && !room.solo) for (const p of room.players) if (p && p.uid) accounts.deleteSave(p.uid).catch(() => {});   // recomeçou: o progresso antigo não vale mais (o Solo nunca apaga o progresso do cooperativo)
+  if (accounts && !room.solo) for (const p of room.players) if (p && p.uid && !p.left) accounts.deleteSave(p.uid).catch(() => {});   // recomeçou: o progresso antigo não vale mais (o Solo nunca apaga o progresso do cooperativo)
   startIfReady(room);
   io.to(room.code).emit('state', snapshot(room));
 }
@@ -748,13 +748,15 @@ function sendPush(room, idx, payload) {
 }
 
 // explicit = a pessoa saiu de propósito (botão Sair, foi para outra sala). Sem explicit = caiu (internet, app fechado): vaga reservada.
-function leaveCurrent(socket, explicit) {
+// explicit = saiu DE PROPÓSITO (botão Sair, criar/entrar em outra sala). Devolve a promessa da limpeza do "Continuar jogando" (ou null).
+function leaveCurrent(socket, explicit, opts) {
   const code = socket.data.code;
-  if (!code) return;
+  if (!code) return null;
   const room = rooms.get(code);
   socket.data.code = null;
   socket.leave(code);
-  if (!room) return;
+  if (!room) return null;
+  let limpeza = null;
   const idx = socket.data.idx;
   const pl = room.players[idx];
   if (pl && pl.socketId === socket.id) {
@@ -767,9 +769,16 @@ function leaveCurrent(socket, explicit) {
       emitToPlayer(room, 1 - idx, 'rematch', { state: 'expired' });
     }
     room.lastActive = Date.now();
+    // "Continuar jogando" (16/11/2026, pedido do proprietário): quem SAI PELO BOTÃO encerrou a partida para si: o progresso salvo DESTA sala
+    // é apagado e não volta (noteCoop pula quem saiu). Quem só caiu ou fechou o aplicativo sem querer continua com o "Continuar jogando".
+    if (accounts && !room.solo && explicit === true && pl.uid && !(opts && opts.keepSave) && room.savedFor && room.savedFor.has(pl.uid)) {
+      room.savedFor.delete(pl.uid);
+      limpeza = accounts.deleteSave(pl.uid).catch((e) => console.error('[contas] apagar salvo ao sair:', e.message));
+    }
     if (accounts && !room.solo) accounts.noteCoop(room, true);
     broadcastMeta(room);
   }
+  return limpeza;
 }
 
 const accHooks = { duelFinish: null, levelOf: null };
@@ -878,7 +887,7 @@ io.on('connection', (socket) => {
       if (!protection.allowRoom(socket, rooms.size + challenge.size())) return reply(cb, { ok: false, error: 'busy' });
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
-      leaveCurrent(socket, true);
+      leaveCurrent(socket, true, { keepSave: true });      // o salvo que está sendo retomado não pode ser apagado aqui
       const room = createRoom(code, imageId, validPieces(save.pieces, DEFAULT_PIECES), false, filaClient(socket));
       room.carriedMs = save.elapsedMs || 0;
       const ids = new Set((Array.isArray(save.locked) ? save.locked : []).map(Number));
@@ -889,6 +898,7 @@ io.on('connection', (socket) => {
         p.rot = 0; p.locked = true; p.lockedBy = 0; p.z = 1; p.out = true;
       }
       fileira.init(room.cfg, room.pieces);          // continuar jogando: a fileira recomeça com 5 das peças que faltam
+      room.savedFor = new Set([uid]);               // esta sala É o progresso salvo: sair dela pelo botão apaga o "Continuar jogando"
       rooms.set(code, room);
       const res = attach(room, socket, pid, data.name, data.avatar);
       reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
@@ -1103,6 +1113,13 @@ io.on('connection', (socket) => {
 
   // "client namespace disconnect" = o próprio aplicativo chamou socket.disconnect() (botão Sair, bloquear e sair). Qualquer outro motivo
   // (transport close = app/aba fechada, ping timeout/transport error = internet) é QUEDA: a vaga fica reservada para a pessoa voltar.
+  // botão Sair da partida (cooperativo): sai de propósito e só responde DEPOIS de apagar o "Continuar jogando" desta sala, para a tela inicial
+  // (que o celular recarrega em seguida) já não mostrar o botão verde. Celular antigo, sem este evento, sai pelo disconnect como antes.
+  socket.on('leave', async (data, cb) => {
+    try { await leaveCurrent(socket, true); } catch (e) { /* a limpeza já registra o erro */ }
+    reply(cb, { ok: true });
+  });
+
   socket.on('disconnect', (reason) => leaveCurrent(socket, reason === 'client namespace disconnect'));
 });
 

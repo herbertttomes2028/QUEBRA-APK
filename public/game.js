@@ -222,7 +222,7 @@
   }
 
   function setLoading(on, text) {
-    $('#loading').hidden = !on;
+    $('#loading').hidden = !on || !!(go && go.on);          // por baixo da abertura não aparece (nem anima escondido)
     if (text) $('#loading-text').textContent = text;
   }
 
@@ -886,8 +886,37 @@
   /* ---------------------------------------------------------
    * Abertura da partida: a imagem escolhida gira no centro e aparece "VAMOS LÁ!"
    * --------------------------------------------------------- */
-  var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null, frame: null };
+  var go = { on: false, t0: 0, min: 1900, subTimer: null, cancelTimer: null, endTimer: null, frame: null, seq: 0, spun: true, spinTimer: null, safeTimer: null, waiters: [] };
+  var GO_SPIN_MS = 2400;                // igual à animação go-spin do style.css
+  var GO_SETTLE_MS = 260;               // depois de montar a partida, a carta fica parada este tempo antes de a abertura esmaecer
   function goRemaining() { return go.on ? Math.max(0, go.min - (Date.now() - go.t0)) : 0; }
+  /* SUAVIDADE DA ABERTURA (16/11/2026, "ela gira e trava, dá alguns engasgos"): a montagem da partida (tabuleiro, 20 a 48 peças, troca de tela)
+   * acontecia logo no começo do giro, porque o servidor responde em poucos milissegundos. No Android isso ocupa a linha principal e manda
+   * muita coisa nova para a placa de vídeo bem no meio da volta. Agora o giro roda SOZINHO: a partida só é montada quando a carta termina
+   * de girar (ela fica parada mostrando "VAMOS LÁ!", então um engasgo ali não aparece), e a abertura só sai depois que a tela da partida já
+   * foi desenhada. goSpinDone() devolve uma promessa que resolve quando o giro termina (ou na hora, se não há giro). */
+  function goSpinDone() {
+    return new Promise(function (res) { if (!go.on || go.spun) res(); else go.waiters.push(res); });
+  }
+  function goSpun() {
+    go.spun = true;
+    clearTimeout(go.spinTimer); go.spinTimer = null;
+    clearTimeout(go.safeTimer); go.safeTimer = null;
+    var w = go.waiters; go.waiters = [];
+    w.forEach(function (f) { f(); });
+  }
+  // a miniatura já está na tela de escolha; mesmo assim, só começa a girar depois de pronta para desenhar (sem esperar mais que 350 ms)
+  function goDecodeThen(url, cb) {
+    var done = false, fire = function () { if (!done) { done = true; cb(); } };
+    if (!url || typeof Image === 'undefined') { fire(); return; }
+    try {
+      var im = new Image();
+      im.decoding = 'async';
+      im.src = url;
+      setTimeout(fire, 350);
+      if (im.decode) im.decode().then(fire, fire); else { im.onload = fire; im.onerror = fire; }
+    } catch (e) { fire(); }
+  }
   function showGoSplash(file) {
     var item = imageItem(file);
     var el = $('#go-splash');
@@ -903,12 +932,26 @@
     $('#go-cancel').hidden = true;
     el.classList.remove('out', 'run');
     el.hidden = false;
+    setLoading(false);                       // o "Carregando" (com o quadradinho girando) não fica animando escondido atrás da abertura
     go.on = true; go.t0 = Date.now(); go.min = reducedMotion() ? 1100 : 2650;
+    var seq = ++go.seq;
+    go.spun = reducedMotion();               // com movimento reduzido não há giro: a partida pode ser montada já
+    clearTimeout(go.spinTimer); go.spinTimer = null;
+    clearTimeout(go.safeTimer);              // rede de segurança: mesmo que o quadro de desenho não chegue (app em segundo plano), a partida monta
+    go.safeTimer = go.spun ? null : setTimeout(goSpun, GO_SPIN_MS + 1200);
     // Não medir offsetWidth de toda a tela de escolha: isso forçava layout síncrono
     // com as capas já desenhadas, exatamente ao iniciar a rotação.
-    go.frame = requestAnimationFrame(function () {
-      go.frame = null;
-      if (go.on && !el.hidden) el.classList.add('run');
+    // Começa a girar só depois que a miniatura está pronta e a abertura (fundo e raios) já foi desenhada: dois quadros de tela.
+    goDecodeThen(preview, function () {
+      if (seq !== go.seq || !go.on) return;
+      go.frame = requestAnimationFrame(function () {
+        go.frame = requestAnimationFrame(function () {
+          go.frame = null;
+          if (seq !== go.seq || !go.on || el.hidden) return;
+          el.classList.add('run');
+          if (!go.spun) go.spinTimer = setTimeout(goSpun, GO_SPIN_MS + 60);
+        });
+      });
     });
     go.subTimer = setTimeout(function () { if (go.on) $('#go-sub').textContent = 'Criando a sala…'; }, 2800);
     go.cancelTimer = setTimeout(function () { if (go.on) $('#go-cancel').hidden = false; }, 9000);
@@ -919,6 +962,8 @@
     clearTimeout(go.subTimer); clearTimeout(go.cancelTimer); clearTimeout(go.endTimer);
     if (go.frame !== null) { cancelAnimationFrame(go.frame); go.frame = null; }
     go.on = false;
+    go.seq++;
+    goSpun();                                 // quem esperava o fim do giro (a montagem da partida) segue em frente
     if (el.hidden) return;
     if (instant || reducedMotion()) { el.hidden = true; el.classList.remove('run', 'out'); return; }
     el.classList.add('out');
@@ -929,9 +974,15 @@
     if (go.on) {
       clearTimeout(go.endTimer);
       go.endTimer = setTimeout(function () {
-        hideGoSplash(false);
-        setTimeout(function () { playSound('tann'); }, 40);
-        announce('A partida começou!');
+        // espera a tela da partida ser desenhada (dois quadros e mais um instante para a placa de vídeo terminar as peças) antes de a
+        // abertura sumir: o esmaecer não disputa com o desenho das peças. A carta está parada mostrando "VAMOS LÁ!" nessa espera.
+        requestAnimationFrame(function () { requestAnimationFrame(function () {
+          setTimeout(function () {
+            hideGoSplash(false);
+            setTimeout(function () { playSound('tann'); }, 40);
+            announce('A partida começou!');
+          }, GO_SETTLE_MS);
+        }); });
       }, goRemaining());
     } else {
       setTimeout(function () { playSound('tann'); }, 40);
@@ -985,9 +1036,14 @@
 
   function startGame(snap) {
     setLoading(true, 'Preparando as peças…');
+    var urlPronta = null;
     return imagesReady.then(function () {
       return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
-    }).then(function (url) {
+    }).then(function (u) {
+      urlPronta = u;
+      return goSpinDone();                    // abertura girando: monta a partida só quando a carta termina a volta (ver goSpinDone)
+    }).then(function () {
+      var url = urlPronta;
       setSolo(!!snap.solo);
       state.cfg = snap.cfg;
       state.code = snap.code;
@@ -2871,7 +2927,17 @@
   function coopPidFor(code) { var c = coopStored(); return c && c.code === code ? c.pid : state.pid; }
   function saveCoopLocal(code) { store.set(COOP_KEY, { code: code, pid: state.pid, t: Date.now() }); }
   function clearCoopLocal() { store.set(COOP_KEY, null); }
-  function leaveCoop() { clearCoopLocal(); socket.disconnect(); reloadClean(); }      // saída DE PROPÓSITO: o servidor fecha a sala para novos
+  // saída DE PROPÓSITO (botão Sair): o servidor fecha a sala para novos e apaga o "Continuar jogando" desta partida. Espera a resposta
+  // ('leave', até 1,5 s) antes de recarregar, para a tela inicial já voltar SEM o botão verde (16/11/2026). Sem conexão, sai na hora.
+  function leaveCoop() {
+    clearCoopLocal();
+    var feito = false;
+    var sair = function () { if (feito) return; feito = true; socket.disconnect(); reloadClean(); };
+    if (!socket.connected) { sair(); return; }
+    setLoading(true, 'Saindo da partida…');
+    socket.emit('leave', {}, sair);
+    setTimeout(sair, 1500);
+  }
   function maybeResumeCoop() {
     var c = coopStored();
     if (!c) return false;
@@ -3850,7 +3916,7 @@
     var d = state.duel, inMatch = !!(d && d.phase === 'game');
     askConfirm({
       title: d ? (inMatch ? 'Sair da disputa?' : 'Sair da sala?') : 'Sair da partida?',
-      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : state.solo ? 'Você vai sair da partida e o progresso será perdido.' : 'Você vai sair da partida. Seu amigo pode continuar na sala.',
+      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : state.solo ? 'Você vai sair da partida e o progresso será perdido.' : 'Você vai sair da partida e ela não fica guardada para continuar depois. Seu amigo pode continuar na sala.',
       ok: 'Sair', cancel: 'Continuar jogando', danger: true
     }).then(function (ok) {
       if (!ok) return;

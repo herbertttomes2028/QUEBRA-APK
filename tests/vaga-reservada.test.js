@@ -93,11 +93,12 @@ test('código: a tomada da vaga de quem caiu não existe mais; o motivo da desco
 test('celular: lembra a sala cooperativa, volta para ela ao abrir o app e esquece ao sair pelo botão Sair', () => {
   const g = fs.readFileSync(path.join(__dirname, '..', 'public', 'game.js'), 'utf8');
   assert.match(g, /var COOP_KEY = 'coop';/);
-  assert.match(g, /function leaveCoop\(\) \{ clearCoopLocal\(\); socket\.disconnect\(\); reloadClean\(\); \}/);
+  assert.match(g, /function leaveCoop\(\) \{\s*clearCoopLocal\(\);[\s\S]{0,260}socket\.disconnect\(\); reloadClean\(\);[\s\S]{0,120}socket\.emit\('leave', \{\}, sair\);\s*setTimeout\(sair, 1500\);\s*\}/);
   assert.match(g, /if \(!param && \(maybeResumeDuel\(\) \|\| maybeResumeCoop\(\)\)\) return;/);
   assert.match(g, /state\.pid = coopPidFor\(code\);/, 'entrar pelo código usa a identidade guardada daquela sala');
   assert.match(g, /if \(res\.snapshot && res\.snapshot\.code && !res\.snapshot\.solo\) saveCoopLocal\(res\.snapshot\.code\); else clearCoopLocal\(\);/);
   assert.match(g, /function goHome\(\) \{\n    clearCoopLocal\(\);/);
   assert.equal((g.match(/else leaveCoop\(\);/g) || []).length, 3, 'Sair, bloquear e denunciar+bloquear usam o mesmo caminho');
-  assert.ok(!/socket\.disconnect\(\); reloadClean\(\);/.test(g.replace(/function leaveCoop\(\) \{[^}]*\}/, '')), 'nenhuma saída do cooperativo esquece de apagar a lembrança');
+  const semLeave = g.slice(0, g.indexOf('  function leaveCoop() {')) + g.slice(g.indexOf('setTimeout(sair, 1500);', g.indexOf('  function leaveCoop() {')));
+  assert.ok(!/socket\.disconnect\(\); reloadClean\(\);/.test(semLeave), 'nenhuma saída do cooperativo esquece de apagar a lembrança');
 });

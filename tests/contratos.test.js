@@ -187,7 +187,8 @@ test('tela da partida concluída: X (#res-close) liga ao mesmo caminho de sair, 
   const leave = body(game, /function leaveNow\(\)/);
   assert.ok(/cancelVictoryFlight\(\);/.test(leave), 'leaveNow deve cancelar a animação ao sair');
   assert.ok(/if \(state\.duel\) leaveDuel\(\); else leaveCoop\(\);/.test(leave), 'leaveNow mudou');
-  assert.match(game, /function leaveCoop\(\) \{ clearCoopLocal\(\); socket\.disconnect\(\); reloadClean\(\); \}/, 'sair do cooperativo: esquece a sala, desconecta de propósito e recarrega');
+  // (16/11/2026) antes de desconectar, avisa 'leave' e espera a limpeza do "Continuar jogando" (até 1,5 s)
+  assert.match(game, /function leaveCoop\(\) \{\s*clearCoopLocal\(\);[\s\S]{0,260}socket\.disconnect\(\); reloadClean\(\);[\s\S]{0,120}socket\.emit\('leave', \{\}, sair\);\s*setTimeout\(sair, 1500\);\s*\}/, 'sair do cooperativo: esquece a sala, avisa o servidor, desconecta de propósito e recarrega');
   assert.ok(leave.indexOf('cancelVictoryFlight();') < leave.indexOf('if (state.duel)'), 'cancelar a animação antes de sair');
   const ask = body(game, /function askLeave\(\)/);
   assert.ok(/leaveNow\(\)/.test(ask), 'askLeave deve usar o mesmo caminho (leaveNow)');
@@ -203,10 +204,10 @@ test('Solo: o progresso salvo do cooperativo (saves) e a entrada pelo código t�
   const acc = read('accounts.js'), srv = read('server.js');
   assert.ok(/function noteCoop\(room, immediate\) \{\s*if \(room\.solo\) return;/.test(acc), 'noteCoop precisa ignorar sala Solo');
   const fin = body(acc, /async function finishCoop\(room\)/);
-  assert.ok(/if \(!solo\) await deleteSave\(p\.uid\)/.test(fin), 'finishCoop não pode apagar o progresso salvo no Solo');
+  assert.ok(/if \(!solo && !p\.left\) await deleteSave\(p\.uid\)/.test(fin), 'finishCoop não pode apagar o progresso salvo no Solo (nem o de outra partida de quem saiu pelo botão)');
   assert.ok(/mode: solo \? 'solo' : 'coop'/.test(fin), 'finishCoop grava mode solo no Solo');
   assert.equal((srv.match(/accounts && !room\.solo\) accounts\.noteCoop\(/g) || []).length, 2, 'as duas chamadas a noteCoop do servidor precisam da guarda');
-  assert.ok(/accounts && !room\.solo\) for \(const p of room\.players\) if \(p && p\.uid\) accounts\.deleteSave/.test(srv), 'reiniciar não pode apagar o progresso salvo no Solo');
+  assert.ok(/accounts && !room\.solo\) for \(const p of room\.players\) if \(p && p\.uid && !p\.left\) accounts\.deleteSave/.test(srv), 'reiniciar não pode apagar o progresso salvo no Solo (nem o de outra partida de quem saiu pelo botão)');
   assert.ok(/if \(room\.solo && !room\.players\.some\(\(p\) => p && p\.pid === pid\)\)/.test(srv), 'join precisa recusar quem não é o dono da sala Solo');
   assert.ok(/joinGuard\.fail\(security\.ipOfSocket\(socket\), code\)/.test(srv), 'a recusa do Solo precisa contar como palpite errado (joinMiss não conta salas que existem)');
   assert.ok(!/socket\.on\('chat'/.test(srv), 'não existe bate-papo (nem no Solo, nem em sala nenhuma; apagado em 16/11/2026)');
