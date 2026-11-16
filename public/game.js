@@ -11,13 +11,15 @@
 
   /* Trusted Types (o servidor só pede relatório, nunca bloqueia): uma única política, bem estreita.
    * - endereços de script: só o service worker e o worker de recorte do próprio jogo;
-   * - HTML: só a caixa de presentes (uma constante do código). Nenhum dado de jogador, da URL ou do servidor vira HTML. */
-  var TT = null, GIFT_HTML_OK = '';
+   * - HTML: só a caixa de presentes (uma constante do código) e o texto da política de privacidade, lido do PRÓPRIO site
+   *   (/privacidade.html) no instante em que a janela abre e limpo antes de entrar na tela (sem script, iframe, on…).
+   *   Nenhum dado de jogador, da URL ou de outro site vira HTML. */
+  var TT = null, GIFT_HTML_OK = '', PRIV_HTML_OK = '';
   try {
     if (window.trustedTypes && window.trustedTypes.createPolicy) {
       TT = window.trustedTypes.createPolicy('qc', {
         createScriptURL: function (u) { if (u === '/sw.js' || u === 'crop-worker.js') return u; throw new TypeError('endereço de script não permitido'); },
-        createHTML: function (h) { if (h === GIFT_HTML_OK) return h; throw new TypeError('HTML não permitido'); }
+        createHTML: function (h) { if (h === GIFT_HTML_OK || (PRIV_HTML_OK && h === PRIV_HTML_OK)) return h; throw new TypeError('HTML não permitido'); }
       });
     }
   } catch (e) { TT = null; }
@@ -3917,9 +3919,25 @@
   function openPrivacy() {
     var body = $('#priv-body');
     if (body.childNodes.length) { openModal('#modal-privacy', '#priv-close'); body.scrollTop = 0; return; }
-    fetch('/privacidade.html').then(function (r) { if (!r.ok) throw new Error('http'); return r.text(); }).then(function (t) {
-      var main = new DOMParser().parseFromString(t, 'text/html').querySelector('main');
+    fetch('/privacidade.html', { credentials: 'same-origin' }).then(function (r) {
+      if (!r.ok || new URL(r.url, location.href).origin !== location.origin) throw new Error('http');   // só a política do próprio site
+      return r.text();
+    }).then(function (t) {
+      // DOMParser é um ponto de entrada de HTML vigiado pelo Trusted Types: o texto passa pela política 'qc' (aceito só agora, uma vez).
+      // Antes ele ia cru e cada abertura da política gerava um relatório (medido no Chrome em 15/11/2026).
+      var doc;
+      PRIV_HTML_OK = t;
+      try { doc = new DOMParser().parseFromString(TT ? TT.createHTML(t) : t, 'text/html'); } finally { PRIV_HTML_OK = ''; }
+      var main = doc.querySelector('main');
       if (!main) throw new Error('vazio');
+      // limpeza antes de entrar na tela: nada que execute código, mesmo que o arquivo da política um dia traga algo assim
+      Array.prototype.forEach.call(main.querySelectorAll('script, iframe, object, embed, link, meta, base, form'), function (n) { n.remove(); });
+      Array.prototype.forEach.call(main.querySelectorAll('*'), function (el) {
+        Array.prototype.slice.call(el.attributes).forEach(function (at) {
+          var nm = at.name.toLowerCase(), v = String(at.value || '').trim().toLowerCase();
+          if (nm.indexOf('on') === 0 || nm === 'srcdoc' || ((nm === 'href' || nm === 'src' || nm === 'xlink:href' || nm === 'action') && /^(javascript|data|vbscript):/.test(v.replace(/\s+/g, '')))) el.removeAttribute(at.name);
+        });
+      });
       Array.prototype.forEach.call(main.childNodes, function (n) { body.appendChild(document.importNode(n, true)); });
       openModal('#modal-privacy', '#priv-close');
     }).catch(function () { toast('Não consegui abrir a política agora. Confira a conexão e tente de novo.', 3600); });

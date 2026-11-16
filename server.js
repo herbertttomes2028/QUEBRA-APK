@@ -40,12 +40,16 @@ const REMATCH_MS = Number(process.env.REMATCH_MS) || 30000;   // tempo que o ami
 // Avatares permitidos (o servidor só aceita estes; qualquer outra coisa vira "sem avatar" e o jogo usa a inicial do nome)
 const AVATARS = ['🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🐵', '🦄', '🐙', '🦋', '⭐', '🚀', '🌈', '🍀'];
 
+// Liga/desliga por variável de ambiente. Desde 15/11/2026 (auditoria SEC-08) o padrão é DESLIGADO: sem a variável (servidor novo ou
+// recriado), chat e avisos ficam desligados; só liga com o valor true (também aceita 1, sim, on, yes). No Render as duas já existem.
+const envOn = (v) => ['true', '1', 'sim', 'on', 'yes'].includes(String(v || '').trim().toLowerCase());
+
 // Avisos com o aplicativo fechado (Web Push). As chaves são geradas na hora em que o servidor liga;
-// para fixá-las, crie no Render as variáveis VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY. Para desligar: PUSH_ENABLED=false.
+// para fixá-las, crie no Render as variáveis VAPID_PUBLIC_KEY e VAPID_PRIVATE_KEY. Para ligar: PUSH_ENABLED=true.
 // Sem a biblioteca "web-push" instalada, o jogo funciona normalmente, só sem os avisos.
 let webpush = null;
 let PUSH_PUBLIC = null;
-if (String(process.env.PUSH_ENABLED || '').toLowerCase() !== 'false') {
+if (envOn(process.env.PUSH_ENABLED)) {
   try {
     webpush = require('web-push');
     let pub = process.env.VAPID_PUBLIC_KEY;
@@ -79,10 +83,9 @@ function validPushSub(sub) {
   }
 }
 
-// Conversa entre os dois jogadores. Para desligar (ex.: uso com crianças), crie no Render a variável
-// de ambiente CHAT_ENABLED com o valor false. As mensagens ficam só na memória da sala (últimas 50) e
+// Conversa entre os dois jogadores (só frases prontas). Para ligar: CHAT_ENABLED=true no Render; sem a variável, fica desligada. As mensagens ficam só na memória da sala (últimas 50) e
 // somem quando a sala é apagada; o servidor não as grava em disco nem as escreve no registro (log).
-const CHAT_ENABLED = String(process.env.CHAT_ENABLED || '').toLowerCase() !== 'false';
+const CHAT_ENABLED = envOn(process.env.CHAT_ENABLED);
 const CHAT_MAX_LEN = 200;   // letras por mensagem
 const CHAT_KEEP = 50;       // mensagens guardadas por sala
 

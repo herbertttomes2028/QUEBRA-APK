@@ -46,7 +46,7 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 - **Só frases prontas e reações:** não existe campo de texto. O jogador toca numa frase (ou reação) da lista; o servidor só aceita frases dessa lista (`phrases.js`) e recusa qualquer outro texto. Cada mensagem mostra o nome de quem a enviou, com a cor do jogador. Há 10 frases básicas; outras são liberadas jogando, para quem tem conta.
 - **Limites:** no máximo 12 mensagens a cada 10 segundos por pessoa, com pelo menos 0,4 s entre elas. No modo solo não há conversa.
 - **Histórico:** o servidor guarda só as últimas mensagens da sala, na memória. Elas somem quando a sala é apagada (cerca de 15 minutos depois de todos saírem) ou quando o Render reinicia o serviço. Nada é gravado em arquivo.
-- **Moderação:** como não há texto livre, não há filtro de palavras para manter. Há **Bloquear** e **Denunciar** (ver `SEGURANCA.md`). Para desligar a conversa: no Render, em **Environment**, crie `CHAT_ENABLED` com o valor `false`. O botão 💬 deixa de aparecer; para ligar de novo, apague a variável.
+- **Moderação:** como não há texto livre, não há filtro de palavras para manter. Há **Bloquear** e **Denunciar** (ver `SEGURANCA.md`). A conversa só funciona com a variável `CHAT_ENABLED` = `true` no Render (em **Environment**). Com `false`, ou **sem a variável** (padrão desde 15/11/2026, para um servidor novo nascer com ela desligada), o botão 💬 não aparece.
 
 ---
 
@@ -163,7 +163,7 @@ Com os avisos ligados, o aparelho mostra uma notificação quando **o amigo entr
 - **Privacidade:** o texto do aviso viaja criptografado pelo serviço de notificações do navegador (no Android, o do Google), que não consegue lê-lo. O servidor do jogo só envia para serviços de notificação conhecidos.
 - **No aplicativo (APK):** a permissão de notificações precisa estar liberada para o aplicativo (e as notificações ligadas quando o APK foi gerado no PWABuilder). Se o pedido de permissão não aparecer no aplicativo, libere em *Configurações do celular > Aplicativos > Quebra-Cabeça > Notificações*, ou ative no Chrome.
 - **No iPhone:** só funciona depois de adicionar o jogo à tela de início (Safari > Compartilhar > Adicionar à Tela de Início), e em versões recentes do iOS.
-- **Desligar para todos:** no Render, em **Environment**, crie `PUSH_ENABLED` com o valor `false`.
+- **Ligar ou desligar para todos:** no Render, em **Environment**, a variável `PUSH_ENABLED`: `true` liga; `false`, ou **sem a variável** (padrão desde 15/11/2026), desliga.
 - **Chaves fixas (opcional):** por padrão o servidor cria as chaves de aviso quando liga. Isso funciona bem, porque as inscrições valem só enquanto a sala existe. Se quiser fixá-las, crie no Render `VAPID_PUBLIC_KEY` e `VAPID_PRIVATE_KEY` (pode gerá-las com a biblioteca `web-push`). Use `VAPID_SUBJECT` para colocar um e-mail de contato (`mailto:voce@exemplo.com`).
 
 ---
@@ -398,7 +398,7 @@ Modelo do `assetlinks.json` (troque o nome do pacote e a impressão digital pelo
 - **A pinça não amplia:** a peça precisa estar escolhida antes (um toque nela). Depois, use dois dedos ao mesmo tempo, em qualquer lugar da área de jogo.
 - **Não aparece "Instalar app" no Chrome:** abra o jogo pelo endereço `https://` do Render (não por link de WhatsApp dentro do app) e espere carregar a tela inicial. Se já estiver instalado, a opção não aparece de novo.
 - **O aplicativo (APK) mostra uma barra com o endereço no topo:** o Android não conseguiu verificar o aplicativo. Abra `SEU-LINK/diagnostico`: se `encontrado_em` disser "nenhuma", ou se o pacote ou a impressão digital forem diferentes dos do seu `signing-key-info.txt`/APK, corrija o `assetlinks.json` (ou a variável `ASSETLINKS_JSON`). Se estiver certo, abra o jogo no navegador para o servidor acordar, feche o aplicativo e abra de novo; se persistir, desinstale e instale de novo. Se você gerou um APK novo no PWABuilder, a chave mudou: atualize o `assetlinks.json` e desinstale o APK antigo antes de instalar o novo.
-- **O botão 💬 não aparece:** os arquivos novos ainda não foram publicados (confira `SEU-LINK/api/config`: deve conter `"chat":true`), o Render ainda não terminou o deploy, ou a variável `CHAT_ENABLED` está como `false`. Feche e abra o aplicativo depois.
+- **O botão 💬 não aparece:** os arquivos novos ainda não foram publicados (confira `SEU-LINK/api/config`: deve conter `"chat":true`), o Render ainda não terminou o deploy, ou a variável `CHAT_ENABLED` não existe ou não está como `true`. Feche e abra o aplicativo depois.
 - **Mensagem recusada ("Calma!"):** é o limite de velocidade; espere um instante.
 - **O tutorial abre toda vez:** ele só é lembrado enquanto os dados do site/aplicativo não forem apagados no celular. Toque em **Entendi** no último passo (ou **Pular**) para marcá-lo como visto.
 - **Os avisos não chegam:** confira (1) *Ajustes > 🔔* está ligado, (2) a permissão de notificações do celular/aplicativo está liberada, (3) o jogo está **fechado** (com o jogo aberto na tela, o aviso não aparece), (4) vocês estão **na mesma sala** (o aviso só vale enquanto a sala existe) e (5) `PUSH_ENABLED` não está como `false` no Render.

@@ -53,7 +53,11 @@ Cooperativo: `create join grab move drop rotate hint spot chat imgready restart 
 | Apagar | 5 por 10 min por perfil; 20 por 10 min por endereço (apagar público) | `del:`, `perase:` |
 | Denúncia | 15 por hora por jogador | `report:` |
 | Compras | limite por minuto por jogador; idempotentes sob trava de linha | `shop:`, `withUserLock` |
-| Sessão | 60 dias; só `sha256(token)` no banco | `SESSION_MS` |
+| Sessão | 60 dias; só `sha256(token)` no banco; **no máximo 5 aparelhos por perfil** (o mais antigo sai, e o socket dele perde a conta); vencidas apagadas a cada hora | `SESSION_MS`, `MAX_SESSIONS`, `newSession`, `purgeExpiredSessions` |
+| Contadores de limite | um grupo por tipo de limite (`plogin`, `pnew`, `kfail:id`, `kfail:ip`…), até 6000 chaves por grupo; vencidas saem primeiro; grupo cheio descarta a usada há mais tempo **daquele grupo** (nunca recusa quem chega) | `makeLimiter` em `accounts.js` |
+| Scrypt simultâneo | no máximo 8 (`MAX_AUTH_INFLIGHT`) em `profile/login`, `profile/new`, `profile/erase`, `profile/new-secret` e `delete`; acima: 503 `busy` ("muitos acessos agora") | `HEAVY_AUTH_RE` em `resource-guard.js` |
+| Chat e avisos | **desligados sem a variável**; só ligam com `CHAT_ENABLED=true` / `PUSH_ENABLED=true` | `envOn` em `server.js` |
+| Sala cooperativa | nível sempre 0 nos eventos; quem cai mantém a vaga; quem sai pelo botão Sair fecha a sala para novos (`room.closed`) | `roomLevel`, `attach`, `leaveCurrent` em `server.js` |
 | Cabeçalhos | HSTS, `nosniff`, `frame-ancestors 'none'`, COOP, Permissions-Policy, CSP (`report` por padrão; `enforce` por variável), Trusted Types só em relatório | `security.js` |
 | Proxy | `trust proxy` = 1 (o IP vem do Render) | `server.js` |
 

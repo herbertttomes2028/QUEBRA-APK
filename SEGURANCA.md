@@ -71,6 +71,8 @@ O plano gratuito do Brevo tem limite diário de envios (esses limites mudam: con
 - **Sair de todos os aparelhos:** Perfil > Segurança.
 - **Apagar:** Perfil > *Apagar meus dados…* (digite EXCLUIR + código-chave).
 - Limites: 8 erros por ID e 20 por endereço a cada 15 minutos; 6 perfis novos por hora por endereço. Detalhes e testes: `docs/AUDITORIA_SEGURANCA.md`.
+- **No máximo 5 aparelhos por perfil** (desde 15/11/2026): ao entrar no sexto, o que entrou há mais tempo sai do perfil (a conexão do jogo dele também perde o acesso). Logins vencidos são apagados do banco a cada hora.
+- **Muitos acessos ao mesmo tempo:** no máximo 8 conferências de código-chave rodam juntas (`MAX_AUTH_INFLIGHT`); acima disso a resposta é "O jogo está com muitos acessos agora. Tente de novo em alguns segundos." Os contadores de tentativas ficam separados por tipo: uma enxurrada de tentativas erradas não impede mais que um aparelho novo entre.
 
 ## 6. Cabeçalhos de segurança e CSP
 
@@ -90,7 +92,7 @@ sem nenhum site externo, e a conexão em tempo real só para o próprio endereç
 
 Além da CSP, o servidor manda `Content-Security-Policy-Report-Only: require-trusted-types-for 'script'` (nos modos `report` e `enforce`). É um **segundo cinto**: o navegador **avisa** se algum código tentar escrever HTML ou carregar script por um caminho perigoso, mas **não bloqueia nada**.
 
-- No `game.js` existe uma política `qc` estreita: só libera os endereços `/sw.js` e `crop-worker.js` e o desenho fixo da caixa de presentes. Qualquer outro valor é recusado.
+- No `game.js` existe uma política `qc` estreita: só libera os endereços `/sw.js` e `crop-worker.js`, o desenho fixo da caixa de presentes e o texto da política de privacidade lido do **próprio site** no instante em que a janela abre (limpo antes de entrar na tela: sem script, iframe nem atributos de evento). Qualquer outro valor é recusado. Até 15/11/2026, abrir a política dentro do app gerava 1 aviso por abertura (medido no Chrome 153 sem tela); depois da correção, 0.
 - Para esvaziar um elemento o código usa `textContent = ''` (até `innerHTML = ''` aparece como aviso). O teste `tests/sem-html-injetado.test.js` falha se alguém voltar a usar `innerHTML` (fora da caixa de presentes).
 - Como ler: `/diagnostico?token=…` > `seguranca.csp.porRegra`. A regra `require-trusted-types-for` deve ficar em **0**. Se subir, algum código novo escreve HTML: corrija no código, não na política.
 - **Não** transforme em obrigatório (`Content-Security-Policy`) sem testar no Android real e sem pelo menos um ciclo sem avisos. Só navegadores baseados em Chromium aplicam isso; Safari e Firefox ignoram o cabeçalho, e isso **não foi testado** neles.
@@ -107,6 +109,16 @@ Se após publicar o `/diagnostico` mostrar `contas.ativas: false` e os Logs tive
 ### Rodada de segurança — 31/10/2026
 
 Foram adicionados limites de recursos em `resource-guard.js`, expiração de requisições HTTP e consultas SQL, invalidação de sessões no Socket.IO, associação de origem dos sockets, consumo atômico de códigos de e-mail e sanitização de relatórios CSP. A rota HTTP `/api/test-outbox` foi completamente removida, evitando exposição de códigos de recuperação inclusive por erro de configuração. O Pull Request executará `npm audit --omit=dev --audit-level=high` na nova auditoria GitHub Actions. **Não considerar a publicação pública aprovada sem testar no PostgreSQL real e proteger o tráfego na borda (WAF/CDN).** Detalhes e limitações estão em `AUDITORIA-SEGURANCA-2026-10-31.md`.
+
+### Auditoria de segurança — 14 e 15/11/2026 (rodadas `privacidade-sala`, `arrasto-sem-perda`, `limites-disponibilidade`, `vaga-reservada`, `endurecimento`)
+
+O relatório da auditoria (somente leitura) está resumido em `docs/AUDITORIA_SEGURANCA.md` §6. Em uma frase por rodada:
+
+- **Privacidade da sala:** o nível não circula mais na sala (sempre 0) e a lista de bloqueados mostra só "Jogador bloqueado" e a data (antes mostrava apelido e nível, e a resposta trazia o ID público).
+- **Arrasto:** as posições não são mais descartadas quando a conexão está ocupada; a peça que o amigo encaixa desliza até a casa.
+- **Limites:** contadores separados por tipo (uma enxurrada não barra quem chega depois) e limite de código-chave simultâneo nas rotas atuais.
+- **Vaga reservada:** quem cai continua dono da vaga; quem sai pelo botão Sair fecha a sala para novos; quem ficou termina sozinho.
+- **Endurecimento:** máximo de 5 aparelhos por perfil e limpeza de logins vencidos; a denúncia não revela se um ID existe; chat e avisos ficam **desligados quando a variável não existe** (`CHAT_ENABLED` e `PUSH_ENABLED` só ligam com `true`; no Render as duas já existem, então nada mudou lá); a política de privacidade dentro do app não gera aviso do Trusted Types; testes mais rigorosos; `.gitignore` com APK/AAB e a chave do Android.
 
 ## 8. Código da sala, tentativas, frases e bloqueios
 
@@ -148,6 +160,7 @@ Desbloquear: Perfil > Segurança > *Jogadores bloqueados*. Visitantes (sem conta
 ## 10. O que eu **não** consegui verificar (honestidade)
 
 - Neon, Brevo e Render **reais**: testei com simulações (banco PostgreSQL local e API de e-mail falsa).
+- O Trusted Types foi medido num Chrome de computador sem tela (15/11/2026), não no Android.
 - O comportamento do preenchimento automático e do gerenciador de senhas no seu celular (o campo do código-chave é marcado como "não é senha", mas só o aparelho real confirma).
 - Aparelhos Android/iPhone de verdade (só celular simulado).
 - Um ataque coordenado com muitos endereços, ou com acesso pelo mesmo Wi-Fi da escola (todos compartilhariam o mesmo endereço e o mesmo limite).
@@ -195,7 +208,7 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo). A mesma denúncia repe
 - O e-mail **nunca** traz o e-mail, o código nem o apelido de **quem denunciou**, só o que é preciso para agir contra a pessoa denunciada.
 - Apelido e nota são texto de jogador: saem sem quebras de linha, escapados no HTML, sem links e **nunca dentro dos comandos SQL** (só o ID, conferido contra o alfabeto do jogo).
 - Ative a **verificação em duas etapas** no e-mail que recebe os avisos, não encaminhe esses e-mails e apague-os depois de resolver. **Só rode comandos de e-mails que chegaram do próprio jogo** e confira o código antes de executar.
-- O Brevo (plano gratuito) tem limite diário de envios, dividido com os códigos de confirmação.
+- O Brevo (plano gratuito) tem limite diário de envios; hoje ele só envia os avisos de denúncia (não há mais códigos de confirmação por e-mail).
 
 - **Prazo que a política promete:** responder a pedidos em até 15 dias. Olhe `reports` pelo menos uma vez por semana.
 - **Risco imediato** (ameaça, conteúdo ilegal): exclua a conta primeiro, depois avalie se precisa avisar as autoridades.
@@ -219,4 +232,4 @@ Cada denúncia **nova** chega ao seu e-mail (pelo Brevo). A mesma denúncia repe
 **No Play Console:**
 8. Conta pessoal nova: teste fechado com **12 testadores por 14 dias seguidos**, depois o pedido de acesso à produção. Conta de organização é isenta.
 9. **Público-alvo (decidido em 13/11/2026):** **não indicado para menores de 16 anos** (marque 16–17 e 18 ou mais; ver `PLAY-STORE.md`, seção 3). A tela de idade neutra e a criação de perfil 16+ já estão no app. Leve ao profissional as perguntas jurídicas listadas em `PLAY-STORE.md` (ECA Digital, LGPD). O login com o Google está desligado no seu Render, então a dúvida sobre ele em app com menores não se aplica hoje.
-10. Formulários: segurança de dados (link de exclusão: `/excluir-conta.html`), classificação de conteúdo, instruções de acesso (o modo visitante entra sem conta), e-mail de suporte. **Reveja o e-mail de contato da política de privacidade** (`herbert.uva.unversidade@gmail.com`: confira se "unversidade" não é erro de digitação).
+10. Formulários: segurança de dados (link de exclusão: `/excluir-conta.html`), classificação de conteúdo, instruções de acesso (o modo visitante entra sem conta), e-mail de suporte: `herbert.uva.universidade@gmail.com` (confirmado pelo proprietário em 15/11/2026; até essa data a política e a página de exclusão traziam "unversidade", sem o "i").

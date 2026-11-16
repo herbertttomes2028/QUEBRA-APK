@@ -33,7 +33,7 @@ Data: 14/11/2026 · Código auditado: branch `perfil-gerado` (parte da `main` `a
 4. **Rotas privadas:** sem token, token falso ou malformado → sempre 401.
 5. **IDOR/BOLA:** com o token de A, nada de B é lido nem alterado, mesmo enviando o ID/código de B (perfil, apelido, importação, loja, conquistas, histórico, biblioteca, partida salva, bloqueios, denúncias e exclusão).
 6. **Adulteração de gemas/XP:** campos forjados (`gems`, `xp`, `price`, `userId`…) são ignorados; **10 compras simultâneas** da mesma bandeja (preço 250, saldo 400): **1** aprovada, saldo final **150** (sem gasto em dobro).
-7. **Sala cooperativa:** só 2 jogadores; nomes neutros; **nenhum evento de socket contém apelido, ID, nível, gemas, pet ou roupas**; quem saiu não recebe mais nada; bloqueio vale.
+7. **Sala cooperativa:** só 2 jogadores; nomes neutros; **nenhum evento de socket contém apelido, ID, gemas, pet ou roupas**; quem saiu não recebe mais nada; bloqueio vale. **Correção de 14/11/2026:** o nível **circulava** nos eventos (o teste não conferia); desde a rodada `privacidade-sala` ele é sempre 0, e o grupo **7b** confere isso e a lista de bloqueados (ver §10).
 8. **Sala Desafio:** terceira pessoa recusada; nomes neutros.
 9. **Força bruta:** trava por ID (8 erros) e por endereço (20 erros); um perfil travado não afeta os outros; **criação limitada por endereço** (de 9 tentativas em sequência: 6 criadas, 3 barradas). 9b: palpites de **código de sala** em sequência são travados (travou no 6º palpite) e a sala verdadeira continua protegida.
 10. **Apagar:** código errado = mesmo erro de ID inexistente; código certo apaga tudo em cascata e derruba sessão e socket.
@@ -110,7 +110,7 @@ Legenda: **TD** = verificado pelo teste dinâmico local · **RC** = verificado s
 | --- | --- | --- |
 | R1 | **Quem perde o código-chave perde o perfil** | sem e-mail não há recuperação; decisão de privacidade. Mitigação: aviso e caixa "anotei" na criação. Futuro: passkeys ou confirmação por aparelho antigo |
 | R2 | **Bloqueio de login por terceiros (negação de serviço dirigida):** 8 erros por ID em 15 min trancam o login daquele ID, e o ID não é segredo | compromisso aceito (protege contra adivinhação); o titular já logado não é afetado. Futuro: contagem por (ID, endereço) ou desafio |
-| R3 | **Limites de tentativa ficam na memória** do processo: reiniciar o Render zera; com mais de uma instância cada uma conta sozinha | hoje há 1 instância. Futuro: guardar contadores no banco/Redis se escalar |
+| R3 | **Limites de tentativa ficam na memória** do processo: reiniciar o Render zera; com mais de uma instância cada uma conta sozinha | hoje há 1 instância. Desde 15/11/2026 os contadores ficam em grupos separados (um grupo cheio não barra quem chega: SEC-02). Futuro: guardar contadores no banco/Redis se escalar |
 | R4 | **CSP em `report` por padrão** e **token de sessão no `localStorage`**: um XSS futuro roubaria sessões | hoje não há script embutido (teste proíbe), 0 violações em `enforce` e a CSP está em `enforce` no Render (confirmado pelo proprietário). Camadas extras: nenhum `innerHTML` com dados (teste-trava) e Trusted Types em **somente relatório** (`SEGURANCA.md` 6.1). O token no `localStorage` continua: cookie `HttpOnly` é rodada própria (CSRF, Socket.IO, TWA) |
 | R5 | **Pedido de exclusão por e-mail com só o ID**: o ID é público; alguém poderia pedir a exclusão do perfil de outra pessoa | definir confirmação antes de atender (ver `docs/RESPOSTA_INCIDENTES.md`) |
 | R6 | **Código da sala compartilhável:** quem recebe o código entra (até 2 pessoas). Não prova relação pessoal | descrito assim na política; limite de tentativas e de 2 jogadores |
@@ -154,3 +154,33 @@ npm audit --omit=dev
 3. Contratar/consultar **revisão independente de segurança** (teste de intrusão com autorização escrita do proprietário) e **revisão jurídica** antes de divulgar para o público.
 4. Decidir o destino dos perfis legados (apagar com `scripts/apaga-contas-antigas.js` ou migrar) e então limpar colunas/tabelas antigas por migração nova.
 5. Considerar passkeys/confirmação por aparelho antigo como evolução, depois de testar o suporte no WebView.
+
+## 10. Auditoria de 14/11/2026 (somente leitura) e rodadas de correção (14 e 15/11/2026)
+
+Auditoria feita por um assistente de IA, só com leitura do código da `main` `05a2146`, testes e provas em servidor e PostgreSQL **locais** (nenhum serviço publicado foi testado). **Não é** teste de intrusão independente, certificação, selo OWASP nem parecer jurídico: continua recomendada uma revisão humana independente de segurança e uma revisão jurídica.
+
+| ID | Achado (confirmado com prova local) | Situação |
+| --- | --- | --- |
+| SEC-01 | Bloquear o parceiro pela sala fazia `GET /blocks` devolver o **ID público, o apelido e o nível** dele (a tela mostrava apelido e nível); com o ID, um terceiro trancava o login da pessoa (R2) | Corrigido: `privacidade-sala` (PR #82). Lista neutra ("Jogador bloqueado" + data) e referência opaca |
+| SEC-05 | O **nível** circulava nos eventos da sala, contra a política | Corrigido: PR #82 (`roomLevel()` sempre 0) |
+| — | Arrasto descartado com a conexão ocupada; peça do amigo "pulava" ao encaixar (defeito relatado pelo proprietário) | Corrigido: `arrasto-sem-perda` (PR #83) |
+| SEC-02 | Mapa único de limites com teto de 6000 chaves: cheio, recusava **todos** os clientes novos (login correto e criação de perfil) por até ~70 min | Corrigido: `limites-disponibilidade` (PR #84). Grupos por tipo, janela por chave |
+| SEC-03 | Limite de scrypt simultâneo só reconhecia as rotas do login antigo | Corrigido: PR #84 (`HEAVY_AUTH_RE` com as rotas atuais) |
+| SEC-04 | No cooperativo, quem tinha o código tomava a vaga de quem caiu no meio da partida | Corrigido: `vaga-reservada` (PR #85). Quem cai mantém a vaga; quem sai pelo botão Sair fecha a sala |
+| SEC-06 | Denúncia com motivo inválido revelava se um ID existe | Corrigido: `endurecimento` (motivo conferido antes do ID). `POST /blocks` continua avisando "ID não encontrado" (decisão: evita a pessoa achar que bloqueou alguém; exige login e tem limite de 30/h) |
+| SEC-07 | Lacunas de teste: o teste de acesso a dados de outro perfil passava mesmo sem o filtro de dono; o teste de HTML injetado não pegava `innerHTML +=`, colchetes, `srcdoc`, `javascript:` | Corrigido: `endurecimento` (B com dados reais; mutação do filtro agora reprova; novos padrões) |
+| SEC-08 | Chat e avisos ficavam **ligados** quando a variável não existia | Corrigido: `endurecimento` (só ligam com `true`; no Render as variáveis já existem) |
+| SEC-09 | Sessões vencidas nunca apagadas e sem teto por perfil | Corrigido: `endurecimento` (máx. **5 aparelhos**, decisão do proprietário; limpeza a cada hora) |
+| H-02 | Abrir a política de privacidade no app gerava aviso do Trusted Types | Confirmado no Chrome 153 sem tela (1 aviso por abertura) e corrigido: `endurecimento` (0 avisos) |
+| DOC-01 | Documentação desatualizada (SHA, contagens, Google, CSP, scrypt) e e-mail de contato com "unversidade" | Corrigido: `endurecimento` (endereço confirmado: `herbert.uva.universidade@gmail.com`) |
+
+**Continuam como hipótese ou decisão de produto (não corrigidos):**
+
+- **H-01:** um cliente automatizado pode montar qualquer quebra-cabeça em milissegundos (o servidor precisa mandar `col`/`row` para o celular recortar a imagem): vence sempre a Sala Desafio e acumula gemas no Solo (o tempo mínimo é o único freio). Não há dinheiro envolvido.
+- **H-03:** perfis legados (e-mail/Google) com sessão ainda válida continuam jogando até a sessão vencer; para eles, apagar o perfil não pede código-chave.
+- **H-04:** token de sessão no `localStorage`; o padrão do código é CSP `report`. O modo real no Render é o que o proprietário configurou (ver R4).
+- **H-05:** o endereço real vem do último valor de `X-Forwarded-For` (`trust proxy = 1`): correto se o proxy do Render sempre acrescenta o IP real (não verificado).
+- **H-06:** o botão "copiar" põe ID e código-chave na área de transferência do aparelho.
+- **H-07:** sockets sem `Origin` são aceitos (necessário para clientes nativos; os limites continuam valendo).
+- **Não testado:** Android real, Render/Neon/Brevo reais, carga, fuzzing amplo.
+
