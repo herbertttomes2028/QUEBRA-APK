@@ -17,6 +17,11 @@
   var vp = new Float32Array(16), proj = new Float32Array(16), view = new Float32Array(16);
   var raf = 0, timer = 0, lastTs = 0, lastDraw = 0, workAcc = 0, workN = 0, contEl = document.getElementById('btn-continue'), quality = 0, frames = 0, drawn = 0, inView = true, lastWork = 0, warm = 2, intervalMs = 0, lastNow = 0, ready = false, parallelExt = null, lost = false, released = false, releaseTimer = 0, failed = false, firstDrawn = false;
   var hidden = false, mode = 'fallback', frozen = false, lastPose = null;
+  // SUAVIDADE (16/11/2026): com uma janela aberta POR CIMA da tela inicial (Ajustes, Privacidade, Dicas, Como jogar, Loja…), com a abertura
+  // da partida ou com o "Carregando", o mascote para de desenhar. Antes ele seguia desenhando em 3D atrás da janela (~30 quadros por segundo)
+  // e disputava o processador e a placa de vídeo com a ROLAGEM do texto. Ao fechar a janela, ele volta de onde parou.
+  var covered = false, COVER_SEL = '.modal:not([hidden]), #go-splash:not([hidden]), #loading:not([hidden])';
+  function coveredNow() { return !!document.querySelector(COVER_SEL); }
 
   /* ---------------- shaders ---------------- */
   var VS = 'precision mediump float; attribute vec3 aPos; attribute vec3 aNor; uniform mat4 uVP; uniform mat4 uM; uniform mat3 uN; uniform float uOut; varying vec3 vN;' +
@@ -130,7 +135,7 @@
 
   /* ---------------- ciclo de vida ---------------- */
   function setMode(m) { mode = m; btn.classList.toggle('is-3d', m === '3d' || m === 'static'); btn.setAttribute('data-mode', m); }
-  function homeActive() { return home.classList.contains('active') && !document.hidden && !hidden; }
+  function homeActive() { return home.classList.contains('active') && !document.hidden && !hidden && !covered; }
   function isStatic() { return quality >= 3; }                                 // só em aparelho muito fraco (movimento reduzido ESCONDE o mascote, não o congela)
   function loopWanted() { return !!gl && ready && !frozen && homeActive() && inView && (!isStatic() || brain.busy() || brain.hasChanged()); }
   function startLoop() { if (!raf && !timer && loopWanted()) { lastTs = performance.now(); raf = requestAnimationFrame(frame); } }
@@ -238,6 +243,9 @@
   hidden = hiddenNow(); btn.hidden = hidden;
   new MutationObserver(function () { if (hiddenNow() !== hidden) { sync(); startLoop(); } }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-motion', 'data-mascot'] });
   if (window.matchMedia) { var mqm = window.matchMedia('(prefers-reduced-motion: reduce)'); var onMqm = function () { if (hiddenNow() !== hidden) sync(); }; if (mqm.addEventListener) mqm.addEventListener('change', onMqm); else if (mqm.addListener) mqm.addListener(onMqm); }
+  covered = coveredNow();
+  var coverObs = new MutationObserver(function () { var c = coveredNow(); if (c === covered) return; covered = c; if (c) stopLoop(); else startLoop(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.modal, #go-splash, #loading'), function (el) { coverObs.observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
   if (window.IntersectionObserver) new IntersectionObserver(function (en) { inView = en[0].isIntersecting; if (inView) startLoop(); else stopLoop(); }).observe(btn);
   if (window.ResizeObserver) new ResizeObserver(function () { resize();  }).observe(btn);
   setMode('fallback');

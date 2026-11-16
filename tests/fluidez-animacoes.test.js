@@ -36,7 +36,7 @@ test('giro usa miniatura da mesma imagem e inicia sem reflow síncrono', () => {
     clearTimeout:()=>{}, setTimeout:()=>123,
     requestAnimationFrame: cb => {callbacks.push(cb);return ++nextFrame;},
     cancelAnimationFrame: id => canceled.push(id),
-    reducedMotion:()=>false, announce: text=>tags.push(text)
+    reducedMotion:()=>false, announce: text=>tags.push(text), setLoading: ()=>{}
   };
   Object.defineProperty(splash, 'offsetWidth', {get() {throw Error('layout forçado');}});
   vm.runInNewContext(helperSource + '\n' + splashSource, ctx);
@@ -44,6 +44,10 @@ test('giro usa miniatura da mesma imagem e inicia sem reflow síncrono', () => {
   assert.match(img.style.backgroundImage, /biblioteca\/mini\/lib-fauna-01\.webp\?v=capas-20261031/);
   assert.equal(splash.hidden,false);
   assert.equal(classes.has('run'),false, 'animação só inicia no quadro de desenho');
+  // (16/11/2026) a volta começa depois de DOIS quadros de desenho (a abertura e a miniatura já desenhadas): nada de giro no 1º quadro
+  assert.equal(callbacks.length,1);
+  callbacks.shift()();
+  assert.equal(classes.has('run'),false, 'ainda não gira no 1º quadro');
   assert.equal(callbacks.length,1);
   callbacks.shift()();
   assert.equal(classes.has('run'),true);
@@ -53,7 +57,7 @@ test('giro usa miniatura da mesma imagem e inicia sem reflow síncrono', () => {
   assert.equal(classes.has('run'),false);
   ctx.showGoSplash('lib-fauna-01.webp');
   ctx.hideGoSplash(true);
-  assert.ok(canceled.includes(2),'quadro futuro é cancelado ao sair');
+  assert.ok(canceled.includes(3),'quadro futuro é cancelado ao sair');
 });
 
 test('resultado adia limpeza dos SVGs até a janela aparecer, sem mudar prêmios', () => {
