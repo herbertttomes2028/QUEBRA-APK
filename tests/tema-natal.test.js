@@ -15,11 +15,12 @@ const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
 function carrega(search, agora) {
   const attrs = {}, R = Date, D = function (...a) { return a.length ? new R(...a) : new R(agora); }; D.now = () => new R(agora).getTime();
   const ctx = { window: { location: { search } }, document: { documentElement: { setAttribute: (k, v) => { attrs[k] = v; } }, readyState: 'loading', addEventListener() {} }, URLSearchParams, Date: agora ? D : Date };
-  vm.runInNewContext(js, ctx); return { N: ctx.window.QCNatal, attrs };
+  // a regra das datas é testada com a chave em 'auto', qualquer que seja o valor escolhido no arquivo (o proprietário liga e desliga sem mexer nos testes)
+  vm.runInNewContext(js.replace(/var MODO = '[a-z]+';/, "var MODO = 'auto';"), ctx); return { N: ctx.window.QCNatal, attrs };
 }
 
-test('a chave única: MODO = auto por padrão; liga de 1º/12 a 6/01 pela data do aparelho; ?natal=1 e ?natal=0 só para conferir', () => {
-  assert.match(js, /\n  var MODO = 'auto';\n/, 'padrão automático');
+test('a chave única: MODO (auto, ligado ou desligado); em auto liga de 1º/12 a 6/01 pela data do aparelho; ?natal=1 e ?natal=0 só para conferir', () => {
+  assert.match(js, /\n  var MODO = '(auto|ligado|desligado)';\n/, 'a chave tem um dos 3 valores');
   assert.equal((js.match(/var MODO = /g) || []).length, 1, 'uma chave só');
   const { N } = carrega('', '2026-11-16T12:00:00');
   const ep = (y, m, d) => N.epoca(new Date(y, m - 1, d, 12));

@@ -309,9 +309,9 @@
     return api('GET', '/shop').then(function (j) { if (takeServer(j)) { S.at = Date.now(); QC.tray.refresh(); renderIfOpen(); paintGems(); } });
   }
   function loadCatalog() {                       // visitante: o catálogo (nomes e preços) vem do /api/config
-    if (S.loaded || S.logged) return Promise.resolve();
+    if (S.loaded || S.logged || (S.catAt && Date.now() - S.catAt < 600000)) return Promise.resolve();      // visitante: no máximo uma vez a cada 10 min (antes, a cada abertura)
     return fetch('/api/config').then(function (r) { return r.json(); }).then(function (c) {
-      if (c && c.shop && c.shop.categories) { takeCatalog(c.shop.categories); petNotify(); renderIfOpen(); }
+      if (c && c.shop && c.shop.categories) { S.catAt = Date.now(); takeCatalog(c.shop.categories); petNotify(); renderIfOpen(); }
     }).catch(function () { /* sem internet: fica o catálogo reserva */ });
   }
   // preferências gravadas em ordem (uma depois da outra), sem travar a tela
@@ -388,7 +388,14 @@
     shownGems = known ? S.gems : null;
   }
   function sig() { return JSON.stringify([ui.cat, S.pet, S.petItems.skins.length, S.petItems.roupas.length, S.logged, S.gems, S.owned, S.equipped, S.colors, S.items.map(function (i) { return i.id + ':' + i.price; }), ui.tab, ui.mine, animOn()]); }
-  function renderIfOpen() { if (ui.open && sig() !== ui.sig) render(); else if (!ui.open) ui.sig = ''; }          // dados iguais: não refaz a tela (evita piscar e trabalho à toa)
+  // dados iguais: não refaz a tela (evita piscar e trabalho à toa). Loja FECHADA e dados novos: remonta escondida quando o app estiver ocioso,
+  // para a abertura ser só mostrar (antes, a remontagem caía no toque de abrir e travava; rodada loja-suave, 16/11/2026)
+  var warmT = 0;
+  function warmLater() {
+    if (warmT) return;
+    warmT = (window.requestIdleCallback || function (f) { return setTimeout(f, 300); })(function () { warmT = 0; if (ui.open || !ui.warm || sig() === ui.sig) return; try { render(); ui.pvs.forEach(function (w) { w._build(); }); } catch (e) { /* abrir monta na hora */ } }, { timeout: 2000 });
+  }
+  function renderIfOpen() { if (ui.open) { if (sig() !== ui.sig) render(); } else if (sig() !== ui.sig) warmLater(); }
   function btn(txt, cls, fn, label) { var b = el('button', 'btn ' + (cls || 'btn-secondary')); b.type = 'button'; b.textContent = txt; if (label) b.setAttribute('aria-label', label); if (fn) b.addEventListener('click', fn); return b; }
   function paintNav() {
     var nav = $('#shop-nav'), now = secNow(); if (!nav) return;
@@ -654,14 +661,15 @@
     if (cat === 'bandejas' || cat === 'skins' || cat === 'roupas') { ui.tab = 'loja'; ui.cat = cat; ui.top = true; }
     ui.open = true; loadCatalog();
     QC.openModal('#modal-shop', '#shop-close');
-    if (ui.top || sig() !== ui.sig || !$('#shop-body').firstChild) render(); else setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar
-    if (S.logged && (!S.at || Date.now() - S.at > 20000)) refresh();                 // o servidor só é consultado se os dados têm mais de 20 s
+    if (ui.top || sig() !== ui.sig || !$('#shop-body').firstChild) render(); else if (ui.tab === 'minhas') setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar (a escala só serve à prévia viva de Meus itens)
+    // o servidor só é consultado se os dados têm mais de 20 s, e DEPOIS que a janela terminou de subir (a resposta pode redesenhar a lista: no meio da subida, travava)
+    if (S.logged && (!S.at || Date.now() - S.at > 20000)) { clearTimeout(ui.refT); ui.refT = setTimeout(function () { if (ui.open) refresh(); }, 450); }
   }
   function closeShop() { ui.open = false; QC.closeModal('#modal-shop'); }
   // monta a loja (escondida) quando o app fica ocioso: na hora do toque não sobra trabalho de montar nada
   function prewarm() {
     if (ui.open || ui.warm) return; ui.warm = true;
-    var tab = ui.tab; ui.tab = 'loja'; render(); ui.pvs.forEach(function (w) { w._build(); }); ui.tab = tab;
+    loadCatalog().then(function () { if (ui.open) return; render(); ui.pvs.forEach(function (w) { w._build(); }); });      // com o catálogo do servidor já na mão: abrir não remonta
   }
   QC.openShop = openShop;
 
@@ -671,6 +679,9 @@
     on('#menu-shop', function () { QC.closeModal('#modal-menu'); openShop('loja'); });
     on('#shop-close', closeShop);
     var m = $('#modal-shop'); if (m) m.addEventListener('click', function (e) { if (e.target === m) closeShop(); });
+    // loja aberta: o que se mexe ATRÁS dela para (a neve do tema de Natal e a tela inicial coberta); ver loja.css (16/11/2026, rodada loja-suave)
+    // (a marca vai SÓ no elemento da neve: uma classe no <html> obrigava o navegador a recalcular o estilo da página inteira na abertura)
+    try { if (m) new MutationObserver(function () { var nv = document.querySelector('.natal-neve'); if (nv) nv.classList.toggle('loja-pausa', !m.hidden); }).observe(m, { attributes: true, attributeFilter: ['hidden'] }); } catch (e) { /* ignora */ }
     window.addEventListener('resize', function () { if (ui.open) { setScale($('#shop-body')); setScale($('#tp-body')); } });
     // enquanto a lista rola, as animações param (rolagem sempre fluida)
     var scT = 0; var sb = $('#shop-body');
