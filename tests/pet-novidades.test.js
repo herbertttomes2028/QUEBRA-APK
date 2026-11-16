@@ -102,12 +102,13 @@ test('aplicar e tirar uma aparência restaura o pet de fábrica sem alterar as c
 });
 
 /* ============================ roupas ============================ */
-const OUT_GRATIS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao'], OUT_PAGAS = ['bandana', 'fones', 'cartola', 'asas-anjo', 'coroa'], OUT_IDS = OUT_GRATIS.concat(OUT_PAGAS);
-test('são 10 roupas (as 5 de antes, grátis, e 5 novas, pagas), de modelos diferentes, cada uma com id, nome em português e emoji', () => {
-  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.deepEqual(L.OUTFITS.filter((o) => o.free).map((o) => o.id), OUT_GRATIS, 'as 5 primeiras são grátis'); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 10); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 10);
+// (16/11/2026, rodada tema-natal) + a roupa de Papai Noel, grátis
+const OUT_GRATIS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao', 'papai-noel'], OUT_PAGAS = ['bandana', 'fones', 'cartola', 'asas-anjo', 'coroa'], OUT_IDS = OUT_GRATIS.concat(OUT_PAGAS);
+test('são 11 roupas (as 5 de antes e a de Papai Noel, grátis, e 5 pagas), de modelos diferentes, cada uma com id, nome em português e emoji', () => {
+  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.deepEqual(L.OUTFITS.filter((o) => o.free).map((o) => o.id), OUT_GRATIS, 'as 6 primeiras são grátis'); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 11); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 11);
   for (const o of L.OUTFITS) { assert.match(o.name, /^[A-ZÁÉÍÓÚ]/); assert.ok(o.emoji.length >= 1); }
   const ids = L.OUTFITS.map((o) => L.build(C, { outfit: o.id }).extras.map((e) => e.id)), all = [].concat(...ids); assert.equal(new Set(all).size, all.length, 'cada roupa tem as suas próprias peças (nenhuma é a outra com outra cor)');
-  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 10, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
+  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 11, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
 });
 function worldVerts(look) {                                                      // todos os vértices e esferas da roupa, no referencial do corpo
   const out = [];

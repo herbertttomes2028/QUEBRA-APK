@@ -14,10 +14,12 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <script src="boot.js"></script>
+  <script src="tema-natal.js"></script>
   <link rel="preload" href="/fonts/fredoka-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="loja.css">
   <link rel="stylesheet" href="pet.css">
+  <link rel="stylesheet" href="tema-natal.css">
   <link rel="stylesheet" href="fundos.css">
   <link rel="stylesheet" href="telas.css">
   <link rel="stylesheet" href="suave.css">
@@ -53,6 +55,7 @@
           <span class="lg c"></span><span class="lg d"></span>
         </div>
         <h1>Quebra‑cabeça<br><span class="h1-two">a dois</span></h1>
+        <p class="natal-msg" data-natal-msg hidden>🎄 Feliz Natal! Bora montar juntos?</p>
         <!-- Mascote: 3D (WebGL) quando possível; o desenho abaixo aparece na hora, e fica se o aparelho não tiver WebGL ou o movimento estiver reduzido -->
         <button id="mascot" class="mascot" type="button" aria-label="Mascote do jogo. Toque nele para brincar.">
           <svg class="mascot-fallback" viewBox="0 0 200 150" aria-hidden="true" focusable="false">
@@ -316,6 +319,7 @@
           <div><b id="lobby-img-name">Imagem</b><small id="lobby-info">12 peças</small></div>
         </div>
         <p id="lobby-msg" class="lobby-msg" role="status" aria-live="polite">Chame seu adversário com o código.</p>
+        <p class="natal-msg pinheiro" data-natal-msg hidden>🎄 Boas festas! Quem monta mais rápido?</p>
         <button id="lobby-ready" class="btn btn-primary btn-xl" type="button" disabled>Estou pronto!</button>
       </div>
     </section>
@@ -586,6 +590,7 @@
         <div id="win-art" class="win-art" role="img" aria-label="A imagem montada por vocês"></div>
         <div class="victory-medal" aria-hidden="true">★</div>
         <h3 id="win-title">Vocês conseguiram! 🎉</h3>
+        <p class="natal-msg ouro" data-natal-msg hidden>🎁 Que presente de partida!</p>
         <p class="win-time">Tempo: <strong id="win-time">00:00</strong></p>
         <p id="win-best" class="win-best" hidden></p>
         <div id="win-xp" class="xp-line" hidden role="status"></div>
@@ -699,6 +704,7 @@
         <div id="shop-wallet" class="shop-wallet" role="status" aria-live="polite"><span class="shop-wallet-gem" aria-hidden="true">💎</span><b id="shop-gems" class="shop-gems"></b><small id="shop-gems-lbl">gemas</small></div>
         <button id="shop-close" data-back class="btn btn-ghost shop-x" type="button" aria-label="Fechar a loja">✕</button>
       </header>
+      <p class="natal-loja" data-natal-msg hidden>🎅 Boas festas! A roupa de Papai Noel é grátis em Roupas.</p>
       <div id="shop-nav" class="shop-nav" role="tablist" aria-label="Seções da loja"></div>
       <div id="shop-body" class="shop-body" role="tabpanel" aria-label="Itens da loja"></div>
     </div>

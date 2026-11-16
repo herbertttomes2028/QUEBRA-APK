@@ -16,10 +16,10 @@ const root = path.join(__dirname, '..');
 const PET = shop.ITEMS.filter((i) => i.category === 'skins' || i.category === 'roupas');
 const PAGOS = PET.filter((i) => i.price > 0), GRATIS = PET.filter((i) => i.price === 0);
 
-test('catálogo: 3 categorias, 10 skins e 10 roupas, 20 itens do pet, metade grátis (as de antes) e metade paga (as novas)', () => {
+test('catálogo: 3 categorias, 10 skins e 11 roupas (16/11/2026: + Papai Noel, grátis), 21 itens do pet, 11 grátis e 10 pagos', () => {
   const cat = shop.catalog();
-  assert.deepEqual(cat.categories.map((c) => [c.id, c.name, c.icon, c.items.length]), [['bandejas', 'Bandejas', '🧺', 5], ['skins', 'Skins do pet', '🎨', 10], ['roupas', 'Roupas do pet', '👕', 10]]);
-  assert.equal(PET.length, 20); assert.equal(GRATIS.length, 10); assert.equal(PAGOS.length, 10);
+  assert.deepEqual(cat.categories.map((c) => [c.id, c.name, c.icon, c.items.length]), [['bandejas', 'Bandejas', '🧺', 5], ['skins', 'Skins do pet', '🎨', 10], ['roupas', 'Roupas do pet', '👕', 11]]);
+  assert.equal(PET.length, 21); assert.equal(GRATIS.length, 11); assert.equal(PAGOS.length, 10);
   assert.deepEqual(PAGOS.map((i) => [i.id, i.price]), [['skin-limao', 100], ['skin-caramelo', 100], ['skin-lavanda', 180], ['skin-cereja', 320], ['skin-ouro', 500], ['roupa-bandana', 150], ['roupa-fones', 250], ['roupa-cartola', 350], ['roupa-asas-anjo', 450], ['roupa-coroa', 600]], 'preços aprovados');
   assert.equal(new Set(shop.ITEMS.map((i) => i.id)).size, shop.ITEMS.length, 'ids únicos'); for (const i of shop.ITEMS) assert.match(i.id, /^[a-z][a-z0-9-]{1,39}$/, 'o id passa na regra do banco: ' + i.id);
   for (const i of PET) { assert.ok(i.name && i.desc && i.look, i.id); assert.ok(i.id === (i.category === 'skins' ? 'skin-' : 'roupa-') + i.look, 'o id deriva da aparência: ' + i.id); }
@@ -50,7 +50,7 @@ test('migração 016: só ACRESCENTA duas colunas opcionais (com a mesma regra d
   assert.doesNotMatch(sql.replace(/--[^\n]*/g, ''), /DROP|DELETE|UPDATE|INSERT|ALTER COLUMN|RENAME|TRUNCATE/i);
 });
 
-test('miniaturas da loja: uma por item do pet (20), WebP com fundo transparente de 240×180, leves, e nenhum arquivo sobrando', () => {
+test('miniaturas da loja: uma por item do pet (21), WebP com fundo transparente de 240×180, leves, e nenhum arquivo sobrando', () => {
   const dir = path.join(root, 'public/pet'), files = fs.readdirSync(dir).sort();
   assert.deepEqual(files, PET.map((i) => i.id + '.webp').sort(), 'exatamente um arquivo por item do pet');
   let total = 0;
@@ -94,24 +94,24 @@ test('PostgreSQL: loja do pet (compra, posse, equipar, tirar, bloqueios, concorr
     const ana = await mk(1000); let st = await svc.status(ana);
     assert.deepEqual(st.pet, { skin: null, outfit: null }, 'começa com o pet de fábrica'); assert.deepEqual(st.owned, ['classica'], 'o que é "comprado" continua sendo só o das bandejas');
     for (const i of GRATIS) { const r = await svc.equip(ana, i.id); assert.deepEqual([r.ok, r.category, r.equipped], [true, i.category, i.id], 'grátis equipa sem comprar: ' + i.id); }
-    st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-luar', outfit: 'roupa-macacao' }, 'uma skin e uma roupa ao mesmo tempo (a última de cada categoria)'); assert.equal(await gemas(ana), 1000, 'grátis não gasta nada');
+    st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-luar', outfit: 'roupa-papai-noel' }, 'uma skin e uma roupa ao mesmo tempo (a última grátis de cada categoria; desde 16/11/2026 a roupa de Papai Noel)'); assert.equal(await gemas(ana), 1000, 'grátis não gasta nada');
     const b0 = await svc.buy(ana, 'skin-menta'); assert.deepEqual([b0.ok, b0.already, b0.price, b0.gems], [true, true, 0, 1000], 'comprar um item grátis não cobra nada');
     assert.equal((await q('SELECT count(*)::int AS n FROM shop_purchases WHERE user_id = $1', [ana])).rows[0].n, 0, 'e não cria compra');
 
     /* ---- pagos: bloqueados até comprar ---- */
     for (const i of PAGOS) { const r = await svc.equip(ana, i.id); assert.deepEqual([r.ok, r.error], [false, 'locked'], 'bloqueado: ' + i.id); }
-    st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-luar', outfit: 'roupa-macacao' }, 'tentar equipar o que não é seu não muda nada');
+    st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-luar', outfit: 'roupa-papai-noel' }, 'tentar equipar o que não é seu não muda nada');
     const pobre = await mk(99); const rp = await svc.buy(pobre, 'skin-limao'); assert.deepEqual([rp.ok, rp.error, rp.missing, rp.gems], [false, 'gems', 1, 99], 'saldo curto: recusa e diz quanto falta'); assert.equal(await gemas(pobre), 99); assert.equal((await q('SELECT count(*)::int AS n FROM shop_purchases WHERE user_id = $1', [pobre])).rows[0].n, 0);
     const b1 = await svc.buy(ana, 'skin-ouro'); assert.deepEqual([b1.ok, b1.already, b1.price, b1.gems], [true, false, 500, 500]); assert.ok(b1.owned.includes('skin-ouro'));
     const b2 = await svc.buy(ana, 'skin-ouro'); assert.deepEqual([b2.ok, b2.already, b2.gems], [true, true, 500], 'segunda compra do mesmo item: não cobra de novo');
-    const e1 = await svc.equip(ana, 'skin-ouro'); assert.deepEqual([e1.ok, e1.equipped], [true, 'skin-ouro']); st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-ouro', outfit: 'roupa-macacao' }); assert.ok(st.owned.includes('skin-ouro') && !st.owned.includes('skin-menta'), 'owned lista só o comprado');
+    const e1 = await svc.equip(ana, 'skin-ouro'); assert.deepEqual([e1.ok, e1.equipped], [true, 'skin-ouro']); st = await svc.status(ana); assert.deepEqual(st.pet, { skin: 'skin-ouro', outfit: 'roupa-papai-noel' }); assert.ok(st.owned.includes('skin-ouro') && !st.owned.includes('skin-menta'), 'owned lista só o comprado');
     assert.deepEqual(st.history.map((h) => [h.item, h.price]), [['skin-ouro', 500]], 'histórico com o preço pago');
 
     /* ---- categoria errada, ids inválidos, tirar ---- */
     for (const [id, cat] of [['skin-ouro', 'roupas'], ['roupa-mago', 'skins'], ['nuvem', 'skins'], ['skin-menta', 'bandejas']]) { const r = await svc.equip(ana, id, cat); assert.deepEqual([r.ok, r.error], [false, 'invalid'], 'categoria que não é a do item: ' + id + ' em ' + cat); }
     for (const id of ['', 'skin-nao-existe', '../x', 7, null, undefined, {}, 'SKIN-OURO']) { const r = await svc.equip(ana, id); assert.equal(r.ok, false, 'id inválido: ' + JSON.stringify(id)); }
     assert.deepEqual((await svc.equip(ana, null, 'bandejas')).ok, false, 'tirar só existe para skins e roupas'); assert.deepEqual((await svc.equip(ana, '', 'zzz')).ok, false);
-    const t1 = await svc.equip(ana, null, 'skins'); assert.deepEqual([t1.ok, t1.category, t1.equipped], [true, 'skins', null]); st = await svc.status(ana); assert.deepEqual(st.pet, { skin: null, outfit: 'roupa-macacao' }, 'tirar a skin não tira a roupa');
+    const t1 = await svc.equip(ana, null, 'skins'); assert.deepEqual([t1.ok, t1.category, t1.equipped], [true, 'skins', null]); st = await svc.status(ana); assert.deepEqual(st.pet, { skin: null, outfit: 'roupa-papai-noel' }, 'tirar a skin não tira a roupa');
     const t2 = await svc.equip(ana, '', 'roupas'); assert.equal(t2.ok, true); st = await svc.status(ana); assert.deepEqual(st.pet, { skin: null, outfit: null });
     const novo = await mk(0); assert.equal((await svc.equip(novo, null, 'skins')).ok, true, 'tirar funciona até sem linha de preferências'); assert.equal((await svc.equip(novo, 'skin-uva')).ok, true, 'e equipar grátis cria a linha');
 
