@@ -6,13 +6,13 @@
  * Desligado, nada disso acontece e o visual de sempre fica intacto.
  *
  * ====== A CHAVE ÚNICA ======
- *   MODO = 'ligado'      → liga sozinho de 1º de dezembro a 6 de janeiro, pela data do aparelho (padrão)
+ *   MODO = 'auto'      → liga sozinho de 1º de dezembro a 6 de janeiro, pela data do aparelho (padrão)
  *   MODO = 'ligado'    → sempre ligado
  *   MODO = 'desligado' → sempre desligado
  * Para conferir antes de dezembro, sem mudar a chave: abra o endereço com ?natal=1 (?natal=0 desliga). Vale só para aquela abertura. */
 (function () {
   'use strict';
-  var MODO = 'auto';
+  var MODO = 'ligado';
 
   function epoca(d) { var m = d.getMonth(), dia = d.getDate(); return m === 11 || (m === 0 && dia <= 6); }      // 1º/12 a 31/12 e 1º/01 a 6/01
   function ligado(modo, d, q) {
