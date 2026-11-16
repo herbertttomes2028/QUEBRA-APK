@@ -180,6 +180,22 @@
         return { meshes: m, parts: parts };
       } }
     ,
+    // Natal (rodada tema-natal, 16/11/2026): grátis para todos. Gorro com aba e pompom brancos, casaco curto com cinto e fivela; o rosto fica livre.
+    { id: 'papai-noel', free: true, name: 'Roupa de Papai Noel', emoji: '🎅',
+      make: function (B, body) {
+        var m = {}, parts = [], c = pick(body, ['#d62839', '#1f7a3a', '#2f6fe4']), H = 0.56, R = 0.39, TOP = 0.03, BEND = 0.34, hat = { t: [-0.2, 0.68, -0.02], r: [0, 0, 0.12] };
+        m.hat = cone({ r: R, h: H, bend: BEND, top: TOP });
+        m.coat = belt(B, { y0: -0.84, y1: -0.5, s0: 1.09, s1: 1.06, drop: 0.03, lat: 5, lon: 44 });
+        m.belt = belt(B, { y0: -0.64, y1: -0.56, s0: 1.11, s1: 1.09, lat: 2, lon: 44 });
+        parts.push({ id: 'gorro', mesh: 'hat', color: c, t: hat.t, r: hat.r }, { id: 'casaco', mesh: 'coat', color: c }, { id: 'cinto', mesh: 'belt', color: '#2b2d42' });
+        parts.push({ id: 'gorroAba', geom: 'sph', color: WHITE, t: [hat.t[0], hat.t[1] + 0.02, hat.t[2]], r: hat.r, s: [0.47, 0.09, 0.47] });
+        var cs = Math.cos(hat.r[2]), sn = Math.sin(hat.r[2]);
+        parts.push({ id: 'pompom', geom: 'sph', color: WHITE, t: [hat.t[0] + BEND * cs - H * sn, hat.t[1] + BEND * sn + H * cs, hat.t[2]], s: [0.085, 0.085, 0.085] });
+        var fz = front(B, 0, -0.6);
+        parts.push({ id: 'fivela', geom: 'sph', color: GOLD, t: [0, -0.6, fz + 0.075], s: [0.12, 0.075, 0.035] }, { id: 'fivelaFuro', geom: 'sph', color: '#2b2d42', t: [0, -0.6, fz + 0.095], s: [0.06, 0.035, 0.02] });
+        return { meshes: m, parts: parts };
+      } }
+    ,
     { id: 'bandana', free: false, name: 'Bandana de pirata', emoji: '🏴‍☠️',
       make: function (B, body) {
         var m = {}, parts = [], c = pick(body, ['#e5383b', '#2f6fe4', '#2fa84f', '#7a4fd6']);

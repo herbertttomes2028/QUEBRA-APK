@@ -38,6 +38,7 @@ const ITEMS = Object.freeze([
   { id: 'roupa-mago',        category: 'roupas', look: 'mago',       name: 'Chapéu de mago',              price: 0,   desc: 'Chapéu pontudo com estrelinhas douradas.' },
   { id: 'roupa-bailarina',   category: 'roupas', look: 'bailarina',  name: 'Saia de bailarina',           price: 0,   desc: 'Tutu em dois andares, com laço.' },
   { id: 'roupa-macacao',     category: 'roupas', look: 'macacao',    name: 'Macacão de jardineiro',       price: 0,   desc: 'Alças, botões e um bolsinho.' },
+  { id: 'roupa-papai-noel',  category: 'roupas', look: 'papai-noel', name: 'Roupa de Papai Noel',         price: 0,   desc: 'Gorro com pompom, casaco e cinto.' },
   { id: 'roupa-bandana',     category: 'roupas', look: 'bandana',    name: 'Bandana de pirata',           price: 150, desc: 'Com caveirinhas e um nó na lateral.' },
   { id: 'roupa-fones',       category: 'roupas', look: 'fones',      name: 'Fones de ouvido',             price: 250, desc: 'Para ouvir a música do jogo com estilo.' },
   { id: 'roupa-cartola',     category: 'roupas', look: 'cartola',    name: 'Cartola e gravata-borboleta', price: 350, desc: 'Elegante, para as grandes ocasiões.' },
