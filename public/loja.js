@@ -10,11 +10,11 @@
   /* ============================== catálogo (reserva) ==============================
    * O catálogo de verdade vem do servidor (/api/config e /api/acc/shop). Esta cópia só cobre estar sem internet; um teste confere que bate com shop.js. */
   var FALLBACK = [
-    { id: 'classica', name: 'Bandeja Clássica', price: 0,   desc: 'Retangular, discreta e moderna. Já é sua!' },
-    { id: 'nuvem',    name: 'Bandeja Nuvem',    price: 150, desc: 'Bordas fofas de nuvem que flutuam devagarinho.' },
-    { id: 'estrela',  name: 'Bandeja Estrela',  price: 250, desc: 'Contorno de estrela com brilhos nas bordas.' },
-    { id: 'gelatina', name: 'Bandeja Gelatina', price: 350, desc: 'Ondulada e elástica: balança quando você mexe.' },
-    { id: 'galaxia',  name: 'Bandeja Galáxia',  price: 500, desc: 'Bordas futuristas, partículas e luz suave.' }
+    { id: 'classica', name: 'Bandeja Clássica', price: 0,   desc: 'Simples e moderna. Já vem com você!' },
+    { id: 'nuvem',    name: 'Bandeja Nuvem',    price: 150, desc: 'Nuvens fofas que flutuam devagar.' },
+    { id: 'estrela',  name: 'Bandeja Estrela',  price: 250, desc: 'Pontas de estrela e brilhos nas bordas.' },
+    { id: 'gelatina', name: 'Bandeja Gelatina', price: 350, desc: 'Ondulada: balança quando você mexe.' },
+    { id: 'galaxia',  name: 'Bandeja Galáxia',  price: 500, desc: 'Futurista, com estrelas e luz suave.' }
   ];
   var MODELS = ['classica', 'nuvem', 'estrela', 'gelatina', 'galaxia'];
   // Skins e roupas do pet (a lógica de desenho está em mascot-looks.js). Só o que é GRÁTIS existe sem internet; o catálogo de verdade (preços e raridade) vem do servidor.
@@ -363,12 +363,47 @@
     theme: themeVars, themeOn: themeOn, previewImage: previewImage, safeTray: safeTray, buildSkin: buildSkin, shapes: SHAPES, geom: geom, palette: PALETTE, defaults: DEFAULT_COLOR, fallback: FALLBACK, current: current
   };
 
-  /* ============================== a loja (interface) ============================== */
-  var ui = { tab: 'loja', cat: 'bandejas', mine: null, open: false, pvs: [], sig: '' };
-  function paintGems() { var g = $('#shop-gems'); if (g) g.textContent = S.logged ? '💎 ' + (S.gems == null ? '…' : S.gems) : '💎 —'; }
+  /* ============================== a loja (interface) ==============================
+   * Rodada loja-bonita (16/11/2026): só a APARÊNCIA mudou. Uma fileira de seções (Bandejas, Skins, Roupas, Meus itens), a mesma grade de cartões
+   * em todas e UM botão por cartão com 4 estados fixos: "Comprar" (o preço aparece uma vez, na etiqueta da foto), "🔒 Faltam X" (sem gemas
+   * suficientes), "Equipar" (já é seu) e, equipado, a etiqueta "✓ Equipado". Itens, preços, compra e posse continuam decididos pelo servidor (shop.js). */
+  var ui = { tab: 'loja', cat: 'bandejas', mine: null, open: false, pvs: [], sig: '', top: false, just: '' };
+  var SECS = [
+    { id: 'bandejas', ico: '🧺', name: 'Bandejas', intro: 'Enfeite o lugar onde as peças esperam a vez.' },
+    { id: 'skins', ico: '🎨', name: 'Skins', intro: 'Troque as cores do seu pet.' },
+    { id: 'roupas', ico: '👕', name: 'Roupas', intro: 'Vista o seu pet com estilo.' },
+    { id: 'meus', ico: '🎒', name: 'Meus itens', intro: 'Tudo o que já é seu, pronto para usar.' }
+  ];
+  function secNow() { return ui.tab === 'minhas' ? 'meus' : ui.cat; }
+  var shownGems = null, bumpAB = false;
+  function paintGems() {
+    var g = $('#shop-gems'), lb = $('#shop-gems-lbl'), w = $('#shop-wallet'); if (!g) return;
+    var known = S.logged && typeof S.gems === 'number';
+    g.textContent = S.logged ? (known ? String(S.gems) : '…') : ''; g.hidden = !S.logged;
+    if (lb) lb.textContent = S.logged ? (S.gems === 1 ? 'gema' : 'gemas') : 'Sem conta';
+    if (w) {
+      w.classList.toggle('guest', !S.logged);
+      if (known && shownGems !== null && shownGems !== S.gems && ui.open) { bumpAB = !bumpAB; w.classList.remove('bump-a', 'bump-b'); w.classList.add(bumpAB ? 'bump-a' : 'bump-b'); }   // o saldo mudou: um pulinho (A/B reinicia sem forçar layout)
+    }
+    shownGems = known ? S.gems : null;
+  }
   function sig() { return JSON.stringify([ui.cat, S.pet, S.petItems.skins.length, S.petItems.roupas.length, S.logged, S.gems, S.owned, S.equipped, S.colors, S.items.map(function (i) { return i.id + ':' + i.price; }), ui.tab, ui.mine, animOn()]); }
   function renderIfOpen() { if (ui.open && sig() !== ui.sig) render(); else if (!ui.open) ui.sig = ''; }          // dados iguais: não refaz a tela (evita piscar e trabalho à toa)
   function btn(txt, cls, fn, label) { var b = el('button', 'btn ' + (cls || 'btn-secondary')); b.type = 'button'; b.textContent = txt; if (label) b.setAttribute('aria-label', label); if (fn) b.addEventListener('click', fn); return b; }
+  function paintNav() {
+    var nav = $('#shop-nav'), now = secNow(); if (!nav) return;
+    nav.textContent = '';
+    SECS.forEach(function (s) {
+      var on = now === s.id, b = el('button', 'shop-sec s-' + s.id + (on ? ' on' : '')); b.type = 'button';
+      b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', on ? 'true' : 'false'); b.setAttribute('aria-controls', 'shop-body'); b.setAttribute('data-sec', s.id);
+      var ic = el('span', 'shop-sec-ico'); ic.setAttribute('aria-hidden', 'true'); ic.textContent = s.ico; b.appendChild(ic);
+      var tx = el('span', 'shop-sec-txt'); tx.textContent = s.name; b.appendChild(tx);
+      b.addEventListener('click', function () { goSec(s.id); });
+      nav.appendChild(b);
+    });
+    var sh = document.querySelector('#modal-shop .shop-sheet'); if (sh) sh.setAttribute('data-sec', now);
+  }
+  function goSec(id) { if (id === 'meus') ui.tab = 'minhas'; else { ui.tab = 'loja'; ui.cat = id; } ui.top = true; render(); }
 
   // pré-visualização: a MESMA bandeja do jogo, em escala, com algumas peças de exemplo (e espaços vazios para as decorações aparecerem)
   function samples(g, count) {
@@ -427,58 +462,79 @@
   }
 
   function missing(it) { return Math.max(0, it.price - (S.gems || 0)); }
+  // "a Bandeja Estrela", "a skin Cereja", "a roupa Fones de ouvido": o substantivo vem antes do nome, então o artigo e o "sua" ficam sempre certos
+  function nomeCom(it) { return (it.cat === 'skins' ? 'a skin ' : it.cat === 'roupas' ? 'a roupa ' : 'a ') + it.name; }
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+  function lockedTap(it) { var m = missing(it); QC.toast('Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para ' + nomeCom(it) + '. Cada quebra-cabeça montado rende mais! 💪', 3600); }
+  function stateOf(it, usable, using) { return using ? 'on' : usable ? 'own' : !S.logged ? 'guest' : missing(it) > 0 ? 'lock' : 'buy'; }
+  function chip(cls, txt) { var s = el('span', 'shop-chip ' + cls); s.textContent = txt; return s; }
+  // etiquetas sobre a foto: raridade (só do pet) em cima à esquerda; preço, "Já é seu"/"Grátis" ou "✓ Equipado" embaixo
+  function tags(vit, it, st) {
+    if (it.rarity) vit.appendChild(chip('shop-rar r-' + it.rarity, RARITY[it.rarity] || ''));
+    vit.appendChild(st === 'on' ? chip('tag-on', '✓ Equipado') : st === 'own' ? chip('tag-own', it.price ? 'Já é seu' : 'Grátis') : chip('tag-price', '💎 ' + it.price));
+  }
+  function texts(c, it) {
+    var h = el('h3', 'shop-name'); h.textContent = it.name; c.appendChild(h);
+    var p = el('p', 'shop-desc'); p.textContent = it.desc || ''; c.appendChild(p);
+  }
+  // UM botão por cartão, sempre no rodapé (os cartões ficam alinhados)
+  function action(it, st, onEquip, onOff) {
+    var b, m;
+    if (st === 'buy') b = btn('Comprar', 'btn-primary shop-go', function () { buy(it); }, 'Comprar ' + it.name + ' por ' + it.price + ' gemas');
+    else if (st === 'lock') { m = missing(it); b = btn('🔒 Faltam ' + m, 'btn-secondary shop-lock', function () { lockedTap(it); }, it.name + ': custa ' + it.price + ' gemas, faltam ' + m); }
+    else if (st === 'guest') b = btn('Entrar para comprar', 'btn-secondary shop-guest', function () { buy(it); }, 'Entrar na conta para comprar ' + it.name);
+    else if (st === 'own') b = btn('Equipar', 'btn-primary shop-use', onEquip, 'Equipar ' + it.name);
+    else b = btn(onOff[0], 'btn-secondary shop-on', onOff[1], onOff[2]);
+    var box = el('div', 'shop-acts'); box.appendChild(b); return box;
+  }
   function card(it) {
-    var c = el('article', 'shop-card' + (S.equipped === it.id ? ' on' : '')), own = owns(it.id), using = own && S.equipped === it.id;
-    c.setAttribute('data-item', it.id);
-    var pv = previewBox(it.id, colorOf(it.id), false); c.appendChild(pv); ui.pvs.push(pv);
-    var head = el('div', 'shop-card-head'), h = el('h3', 'shop-name'); h.textContent = it.name; head.appendChild(h);
-    var badge = el('span', 'shop-badge' + (using ? ' use' : own ? ' own' : ' price'));
-    badge.textContent = using ? 'Em uso' : own ? (it.price ? 'Adquirida ✓' : 'Sua ✓') : '💎 ' + it.price; head.appendChild(badge); c.appendChild(head);
-    var p = el('p', 'shop-desc'); p.textContent = it.desc; c.appendChild(p);
-    if (!own && S.logged) { var m = missing(it); if (m > 0) { var f = el('p', 'shop-miss'); f.textContent = 'Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para comprar.'; f.setAttribute('role', 'status'); c.appendChild(f); } }
-    var acts = el('div', 'shop-acts');
-    acts.appendChild(btn('👁 Visualizar', 'btn-ghost', function () { openPreview(it.id); }, 'Visualizar ' + it.name));
-    if (!own) acts.appendChild(btn(S.logged ? 'Comprar 💎 ' + it.price : 'Entrar para comprar', 'btn-primary', function () { buy(it); }, (S.logged ? 'Comprar ' : 'Entrar para comprar ') + it.name + ' por ' + it.price + ' gemas'));
-    else if (using) { var u = btn('Em uso', 'btn-secondary', null); u.disabled = true; acts.appendChild(u); }
-    else acts.appendChild(btn('Equipar', 'btn-primary', function () { equip(it.id); }, 'Equipar ' + it.name));
-    c.appendChild(acts);
+    var own = owns(it.id), using = own && S.equipped === it.id, st = stateOf(it, own, using);
+    var c = el('article', 'shop-card is-' + st + (ui.just === it.id ? ' just' : '')); c.setAttribute('data-item', it.id);
+    var vit = el('button', 'shop-vit tray-vit'); vit.type = 'button'; vit.setAttribute('aria-label', 'Ver ' + it.name + ' de perto'); vit.addEventListener('click', function () { openPreview(it.id); });
+    var pv = previewBox(it.id, colorOf(it.id), false); vit.appendChild(pv); ui.pvs.push(pv);
+    var z = el('span', 'shop-zoom'); z.setAttribute('aria-hidden', 'true'); z.textContent = '🔍'; vit.appendChild(z);
+    tags(vit, it, st); c.appendChild(vit); texts(c, it);
+    c.appendChild(action(it, st, function () { equip(it.id); }, ['🎨 Mudar a cor', function () { ui.mine = it.id; goSec('meus'); }, 'Mudar a cor de ' + it.name]));
     return c;
   }
 
   function petCard(it) {
-    var use = petUsable(it), cur = it.cat === 'skins' ? S.pet.skin : S.pet.outfit, using = use && cur === it.look;
-    var c = el('article', 'shop-card pet-card' + (using ? ' on' : '') + (it.rarity ? ' r-' + it.rarity : '')); c.setAttribute('data-item', it.id);
-    var pv = el('div', 'pet-thumb'), img = el('img'); img.src = '/pet/' + it.id + '.webp'; img.alt = ''; img.width = 240; img.height = 180; img.loading = 'lazy'; img.decoding = 'async';
-    img.addEventListener('error', function () { pv.classList.add('nofoto'); img.hidden = true; }); pv.appendChild(img); c.appendChild(pv);
-    var head = el('div', 'shop-card-head'), h = el('h3', 'shop-name'); h.textContent = it.name; head.appendChild(h);
-    var badge = el('span', 'shop-badge' + (using ? ' use' : use ? ' own' : ' price')); badge.textContent = using ? 'Em uso' : use ? (it.price ? 'Adquirido ✓' : 'Grátis ✓') : '💎 ' + it.price; head.appendChild(badge); c.appendChild(head);
-    if (it.rarity) { var rt = el('span', 'shop-rar r-' + it.rarity); rt.textContent = RARITY[it.rarity] || ''; c.appendChild(rt); }
-    if (it.desc) { var p = el('p', 'shop-desc'); p.textContent = it.desc; c.appendChild(p); }
-    if (!use && S.logged) { var m = missing(it); if (m > 0) { var f = el('p', 'shop-miss'); f.textContent = 'Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para comprar.'; f.setAttribute('role', 'status'); c.appendChild(f); } }
-    var acts = el('div', 'shop-acts'), kind = it.cat === 'skins' ? 'skin' : 'outfit';
-    if (!use) acts.appendChild(btn(S.logged ? 'Comprar 💎 ' + it.price : 'Entrar para comprar', 'btn-primary', function () { buy(it); }, (S.logged ? 'Comprar ' : 'Entrar para comprar ') + it.name + ' por ' + it.price + ' gemas'));
-    else if (using) { var u = btn('Em uso', 'btn-secondary', null); u.disabled = true; acts.appendChild(u); acts.appendChild(btn('Tirar', 'btn-ghost', function () { petPick(kind, ''); }, 'Tirar ' + it.name)); }
-    else acts.appendChild(btn('Equipar', 'btn-primary', function () { petPick(kind, it.look); QC.toast('✓ ' + it.name + ' em uso!', 2200); }, 'Equipar ' + it.name));
-    c.appendChild(acts);
+    var use = petUsable(it), now = it.cat === 'skins' ? S.pet.skin : S.pet.outfit, using = use && now === it.look, st = stateOf(it, use, using), kind = it.cat === 'skins' ? 'skin' : 'outfit';
+    var c = el('article', 'shop-card pet-card is-' + st + (it.rarity ? ' r-' + it.rarity : '') + (ui.just === it.id ? ' just' : '')); c.setAttribute('data-item', it.id);
+    var pv = el('div', 'shop-vit pet-thumb'), img = el('img'); img.src = '/pet/' + it.id + '.webp'; img.alt = ''; img.width = 240; img.height = 180; img.loading = 'lazy'; img.decoding = 'async';
+    img.addEventListener('error', function () { pv.classList.add('nofoto'); img.hidden = true; }); pv.appendChild(img);
+    tags(pv, it, st); c.appendChild(pv); texts(c, it);
+    c.appendChild(action(it, st, function () { petPick(kind, it.look); QC.toast('✓ ' + it.name + ' no seu pet!', 2200); }, ['Tirar', function () { petPick(kind, ''); QC.toast('Pronto: ' + it.name + ' saiu do pet.', 2400); }, 'Tirar ' + it.name + ' do pet']));
     return c;
   }
 
+  function intro(body, id) {
+    var s = SECS.filter(function (x) { return x.id === id; })[0] || SECS[0], p = el('p', 'shop-intro'); p.textContent = s.intro; body.appendChild(p);
+  }
   function renderLoja(body) {
-    var cats = el('div', 'shop-cats'); cats.setAttribute('role', 'tablist'); cats.setAttribute('aria-label', 'Categorias da loja');
-    [['bandejas', '🧺 BANDEJAS'], ['skins', '🎨 SKINS'], ['roupas', '👕 ROUPAS']].forEach(function (c) {
-      var chip = el('button', 'shop-cat' + (ui.cat === c[0] ? ' on' : '')); chip.type = 'button'; chip.setAttribute('role', 'tab'); chip.setAttribute('aria-selected', ui.cat === c[0] ? 'true' : 'false'); chip.setAttribute('data-cat', c[0]); chip.textContent = c[1];
-      chip.addEventListener('click', function () { ui.cat = c[0]; render(); }); cats.appendChild(chip);
-    });
-    body.appendChild(cats);
     var pet = ui.cat !== 'bandejas';
-    if (!S.logged) { var n1 = el('p', 'shop-note'); n1.textContent = pet ? 'Os itens grátis já são seus. Para desbloquear os outros com gemas, entre na sua conta.' : 'Dá para ver tudo e mudar a cor da Clássica. Para comprar com gemas, entre na sua conta.'; body.appendChild(n1); }
-    var list = el('div', 'shop-list' + (pet ? ' pet-list' : '')); ui.pvs = [];
+    intro(body, ui.cat);
+    if (!S.logged) { var n1 = el('p', 'shop-note'); n1.textContent = pet ? '🎁 Os itens grátis já são seus. Para comprar os outros, entre na sua conta.' : '👀 Dá para ver tudo e mudar a cor da Clássica. Para comprar, entre na sua conta.'; body.appendChild(n1); }
+    var list = el('div', 'shop-list'); ui.pvs = [];
     if (pet) petList(ui.cat).forEach(function (it) { list.appendChild(petCard(it)); }); else S.items.forEach(function (it) { list.appendChild(card(it)); });
     body.appendChild(list);
-    if (!pet) { setScale(body); buildStaged(ui.pvs); }
+    if (!pet) buildStaged(ui.pvs);
   }
 
+  function sub(body, txt) { var h = el('h3', 'shop-sub'); h.textContent = txt; body.appendChild(h); }
   function renderMine(body) {
+    intro(body, 'meus');
+    /* ---- do pet: o que foi comprado e o que está no pet agora ---- */
+    sub(body, '🐾 Do seu pet');
+    var mine = petList('skins').concat(petList('roupas')).filter(function (it) { return petUsable(it) && (it.price > 0 || it.look === (it.cat === 'skins' ? S.pet.skin : S.pet.outfit)); });
+    if (mine.length) { var pl = el('div', 'shop-list'); mine.forEach(function (it) { pl.appendChild(petCard(it)); }); body.appendChild(pl); }
+    else {
+      var e = el('div', 'shop-empty'), ei = el('span', 'shop-empty-ico'); ei.setAttribute('aria-hidden', 'true'); ei.textContent = '🐾'; e.appendChild(ei);
+      var et = el('p'); et.textContent = S.logged ? 'Seu pet ainda está com o visual de fábrica. Que tal escolher uma skin? Várias são grátis!' : 'Seu pet ainda está com o visual de fábrica. As skins e roupas grátis podem ser usadas sem conta!'; e.appendChild(et);
+      e.appendChild(btn('🎨 Ver skins', 'btn-primary', function () { goSec('skins'); })); body.appendChild(e);
+    }
+    /* ---- bandejas: escolher a cor (grátis), equipar e as animações ---- */
+    sub(body, '🧺 Suas bandejas');
     var owned = S.items.filter(function (it) { return owns(it.id); });
     if (!ui.mine || !owns(ui.mine)) ui.mine = S.equipped;
     var list = el('div', 'mine-list'); list.setAttribute('role', 'listbox'); list.setAttribute('aria-label', 'Bandejas que você tem');
@@ -486,14 +542,14 @@
       var b = el('button', 'mine-item' + (ui.mine === it.id ? ' sel' : '')); b.type = 'button'; b.setAttribute('role', 'option'); b.setAttribute('aria-selected', ui.mine === it.id ? 'true' : 'false');
       var dot = el('i', 'mine-dot'); dot.style.background = safeTray(colorOf(it.id)).fill; b.appendChild(dot);
       var tx = el('span', 'mine-name'); tx.textContent = it.name.replace('Bandeja ', ''); b.appendChild(tx);
-      if (S.equipped === it.id) { var u = el('span', 'shop-badge use'); u.textContent = 'Em uso'; b.appendChild(u); }
+      if (S.equipped === it.id) b.appendChild(chip('tag-on', '✓'));
       b.addEventListener('click', function () { ui.mine = it.id; render(); });
       list.appendChild(b);
     });
     body.appendChild(list);
     var id = ui.mine, it = itemById(id) || FALLBACK[0], ed = el('section', 'mine-editor'), pv = previewBox(id, colorOf(id), true); ed.appendChild(pv);
     var tt = el('h3', 'shop-name'); tt.textContent = it.name; ed.appendChild(tt);
-    var lb = el('p', 'shop-desc'); lb.textContent = 'Escolha uma cor (é de graça!). Você vê a prévia na hora e ela fica salva sozinha.'; ed.appendChild(lb);
+    var lb = el('p', 'shop-desc'); lb.textContent = 'Escolha uma cor (é de graça!). A prévia muda na hora e a cor fica salva sozinha.'; ed.appendChild(lb);
     var pal = el('div', 'swatches'); pal.setAttribute('role', 'group'); pal.setAttribute('aria-label', 'Paleta de cores');
     PALETTE.forEach(function (c) {
       var b = el('button', 'swatch' + (colorOf(id) === c ? ' sel' : '')); b.type = 'button'; b.style.background = c; b.setAttribute('aria-label', 'Cor ' + c); b.setAttribute('aria-pressed', colorOf(id) === c ? 'true' : 'false');
@@ -501,17 +557,17 @@
       pal.appendChild(b);
     });
     ed.appendChild(pal);
-    var row = el('label', 'pick-row'), sp = el('span'); sp.textContent = 'Cor personalizada'; row.appendChild(sp);
+    var row = el('label', 'pick-row'), sp = el('span'); sp.textContent = '🌈 Outra cor'; row.appendChild(sp);
     var inp = el('input'); inp.type = 'color'; inp.value = colorOf(id); inp.id = 'mine-color'; inp.setAttribute('aria-label', 'Escolher uma cor personalizada');
     inp.addEventListener('input', function () { recolor(pv, inp.value.toLowerCase()); hint.hidden = !safeTray(inp.value.toLowerCase()).changed; });     // prévia ao vivo
     inp.addEventListener('change', function () { setColor(id, inp.value.toLowerCase()); });                                                            // salva sozinha
     row.appendChild(inp); ed.appendChild(row);
     var hint = el('p', 'shop-hint'); hint.textContent = 'Ajustamos um pouquinho o brilho para as peças continuarem bem visíveis.'; hint.hidden = !safeTray(colorOf(id)).changed; ed.appendChild(hint);
-    var acts = el('div', 'shop-acts');
-    var has = !!S.colors[id]; var rs = btn('↺ Restaurar cor original', 'btn-ghost', function () { setColor(id, null); }); rs.disabled = !has; acts.appendChild(rs);
-    if (S.equipped === id) { var u = btn('Em uso', 'btn-secondary', null); u.disabled = true; acts.appendChild(u); } else acts.appendChild(btn('Equipar', 'btn-primary', function () { equip(id); }, 'Equipar ' + it.name));
+    var acts = el('div', 'shop-acts two');
+    var has = !!S.colors[id]; var rs = btn('↺ Cor original', 'btn-secondary', function () { setColor(id, null); }, 'Voltar à cor original de ' + it.name); rs.disabled = !has; acts.appendChild(rs);
+    if (S.equipped === id) acts.appendChild(chip('tag-on shop-done', '✓ Equipado')); else acts.appendChild(btn('Equipar', 'btn-primary', function () { equip(id); }, 'Equipar ' + it.name));
     ed.appendChild(acts);
-    var arow = el('div', 'set-row'), al = el('span', 'set-label'); al.id = 'lbl-trayanim2'; al.textContent = 'Animações das bandejas'; arow.appendChild(al);
+    var arow = el('div', 'set-row'), al = el('span', 'set-label'); al.id = 'lbl-trayanim2'; al.textContent = '✨ Animações das bandejas'; arow.appendChild(al);
     var sw = el('button', 'switch'); sw.type = 'button'; sw.setAttribute('role', 'switch'); sw.setAttribute('aria-labelledby', 'lbl-trayanim2'); sw.setAttribute('aria-checked', animOn() ? 'true' : 'false'); sw.appendChild(el('i'));
     sw.addEventListener('click', function () { var on = !animOn(); setAnim(on); sw.setAttribute('aria-checked', on ? 'true' : 'false'); });
     arow.appendChild(sw); ed.appendChild(arow);
@@ -522,8 +578,8 @@
 
   function render() {
     var body = $('#shop-body'); if (!body) return;
-    var scroll = body.scrollTop; body.textContent = '';
-    Array.prototype.forEach.call(document.querySelectorAll('#modal-shop .shop-tab'), function (t) { var on = t.getAttribute('data-tab') === ui.tab; t.classList.toggle('on', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    var scroll = ui.top ? 0 : body.scrollTop; ui.top = false; body.textContent = '';
+    paintNav();
     if (ui.tab === 'minhas') renderMine(body); else renderLoja(body);
     paintGems(); body.scrollTop = scroll; ui.sig = sig();
   }
@@ -536,32 +592,43 @@
     if (S.equipped === id) QC.tray.refresh();
     render();
   }
-  function equip(id) {
+  function equip(id, quiet) {
     if (!owns(id)) return;
     S.equipped = id; saveLocal(); QC.tray.refresh(); render();
-    if (S.logged) { queue = queue.then(function () { return api('POST', '/shop/equip', { itemId: id }); }).then(function (j) { if (j && !j.ok && j.error !== 'offline') { refresh(); QC.toast('Não deu para equipar agora.', 2600); } }); }
-    QC.toast('✓ ' + ((itemById(id) || {}).name || 'Bandeja') + ' em uso!', 2200);
+    if (S.logged) { queue = queue.then(function () { return api('POST', '/shop/equip', { itemId: id }); }).then(function (j) { if (j && !j.ok && j.error !== 'offline') { refresh(); QC.toast('Não deu para equipar agora. Tente de novo.', 2600); } }); }
+    if (!quiet) QC.toast('✓ ' + ((itemById(id) || {}).name || 'Bandeja') + ' equipada!', 2200);
   }
   function setAnim(on) {
     applyAnim(on); S.anim = on;
     if (S.logged) { queue = queue.then(function () { return api('POST', '/shop/prefs', { anim: on }); }); }
   }
+  // brilho rápido no cartão comprado (só transform/opacity; parado com movimento reduzido)
+  var justT = 0;
+  function shine(id) {
+    ui.just = id; clearTimeout(justT);
+    justT = setTimeout(function () { ui.just = ''; var c = document.querySelector('#shop-body .shop-card.just'); if (c) c.classList.remove('just'); }, 1400);
+  }
   function buy(it) {
-    var what = it.cat ? PET_NOUN[it.cat] : 'bandeja', fem = 'esta ';
+    var what = it.cat ? PET_NOUN[it.cat] : 'bandeja';
     if (!S.logged) { closeShop(); var me = $('#btn-me'); if (me) me.click(); QC.toast('Entre na sua conta para comprar com gemas.', 3200); return; }
-    var m = missing(it);
-    if (m > 0) { QC.toast('Faltam ' + m + ' gema' + (m === 1 ? '' : 's') + ' para ' + (it.cat ? it.name : 'a ' + it.name.toLowerCase()) + '. Jogue para ganhar mais!', 3600); return; }
-    QC.confirm({ title: 'Comprar ' + it.name + '?', text: 'Usar ' + it.price + ' gemas para ter ' + fem + what + ' para sempre. Seu saldo: ' + S.gems + ' gemas (ficam ' + (S.gems - it.price) + ').', ok: 'Comprar 💎 ' + it.price, cancel: 'Agora não' }).then(function (yes) {
+    if (missing(it) > 0) { lockedTap(it); return; }
+    QC.confirm({ title: 'Comprar ' + it.name + '?', text: 'Esta ' + what + ' custa ' + it.price + ' gemas e fica sua para sempre. Você tem ' + S.gems + ' e vão sobrar ' + (S.gems - it.price) + '.', ok: 'Comprar 💎 ' + it.price, cancel: 'Agora não' }).then(function (yes) {
       if (!yes) return;
       api('POST', '/shop/buy', { itemId: it.id }).then(function (j) {
         if (j && j.ok) {
           S.gems = j.gems; if (j.owned) S.owned = j.owned.filter(function (x) { return MODELS.indexOf(x) >= 0 || !!petById(x); });
           if (QC.libraryBalanceChanged) QC.libraryBalanceChanged(j.gems);
-          paintGems(); render(); refresh();
-          QC.toast(j.already ? 'Você já tem ' + fem + what + '.' : '🎉 ' + it.name + ' desbloqueada! Toque em Equipar para usar.', 3800); QC.playSound && QC.playSound('chime');
-        } else if (j && j.error === 'gems') { S.gems = j.gems; paintGems(); render(); QC.toast('Faltam ' + j.missing + ' gemas para ' + fem + what + '.', 3600); }
-        else if (j && j.error === 'auth') QC.toast('Sua sessão terminou. Entre de novo.', 3200);
-        else QC.toast(j && j.error === 'offline' ? 'Sem internet. Tente de novo.' : 'Não foi possível comprar agora. Nada foi cobrado.', 3400);
+          shine(it.id);
+          if (j.already) { paintGems(); render(); QC.toast('Esta ' + what + ' já é sua.', 3000); }
+          else {
+            if (it.cat) petPick(it.cat === 'skins' ? 'skin' : 'outfit', it.look); else equip(it.id, true);      // comprou, já usa (o mesmo pedido de "Equipar")
+            paintGems(); render();
+            QC.toast('🎉 ' + cap(nomeCom(it)) + ' é sua! ' + (it.cat ? 'Já está no seu pet.' : 'Já está nas suas partidas.'), 3800); QC.playSound && QC.playSound('chime');
+          }
+          queue = queue.then(refresh, refresh);                // confere com o servidor DEPOIS de equipar (a ordem dos pedidos é mantida)
+        } else if (j && j.error === 'gems') { S.gems = j.gems; paintGems(); render(); QC.toast('Faltam ' + j.missing + ' gemas para ' + nomeCom(it) + '. Cada quebra-cabeça montado rende mais! 💪', 3600); }
+        else if (j && j.error === 'auth') QC.toast('Sua sessão terminou. Entre de novo para comprar.', 3200);
+        else QC.toast(j && j.error === 'offline' ? 'Sem internet agora. Nada foi cobrado; tente de novo.' : 'Não deu para comprar agora. Nada foi cobrado.', 3400);
       });
     });
   }
@@ -572,8 +639,11 @@
     var pv = previewBox(id, colorOf(id), true); body.appendChild(pv);
     var d = el('p', 'shop-desc'); d.textContent = it.desc + (owns(id) ? '' : ' Preço: 💎 ' + it.price + '.'); body.appendChild(d);
     var acts = $('#tp-actions'); acts.textContent = '';
-    if (!owns(id)) acts.appendChild(btn(S.logged ? 'Comprar 💎 ' + it.price : 'Entrar para comprar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); buy(it); }));
-    else if (S.equipped !== id) acts.appendChild(btn('Equipar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); equip(id); }));
+    var st = stateOf(it, owns(id), owns(id) && S.equipped === id);
+    if (st === 'buy') acts.appendChild(btn('Comprar 💎 ' + it.price, 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); buy(it); }));
+    else if (st === 'lock') acts.appendChild(btn('🔒 Faltam ' + missing(it) + ' gemas', 'btn-secondary shop-lock', function () { lockedTap(it); }));
+    else if (st === 'guest') acts.appendChild(btn('Entrar para comprar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); buy(it); }));
+    else if (st === 'own') acts.appendChild(btn('Equipar', 'btn-primary', function () { QC.closeModal('#modal-tray-preview'); equip(id); }));
     var close = btn('Fechar', 'btn-ghost', function () { QC.closeModal('#modal-tray-preview'); }); close.id = 'tp-close'; close.setAttribute('data-back', ''); acts.appendChild(close);
     QC.openModal('#modal-tray-preview', '#tp-close');
     setScale(body);
@@ -581,10 +651,10 @@
 
   function openShop(tab, cat) {
     if (tab) ui.tab = tab;
-    if (cat === 'bandejas' || cat === 'skins' || cat === 'roupas') ui.cat = cat;
+    if (cat === 'bandejas' || cat === 'skins' || cat === 'roupas') { ui.tab = 'loja'; ui.cat = cat; ui.top = true; }
     ui.open = true; loadCatalog();
     QC.openModal('#modal-shop', '#shop-close');
-    if (sig() !== ui.sig || !$('#shop-body').firstChild) render(); else setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar
+    if (ui.top || sig() !== ui.sig || !$('#shop-body').firstChild) render(); else setScale($('#shop-body'));      // já montada em segundo plano: abrir é só mostrar
     if (S.logged && (!S.at || Date.now() - S.at > 20000)) refresh();                 // o servidor só é consultado se os dados têm mais de 20 s
   }
   function closeShop() { ui.open = false; QC.closeModal('#modal-shop'); }
@@ -600,7 +670,6 @@
     on('#link-shop', function () { openShop('loja'); });
     on('#menu-shop', function () { QC.closeModal('#modal-menu'); openShop('loja'); });
     on('#shop-close', closeShop);
-    Array.prototype.forEach.call(document.querySelectorAll('#modal-shop .shop-tab'), function (t) { t.addEventListener('click', function () { ui.tab = t.getAttribute('data-tab'); render(); }); });
     var m = $('#modal-shop'); if (m) m.addEventListener('click', function (e) { if (e.target === m) closeShop(); });
     window.addEventListener('resize', function () { if (ui.open) { setScale($('#shop-body')); setScale($('#tp-body')); } });
     // enquanto a lista rola, as animações param (rolagem sempre fluida)
