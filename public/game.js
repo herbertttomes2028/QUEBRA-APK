@@ -147,7 +147,8 @@
     return;
   }
 
-  var socket = io({ transports: ['websocket', 'polling'], reconnectionDelay: 500, reconnectionDelayMax: 3000 });
+  // auth.fila: avisa o servidor que este jogo já sabe mostrar a fileira de 5 (peças que aparecem aos poucos; evento 'fila' / 'ch:fila')
+  var socket = io({ transports: ['websocket', 'polling'], reconnectionDelay: 500, reconnectionDelayMax: 3000, auth: { fila: 1 } });
 
   /* ---------------------------------------------------------
    * Utilidades
@@ -1197,6 +1198,7 @@
     board.appendChild(boardGuides(cfg));
     field.appendChild(board);
     if (typeof QC !== 'undefined' && QC.tray) QC.tray.build(field, cfg);          // a bandeja decorativa (loja) fica ATRÁS das peças e nunca recebe toque
+    if (cfg.FILA && cfg.FILA.slots) buildFilaSlots(field, cfg);                    // fileira de 5 (20, 30 e 48 peças): as 5 vagas ficam marcadas
 
     state.pieces = snap.pieces.map(function (d) {
       var el = document.createElement('div');
@@ -1221,7 +1223,7 @@
         held: false, mine: false, theirs: false, zoomAbs: null, lastMove: 0, vs: 1, scaleAnimTime: null,
         boardExpanded: false, dirty: true, out: d.out !== false, fly: null
       };
-      if (!p.out) el.style.display = 'none';          // ainda está dentro da caixa de presentes
+      if (!p.out) el.style.display = 'none';          // ainda está dentro da caixa de presentes (ou guardada, na fileira de 5)
       p.vs = targetScale(p);
       if (p.z > state.zMax) state.zMax = p.z;
       tile.style.transform = 'rotate(' + p.ang + 'deg)';
@@ -1229,6 +1231,39 @@
       return p;
     });
     if (snap.mode === 'quebra' && cfg.GIFT) buildHand(cfg);
+  }
+
+  // FILEIRA DE 5: só o desenho das vagas (atrás das peças, sem toque). Quem decide qual peça aparece e quando é o servidor.
+  function buildFilaSlots(field, cfg) {
+    cfg.FILA.slots.forEach(function (s) {
+      var sl = document.createElement('div');
+      sl.className = 'hand-slot fila-slot';
+      sl.style.cssText = 'left:' + (s.x - cfg.TRAY / 2) + 'px;top:' + (s.y - cfg.TRAY / 2) + 'px;width:' + cfg.TRAY + 'px;height:' + cfg.TRAY + 'px';
+      field.appendChild(sl);
+    });
+  }
+
+  // o servidor mostrou peças novas na fileira ('fila' no cooperativo/Sozinho, 'ch:fila' no Desafio Comum): aparecem na vaga, crescendo
+  function applyFila(d) {
+    if (!d || !Array.isArray(d.pieces) || !state.cfg || !state.cfg.FILA) return;
+    var n = 0;
+    d.pieces.forEach(function (g) {
+      var p = state.pieces[g.id];
+      if (!p || p.locked || typeof g.x !== 'number' || typeof g.y !== 'number') return;
+      var wasHidden = !p.out;
+      p.out = true;
+      p.el.style.display = '';
+      p.x = p.tx = g.x; p.y = p.ty = g.y;
+      if (typeof g.z === 'number') { p.z = g.z; if (p.z > state.zMax) state.zMax = p.z; }
+      if (wasHidden && !reducedMotion()) p.vs = 0.2;                     // cresce até o tamanho da fileira (o quadro anima)
+      p.dirty = true;
+      classify(p);
+      n++;
+    });
+    if (!n) return;
+    announce(n === 1 ? 'Uma peça nova apareceu na fileira.' : n + ' peças novas apareceram na fileira.');
+    wakeFrame();
+    updateUi();
   }
 
   function classify(p) {
@@ -2856,6 +2891,8 @@
   });
 
   socket.on('meta', function (m) { applyMeta(m); updateUi(); });
+  socket.on('fila', applyFila);
+  socket.on('ch:fila', applyFila);
 
   socket.on('state', function (snap) { startGame(snap); });
 
@@ -2913,6 +2950,8 @@
       p.locked = d.locked;
       p.lockedBy = d.lockedBy;
       p.z = d.z;
+      p.out = d.out !== false;                                    // fileira de 5: a peça pode ter aparecido enquanto a conexão caiu
+      p.el.style.display = p.out ? '' : 'none';
       if (p.z > state.zMax) state.zMax = p.z;
       setAngle(p, d.rot);
       classify(p);

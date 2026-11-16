@@ -13,6 +13,11 @@ const library = require('./library');
 const shopCatalog = require('./shop');
 const magnet = require('./magnet');
 const dragDwell = magnet.createDwell();          // "ficou perto por um instante" do ímã ao arrastar (cooperativo e Solo)
+const fileira = require('./fila');               // FILEIRA DE 5 (20, 30 e 48 peças): as peças vão aparecendo numa fileira só, abaixo da grade
+// Liga por padrão. Para voltar à bandeja grande de antes sem mexer no código: no Render, FILEIRA=0 (também aceita false/off/nao).
+const FILEIRA_ON = !['0', 'false', 'off', 'nao', 'não', 'no'].includes(String(process.env.FILEIRA || '').trim().toLowerCase());
+const FILEIRA_BW = 980;                          // grade mais larga (igual ao Quebrando Cabeças): a imagem fica maior
+const FILEIRA_T_MAX = 160;                       // peça na fileira: até 160 (5 vagas de 200 no campo de 1000; sobra folga para os encaixes)
 // Origem externa das imagens da biblioteca (opcional). Valor inválido é IGNORADO e o jogo segue com os arquivos locais (falha fechada).
 { const m = library.configureMedia(process.env.MEDIA_BASE_URL); if (process.env.MEDIA_BASE_URL) console.log(m ? '[biblioteca] imagens externas em ' + m.origin : '[biblioteca] MEDIA_BASE_URL inválida: usando os arquivos locais'); }
 const security = require('./security');
@@ -126,16 +131,28 @@ function validPieces(n, fallback) {
 
 // calcula o desenho do campo para a quantidade de peças escolhida.
 // Todas as posições das peças (x, y) são o CENTRO da peça, em unidades lógicas.
-function layoutFor(pieces) {
+function layoutFor(pieces, withFila = false) {
   const pr = PRESETS.find((p) => p.pieces === pieces) || PRESETS.find((p) => p.pieces === DEFAULT_PIECES);
-  const tile = pr.bw / pr.cols;                         // peça no tamanho cheio (no tabuleiro)
+  // FILEIRA DE 5 (15/11/2026): 20, 30 e 48 peças têm UMA fileira de 5 vagas (as outras peças aparecem aos poucos, ver fila.js),
+  // então a grade ganha a altura que a bandeja grande ocupava e fica mais larga. 6 e 12 peças continuam como sempre.
+  // withFila: só quando TODOS os celulares da sala já têm o jogo novo (filaClient); um celular com a cópia antiga do jogo
+  // (guardada pelo service worker até a próxima atualização) não sabe mostrar as peças que aparecem e ficaria travado.
+  const fila = withFila === true && FILEIRA_ON && pr.pieces >= fileira.FILA_MIN_PIECES;
+  const bw = fila ? FILEIRA_BW : pr.bw;
+  const tile = bw / pr.cols;                            // peça no tamanho cheio (no tabuleiro)
   const boardH = pr.rows * tile;
-  const t = pr.t;                                       // peça pequena (na bandeja)
-  const perRow = Math.max(1, Math.floor(FIELD_W / (t * 1.04)));
-  const trayRows = Math.ceil(pr.pieces / perRow);
+  const t = fila ? Math.round(Math.min(FILEIRA_T_MAX, tile)) : pr.t;      // peça pequena (na bandeja / na fileira)
+  const perRow = fila ? fileira.FILA_SLOTS : Math.max(1, Math.floor(FIELD_W / (t * 1.04)));
+  const trayRows = fila ? 1 : Math.ceil(pr.pieces / perRow);
   const rowGap = 10;
   const trayTop = BOARD_Y + boardH + 40;
-  return {
+  const extra = fila ? {
+    FILA: {
+      slots: Array.from({ length: fileira.FILA_SLOTS }, (_, k) => ({ x: Math.round((k + 0.5) * (FIELD_W / fileira.FILA_SLOTS)), y: Math.round(trayTop + t / 2) })),
+      soltas: fileira.FILA_SOLTAS
+    }
+  } : {};
+  return Object.assign({
     PIECES: pr.pieces,
     COLS: pr.cols,
     ROWS: pr.rows,
@@ -143,9 +160,9 @@ function layoutFor(pieces) {
     TRAY: t,
     FIELD_W,
     FIELD_H: Math.round(trayTop + trayRows * t + (trayRows - 1) * rowGap + 25),
-    BOARD_W: pr.bw,
+    BOARD_W: bw,
     BOARD_H: boardH,
-    BOARD_X: Math.round((FIELD_W - pr.bw) / 2),
+    BOARD_X: Math.round((FIELD_W - bw) / 2),
     BOARD_Y,
     TRAY_LINE: BOARD_Y + boardH + 20,                   // abaixo desta linha a peça solta fica pequena
     SNAP: Math.round(tile * SNAP_FACTOR),               // distância (entre centros) para a peça encaixar (ímã)
@@ -155,7 +172,7 @@ function layoutFor(pieces) {
     PER_ROW: perRow,
     TRAY_ROWS: trayRows,
     ROW_GAP: rowGap
-  };
+  }, extra);
 }
 
 
@@ -432,7 +449,7 @@ function buildPieces(cfg, readyToFit = false) {
   const half = Math.ceil(cfg.TRAY / 2);   // limites inteiros (evita meio ponto)
   const pieces = [];
   for (let id = 0; id < total; id++) {
-    const sl = slots[id];
+    const sl = slots[id % slots.length];          // fileira de 5: só há 5 vagas (fila.init guarda as outras peças logo depois)
     pieces.push({
       id,
       col: id % cfg.COLS,
@@ -450,10 +467,10 @@ function buildPieces(cfg, readyToFit = false) {
   return pieces;
 }
 
-function createRoom(code, imageId, pieces, solo) {
+function createRoom(code, imageId, pieces, solo, withFila) {
   const now = Date.now();
-  const cfg = layoutFor(pieces);
-  return {
+  const cfg = layoutFor(pieces, withFila === true);
+  const room = {
     code,
     solo: solo === true,          // modo Solo: sala de 1 pessoa (sem amigo, sem bate-papo, sem progresso salvo)
     imageId,
@@ -474,6 +491,8 @@ function createRoom(code, imageId, pieces, solo) {
     pieces: buildPieces(cfg, true),
     players: [null, null] // { pid, socketId, connected, name }
   };
+  fileira.init(cfg, room.pieces);          // 20, 30 e 48 peças: só 5 à vista na fileira; nas outras não muda nada
+  return room;
 }
 
 function connectedCount(room) {
@@ -533,7 +552,8 @@ function snapshot(room) {
         heldBy: p.heldBy,
         locked: p.locked,
         lockedBy: p.lockedBy,
-        z: p.z
+        z: p.z,
+        out: p.out !== false                    // false = ainda guardada (fileira de 5): o celular não mostra nem deixa pegar
       }))
     },
     meta(room)
@@ -587,6 +607,7 @@ function tryLock(room, p, idx) {
   p.z = 1;
   io.to(room.code).emit('locked', { id: p.id, x: tx, y: ty, by: idx, counts: counts(room), locked: lockedTotal(room) });
   if (accounts && !room.solo) accounts.noteCoop(room);      // progresso salvo (com um pequeno atraso, sem pesar); o Solo nunca grava
+  revealFila(room);                                         // fileira de 5: a vaga que ficou livre ganha a próxima peça
 
   if (lockedTotal(room) === room.pieces.length) {
     room.status = 'won';
@@ -597,6 +618,25 @@ function tryLock(room, p, idx) {
     if (accounts) accounts.finishCoop(room).catch(() => {});  // vira histórico e apaga o progresso salvo
   }
   return true;
+}
+
+// o celular tem o jogo novo, que sabe mostrar a fileira de 5? (ele avisa ao conectar: io({ auth: { fila: 1 } }) no game.js)
+function filaClient(socketOrId) {
+  const s = typeof socketOrId === 'string' ? io.sockets.sockets.get(socketOrId) : socketOrId;
+  return !!(s && s.handshake && s.handshake.auth && s.handshake.auth.fila === 1);
+}
+function filaRoomOk(room) {
+  return room.players.every((pl) => !pl || !pl.connected || filaClient(pl.socketId));
+}
+
+// FILEIRA DE 5: mostra as peças que cabem agora (o servidor decide quais e quando) e avisa os dois celulares
+function revealFila(room) {
+  const novas = fileira.refill(room.cfg, room.pieces, () => ++room.z);
+  if (!novas.length) return novas;
+  io.to(room.code).emit('fila', { pieces: novas });
+  // celular com a cópia antiga do jogo que entrou numa sala com fileira: ele não conhece 'fila', então recebe o tabuleiro inteiro de novo
+  room.players.forEach((pl, i) => { if (pl && pl.connected && !filaClient(pl.socketId)) emitToPlayer(room, i, 'state', snapshot(room)); });
+  return novas;
 }
 
 function ctx(socket) {
@@ -694,8 +734,9 @@ function expireRematch(room) {
 function performRestart(room, params) {
   clearRematch(room);
   room.imageId = params.imageId;
-  room.cfg = layoutFor(params.pieces);
+  room.cfg = layoutFor(params.pieces, filaRoomOk(room));
   room.pieces = buildPieces(room.cfg, true);
+  fileira.init(room.cfg, room.pieces);
   room.hints = [HINTS, HINTS];
   room.spots = [SPOTS, SPOTS];
   room.z = 100;
@@ -757,7 +798,7 @@ function roomLevel() { return 0; }
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
   io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
-  validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces,
+  validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces, filaClient,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
   levelOf: roomLevel,                                                                                 // nível mostrado na Sala Desafio: sempre 0 (privacidade)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
@@ -841,7 +882,7 @@ io.on('connection', (socket) => {
     if (!code) return reply(cb, { ok: false, error: 'busy' });
 
     leaveCurrent(socket, true);                                   // criar outra sala = sair da atual de propósito
-    const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES), data.solo === true);
+    const room = createRoom(code, imageId, validPieces(data.pieces, DEFAULT_PIECES), data.solo === true, filaClient(socket));
     rooms.set(code, room);
     const res = attach(room, socket, pid, data.name, data.avatar);
     reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
@@ -864,15 +905,16 @@ io.on('connection', (socket) => {
       const code = newCode();
       if (!code) return reply(cb, { ok: false, error: 'busy' });
       leaveCurrent(socket, true);
-      const room = createRoom(code, imageId, validPieces(save.pieces, DEFAULT_PIECES));
+      const room = createRoom(code, imageId, validPieces(save.pieces, DEFAULT_PIECES), false, filaClient(socket));
       room.carriedMs = save.elapsedMs || 0;
       const ids = new Set((Array.isArray(save.locked) ? save.locked : []).map(Number));
       for (const p of room.pieces) {
         if (!ids.has(p.id)) continue;
         p.x = room.cfg.BOARD_X + p.col * room.cfg.TILE + room.cfg.TILE / 2;
         p.y = room.cfg.BOARD_Y + p.row * room.cfg.TILE + room.cfg.TILE / 2;
-        p.rot = 0; p.locked = true; p.lockedBy = 0; p.z = 1;
+        p.rot = 0; p.locked = true; p.lockedBy = 0; p.z = 1; p.out = true;
       }
+      fileira.init(room.cfg, room.pieces);          // continuar jogando: a fileira recomeça com 5 das peças que faltam
       rooms.set(code, room);
       const res = attach(room, socket, pid, data.name, data.avatar);
       reply(cb, { ok: true, idx: res.idx, snapshot: snapshot(room) });
@@ -914,7 +956,7 @@ io.on('connection', (socket) => {
     if (!c || !data) return;
     const { room, idx } = c;
     const p = pieceFrom(room, data.id);
-    if (!p || room.status === 'won') return;
+    if (!p || room.status === 'won' || p.out === false) return;        // peça ainda guardada (fileira de 5): ninguém pega
     if (p.locked || (p.heldBy !== null && p.heldBy !== idx)) {
       socket.emit('deny', { id: p.id, reason: p.locked ? 'locked' : 'held', by: p.heldBy });
       return;
@@ -972,6 +1014,7 @@ io.on('connection', (socket) => {
     p.heldBy = null;
     p.rotUsed = 0;
     io.to(room.code).emit('released', { id: p.id, by: idx, x: Math.round(p.x), y: Math.round(p.y), rotUsed: p.rotUsed });
+    revealFila(room);                                     // puxou da fileira para a grade (até 3 soltas): a vaga ganha outra peça
   });
 
   // Recomeçar / trocar imagem ou peças: se o amigo está na sala, ele precisa aceitar (30 s).
@@ -1086,7 +1129,7 @@ io.on('connection', (socket) => {
     if (!c) return reply(cb, { ok: false, left: 0 });
     const { room, idx } = c;
     const p = pieceFrom(room, data && data.id);
-    if (!p || p.locked || room.status === 'won') return reply(cb, { ok: false, error: 'invalid', left: room.spots[idx] });
+    if (!p || p.locked || p.out === false || room.status === 'won') return reply(cb, { ok: false, error: 'invalid', left: room.spots[idx] });
     if (room.spots[idx] <= 0) return reply(cb, { ok: false, left: 0 });
     room.spots[idx]--;
     reply(cb, { ok: true, left: room.spots[idx], col: p.col, row: p.row });
