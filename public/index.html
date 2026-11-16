@@ -81,7 +81,7 @@
 
         <div id="cta-row" class="cta-row">
           <button id="btn-play" class="btn btn-primary btn-xl" type="button">Jogar</button>
-          <button id="btn-duel" class="btn btn-duel" type="button"><span class="duel-ico" aria-hidden="true">🏆</span><span>Sala Desafio</span></button>
+          <button id="btn-duel" class="btn btn-duel" type="button"><span class="duel-ico" aria-hidden="true"><svg class="pz pz-duo" viewBox="0 0 94 64" aria-hidden="true" focusable="false"><path class="pz-a" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/><path class="pz-b" transform="translate(36 0)" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/></svg></span><span>Jogar com amigos</span></button>
         </div>
 
         <div class="join-card">
@@ -259,9 +259,10 @@
       </div>
       <div id="pick-scroll" class="pick-scroll">
         <div class="pick-inner">
-          <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Modo de jogo" hidden>
-            <button type="button" role="radio" data-mode="comum" aria-checked="true"><span class="dm-ico" aria-hidden="true">🧩</span><b>Modo Comum</b><small>As peças ficam na bandeja, como no jogo de sempre.</small></button>
-            <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true">🎁</span><b>Quebrando Cabeças</b><small>Uma caixa surpresa solta 1 peça por toque (até 3 por vez).</small></button>
+          <div id="duel-modes" class="duel-modes" role="radiogroup" aria-label="Como jogar com amigos" hidden>
+            <button type="button" role="radio" data-mode="coop" aria-checked="true"><span class="dm-ico" aria-hidden="true"><svg class="pz pz-duo" viewBox="0 0 94 64" aria-hidden="true" focusable="false"><path class="pz-a" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/><path class="pz-b" transform="translate(36 0)" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/></svg></span><span class="dm-txt"><b>Cooperativo</b><small>Vocês dois montam a mesma imagem juntos.</small></span></button>
+            <button type="button" role="radio" data-mode="comum" aria-checked="false"><span class="dm-ico" aria-hidden="true"><svg class="pz" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="pz-c" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/><path class="pz-mark" d="M30 23l2.9 6.3 6.8.7-5.1 4.6 1.5 6.7L30 37.9l-6.1 3.4 1.5-6.7-5.1-4.6 6.8-.7Z"/></svg></span><span class="dm-txt"><b>Desafio Comum</b><small>Cada um monta a sua. Vence quem terminar primeiro.</small></span></button>
+            <button type="button" role="radio" data-mode="quebra" aria-checked="false"><span class="dm-ico" aria-hidden="true"><svg class="pz" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path class="pz-d" d="M12 16H23a7 7 0 1 1 14 0H48V27a7 7 0 1 1 0 14V52H12V41a7 7 0 1 0 0-14Z"/><path class="pz-fita" d="M27.5 16h5v36h-5ZM12 31.5h36v5H12Z"/><path class="pz-fita pz-laco" d="M30 17c-4-8-14-8-12-2 1.5 4 8 4 12 2Zm0 0c4-8 14-8 12-2-1.5 4-8 4-12 2Z"/></svg></span><span class="dm-txt"><b>Quebrando Cabeças</b><small>Disputa com caixa surpresa: as peças saem aos poucos.</small></span></button>
           </div>
           <!-- Biblioteca dentro da tela de escolha existente: não cria outra navegação. -->
           <div id="library-categories" class="library-categories" aria-label="Categorias de imagens"></div>
@@ -288,7 +289,7 @@
     <section id="screen-lobby" class="screen" data-fundo="desafio">
       <div class="lobby-inner">
         <button id="lobby-leave" class="btn btn-ghost" type="button">‹ Sair da sala</button>
-        <h2>Sala Desafio</h2>
+        <h2>Desafio</h2>
         <div id="lobby-mode" class="lobby-badge">🧩 Modo Comum</div>
         <div class="lobby-code">
           <span class="lc-label">Código da sala</span>
@@ -442,16 +443,6 @@
     </div>
 
     <!-- ========== MENU ========== -->
-    <!-- ========== JOGAR: SOZINHO OU COM UM AMIGO ========== -->
-    <div id="modal-play" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="play-title">
-      <div class="sheet play-sheet">
-        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
-        <h3 id="play-title">Como você quer jogar?</h3>
-        <button id="btn-solo" class="btn btn-primary btn-block btn-xl" type="button"><span aria-hidden="true">🧩</span> Sozinho</button>
-        <button id="btn-create" class="btn btn-secondary btn-block btn-xl" type="button"><span aria-hidden="true">👫</span> Com um amigo</button>
-      </div>
-    </div>
-
     <div id="modal-menu" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="menu-title">
       <div class="sheet">
         <h3 id="menu-title">Menu</h3>

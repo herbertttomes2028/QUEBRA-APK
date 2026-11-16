@@ -12,6 +12,7 @@ const phrases = require('./phrases');
 const library = require('./library');
 const shopCatalog = require('./shop');
 const magnet = require('./magnet');
+const dragDwell = magnet.createDwell();          // "ficou perto por um instante" do ímã ao arrastar (cooperativo e Solo)
 // Origem externa das imagens da biblioteca (opcional). Valor inválido é IGNORADO e o jogo segue com os arquivos locais (falha fechada).
 { const m = library.configureMedia(process.env.MEDIA_BASE_URL); if (process.env.MEDIA_BASE_URL) console.log(m ? '[biblioteca] imagens externas em ' + m.origin : '[biblioteca] MEDIA_BASE_URL inválida: usando os arquivos locais'); }
 const security = require('./security');
@@ -83,7 +84,8 @@ function validPushSub(sub) {
   }
 }
 
-// Conversa entre os dois jogadores (só frases prontas). Para ligar: CHAT_ENABLED=true no Render; sem a variável, fica desligada. As mensagens ficam só na memória da sala (últimas 50) e
+// Conversa entre os dois jogadores (só frases prontas). RETIRADA DO JOGO por decisão do proprietário: fica desligada (sem CHAT_ENABLED ou
+// com false). NÃO ligue (CHAT_ENABLED=true); o código continua aqui só até a rodada que vai removê-lo. As mensagens ficam só na memória da sala (últimas 50) e
 // somem quando a sala é apagada; o servidor não as grava em disco nem as escreve no registro (log).
 const CHAT_ENABLED = envOn(process.env.CHAT_ENABLED);
 const CHAT_MAX_LEN = 200;   // letras por mensagem
@@ -102,9 +104,10 @@ const PRESETS = [
 ];
 const DEFAULT_PIECES = 12;
 // ÍMÃ DE ENCAIXE: a peça solta encaixa sozinha quando o CENTRO dela fica a até SNAP_FACTOR × (tamanho da casa) do centro da casa certa.
-// Padrão 0,5 (era 0,33 até 10/11/2026: o proprietário pediu um ímã mais forte). Ajustável no Render com SNAP_FACTOR (aceita de 0,25 a 0,75;
-// qualquer outro valor é ignorado e vale o padrão). A MESMA fórmula vale na Sala Desafio (challenge.js recebe este valor daqui).
-const SNAP_FACTOR_DEFAULT = 0.5;
+// Padrão 0,35 desde 15/11/2026 (o proprietário pediu um ímã mais fraco: com 0,5 a peça encaixava longe demais da casa; foi 0,33 até
+// 10/11/2026 e 0,5 entre 10 e 15/11). Ajustável no Render com SNAP_FACTOR (aceita de 0,25 a 0,75; qualquer outro valor é ignorado e vale
+// o padrão). A MESMA fórmula vale na Sala Desafio (challenge.js recebe este valor daqui). Ao ARRASTAR o raio é menor (magnet.js).
+const SNAP_FACTOR_DEFAULT = 0.35;
 const SNAP_FACTOR = (() => { const v = Number(process.env.SNAP_FACTOR); return process.env.SNAP_FACTOR !== undefined && process.env.SNAP_FACTOR !== '' && Number.isFinite(v) && v >= 0.25 && v <= 0.75 ? v : SNAP_FACTOR_DEFAULT; })();
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
 // 6 caracteres = ~1,07 bilhão de códigos (com 4 eram ~1 milhão): junto do limite de tentativas, ninguém consegue adivinhar uma sala
@@ -254,7 +257,7 @@ app.get('/diagnostico', (req, res) => {
       pacotes
     },
     imagens: listImages().length,
-    encaixe: { raio_em_casas: SNAP_FACTOR, padrao: SNAP_FACTOR_DEFAULT, origem: SNAP_FACTOR === SNAP_FACTOR_DEFAULT ? 'padrão' : 'variável SNAP_FACTOR', puxa_ao_arrastar: magnet.ENABLED },   // o ímã: a peça encaixa a até esta fração da casa
+    encaixe: { raio_em_casas: SNAP_FACTOR, padrao: SNAP_FACTOR_DEFAULT, origem: SNAP_FACTOR === SNAP_FACTOR_DEFAULT ? 'padrão' : 'variável SNAP_FACTOR', puxa_ao_arrastar: magnet.ENABLED, ao_arrastar: { raio_em_casas: magnet.DRAG_FACTOR, espera_ms: magnet.DWELL_MS } },   // o ímã: a peça encaixa a até esta fração da casa
     seguranca: {
       cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
       email_estado: mailer ? mailer.stats : null,      // envios desde que o servidor ligou e o ÚLTIMO erro (já sem chave, e-mails e IPs)
@@ -930,12 +933,14 @@ io.on('connection', (socket) => {
     socket.data.lastMove = now;
     const p = pieceFrom(c.room, data.id);
     if (!p || p.heldBy !== c.idx) return;
-    const hh = Math.ceil(c.room.cfg.TRAY / 2), px = p.x, py = p.y;
+    const hh = Math.ceil(c.room.cfg.TRAY / 2);
     const nx = clamp(data.x, hh, c.room.cfg.FIELD_W - hh), ny = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
-    const q = magnet.ENABLED ? magnet.pullPoint(c.room.cfg, p, px, py, nx, ny) : { x: nx, y: ny };       // ímã ao ARRASTAR: se o dedo passou pela zona do ímã da casa certa, a peça é puxada na hora
-    p.x = q.x; p.y = q.y;
-    if (magnet.ENABLED && tryLock(c.room, p, c.idx)) return;
     p.x = nx; p.y = ny;
+    // ímã ao ARRASTAR (mais fraco desde 15/11/2026): só puxa se o dedo FICAR perto da casa certa por um instante (ver magnet.js)
+    if (magnet.ENABLED) {
+      const room = c.room, idx = c.idx;
+      if (dragDwell.onMove(room.cfg, p, now, () => p.heldBy === idx && !p.locked && rooms.get(room.code) === room && tryLock(room, p, idx))) return;
+    }
     socket.to(c.room.code).emit('moved', { id: p.id, x: Math.round(p.x), y: Math.round(p.y) });      // sem "volatile": com o amigo em polling/rede lenta, o volatile descartava 75–87% das posições
   });
 
@@ -959,6 +964,7 @@ io.on('connection', (socket) => {
     const { room, idx } = c;
     const p = pieceFrom(room, data.id);
     if (!p || p.heldBy !== idx || p.locked) return;
+    dragDwell.cancel(p);                                  // soltou: a espera do ímã ao arrastar acaba aqui (ao soltar vale o raio do tryLock)
     const hh = Math.ceil(room.cfg.TRAY / 2);
     p.x = clamp(data.x, hh, room.cfg.FIELD_W - hh);
     p.y = clamp(data.y, hh, room.cfg.FIELD_H - hh);

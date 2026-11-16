@@ -19,8 +19,6 @@ services:
         sync: false          # e-mail remetente já confirmado no Brevo
       - key: BREVO_SENDER_NAME
         sync: false          # opcional: nome do remetente
-      - key: CHAT_ENABLED
-        sync: false          # true liga o bate-papo de frases prontas; sem a variável (ou false), fica desligado
       - key: PUSH_ENABLED
         sync: false          # true liga os avisos com o app fechado; sem a variável (ou false), ficam desligados
       - key: CSP_MODE

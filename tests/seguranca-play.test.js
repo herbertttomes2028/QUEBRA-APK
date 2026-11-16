@@ -92,8 +92,9 @@ test('aviso de segurança: aparece UMA vez por aparelho antes de jogar com outra
   assert.match(game, /function safeThen\(fn\) \{\s+if \(safeAcked\(\)\) \{ fn\(\); return; \}\s+safePending = fn; openModal\('#modal-safe', '#safe-ok'\);/);
   assert.match(game, /\$\('#safe-ok'\)\.addEventListener\('click', function \(\) \{\s+safeMem = true; try \{ localStorage\.setItem\(SAFE_KEY, '1'\); \}[^\n]*\n\s+var fn = safePending; safePending = null; closeModal\('#modal-safe'\);\s+if \(fn\) \{ try \{ fn\(\); \}/);
   assert.match(game, /\$\('#btn-safe'\)\.addEventListener\('click', function \(\) \{ safePending = null; openModal\('#modal-safe', '#safe-ok'\); \}\);/, 'pelos Ajustes não segue para lugar nenhum');
-  assert.match(game, /safeThen\(function \(\) \{ openPick\('duel'\); \}\);/); assert.match(game, /readName\(\); safeThen\(function \(\) \{ openPick\('create'\); \}\); \}\);/); assert.match(game, /safeThen\(function \(\) \{ doJoin\(code\); \}\);/);
-  assert.match(game, /\$\('#btn-solo'\)\.addEventListener\('click', function \(\) \{ closeModal\('#modal-play'\); readName\(\); openPick\('solo'\); \}\);/, 'solo sem aviso');
+  assert.match(game, /safeThen\(function \(\) \{ openPick\('duel'\); \}\);/); assert.match(game, /safeThen\(function \(\) \{ doJoin\(code\); \}\);/);
+  assert.match(game, /\$\('#btn-play'\)\.addEventListener\('click', function \(\) \{ popEl\(this, 'go'\); readName\(\); openPick\('solo'\); \}\);/, 'solo ("Jogar") sem aviso');
+  assert.ok(!/safeThen\(function \(\) \{ openPick\('create'\)/.test(game), 'o Cooperativo agora sai de "Jogar com amigos", que já passa pelo aviso (openPick(\'duel\'))');
   assert.match(game, /window\.QC = \{\s+safeThen: safeThen,/, 'dentro do objeto QC (um window.QC = {...} posterior apagaria uma atribuição solta)');
   assert.ok(!/safeThen|respondInvite|openFriends/.test(conta), 'sem Amigos e sem convites, o aviso fica só nos botões de sala do jogo');
 });

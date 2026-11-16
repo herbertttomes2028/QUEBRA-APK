@@ -167,7 +167,8 @@ test('render.yaml: sem chaves duplicadas, npm ci e as variáveis atuais, todas s
   assert.equal((yml.match(/^\s+envVars:/gm) || []).length, 1, 'deve haver um único bloco envVars');
   assert.match(yml, /^\s+buildCommand: npm ci\b/m, 'instala exatamente o package-lock.json');
   assert.ok(!/GOOGLE_CLIENT_ID/.test(yml), 'o login com Google não existe mais (perfil gerado)');
-  for (const k of ['DATABASE_URL', 'BREVO_API_KEY', 'BREVO_SENDER_EMAIL', 'BREVO_SENDER_NAME', 'CHAT_ENABLED', 'PUSH_ENABLED', 'CSP_MODE', 'DIAG_TOKEN']) {
+  assert.ok(!/CHAT_ENABLED/.test(yml), 'o bate-papo foi retirado: o render.yaml não oferece a variável que o ligaria');
+  for (const k of ['DATABASE_URL', 'BREVO_API_KEY', 'BREVO_SENDER_EMAIL', 'BREVO_SENDER_NAME', 'PUSH_ENABLED', 'CSP_MODE', 'DIAG_TOKEN']) {
     assert.equal((yml.match(new RegExp('- key: ' + k + '\\b', 'g')) || []).length, 1, k + ' deve aparecer uma vez');
     assert.ok(new RegExp('- key: ' + k + '\\s*\\n\\s+sync: false').test(yml), k + ' precisa de sync: false (segredo só no painel do Render)');
   }
@@ -212,16 +213,24 @@ test('Solo: o progresso salvo do cooperativo (saves) e a entrada pelo código t�
   assert.ok(/if \(c\.room\.solo\) return reply\(cb, \{ ok: false, error: 'solo' \}\)/.test(srv), 'o bate-papo precisa ser recusado no Solo');
 });
 
-test('tela inicial: "Jogar" abre a janela; os ids de sempre continuam; o cooperativo mantém #btn-create', () => {
-  const html = read('public/index.html');
+test('tela inicial: "Jogar" vai direto para as coleções (Sozinho); "Jogar com amigos" reúne Cooperativo, Desafio Comum e Quebrando Cabeças', () => {
+  const html = read('public/index.html'), game = read('public/game.js');
   const cta = /<div id="cta-row"[^>]*>([\s\S]*?)<\/div>/.exec(html); assert.ok(cta, 'cta-row');
   assert.ok(/id="btn-play"/.test(cta[1]) && /id="btn-duel"/.test(cta[1]), '#btn-play e #btn-duel na tela inicial');
-  assert.ok(!/id="btn-create"/.test(cta[1]), '#btn-create saiu da tela inicial (agora está na janela Jogar)');
-  const play = /<div id="modal-play"[\s\S]*?<\/div>\s*<\/div>/.exec(html); assert.ok(play, 'janela Jogar');
-  assert.ok(/id="btn-solo"/.test(play[0]) && /id="btn-create"/.test(play[0]) && /data-back/.test(play[0]), 'Sozinho e Com um amigo (#btn-create) na janela, com ✕ (data-back) para o botão voltar');
+  assert.match(cta[1], /<span>Jogar com amigos<\/span>/, 'o botão da Sala Desafio agora se chama "Jogar com amigos"');
+  assert.match(cta[1], /<svg class="pz pz-duo"/, 'ícone de duas peças de quebra-cabeça (no lugar do troféu)');
+  assert.ok(!/id="modal-play"|id="btn-solo"|id="btn-create"/.test(html), 'a janela "Como você quer jogar?" não existe mais');
+  assert.match(game, /\$\('#btn-play'\)\.addEventListener\('click', function \(\) \{ popEl\(this, 'go'\); readName\(\); openPick\('solo'\); \}\);/, '"Jogar" abre as coleções no modo Sozinho');
+  const modos = /<div id="duel-modes"[\s\S]*?<\/div>/.exec(html)[0];
+  assert.deepEqual([...modos.matchAll(/data-mode="(\w+)"/g)].map((m) => m[1]), ['coop', 'comum', 'quebra'], 'os três modos, Cooperativo primeiro');
+  for (const n of ['Cooperativo', 'Desafio Comum', 'Quebrando Cabeças']) assert.ok(modos.includes('<b>' + n + '</b>'), n);
+  assert.equal((modos.match(/<svg class="pz/g) || []).length, 3, 'cada modo com um ícone de peça de quebra-cabeça');
+  assert.match(game, /state\.duelMode = 'coop';/, 'Cooperativo vem escolhido');
+  assert.match(game, /if \(state\.pickMode === 'duel' && state\.duelMode === 'coop'\) \{[^}]*doCreate\(state\.pickChoice, state\.pickPieces\);/, 'Cooperativo cria a sala cooperativa de sempre (create)');
   for (const id of ['btn-join', 'input-code', 'btn-duel']) assert.ok(new RegExp('id="' + id + '"').test(html), id + ' precisa continuar');
   assert.ok(!/id="input-name"/.test(html) && !/id="avatar-grid"/.test(html));
-  assert.equal((html.match(/id="btn-create"/g) || []).length, 1, '#btn-create deve ser único');
+  assert.match(html, /<h2>Desafio<\/h2>/, 'sala de espera da disputa');
+  assert.ok(!/Sala Desafio/.test(html), 'o nome antigo não aparece mais na tela');
 });
 
 test('Solo: o formato do create do cooperativo não muda (o campo solo só vai quando é Solo)', () => {
