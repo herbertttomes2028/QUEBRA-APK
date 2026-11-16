@@ -16,25 +16,25 @@ const CATEGORIES = Object.freeze([
 const PET_SLOT = Object.freeze({ skins: 'pet_skin', roupas: 'pet_outfit' });        // categoria -> coluna de shop_prefs (nome fixo, nunca vem do cliente)
 function rarityOf(price) { return price <= 0 ? null : price <= 150 ? 'comum' : price <= 300 ? 'rara' : price <= 450 ? 'epica' : 'lendaria'; }
 const ITEMS = Object.freeze([
-  { id: 'classica', category: 'bandejas', name: 'Bandeja Clássica', price: 0,   desc: 'Retangular, discreta e moderna. Já é sua!' },
-  { id: 'nuvem',    category: 'bandejas', name: 'Bandeja Nuvem',    price: 150, desc: 'Bordas fofas de nuvem que flutuam devagarinho.' },
-  { id: 'estrela',  category: 'bandejas', name: 'Bandeja Estrela',  price: 250, desc: 'Contorno de estrela com brilhos nas bordas.' },
-  { id: 'gelatina', category: 'bandejas', name: 'Bandeja Gelatina', price: 350, desc: 'Ondulada e elástica: balança quando você mexe.' },
-  { id: 'galaxia',  category: 'bandejas', name: 'Bandeja Galáxia',  price: 500, desc: 'Bordas futuristas, partículas e luz suave.' },
+  { id: 'classica', category: 'bandejas', name: 'Bandeja Clássica', price: 0,   desc: 'Simples e moderna. Já vem com você!' },
+  { id: 'nuvem',    category: 'bandejas', name: 'Bandeja Nuvem',    price: 150, desc: 'Nuvens fofas que flutuam devagar.' },
+  { id: 'estrela',  category: 'bandejas', name: 'Bandeja Estrela',  price: 250, desc: 'Pontas de estrela e brilhos nas bordas.' },
+  { id: 'gelatina', category: 'bandejas', name: 'Bandeja Gelatina', price: 350, desc: 'Ondulada: balança quando você mexe.' },
+  { id: 'galaxia',  category: 'bandejas', name: 'Bandeja Galáxia',  price: 500, desc: 'Futurista, com estrelas e luz suave.' },
   // ---- skins do pet (as 5 primeiras são grátis; as outras se desbloqueiam com gemas) ----
-  { id: 'skin-menta',        category: 'skins', look: 'menta',        name: 'Menta',        price: 0,   desc: 'Verde-água fresquinho, com pés cor de coral.' },
-  { id: 'skin-por-do-sol',   category: 'skins', look: 'por-do-sol',   name: 'Pôr do sol',   price: 0,   desc: 'Laranja quente, com raios dourados na testa.' },
+  { id: 'skin-menta',        category: 'skins', look: 'menta',        name: 'Menta',        price: 0,   desc: 'Verde-água, com pés cor de coral.' },
+  { id: 'skin-por-do-sol',   category: 'skins', look: 'por-do-sol',   name: 'Pôr do sol',   price: 0,   desc: 'Laranja quente com raios dourados.' },
   { id: 'skin-uva',          category: 'skins', look: 'uva',          name: 'Uva',          price: 0,   desc: 'Roxo com bolinhas claras e pés rosa.' },
-  { id: 'skin-algodao-doce', category: 'skins', look: 'algodao-doce', name: 'Algodão-doce', price: 0,   desc: 'Rosa docinho com pintinhas azuis e amarelas.' },
-  { id: 'skin-luar',         category: 'skins', look: 'luar',         name: 'Luar',         price: 0,   desc: 'Prateado de luar, salpicado de estrelas douradas.' },
+  { id: 'skin-algodao-doce', category: 'skins', look: 'algodao-doce', name: 'Algodão-doce', price: 0,   desc: 'Rosa docinho com pintinhas coloridas.' },
+  { id: 'skin-luar',         category: 'skins', look: 'luar',         name: 'Luar',         price: 0,   desc: 'Prateado, com estrelas douradas.' },
   { id: 'skin-limao',        category: 'skins', look: 'limao',        name: 'Limão',        price: 100, desc: 'Verde-limão cheio de energia.' },
-  { id: 'skin-caramelo',     category: 'skins', look: 'caramelo',     name: 'Caramelo',     price: 100, desc: 'Marrom de caramelo, com pintas cor de creme.' },
+  { id: 'skin-caramelo',     category: 'skins', look: 'caramelo',     name: 'Caramelo',     price: 100, desc: 'Caramelo com pintas cor de creme.' },
   { id: 'skin-lavanda',      category: 'skins', look: 'lavanda',      name: 'Lavanda',      price: 180, desc: 'Lilás suave com detalhes em roxo.' },
-  { id: 'skin-cereja',       category: 'skins', look: 'cereja',       name: 'Cereja',       price: 320, desc: 'Vermelho-cereja, com cabinho verde de verdade.' },
-  { id: 'skin-ouro',         category: 'skins', look: 'ouro',         name: 'Ouro',         price: 500, desc: 'Dourado e brilhante: a mais rara de todas.' },
+  { id: 'skin-cereja',       category: 'skins', look: 'cereja',       name: 'Cereja',       price: 320, desc: 'Vermelho-cereja com cabinho verde.' },
+  { id: 'skin-ouro',         category: 'skins', look: 'ouro',         name: 'Ouro',         price: 500, desc: 'Dourado e brilhante. A mais rara!' },
   // ---- roupas do pet ----
   { id: 'roupa-capa-heroi',  category: 'roupas', look: 'capa-heroi', name: 'Capa de herói',               price: 0,   desc: 'Capa ao vento com fechos dourados.' },
-  { id: 'roupa-cachecol',    category: 'roupas', look: 'cachecol',   name: 'Cachecol de inverno',         price: 0,   desc: 'Listrado e quentinho, com a pontinha pendurada.' },
+  { id: 'roupa-cachecol',    category: 'roupas', look: 'cachecol',   name: 'Cachecol de inverno',         price: 0,   desc: 'Listrado e quentinho para o frio.' },
   { id: 'roupa-mago',        category: 'roupas', look: 'mago',       name: 'Chapéu de mago',              price: 0,   desc: 'Chapéu pontudo com estrelinhas douradas.' },
   { id: 'roupa-bailarina',   category: 'roupas', look: 'bailarina',  name: 'Saia de bailarina',           price: 0,   desc: 'Tutu em dois andares, com laço.' },
   { id: 'roupa-macacao',     category: 'roupas', look: 'macacao',    name: 'Macacão de jardineiro',       price: 0,   desc: 'Alças, botões e um bolsinho.' },
@@ -42,7 +42,7 @@ const ITEMS = Object.freeze([
   { id: 'roupa-fones',       category: 'roupas', look: 'fones',      name: 'Fones de ouvido',             price: 250, desc: 'Para ouvir a música do jogo com estilo.' },
   { id: 'roupa-cartola',     category: 'roupas', look: 'cartola',    name: 'Cartola e gravata-borboleta', price: 350, desc: 'Elegante, para as grandes ocasiões.' },
   { id: 'roupa-asas-anjo',   category: 'roupas', look: 'asas-anjo',  name: 'Asas de anjo',                price: 450, desc: 'Asas macias e uma auréola brilhante.' },
-  { id: 'roupa-coroa',       category: 'roupas', look: 'coroa',      name: 'Coroa real',                  price: 600, desc: 'Ouro e pedras preciosas: a mais rara de todas.' }
+  { id: 'roupa-coroa',       category: 'roupas', look: 'coroa',      name: 'Coroa real',                  price: 600, desc: 'Ouro e pedras preciosas. A mais rara!' }
 ].map((i) => Object.freeze(i)));
 
 const item = (id) => ITEMS.find((i) => i.id === id) || null;

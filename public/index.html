@@ -691,19 +691,16 @@
     <div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>
 
-  <!-- Loja de bandejas: só a bandeja de peças é decorada; a grade de encaixe não muda. -->
+  <!-- Loja: bandejas, skins e roupas do pet (só com as gemas do jogo). As seções são montadas por loja.js em #shop-nav. -->
   <div id="modal-shop" class="modal shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title">
     <div class="sheet shop-sheet" data-janela="loja">
       <header class="shop-head">
         <h2 id="shop-title">🛍️ Loja</h2>
-        <span id="shop-gems" class="shop-gems" role="status" aria-live="polite" aria-label="Seu saldo de gemas">💎 —</span>
+        <div id="shop-wallet" class="shop-wallet" role="status" aria-live="polite"><span class="shop-wallet-gem" aria-hidden="true">💎</span><b id="shop-gems" class="shop-gems"></b><small id="shop-gems-lbl">gemas</small></div>
         <button id="shop-close" data-back class="btn btn-ghost shop-x" type="button" aria-label="Fechar a loja">✕</button>
       </header>
-      <div class="shop-tabs" role="tablist" aria-label="Seções da loja">
-        <button type="button" class="shop-tab on" role="tab" aria-selected="true" data-tab="loja">Loja</button>
-        <button type="button" class="shop-tab" role="tab" aria-selected="false" data-tab="minhas">Minhas Bandejas</button>
-      </div>
-      <div id="shop-body" class="shop-body"></div>
+      <div id="shop-nav" class="shop-nav" role="tablist" aria-label="Seções da loja"></div>
+      <div id="shop-body" class="shop-body" role="tabpanel" aria-label="Itens da loja"></div>
     </div>
   </div>
   <div id="modal-tray-preview" class="modal shop-modal shop-modal-top" hidden role="dialog" aria-modal="true" aria-labelledby="tp-title">

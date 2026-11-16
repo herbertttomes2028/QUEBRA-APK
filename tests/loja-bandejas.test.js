@@ -202,12 +202,13 @@ test('telas: botão da loja na inicial e no menu da partida, janelas com data-ba
   for (const id of ['link-shop', 'menu-shop', 'modal-shop', 'modal-tray-preview', 'shop-gems', 'shop-body', 'shop-close', 'tp-title', 'tp-body', 'tp-actions']) assert.ok(html.includes('id="' + id + '"'), 'existe #' + id);
   assert.match(html, /<button id="shop-close" data-back /, 'o voltar do Android fecha a loja'); assert.match(js, /close\.setAttribute\('data-back', ''\)/);
   assert.match(html, /<button id="link-shop" class="tab" type="button" aria-label="Loja de bandejas, skins e roupas"><span class="tab-ico" data-ico="loja"/, 'a loja é uma aba da barra fixa da tela inicial, com ícone de peça e gema');
-  assert.match(html, /data-tab="loja">Loja<\/button>\s*<button[^>]*data-tab="minhas">Minhas Bandejas<\/button>/);
+  // (16/11/2026, rodada loja-bonita) as abas "Loja / Minhas Bandejas" viraram UMA fileira de seções montada pelo loja.js (Meus itens = o antigo Minhas Bandejas)
+  assert.match(html, /<div id="shop-nav" class="shop-nav" role="tablist" aria-label="Seções da loja"><\/div>/); assert.doesNotMatch(html, /class="shop-tab/);
   assert.match(html, /role="switch" aria-labelledby="lbl-trayanim"[^>]*data-setting="trayAnim"/);
   assert.match(html, /id="modal-shop" class="modal shop-modal" hidden role="dialog" aria-modal="true" aria-labelledby="shop-title"/);
   assert.ok(html.indexOf('<script src="game.js">') < html.indexOf('<script src="conta.js">') && html.indexOf('<script src="conta.js">') < html.indexOf('<script src="loja.js">'), 'ordem dos scripts');
   assert.match(html, /<link rel="stylesheet" href="loja\.css">/);
   const sw = read('public/sw.js'); assert.match(sw, /'\/loja\.js', '\/loja\.css'/); assert.match(sw, /const CACHE = 'quebra-cabeca-v21';/, 'o nome do cache continua o mesmo');
   assert.match(game, /var ms = \$\('#menu-shop'\); if \(ms\) ms\.hidden = !!state\.duel;/, 'na Sala Desafio (competitiva) a loja não aparece no menu');
-  assert.match(js, /🧺 BANDEJAS/); assert.match(js, /'Faltam ' \+ m \+ ' gema'/); assert.match(js, /QC\.confirm\(\{ title: 'Comprar ' \+ it\.name \+ '\?'/, 'confirmação com o nome e o preço');
+  assert.match(js, /\{ id: 'bandejas', ico: '🧺', name: 'Bandejas'/); assert.match(js, /'Faltam ' \+ m \+ ' gema'/); assert.match(js, /QC\.confirm\(\{ title: 'Comprar ' \+ it\.name \+ '\?'/, 'confirmação com o nome e o preço');
 });

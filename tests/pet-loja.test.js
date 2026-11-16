@@ -64,7 +64,7 @@ test('miniaturas da loja: uma por item do pet (20), WebP com fundo transparente 
 });
 test('cliente da loja: categorias, cartões do pet e compra seguem as regras (só o servidor decide; visitante só usa o grátis; texto nunca vira HTML)', () => {
   const js = fs.readFileSync(path.join(root, 'public/loja.js'), 'utf8'), pet = fs.readFileSync(path.join(root, 'public/pet.js'), 'utf8');
-  assert.match(js, /\[\['bandejas', '🧺 BANDEJAS'\], \['skins', '🎨 SKINS'\], \['roupas', '👕 ROUPAS'\]\]/);
+  assert.deepEqual([...js.matchAll(/\{ id: '(\w+)', ico: '[^']+', name: '([^']+)'/g)].map((m) => m[1] + ':' + m[2]), ['bandejas:Bandejas', 'skins:Skins', 'roupas:Roupas', 'meus:Meus itens'], 'seções da loja (16/11/2026: uma fileira só)');
   assert.match(js, /function petUsable\(it\) \{ return !!it && \(it\.price <= 0 \|\| S\.owned\.indexOf\(it\.id\) >= 0\); \}/, 'usável = grátis ou comprado');
   assert.match(js, /img\.src = '\/pet\/' \+ it\.id \+ '\.webp'/); assert.match(js, /img\.addEventListener\('error'/, 'foto que não carrega vira um ícone, nunca um quadro quebrado');
   assert.match(js, /api\('POST', '\/shop\/buy', \{ itemId: it\.id \}\)/, 'a compra é um pedido ao servidor (o mesmo das bandejas)'); assert.match(js, /\{ itemId: it\.id \} : \{ category: cat, itemId: null \}/);

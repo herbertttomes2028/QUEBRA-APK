@@ -29,6 +29,6 @@ test('Coleções: o cartão NUNCA passa da largura da tela (contain-intrinsic-si
   for (const f of fs.readdirSync(path.join(root, 'public')).filter((n) => n.endsWith('.css'))) assert.doesNotMatch(read('public/' + f).replace(/\/\*[\s\S]*?\*\//g, ''), /contain-intrinsic-size/, f + ': só se estima a ALTURA (contain-intrinsic-height)');
   assert.match(style, /\.ach-card, \.col-card \{ content-visibility: auto; contain-intrinsic-height: auto 118px; \}/); assert.match(style, /\.col-card \{ contain-intrinsic-height: auto 420px; min-width: 0; max-width: 100%; \}/);
   assert.match(style, /\.col-list \{ display: grid; grid-template-columns: minmax\(0, 1fr\);/, 'a coluna da grade nunca passa do espaço disponível');
-  assert.match(read('public/loja.css'), /content-visibility: auto; contain-intrinsic-height: auto 400px;/, 'o cartão da loja tinha o mesmo defeito latente');
+  assert.match(read('public/loja.css'), /content-visibility: auto; contain-intrinsic-height: auto \d+px;/, 'o cartão da loja tinha o mesmo defeito latente');
   assert.match(style, /#tab-col > \.me-h small \{ display: block;/, 'o contador das coleções numa linha própria');
 });
