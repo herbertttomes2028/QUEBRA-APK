@@ -63,7 +63,7 @@ test('não atrapalha o jogo: nenhum preventDefault (só o obrigatório da perda 
 /* ---------------- desempenho e ciclo de vida ---------------- */
 test('desempenho: só começa depois da abertura, para fora da tela inicial, devolve memória, e o laço não acorda a 60 Hz à toa', () => {
   assert.match(masCode, /document\.readyState !== 'complete'[\s\S]*setTimeout\(sync, 600\)/, 'espera a página carregar e mais 0,6 s');
-  assert.match(masCode, /function homeActive\(\) \{ return home\.classList\.contains\('active'\) && !document\.hidden && !hidden; \}/, 'só desenha com a tela inicial visível, a aba à vista e o mascote não escondido');
+  assert.match(masCode, /function homeActive\(\) \{ return home\.classList\.contains\('active'\) && !document\.hidden && !hidden && !covered; \}/, 'só desenha com a tela inicial visível, a aba à vista e o mascote não escondido');
   assert.match(masCode, /function frame\(ts\) \{\s*\n\s*raf = 0;\s*\n\s*if \(!loopWanted\(\)\) return;/, 'o laço começa checando se ainda deve rodar');
   assert.match(masCode, /RELEASE_MS = 20000/); assert.match(masCode, /releaseTimer = setTimeout\(function \(\) \{[^}]*destroyGL\(\)/);
   assert.match(masCode, /function stopLoop\(\) \{ if \(raf\) \{ cancelAnimationFrame\(raf\); raf = 0; \} if \(timer\) \{ clearTimeout\(timer\); timer = 0; \} \}/, 'parar cancela o quadro E o temporizador');

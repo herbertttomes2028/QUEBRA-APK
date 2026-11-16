@@ -104,6 +104,7 @@ test('abertura mantém giro e texto, mas usa miniatura leve quando disponível',
   assert.match(css, /translate3d\(0, 18px, 0\) rotate\(-3deg\) scale\(\.96\)/);
   assert.doesNotMatch(css, /rotateY\(-900deg\)|go-pulse.*infinite|go-slam \.5s|scale\(2\.6\)/);
   assert.match(game, /go\.min = reducedMotion\(\) \? 1100 : 2650/);
-  assert.match(css, /html:not\(\[data-motion=\"reduce\"\]\) \.go-splash\.run:not\(\.out\) \.go-card \{ will-change: transform; \}/);
+  // (16/11/2026) a camada da carta é reservada assim que a abertura aparece, antes de girar (não no primeiro instante da volta)
+  assert.match(css, /html:not\(\[data-motion=\"reduce\"\]\) \.go-splash:not\(\[hidden\]\):not\(\.out\) \.go-card \{ will-change: transform; \}/);
   assert.match(game, /playSound\('tann'\)/);
 });
