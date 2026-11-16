@@ -1,6 +1,6 @@
 'use strict';
 // Ímã de encaixe: a peça solta encaixa sozinha quando o CENTRO dela está a até SNAP = round(TILE × SNAP_FACTOR) do centro da casa certa.
-// Padrão 0,5 (era 0,33). Vale igual no Cooperativo, no Solo e nos dois modos da Sala Desafio. Nada além do raio mudou: giro 0 continua exigido,
+// Padrão 0,35 desde 15/11/2026 (foi 0,33 até 10/11 e 0,5 entre 10 e 15/11: o proprietário pediu um ímã mais fraco). Vale igual no Cooperativo, no Solo e nos dois modos da Sala Desafio. Nada além do raio mudou: giro 0 continua exigido,
 // a posição final continua cravada pelo servidor e uma peça NUNCA encaixa em casa errada.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -45,23 +45,23 @@ async function solta(sala, cfg, p, dx, dy) {
 }
 const fecha = (...s) => s.forEach((x) => x.close());
 
-test('o raio do ímã é SNAP_FACTOR × casa (0,5) para TODAS as quantidades de peças, no Cooperativo e nos dois modos da Sala Desafio', async () => {
+test('o raio do ímã é SNAP_FACTOR × casa (0,35) para TODAS as quantidades de peças, no Cooperativo e nos dois modos da Sala Desafio', async () => {
   for (const n of [6, 12, 20, 30, 48]) {
     const c = await salaCoop(n); const cfg = c.snap.cfg;
-    assert.equal(cfg.SNAP, Math.round(cfg.TILE * 0.5), 'coop ' + n); assert.ok(cfg.SNAP < cfg.TILE, 'o raio nunca chega ao centro da casa vizinha (' + n + ')'); fecha(c.a, c.b);
+    assert.equal(cfg.SNAP, Math.round(cfg.TILE * 0.35), 'coop ' + n); assert.ok(cfg.SNAP < cfg.TILE, 'o raio nunca chega ao centro da casa vizinha (' + n + ')'); fecha(c.a, c.b);
   }
   for (const [modo, n] of [['comum', 12], ['comum', 48], ['quebra', 12], ['quebra', 48]]) {
     const d = await salaDesafio(modo, n); const cfg = d.snap.cfg;
-    assert.equal(cfg.SNAP, Math.round(cfg.TILE * 0.5), 'desafio ' + modo + ' ' + n); fecha(d.a, d.b);
+    assert.equal(cfg.SNAP, Math.round(cfg.TILE * 0.35), 'desafio ' + modo + ' ' + n); fecha(d.a, d.b);
   }
 });
 
-test('Cooperativo: encaixa a SNAP-1 (inclusive na faixa 0,33–0,5 que o ímã antigo recusava), recusa a SNAP+3, e é um CÍRCULO (diagonal)', async () => {
-  const c = await salaCoop(12); const cfg = c.snap.cfg, P = c.snap.pieces; const S = cfg.SNAP, antigo = Math.round(cfg.TILE * 0.33);
-  assert.ok(S > antigo + 20, 'o ímã novo é bem maior que o antigo (' + antigo + ' → ' + S + ')');
+test('Cooperativo: encaixa a SNAP-1, recusa a SNAP+3 (inclusive a 0,45 casa, que o ímã de 0,5 aceitava), e é um CÍRCULO (diagonal)', async () => {
+  const c = await salaCoop(12); const cfg = c.snap.cfg, P = c.snap.pieces; const S = cfg.SNAP, forte = Math.round(cfg.TILE * 0.5);
+  assert.ok(S < forte - 10, 'o ímã ficou mais fraco que o de 10/11 (' + forte + ' → ' + S + ')');
   const r1 = await solta(c, cfg, P[0], S - 1, 0); assert.equal(r1.r, 'locked', 'a SNAP-1');
   assert.deepEqual([r1.d.x, r1.d.y], [alvo(cfg, P[0]).x, alvo(cfg, P[0]).y], 'o servidor crava a posição exata do centro');
-  const r2 = await solta(c, cfg, P[1], antigo + Math.round(cfg.TILE * 0.1), 0); assert.equal(r2.r, 'locked', 'faixa que o ímã antigo recusava (' + (antigo + Math.round(cfg.TILE * 0.1)) + ' > ' + antigo + ')');
+  const r2 = await solta(c, cfg, P[1], Math.round(cfg.TILE * 0.45), 0); assert.equal(r2.r, 'released', 'a 0,45 casa: o ímã de 0,5 puxava, o de agora não');
   assert.equal((await solta(c, cfg, P[2], S + 3, 0)).r, 'released', 'a SNAP+3');
   assert.equal((await solta(c, cfg, P[3], 0, S + 3)).r, 'released', 'a SNAP+3 na vertical');
   assert.equal((await solta(c, cfg, P[4], Math.round(S * 0.7), Math.round(S * 0.7))).r, 'locked', 'diagonal a 0,99 do raio');
@@ -84,36 +84,36 @@ test('NUNCA encaixa em casa errada: soltar uma peça sobre o centro de OUTRA cas
 });
 
 for (const modo of ['comum', 'quebra']) {
-  test('Sala Desafio (' + modo + '): o mesmo ímã. Encaixa a SNAP-1 (e na faixa que o ímã antigo recusava), recusa a SNAP+3, não encaixa em casa errada', async () => {
-    const d = await salaDesafio(modo, 12); const cfg = d.snap.cfg; const S = cfg.SNAP, antigo = Math.round(cfg.TILE * 0.33);
-    assert.equal(S, Math.round(cfg.TILE * 0.5));
+  test('Sala Desafio (' + modo + '): o mesmo ímã. Encaixa a SNAP-1, recusa a 0,45 casa e a SNAP+3, não encaixa em casa errada', async () => {
+    const d = await salaDesafio(modo, 12); const cfg = d.snap.cfg; const S = cfg.SNAP;
+    assert.equal(S, Math.round(cfg.TILE * 0.35));
     // em "quebra" só as peças que a caixa já cuspiu estão nas mãos; no "comum" todas estão na bandeja
     const ids = modo === 'quebra' ? d.gifts.map((g) => g.id) : d.snap.pieces.map((q) => q.id); assert.ok(ids.length >= 3, 'peças disponíveis: ' + ids.length);
     const P = ids.map((id) => d.snap.pieces.find((q) => q.id === id));
     assert.equal((await solta(d, cfg, P[0], S - 1, 0)).r, 'locked', 'a SNAP-1');
-    assert.equal((await solta(d, cfg, P[1], antigo + Math.round(cfg.TILE * 0.1), 0)).r, 'locked', 'faixa que o ímã antigo recusava');
+    assert.equal((await solta(d, cfg, P[1], Math.round(cfg.TILE * 0.45), 0)).r, 'released', 'a 0,45 casa (o ímã de 0,5 puxava)');
     assert.equal((await solta(d, cfg, P[2], S + 3, 0)).r, 'released', 'a SNAP+3');
     assert.equal((await solta(d, cfg, P[2], cfg.TILE, 0)).r, 'released', 'sobre o centro da casa vizinha');
     fecha(d.a, d.b);
   });
 }
 
-test('ajuste pelo painel do Render: SNAP_FACTOR de 0,25 a 0,75 vale; qualquer outro valor é ignorado e vale 0,5; o /diagnostico mostra o que está em uso', async () => {
+test('ajuste pelo painel do Render: SNAP_FACTOR de 0,25 a 0,75 vale; qualquer outro valor é ignorado e vale 0,35; o /diagnostico mostra o que está em uso', async () => {
   const lePor = async (env) => { const s = await startServer(Object.assign({ ROOM_CREATES_PER_10MIN: '100' }, env)); try { const j = await (await fetch(s.url + '/diagnostico?token=' + DIAG_TOKEN)).json(); const cj = await (await fetch(s.url + '/api/config')).json();
       const a = await client(s.url); const r = await a.emitAck('create', { pid: 'p' + Math.random(), imageId: cj.images[0].file, pieces: 12, name: 'Ana' }); const cfg = r.snapshot.cfg; a.close(); return { enc: j.encaixe, snap: cfg.SNAP, tile: cfg.TILE }; } finally { await s.stop(); } };
-  const padrao = await lePor({}); assert.deepEqual([padrao.enc.raio_em_casas, padrao.enc.padrao, padrao.enc.origem], [0.5, 0.5, 'padrão']); assert.equal(padrao.snap, Math.round(padrao.tile * 0.5));
-  for (const v of ['0.4', '0.25', '0.75']) { const r = await lePor({ SNAP_FACTOR: v }); assert.equal(r.enc.raio_em_casas, Number(v), v); assert.equal(r.enc.origem, 'variável SNAP_FACTOR'); assert.equal(r.snap, Math.round(r.tile * Number(v)), 'o servidor usa ' + v); }
-  for (const v of ['0.9', '0.1', 'abc', '', '-1', '0.2499', '1']) { const r = await lePor({ SNAP_FACTOR: v }); assert.equal(r.enc.raio_em_casas, 0.5, 'inválido "' + v + '" volta ao padrão'); assert.equal(r.snap, Math.round(r.tile * 0.5)); }
+  const padrao = await lePor({}); assert.deepEqual([padrao.enc.raio_em_casas, padrao.enc.padrao, padrao.enc.origem], [0.35, 0.35, 'padrão']); assert.equal(padrao.snap, Math.round(padrao.tile * 0.35));
+  for (const v of ['0.4', '0.25', '0.75', '0.5']) { const r = await lePor({ SNAP_FACTOR: v }); assert.equal(r.enc.raio_em_casas, Number(v), v); assert.equal(r.enc.origem, 'variável SNAP_FACTOR'); assert.equal(r.snap, Math.round(r.tile * Number(v)), 'o servidor usa ' + v); }
+  for (const v of ['0.9', '0.1', 'abc', '', '-1', '0.2499', '1']) { const r = await lePor({ SNAP_FACTOR: v }); assert.equal(r.enc.raio_em_casas, 0.35, 'inválido "' + v + '" volta ao padrão'); assert.equal(r.snap, Math.round(r.tile * 0.35)); }
 });
 
 test('código: o fator é definido UMA vez no servidor e usado nos dois layouts; a regra de encaixe e o cliente não mudaram', () => {
   const sv = read('server.js'), ch = read('challenge.js'), gm = read('public/game.js');
-  assert.equal((sv.match(/const SNAP_FACTOR = /g) || []).length, 1, 'definido uma vez'); assert.match(sv, /const SNAP_FACTOR_DEFAULT = 0\.5;/); assert.match(sv, /v >= 0\.25 && v <= 0\.75/);
+  assert.equal((sv.match(/const SNAP_FACTOR = /g) || []).length, 1, 'definido uma vez'); assert.match(sv, /const SNAP_FACTOR_DEFAULT = 0\.35;/); assert.match(sv, /v >= 0\.25 && v <= 0\.75/);
   assert.equal((sv.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length, 1); assert.equal((ch.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length, 1);
   assert.match(sv, /createChallenge|require\('\.\/challenge'\)\(\{\s*io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR,/); assert.match(ch, /io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR,/);
   assert.doesNotMatch(ch, /const SNAP_FACTOR/, 'o Desafio recebe o valor do servidor (não tem cópia própria)');
   for (const src of [sv, ch]) { assert.match(src, /if \(p\.rot !== 0\) return false;\n\s+if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/, 'tryLock igual: giro 0 e distância ≤ SNAP'); assert.match(src, /p\.x = tx;/); }
   assert.doesNotMatch(gm, /SNAP_FACTOR|cfg\.SNAP/, 'o cliente nunca decide o encaixe: a regra vive só no servidor');
-  assert.match(sv, /socket\.on\('move', \(data\) => \{[\s\S]{0,1100}?magnet\.pullPoint[\s\S]{0,300}?tryLock\(c\.room, p, c\.idx\)[\s\S]{0,200}?socket\.to\(c\.room\.code\)\.emit\('moved'/, 'o ímã também puxa ENQUANTO se arrasta (ver tests/ima-arrastando.test.js)');
-  assert.match(ch, /socket\.on\('ch:move'[\s\S]{0,1100}?tryLock\(c\.room, c\.idx, c\.board, p, socket\)/, 'a Sala Desafio também puxa ao arrastar');
+  assert.match(sv, /socket\.on\('move', \(data\) => \{[\s\S]{0,1300}?dragDwell\.onMove[\s\S]{0,300}?tryLock\(room, p, idx\)[\s\S]{0,200}?socket\.to\(c\.room\.code\)\.emit\('moved'/, 'o ímã também puxa ENQUANTO se arrasta, se o dedo fica perto (ver tests/ima-arrastando.test.js)');
+  assert.match(ch, /socket\.on\('ch:move'[\s\S]{0,1300}?dragDwell\.onMove[\s\S]{0,300}?tryLock\(room, idx, board, p, socket\)/, 'a Sala Desafio também puxa ao arrastar');
 });

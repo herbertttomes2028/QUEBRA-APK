@@ -1,5 +1,6 @@
 'use strict';
-const magnet = require('./magnet');       // ímã ao arrastar (função pura; a regra de encaixe continua só no tryLock)
+const magnet = require('./magnet');       // ímã ao arrastar (a regra de encaixe continua só no tryLock)
+const dragDwell = magnet.createDwell();   // "ficou perto por um instante" (Sala Desafio)
 /*
  * SALA DESAFIO — dois jogadores montam a MESMA imagem ao mesmo tempo, cada um no SEU tabuleiro.
  * Vence quem encaixar a última peça primeiro. O servidor é a autoridade: ele decide a largada,
@@ -486,12 +487,14 @@ module.exports = function createChallenge(d) {
       c.board.lastMove = now;
       const p = pieceOf(c.board, data.id);
       if (!p || p.heldBy !== c.idx) return;
-      const hh = Math.ceil(c.room.cfg.TRAY / 2), px = p.x, py = p.y;
+      const hh = Math.ceil(c.room.cfg.TRAY / 2);
       const nx = clamp(data.x, hh, c.room.cfg.FIELD_W - hh), ny = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);
-      const q = magnet.ENABLED ? magnet.pullPoint(c.room.cfg, p, px, py, nx, ny) : { x: nx, y: ny };       // ímã ao ARRASTAR: passou pela zona do ímã da casa certa, a peça é puxada na hora
-      p.x = q.x; p.y = q.y;
-      if (magnet.ENABLED && tryLock(c.room, c.idx, c.board, p, socket)) return;
       p.x = nx; p.y = ny;
+      // ímã ao ARRASTAR (mais fraco desde 15/11/2026): só puxa se o dedo FICAR perto da casa certa por um instante (ver magnet.js)
+      if (magnet.ENABLED) {
+        const room = c.room, idx = c.idx, board = c.board;
+        dragDwell.onMove(room.cfg, p, now, () => p.heldBy === idx && !p.locked && room.status === 'playing' && room.boards[idx] === board && tryLock(room, idx, board, p, socket));
+      }
     });
 
     // Sem giro na Sala Desafio: as peças já nascem na orientação certa (rot 0). O evento continua aceito só para clientes antigos
@@ -503,6 +506,7 @@ module.exports = function createChallenge(d) {
       if (!c || !data || c.room.status !== 'playing') return;
       const p = pieceOf(c.board, data.id);
       if (!p || p.heldBy !== c.idx || p.locked) return;
+      dragDwell.cancel(p);                                // soltou: acaba a espera do ímã ao arrastar (ao soltar vale o raio do tryLock)
       const hh = Math.ceil(c.room.cfg.TRAY / 2);
       p.x = clamp(data.x, hh, c.room.cfg.FIELD_W - hh);
       p.y = clamp(data.y, hh, c.room.cfg.FIELD_H - hh);

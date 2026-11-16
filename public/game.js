@@ -133,7 +133,7 @@
   state.winBlob = null;
   state.duel = null;           // Sala Desafio (null = jogo cooperativo de sempre)
   state.upload = { maxBytes: 1572864, maxDim: 2048 };
-  state.duelMode = 'comum';
+  state.duelMode = 'coop';          // "Jogar com amigos": coop (montar juntos) | comum (Desafio Comum) | quebra (Quebrando Cabeças)
 
   // sem internet a biblioteca de tempo real não carrega: avisa em vez de quebrar
   if (typeof io === 'undefined') {
@@ -420,8 +420,8 @@
 
   function openPick(mode) {
     state.pickMode = mode; warmCanvasEncoder();
-    $('#pick-title').textContent = mode === 'create' || mode === 'solo' ? 'Escolha a imagem' : mode === 'duel' ? 'Sala Desafio' : 'Trocar imagem ou peças';
-    $('#pick-lead').textContent = mode === 'duel' ? 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!' : mode === 'solo' ? 'Toque numa imagem para escolher.' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
+    $('#pick-title').textContent = mode === 'create' || mode === 'solo' ? 'Escolha a imagem' : mode === 'duel' ? 'Jogar com amigos' : 'Trocar imagem ou peças';
+    $('#pick-lead').textContent = pickLeadText();
     $('#duel-modes').hidden = mode !== 'duel';
     $('#btn-pick-go').textContent = goButtonText();
     showError($('#pick-error'), '');
@@ -442,7 +442,14 @@
 
   function goButtonText() {
     if (window.QC && window.QC.goLabel) return window.QC.goLabel;       // convite a um amigo: "Criar e convidar Fulano"
-    return state.pickMode === 'solo' ? 'Jogar' : state.pickMode === 'create' ? 'Criar partida' : state.pickMode === 'duel' ? 'Criar Sala Desafio' : 'Recomeçar com essa escolha';
+    if (state.pickMode === 'duel') return state.duelMode === 'coop' ? 'Criar sala' : 'Criar desafio';
+    return state.pickMode === 'solo' ? 'Jogar' : state.pickMode === 'create' ? 'Criar partida' : 'Recomeçar com essa escolha';
+  }
+  // texto de cima da escolha da imagem (em "Jogar com amigos" muda com o modo escolhido)
+  function pickLeadText() {
+    var m = state.pickMode;
+    if (m === 'duel') return state.duelMode === 'coop' ? 'Vocês dois montam a mesma imagem juntos. Depois de criar, mande o código da sala para o seu amigo.' : 'Os dois montam a mesma imagem, cada um no seu celular. Vence quem terminar primeiro!';
+    return m === 'solo' ? 'Toque numa imagem para escolher.' : 'Toque numa imagem para escolher. Seu amigo vai montar a mesma.';
   }
 
   /* ---------------------------------------------------------
@@ -2452,7 +2459,7 @@
     { h: 'Arrastar', t: 'Segure a peça com o dedo e arraste até o lugar dela no tabuleiro. Ela só cresce quando entra completamente na grade.' },
     null,                                                    // (passo "Girar" removido: as peças já vêm na orientação certa)
     { h: 'Zoom', t: 'Com a peça escolhida, afaste dois dedos para ampliar e junte para reduzir. Toque num espaço vazio para soltá-la.' },
-    { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos e 📍 indica o lugar da peça escolhida. Os dois botões ficam lado a lado. 💬 abre a conversa e 🔔 avisa quando o amigo chamar.' }
+    { h: 'Ajudas', t: '💡 mostra a imagem por 4 segundos e 📍 indica o lugar da peça escolhida. Os dois botões ficam lado a lado. 🔔 avisa quando o amigo chamar.' }
   ];
   var tut = { i: 0, timer: null };
 
@@ -2968,7 +2975,7 @@
     });
     return true;
   }
-  function modeLabel(m) { return m === 'quebra' ? '🎁 Quebrando Cabeças' : '🧩 Modo Comum'; }
+  function modeLabel(m) { return m === 'quebra' ? '🎁 Quebrando Cabeças' : '🧩 Desafio Comum'; }
   function imageItem(file) {
     var base = state.images.filter(function (i) { return i.file === file; })[0];
     if (base) return base;
@@ -2999,7 +3006,7 @@
   }
 
   function createDuel() {
-    setLoading(true, 'Criando a Sala Desafio…');
+    setLoading(true, 'Criando o desafio…');
     leaveDuelQuiet();
     socket.emit('ch:create', { pid: state.pid, imageId: state.pickChoice, pieces: state.pickPieces, mode: state.duelMode, name: readName(), avatar: state.avatar }, function (res) {
       if (!res || !res.ok) { setLoading(false); showError($('#pick-error'), errorText(res && res.error)); return; }
@@ -3553,8 +3560,10 @@
   $('#duel-modes').addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('button');
     if (!b) return;
-    state.duelMode = b.dataset.mode === 'quebra' ? 'quebra' : 'comum';
+    state.duelMode = b.dataset.mode === 'quebra' ? 'quebra' : b.dataset.mode === 'comum' ? 'comum' : 'coop';
     syncDuelModes();
+    $('#pick-lead').textContent = pickLeadText();
+    $('#btn-pick-go').textContent = goButtonText();
   });
   $('#lobby-ready').addEventListener('click', function () {
     var d = state.duel;
@@ -3578,10 +3587,9 @@
   /* ---------------------------------------------------------
    * Botões e teclado
    * --------------------------------------------------------- */
-  // "Jogar" abre a escolha: Sozinho (Solo) ou Com um amigo (o cooperativo de sempre, com código)
-  $('#btn-play').addEventListener('click', function () { popEl(this, 'go'); openModal('#modal-play', '#btn-solo'); });
-  $('#btn-solo').addEventListener('click', function () { closeModal('#modal-play'); readName(); openPick('solo'); });
-  $('#btn-create').addEventListener('click', function () { closeModal('#modal-play'); readName(); safeThen(function () { openPick('create'); }); });
+  // "Jogar" vai direto para as coleções, no modo Sozinho (desde 15/11/2026). Jogar com outra pessoa fica em "Jogar com amigos" (#btn-duel):
+  // Cooperativo, Desafio Comum ou Quebrando Cabeças.
+  $('#btn-play').addEventListener('click', function () { popEl(this, 'go'); readName(); openPick('solo'); });
 
   $('#btn-join').addEventListener('click', function () {
     var code = $('#input-code').value.trim().toUpperCase();
@@ -3639,7 +3647,10 @@
   $('#btn-pick-go').addEventListener('click', function () {
     if (!state.pickChoice) return;
     clearTimeout(warmPickTimer);        // o aquecimento pendente não compete com a abertura (se já terminou, a imagem está pronta)
-    if (state.pickMode === 'duel') {
+    if (state.pickMode === 'duel' && state.duelMode === 'coop') {   // "Jogar com amigos" > Cooperativo: a sala cooperativa de sempre, com código
+      showGoSplash(state.pickChoice);
+      doCreate(state.pickChoice, state.pickPieces);
+    } else if (state.pickMode === 'duel') {
       createDuel();
     } else if (state.pickMode === 'solo') {
       showGoSplash(state.pickChoice);
@@ -3848,7 +3859,6 @@
       inv.appendChild(invSala); inv.appendChild(document.createTextNode('.')); inv.appendChild(document.createElement('br'));
       inv.appendChild(document.createTextNode('Toque em ')); inv.appendChild(invEnt); inv.appendChild(document.createTextNode('.'));
       inv.hidden = false;
-      $('#btn-create').hidden = true;
       $('#cta-row').hidden = true;
       $('#btn-join').classList.remove('btn-secondary');
       $('#btn-join').classList.add('btn-primary');

@@ -1101,7 +1101,7 @@ html[data-theme="dark"] #screen-home h1 { text-shadow: none; }
 }
 html[data-motion="reduce"] .go-splash.out { transition: none; }
 
-/* ---------- Sala Desafio ---------- */
+/* ---------- Jogar com amigos (Cooperativo, Desafio Comum e Quebrando Cabeças) ---------- */
 :root { --sel: #2a5ee8; --on-ok: #0b7a5c; }
 html[data-theme="dark"] { --sel: #ffcf33; --on-ok: #5fe3bd; }
 
@@ -1128,28 +1128,42 @@ html[data-theme="dark"] { --sel: #ffcf33; --on-ok: #5fe3bd; }
   transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), box-shadow .3s cubic-bezier(.34, 1.56, .64, 1);
 }
 .btn-duel:active:not(:disabled) { transform: translateY(5px) scale(.985); box-shadow: 0 1px 0 #3a2fa8, 0 3px 6px rgba(90, 73, 224, .22), inset 0 2px 0 rgba(255, 255, 255, .3); transition-duration: .06s; }
-.duel-ico { font-size: 1.25rem; line-height: 1; }
+.duel-ico { font-size: 1.25rem; line-height: 1; display: inline-flex; }
+/* ícones de peças de quebra-cabeça (desenho fixo no index.html; cores do jogo: azul e rosa dos jogadores, sol e verde) */
+.pz { display: block; width: 2.6rem; height: auto; overflow: visible; }
+.pz-duo { width: 3.5rem; }
+.pz path { stroke: #fff; stroke-width: 3; stroke-linejoin: round; paint-order: stroke; }
+.pz-a { fill: #2a5ee8; }
+.pz-b { fill: #d1245f; }
+.pz-c { fill: #ffcf33; }
+.pz-d { fill: #f47c2c; }                                     /* presente: peça laranja com fita e laço amarelos */
+.pz .pz-fita { fill: #ffd84d; stroke: none; }
+.pz .pz-laco { stroke: #c2410c; stroke-width: 1.2; paint-order: normal; }
+.pz .pz-mark { fill: #fff; stroke: none; }
+.pz-c ~ .pz-mark { fill: #7a5a00; }
+.btn-duel .pz-duo { width: 2.6rem; margin-bottom: 1px; }
 
 /* escolha do modo (na tela de escolha da imagem) */
-.duel-modes { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.duel-modes { width: 100%; display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0 0 14px; }
 .duel-modes button {
   appearance: none;
   border: 0;
   border-radius: 20px;
   background: var(--card);
   color: var(--ink);
-  padding: 12px 8px 12px;
+  padding: 10px 14px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 3px;
-  text-align: center;
+  gap: 12px;
+  text-align: left;
   font-family: "Fredoka", var(--font);
   box-shadow: inset 0 0 0 2px var(--line), 0 5px 0 var(--line-2);
   transition: transform .26s cubic-bezier(.34, 1.56, .64, 1), box-shadow .2s ease;
 }
 .duel-modes button:active { transform: scale(.96); }
-.duel-modes .dm-ico { font-size: 2rem; line-height: 1.1; }
+.duel-modes .dm-ico { flex: 0 0 3.4rem; display: flex; justify-content: center; }
+.duel-modes .dm-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .duel-modes b { font-weight: 700; font-size: 1.02rem; }
 .duel-modes small { font-size: .78rem; font-weight: 500; line-height: 1.2; color: var(--ink-soft); }
 .duel-modes button[aria-checked="true"] { transform: translateY(-2px); box-shadow: inset 0 0 0 3px var(--sel), 0 7px 0 var(--line-2), 0 0 0 5px rgba(42, 94, 232, .15); }
@@ -1877,8 +1891,6 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 #screen-game.solo .hud-players { display: none; }
 #screen-game.solo #hud-count { white-space: nowrap; }
 /* janela "Jogar": Sozinho ou Com um amigo */
-.play-sheet h3 { margin: 4px 0 14px; padding: 0 50px; text-align: center; }     /* folga dos dois lados: o ✕ do canto não pode cobrir o título */
-.play-sheet .btn + .btn { margin-top: 10px; }
 /* telas de até 340 px: o cabeçalho já não sobra largura; com a partida concluída os avatares saem para o X caber inteiro */
 @media (max-width: 340px) { #screen-game.done .hud-players { display: none; } }
 .priv-sheet .sheet-x { margin-bottom: -38px; }

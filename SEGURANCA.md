@@ -118,7 +118,7 @@ O relatório da auditoria (somente leitura) está resumido em `docs/AUDITORIA_SE
 - **Arrasto:** as posições não são mais descartadas quando a conexão está ocupada; a peça que o amigo encaixa desliza até a casa.
 - **Limites:** contadores separados por tipo (uma enxurrada não barra quem chega depois) e limite de código-chave simultâneo nas rotas atuais.
 - **Vaga reservada:** quem cai continua dono da vaga; quem sai pelo botão Sair fecha a sala para novos; quem ficou termina sozinho.
-- **Endurecimento:** máximo de 5 aparelhos por perfil e limpeza de logins vencidos; a denúncia não revela se um ID existe; chat e avisos ficam **desligados quando a variável não existe** (`CHAT_ENABLED` e `PUSH_ENABLED` só ligam com `true`; no Render as duas já existem, então nada mudou lá); a política de privacidade dentro do app não gera aviso do Trusted Types; testes mais rigorosos; `.gitignore` com APK/AAB e a chave do Android.
+- **Endurecimento:** máximo de 5 aparelhos por perfil e limpeza de logins vencidos; a denúncia não revela se um ID existe; chat e avisos ficam **desligados quando a variável não existe** (`CHAT_ENABLED` e `PUSH_ENABLED` só ligam com `true`; no Render as duas já existem, então nada mudou lá). **O bate-papo foi retirado do jogo** (decisão do proprietário): não ligue `CHAT_ENABLED`; a política de privacidade dentro do app não gera aviso do Trusted Types; testes mais rigorosos; `.gitignore` com APK/AAB e a chave do Android.
 
 ## 8. Código da sala, tentativas, frases e bloqueios
 
@@ -137,7 +137,7 @@ Conta de risco: com 50 salas abertas e no máximo 30 palpites por dia por endere
 e de uns **0,14% por dia** mesmo que alguém use **1.000 endereços diferentes**. Não é zero, é muito pouco provável. (Com 4 caracteres seriam ~100%.)
 Ajustes pelo Render (opcionais): `CODE_LEN` (4 a 8), `JOIN_MAX_FAILS`, `JOIN_DAILY_MAX`.
 
-**Frases prontas (a conversa livre acabou):** ninguém digita texto. O celular manda só o código da frase e o servidor escreve o texto.
+**Frases prontas (a conversa livre acabou; desde 15/11/2026 o bate-papo de frases também foi retirado e fica desligado):** ninguém digita texto. O celular manda só o código da frase e o servidor escreve o texto.
 - **10 frases básicas, sempre liberadas:** Oi! · Vamos jogar? · Boa! · Muito bem! · Quase lá! · Calma, vai dar certo! · Preciso de ajuda · Estou pensando... · Obrigado(a)! · Até logo!
 - **7 reações com emoji** (sempre liberadas): 👍 😂 👏 😮 🤔 ❤️ 🎉
 - **14 frases liberadas jogando** (só para quem tem conta, porque o servidor precisa saber o seu progresso): 1 partida (2 frases) · 3 partidas (2) · 5 partidas · 10 partidas (2) · 25 partidas ·
@@ -151,7 +151,7 @@ Desbloquear: Perfil > Segurança > *Jogadores bloqueados*. Visitantes (sem conta
 
 1. Celular 1: criar perfil > aparece a tela do código-chave > anotar > marcar "anotei" > entrar.
 2. Celular 2: o mesmo (outro perfil). Cada um vê só o próprio apelido sorteado.
-3. Celular 1 cria uma sala e passa o código da sala > celular 2 entra > os dois aparecem como "Jogador 1/2" > abrir a conversa (se ligada): **só botões de frases**, sem campo de texto.
+3. Celular 1 cria uma sala e passa o código da sala > celular 2 entra > os dois aparecem como "Jogador 1/2" > o botão 💬 **não** aparece (o bate-papo foi retirado).
 4. Celular 1: menu da partida > *Bloquear jogador* > o celular 2 não entra mais nas salas do 1 (nem sabendo o código). Desbloquear em Perfil > Segurança.
 5. Em um terceiro aparelho (ou aba anônima): digitar 6 códigos de sala errados > aparece "Muitos códigos errados… espere 15 min".
 6. *Gerar código novo* > o antigo não entra mais; *Sair* e *Entrar* com o novo.
