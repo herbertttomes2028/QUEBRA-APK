@@ -53,7 +53,7 @@ Data: 14/11/2026 · Este é um **roteiro prático**, não um parecer jurídico. 
 | --- | --- |
 | Derrubar todas as sessões | Neon › SQL Editor: `DELETE FROM sessions;` |
 | Desligar perfis temporariamente | Render › Environment: apagar `DATABASE_URL` (o jogo vira só-visitante) |
-| Desligar chat e avisos | `CHAT_ENABLED=false`, `PUSH_ENABLED=false` (já estão assim) |
+| Desligar avisos | `PUSH_ENABLED=false` (já está assim). Bate-papo: não existe (apagado em 16/11/2026) |
 | Bloquear tentativas em massa | os limites já existem (seção 4 de `docs/SEGURANCA_INVENTARIO.md`); reiniciar o serviço zera os contadores |
 | Apagar um perfil | pelo jogador (Apagar meus dados) ou pelo e-mail de denúncia (só comandos que vieram do jogo) |
 

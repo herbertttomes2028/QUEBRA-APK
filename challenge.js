@@ -27,10 +27,10 @@ const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem 
 
 module.exports = function createChallenge(d) {
   const {
-    io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
-    validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces, filaClient,
+    io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS,
+    validImage, validPieces, cleanName, cleanAvatar, cleanPid, newCode, layoutFor, buildPieces, filaClient,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
-    phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
+    joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
   } = d;
 
   const rooms = new Map();
@@ -69,7 +69,6 @@ module.exports = function createChallenge(d) {
       status: 'lobby',                    // lobby | countdown | playing | finished
       players: [null, null],
       boards: [null, null],
-      chat: [], chatSeq: 0,
       match: 0,
       goAt: null, startedAt: null, finishedAt: null, winner: null, result: null,
       rematch: [false, false],
@@ -130,7 +129,6 @@ module.exports = function createChallenge(d) {
     const b = room.boards[idx];
     return {
       code: room.code, imageId: room.imageId, cfg: room.cfg, mode: room.mode,
-      chat: room.chat, chatOn: CHAT_ENABLED,
       pieces: b.pieces.map((p) => ({
         id: p.id, col: p.col, row: p.row, x: Math.round(p.x), y: Math.round(p.y), rot: p.rot, rotUsed: p.rotUsed,
         heldBy: p.heldBy, locked: p.locked, lockedBy: p.lockedBy, z: p.z, out: p.out
@@ -424,7 +422,7 @@ module.exports = function createChallenge(d) {
       const room = createRoom(code, mode, imageId, validPieces(data.pieces, DEFAULT_PIECES));
       rooms.set(code, room);
       const res = attach(room, socket, pid, data.name, data.avatar);
-      reply(cb, { ok: true, idx: res.idx, lobby: lobbyInfo(room), chat: room.chat, chatOn: CHAT_ENABLED });
+      reply(cb, { ok: true, idx: res.idx, lobby: lobbyInfo(room) });
       emitLobby(room);
     });
 
@@ -441,7 +439,7 @@ module.exports = function createChallenge(d) {
       if (socket.data.ch && socket.data.ch.code !== code) leaveSocket(socket, true);
       const res = attach(room, socket, pid, data.name, data.avatar);
       if (res.error) return reply(cb, { ok: false, error: res.error });
-      const out = { ok: true, idx: res.idx, lobby: lobbyInfo(room), chat: room.chat, chatOn: CHAT_ENABLED, status: room.status };
+      const out = { ok: true, idx: res.idx, lobby: lobbyInfo(room), status: room.status };
       if (room.status === 'playing' && room.boards[res.idx]) out.snapshot = boardSnapshot(room, res.idx);
       if (room.status === 'finished') out.result = room.result;
       reply(cb, out);
@@ -557,26 +555,6 @@ module.exports = function createChallenge(d) {
       reply(cb, { ok: true, left: c.board.spots, col: p.col, row: p.row });
     });
 
-    // frases prontas (o celular manda só o código da frase; o servidor confere e escreve o texto)
-    socket.on('ch:chat', async (data, cb) => {
-      if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
-      const phrase = d.phrases.byId(data && data.p);
-      if (!phrase) return reply(cb, { ok: false, error: 'invalid' });
-      if (!(await phraseOk(socket, phrase.id))) return reply(cb, { ok: false, error: 'locked' });
-      const c = ctx(socket);
-      if (!c) return reply(cb, { ok: false, error: 'room' });
-      const now = Date.now();
-      const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
-      if (times.length >= 12 || (times.length && now - times[times.length - 1] < 400)) { socket.data.chatTimes = times; return reply(cb, { ok: false, error: 'rate' }); }
-      times.push(now); socket.data.chatTimes = times;
-      const { room, idx } = c;
-      const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text: phrase.text, p: phrase.id, t: now };
-      room.chat.push(msg);
-      if (room.chat.length > CHAT_KEEP) room.chat.shift();
-      io.to(room.code).emit('chat', msg);
-      sendPush(room, 1 - idx, { title: msg.name, body: phrase.text, tag: 'chat', url: '/?sala=' + room.code });
-      reply(cb, { ok: true });
-    });
 
     // revanche: precisa dos dois; quando ambos pedem, começa a contagem de uma nova disputa
     socket.on('ch:rematch', (data, cb) => {

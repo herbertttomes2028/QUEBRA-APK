@@ -3,7 +3,7 @@
  * PERFIS DO QUEBRA-CABEÇA A DOIS (perfil gerado, desde a rodada "perfil-gerado")
  * Perfil com ID público (8 símbolos) + código-chave secreto (20 símbolos), apelido sorteado, avatar, estatísticas, XP e gemas
  * (só pelo servidor: payMatch), loja, conquistas, "Continuar jogando", histórico, bloqueios e denúncias.
- * NÃO existem: e-mail, senha, Google, amigos, convites, busca de jogadores nem chat livre (não reintroduzir).
+ * NÃO existem: e-mail, senha, Google, amigos, convites, busca de jogadores nem bate-papo de nenhum tipo (não reintroduzir).
  *
  * Regras de segurança e privacidade:
  *  - O navegador NUNCA fala com o banco: tudo passa por aqui, e cada rota só mexe nos dados de quem está logado (req.user.id).
@@ -14,7 +14,6 @@
  *  - Limites de tentativas por grupo (makeLimiter): login, criação, código novo, apagar, denúncias, compras.
  */
 const crypto = require('crypto');
-const phrases = require('./phrases');
 const xpm = require('./xp');
 const gemm = require('./gems');
 const library = require('./library');
@@ -243,16 +242,6 @@ function createAccounts(d) {
     return s ? { imageLabel: s.image_label, pieces: s.pieces, locked: s.n, elapsedMs: Number(s.elapsed_ms), partner: s.partner_name, updatedAt: s.updated_at } : null;
   }
 
-  // frases liberadas (guardadas por alguns segundos para o bate-papo não consultar o banco a cada toque)
-  const phraseCache = new Map();
-  async function allowedPhrases(uid) {
-    const c = phraseCache.get(uid);
-    if (c && Date.now() - c.at < 15000) return c.set;
-    const set = phrases.unlockedFor(await statsOf(uid));
-    phraseCache.set(uid, { at: Date.now(), set });
-    return set;
-  }
-
   // NÚCLEO do /me numa ÚNICA consulta: estatísticas, amigos, pendências, partida salva, XP e gemas (antes eram 8 idas ao banco em 4 etapas).
   async function coreOf(uid) {
     return one(`SELECT
@@ -271,7 +260,7 @@ function createAccounts(d) {
       code: fmtCode(u.friend_code), name: u.name, avatar: u.avatar, kind: u.kind || 'legado',
       createdAt: u.created_at, stats,
       save: sv ? { imageLabel: sv.image_label, pieces: sv.pieces, locked: sv.n, elapsedMs: Number(sv.elapsed_ms), partner: sv.partner_name, updatedAt: new Date(sv.updated_at) } : null,
-      xp: xpm.progress(xpTot), gems: Number(x.gems || 0), phrases: [...phrases.unlockedFor(stats)]
+      xp: xpm.progress(xpTot), gems: Number(x.gems || 0)
     };
   }
   // Conquistas e coleções do dono (a parte pesada, separada do /me).
@@ -405,7 +394,6 @@ function createAccounts(d) {
     if (!other || me === other) return false;
     await db.q('INSERT INTO blocks (blocker, blocked) VALUES ($1,$2) ON CONFLICT DO NOTHING', [me, other]);
     blockSet.add(me + ':' + other);
-    phraseCache.delete(me); phraseCache.delete(other);
     notify(me, { t: 'blocks' });
     return true;
   }
@@ -773,7 +761,6 @@ function createAccounts(d) {
     try {
       await db.q('INSERT INTO matches (user_id, mode, image_label, pieces, result, completed, custom, duration_ms, opponent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
         [uid, m.mode, m.imageLabel, m.pieces, m.result, !!m.completed, !!m.custom, m.durationMs == null ? null : Math.round(m.durationMs), m.opponent || '']);
-      phraseCache.delete(uid);                          // novas frases podem ter sido liberadas
     } catch (e) { console.error('[contas] histórico:', e.message); }
   }
   async function areFriends() { return false; }       // não existe mais amizade no jogo: o bônus de amigo nunca é pago
@@ -890,7 +877,7 @@ function createAccounts(d) {
     enabled: true,
     config: {},
     reportMailInfo: () => ({ ligado: !!(mailer && reportMail.to && REPORT_MAIL_MAX), destino: reportMail.to ? maskEmail(reportMail.to) : null, origem: reportMail.origem || null, problema: reportMail.problema || (REPORT_MAIL_MAX ? null : 'REPORT_MAIL_MAX_PER_HOUR=0 (desligado)'), maximo_por_hora: REPORT_MAIL_MAX }),
-    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, allowedPhrases, blockedBetween, blockUser,
+    noteCoop, flush, loadSave, deleteSave, finishCoop, finishDuel, libraryCanPlay: libraryService.canPlay, levelOf, isOnline, blockedBetween, blockUser,
     close: () => {}
   };
 }

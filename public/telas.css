@@ -74,15 +74,15 @@ html[data-theme="dark"] .library-gate.feito { background: #0f4b3a; color: #b8f5d
 }
 
 /* ---------- barra de abas FIXA da tela inicial (Amigos, Loja e Ajustes), com ícones de peças de quebra-cabeça ---------- */
-#screen-home { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }       /* o conteúdo nunca fica atrás da barra */
+#screen-home { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }      /* o conteúdo nunca fica atrás da barra (maior desde 16/11/2026) */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; justify-content: center; padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--tab-bg); border-top: 2px solid var(--line); box-shadow: 0 -6px 18px rgba(27, 37, 89, .10); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.tabbar .tab { appearance: none; border: 0; background: transparent; position: relative; flex: 1 1 0; max-width: 150px; min-height: 56px; margin: 0 2px; padding: 2px 4px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--ink-soft); font: 700 .72rem/1.1 "Fredoka", var(--font); -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background-color .12s ease; }
+.tabbar .tab { appearance: none; border: 0; background: transparent; position: relative; flex: 1 1 0; max-width: 180px; min-height: 76px; margin: 0 4px; padding: 4px 6px; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--ink-soft); font: 700 .92rem/1.1 "Fredoka", var(--font); -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background-color .12s ease; }
 .tabbar .tab[hidden] { display: none; }
 .tabbar .tab:active { transform: scale(.93); background: var(--tab-press); }
 .tabbar .tab:focus-visible { outline: 3px solid var(--focus, #2a5ee8); outline-offset: -2px; }
-.tab-ico { display: block; width: 32px; height: 32px; }
-.tab-svg { display: block; width: 32px; height: 32px; overflow: visible; }
-.tabbar .tab .me-badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+.tab-ico { display: block; width: 44px; height: 44px; }          /* Loja e Ajustes maiores (pedido do proprietário, 16/11/2026; eram 32 px) */
+.tab-svg { display: block; width: 44px; height: 44px; overflow: visible; }
+.tabbar .tab .me-badge { position: absolute; top: 2px; left: calc(50% + 10px); }
 .tab-txt { color: var(--ink); }
 
 /* ---------- aviso de segurança online (janela curta, lida uma vez por aparelho) ---------- */

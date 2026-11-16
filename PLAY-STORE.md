@@ -41,7 +41,7 @@ PROGRESSO
 SALAS PRIVADAS E SEGURANÇA
 • Jogue com outra pessoa numa sala privada, entrando pelo código da sala. Os dois aparecem só como Jogador 1 e Jogador 2.
 • Sem e-mail, sem senha e sem lista de amigos: o próprio jogo cria um perfil com apelido sorteado e um código-chave para você voltar a qualquer aparelho.
-• Quando a conversa está ligada, usa apenas frases prontas: não há bate-papo livre.
+• Não há bate-papo: nenhuma mensagem, frase ou reação passa de um jogador para o outro.
 • Você pode bloquear e denunciar outros jogadores.
 
 CONFORTO
@@ -116,7 +116,6 @@ Para todos: **Coletado = Sim**, **Compartilhado = Não**, **Processamento tempor
 | Informações pessoais | IDs de usuário | ID do perfil gerado pelo jogo e código-chave (guardado só como hash) | Funcionalidade do app; Gerenciamento de contas; Segurança |
 | Atividade no app | Interações no app | Partidas, tempos, XP, gemas, conquistas, bloqueios e itens da loja (bandejas desbloqueadas com gemas, bandeja em uso e cores) | Funcionalidade do app |
 | Atividade no app | Outro conteúdo gerado pelo usuário | Nota opcional de até 200 letras numa denúncia | Funcionalidade do app; Prevenção de fraudes, segurança e conformidade |
-| Mensagens | Outras mensagens no app | Frases prontas trocadas na partida (ficam só na memória da sala) | Funcionalidade do app |
 | IDs do dispositivo ou outros | IDs do dispositivo ou outros | Endereço de notificação do aparelho, só se a pessoa ligar os avisos (fica só na memória da sala) | Funcionalidade do app |
 
 ### O que marcar como "não coletado"
@@ -140,8 +139,8 @@ O questionário deve resultar numa classificação baixa com o aviso de interaç
 | Drogas, álcool ou tabaco | Não |
 | Jogos de azar ou apostas, reais ou simulados | Não |
 | Humor grosseiro | Não |
-| Os usuários podem interagir ou trocar conteúdo? | Sim: salas privadas entre duas pessoas (identificadas só como Jogador 1 e 2) e frases prontas na partida |
-| Há conversa de texto livre, voz ou vídeo? | Não: a conversa usa só frases prontas |
+| Os usuários podem interagir ou trocar conteúdo? | Sim, só jogando: salas privadas entre duas pessoas (identificadas só como Jogador 1 e 2) montam o mesmo quebra-cabeça; não há troca de mensagens |
+| Há conversa de texto livre, voz ou vídeo? | Não: o jogo não tem bate-papo de nenhum tipo (nem frases prontas, desde 16/11/2026) |
 | O app compartilha a localização do usuário? | Não |
 | Permite comprar itens digitais com dinheiro real? | Não |
 | Tem itens aleatórios pagos (caixas de recompensa)? | Não |

@@ -27,7 +27,7 @@ Data-base: 14/11/2026 · Etapa: **perfil gerado** (branch `perfil-gerado`, parte
 **Removidas nesta etapa:** `register`, `login`, `verify*`, `password/*`, `google`, `friends*` (e os eventos `inv:send`, `inv:respond`).
 
 ### 2.3 Socket.IO
-Cooperativo: `create join grab move drop rotate hint spot chat imgready restart rematch:*`; Desafio: `ch:*`; contas: `acc:auth acc:logout acc:blockPeer acc:reportPeer` (+ `acc:continue` no `server.js`). Chat só com frases prontas e hoje **desligado** no Render (`CHAT_ENABLED=false`); push **desligado** (`PUSH_ENABLED=false`). Servidor → cliente: nenhum evento de sala leva apelido, ID, nível, gemas, pet ou roupas (teste dinâmico 7 e 8).
+Cooperativo: `create join grab move drop rotate hint spot imgready restart rematch:*`; Desafio: `ch:*`; contas: `acc:auth acc:logout acc:blockPeer acc:reportPeer` (+ `acc:continue` no `server.js`). **Não há bate-papo** (código apagado em 16/11/2026: sem `chat`/`ch:chat`, sem `phrases.js`); push **desligado** (`PUSH_ENABLED=false`). Servidor → cliente: nenhum evento de sala leva apelido, ID, nível, gemas, pet ou roupas (teste dinâmico 7 e 8).
 
 ### 2.4 Outros
 `GET /diagnostico` (detalhe só com `DIAG_TOKEN`), `GET /health`, `POST /api/csp-report`, `/.well-known/assetlinks.json`, arquivos estáticos de `public/`.
@@ -56,7 +56,7 @@ Cooperativo: `create join grab move drop rotate hint spot chat imgready restart 
 | Sessão | 60 dias; só `sha256(token)` no banco; **no máximo 5 aparelhos por perfil** (o mais antigo sai, e o socket dele perde a conta); vencidas apagadas a cada hora | `SESSION_MS`, `MAX_SESSIONS`, `newSession`, `purgeExpiredSessions` |
 | Contadores de limite | um grupo por tipo de limite (`plogin`, `pnew`, `kfail:id`, `kfail:ip`…), até 6000 chaves por grupo; vencidas saem primeiro; grupo cheio descarta a usada há mais tempo **daquele grupo** (nunca recusa quem chega) | `makeLimiter` em `accounts.js` |
 | Scrypt simultâneo | no máximo 8 (`MAX_AUTH_INFLIGHT`) em `profile/login`, `profile/new`, `profile/erase`, `profile/new-secret` e `delete`; acima: 503 `busy` ("muitos acessos agora") | `HEAVY_AUTH_RE` em `resource-guard.js` |
-| Chat e avisos | **desligados sem a variável**; só ligam com `CHAT_ENABLED=true` / `PUSH_ENABLED=true`. O bate-papo foi **retirado do jogo** (decisão do proprietário): não ligar | `envOn` em `server.js` |
+| Bate-papo e avisos | **Bate-papo apagado do código** (16/11/2026; `CHAT_ENABLED` sem efeito). Avisos **desligados sem a variável**; só ligam com `PUSH_ENABLED=true` | `envOn` em `server.js`; `tests/sem-bate-papo.test.js` |
 | Sala cooperativa | nível sempre 0 nos eventos; quem cai mantém a vaga; quem sai pelo botão Sair fecha a sala para novos (`room.closed`) | `roomLevel`, `attach`, `leaveCurrent` em `server.js` |
 | Cabeçalhos | HSTS, `nosniff`, `frame-ancestors 'none'`, COOP, Permissions-Policy, CSP (`report` por padrão; `enforce` por variável), Trusted Types só em relatório | `security.js` |
 | Proxy | `trust proxy` = 1 (o IP vem do Render) | `server.js` |
@@ -77,7 +77,7 @@ Não coletados: nome civil, e-mail, telefone, CPF, foto, localização, contatos
 
 ## 6. Funcionalidades removidas ou desligadas (não reintroduzir)
 
-Amigos, pedidos, convites, perfil do amigo, e-mail/senha/Google, recuperação por e-mail, chat livre (e, por ora, chat de frases e push), upload de imagens. O teste `tests/seguranca-perfil.test.js` (grupo 11) e `tests/contratos.test.js` falham se rotas, eventos ou textos dessas funções reaparecerem.
+Amigos, pedidos, convites, perfil do amigo, e-mail/senha/Google, recuperação por e-mail, bate-papo de qualquer tipo (livre, frases prontas e reações; apagado em 16/11/2026), push (desligado), upload de imagens. O teste `tests/seguranca-perfil.test.js` (grupo 11) e `tests/contratos.test.js` falham se rotas, eventos ou textos dessas funções reaparecerem.
 
 ## 7. O que ainda não existe (e foi pedido na orientação jurídico-técnica)
 

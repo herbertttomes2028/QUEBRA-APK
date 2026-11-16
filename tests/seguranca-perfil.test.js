@@ -281,8 +281,7 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       assert.equal((await sa2.emitAck('acc:blockPeer', {})).ok, true, 'A bloqueia a outra pessoa da sala (C)');
       const re = await sc2.emitAck('join', { pid: 'pid-c3-' + crypto.randomUUID(), code: (await sa2.emitAck('create', { pid: 'pid-a4-' + crypto.randomUUID(), imageId: imagem, pieces: 12 })).snapshot.code });
       assert.deepEqual([re.ok, re.error], [false, 'notfound'], 'quem foi bloqueado recebe "não existe" (sem revelar que a sala existe)');
-      // chat desligado
-      const rr = await sb2.emitAck('chat', { text: 'oi', phraseId: 'oi' }).catch((e) => ({ erro: String(e.message) })); assert.ok(rr && (rr.ok === false || rr.erro), 'chat desligado no servidor');
+      // bate-papo: não existe (retirado em 16/11/2026; coberto em tests/sem-bate-papo.test.js e tests/coop.test.js)
     });
 
     /* ============ 7b) privacidade da sala: nível e lista de bloqueados (rodada privacidade-sala, achados SEC-01 e SEC-05) ============ */

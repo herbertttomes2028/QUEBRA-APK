@@ -10,16 +10,16 @@ const { startServer } = require('./helpers');
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
-test('SEC-08: sem a variável, chat e avisos ficam DESLIGADOS; só ligam com true (o Render já tem as duas variáveis)', async () => {
+test('SEC-08: sem a variável, os avisos ficam DESLIGADOS (só ligam com true); o bate-papo nem existe mais (16/11/2026), com qualquer valor de CHAT_ENABLED', async () => {
   const s = read('server.js');
   assert.match(s, /const envOn = \(v\) => \['true', '1', 'sim', 'on', 'yes'\]\.includes\(String\(v \|\| ''\)\.trim\(\)\.toLowerCase\(\)\);/);
-  assert.match(s, /const CHAT_ENABLED = envOn\(process\.env\.CHAT_ENABLED\);/);
+  assert.ok(!/CHAT_ENABLED = /.test(s), 'não há mais chave que ligue o bate-papo');
   assert.match(s, /if \(envOn\(process\.env\.PUSH_ENABLED\)\) \{/);
-  for (const [valor, esperado] of [['', false], ['false', false], ['qualquer', false], ['true', true], ['TRUE', true], ['1', true]]) {
+  for (const valor of ['', 'false', 'true', '1']) {
     const srv = await startServer({ CHAT_ENABLED: valor });
     try {
       const cfg = await (await fetch(srv.url + '/api/config')).json();
-      assert.equal(cfg.chat === true, esperado, 'CHAT_ENABLED=' + JSON.stringify(valor) + ' → chat ' + (esperado ? 'ligado' : 'desligado'));
+      assert.ok(!('chat' in cfg) && !('phrases' in cfg), 'CHAT_ENABLED=' + JSON.stringify(valor) + ': a configuração não fala de bate-papo');
     } finally { await srv.stop(); }
   }
 });

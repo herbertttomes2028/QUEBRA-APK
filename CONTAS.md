@@ -34,7 +34,7 @@ O banco **só é ligado** se existir a variável `DATABASE_URL`. Sem ela o jogo 
 
 1. No Render, abra o seu serviço > **Environment**.
 2. **Add Environment Variable**: nome `DATABASE_URL`, valor = a linha copiada do Neon. **Save changes**.
-3. Variáveis úteis (todas opcionais): `CSP_MODE` (`report` por padrão; troque para `enforce` depois de testar no celular), `ACC_RATE_MULT` (multiplicador dos limites; deixe vazio em produção), `CHAT_ENABLED` e `PUSH_ENABLED` (hoje `false`).
+3. Variáveis úteis (todas opcionais): `CSP_MODE` (`report` por padrão; troque para `enforce` depois de testar no celular), `ACC_RATE_MULT` (multiplicador dos limites; deixe vazio em produção), `PUSH_ENABLED` (hoje `false`). (`CHAT_ENABLED` não existe mais: o bate-papo foi apagado do código em 16/11/2026.)
 
 ## Passo 3 — Publicar o código
 

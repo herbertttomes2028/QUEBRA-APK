@@ -1,5 +1,7 @@
 # Navegação no Android, conclusão, bate-papo e abertura: o que mudou e como testar
 
+> **16/11/2026:** o bate-papo foi **apagado** do jogo. As linhas sobre ele abaixo ficam só como registro; o passo 6 do roteiro não se aplica mais.
+
 ## 1. O que foi corrigido (e a causa de cada problema)
 | Problema | Causa encontrada | Correção |
 |---|---|---|
@@ -10,7 +12,7 @@
 
 ## 2. Como o botão voltar funciona
 - Só atua no **aplicativo instalado** (modo "standalone"/TWA). No navegador comum nada muda.
-- Ordem: pergunta de confirmação → janelas → carregando/contagem → bate-papo (frases → conversa → fechar) → tela atual (escolha de imagem → início; conta → início; partida/sala → pergunta "Sair?").
+- Ordem: pergunta de confirmação → janelas → carregando/contagem → tela atual (escolha de imagem → início; conta → início; partida/sala → pergunta "Sair?").
 - Dentro de uma partida o voltar **nunca desconecta sozinho**: pergunta "Sair da partida?" (ou "Sair da disputa? Seu adversário vence.").
 - Tela inicial: 1º toque mostra "Pressione voltar novamente para sair do aplicativo."; o 2º em até ~2 s fecha o app (quem fecha é o Android). Depois de 2 s a proteção volta.
 - Não há convites nem lista de amigos: as salas privadas são entradas só pelo código da sala.
@@ -27,7 +29,7 @@
 3. **Voltar nas telas:** Criar partida > voltar (vai ao início); Ajustes > voltar (fecha); conta > voltar.
 4. **Partida a dois:** voltar abre "Sair da partida?"; "Continuar jogando" mantém tudo; a outra pessoa continua vendo você conectado.
 5. **Concluir uma partida:** toque no ✕ e confira "🏆 Ver resultado"; reabra; "Jogar de novo" ainda funciona.
-6. **Bate-papo:** abra a conversa > "Frases prontas": a conversa some; ‹ volta; mande uma frase e o painel volta à conversa.
+6. **Bate-papo:** não existe mais (apagado em 16/11/2026): confira que não há botão 💬 na partida.
 7. **Servidor dormindo:** deixe 20 min sem abrir (o Render gratuito dorme) e abra o app: a tela do jogo deve aparecer na hora, com o aviso "Acordando o servidor…" até conectar.
 8. **Sair do perfil / apagar meus dados:** a pergunta deve ser do próprio jogo (sem título com o endereço do site).
 

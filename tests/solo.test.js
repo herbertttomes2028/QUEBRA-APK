@@ -72,10 +72,11 @@ test('Solo: palpites de entrada contam como erro e a resposta é IGUAL à de um 
   assert.ok(comSolo.includes('locked'), 'depois de vários palpites errados o endereço é bloqueado');
 });
 
-test('Solo: não há bate-papo (o servidor recusa)', async () => {
+test('Solo: não há bate-papo (o servidor nem tem o evento)', async () => {
   const { a } = await criaSolo();
-  const r = await a.emitAck('chat', { p: 'oi' });
-  assert.deepEqual([r.ok, r.error], [false, 'solo']);
+  let resposta = null; a.emit('chat', { p: 'oi' }, (r) => { resposta = r; });
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(resposta, null, 'ninguém responde: o evento não existe');
   a.close();
 });
 

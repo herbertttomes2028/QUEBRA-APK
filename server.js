@@ -8,7 +8,6 @@
  */
 
 const crypto = require('crypto');
-const phrases = require('./phrases');
 const library = require('./library');
 const shopCatalog = require('./shop');
 const magnet = require('./magnet');
@@ -47,7 +46,7 @@ const REMATCH_MS = Number(process.env.REMATCH_MS) || 30000;   // tempo que o ami
 const AVATARS = ['🐱', '🐶', '🦊', '🐼', '🦁', '🐸', '🐵', '🦄', '🐙', '🦋', '⭐', '🚀', '🌈', '🍀'];
 
 // Liga/desliga por variável de ambiente. Desde 15/11/2026 (auditoria SEC-08) o padrão é DESLIGADO: sem a variável (servidor novo ou
-// recriado), chat e avisos ficam desligados; só liga com o valor true (também aceita 1, sim, on, yes). No Render as duas já existem.
+// recriado), os avisos ficam desligados; só liga com o valor true (também aceita 1, sim, on, yes). No Render as duas já existem.
 const envOn = (v) => ['true', '1', 'sim', 'on', 'yes'].includes(String(v || '').trim().toLowerCase());
 
 // Avisos com o aplicativo fechado (Web Push). As chaves são geradas na hora em que o servidor liga;
@@ -89,12 +88,8 @@ function validPushSub(sub) {
   }
 }
 
-// Conversa entre os dois jogadores (só frases prontas). RETIRADA DO JOGO por decisão do proprietário: fica desligada (sem CHAT_ENABLED ou
-// com false). NÃO ligue (CHAT_ENABLED=true); o código continua aqui só até a rodada que vai removê-lo. As mensagens ficam só na memória da sala (últimas 50) e
-// somem quando a sala é apagada; o servidor não as grava em disco nem as escreve no registro (log).
-const CHAT_ENABLED = envOn(process.env.CHAT_ENABLED);
-const CHAT_MAX_LEN = 200;   // letras por mensagem
-const CHAT_KEEP = 50;       // mensagens guardadas por sala
+// NÃO EXISTE conversa entre jogadores (nem texto livre, nem frases prontas, nem reações/emojis enviados ao outro): o bate-papo foi
+// RETIRADO do código por decisão do proprietário em 16/11/2026 (antes ficava só desligado). A variável CHAT_ENABLED não tem mais efeito.
 
 // Quantidades de peças disponíveis (cols × rows). As peças são sempre quadradas;
 // a imagem é recortada no centro para caber na proporção da grade.
@@ -195,7 +190,7 @@ const zlib = require('zlib');
 let configGz = { body: '', gz: null };
 app.get('/api/config', (req, res) => {
   res.set({ 'Cache-Control': 'no-cache', 'Vary': 'Accept-Encoding' });
-  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, chat: CHAT_ENABLED, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, phrases: phrases.catalog(), shop: shopCatalog.catalog(), accounts: { enabled: !!accounts } });
+  const body = JSON.stringify({ images: listImages().filter(i => !i.categoryId), library: library.catalog(), presets: PRESETS, defaultPieces: DEFAULT_PIECES, hints: HINTS, spots: SPOTS, maxName: MAX_NAME, avatars: AVATARS, push: PUSH_PUBLIC ? { key: PUSH_PUBLIC } : null, duel: challenge.config, codeLen: CODE_LEN, shop: shopCatalog.catalog(), accounts: { enabled: !!accounts } });
   res.type('application/json');
   if (body.length > 1024 && /\bgzip\b/i.test(req.get('accept-encoding') || '')) {
     if (configGz.body !== body) configGz = { body, gz: zlib.gzipSync(body) };
@@ -331,14 +326,6 @@ function prettyName(file) {
     .split(/\s+/)
     .map((w, i) => (i > 0 && SMALL_WORDS.has(w.toLowerCase()) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(' ');
-}
-
-function cleanChat(t) {
-  const clean = String(t == null ? '' : t)
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '')  // controles e marcas invisíveis
-    .replace(/\s+/g, ' ')
-    .trim();
-  return Array.from(clean).slice(0, CHAT_MAX_LEN).join('');   // conta letras/emojis inteiros
 }
 
 function cleanAvatar(a) {
@@ -478,8 +465,6 @@ function createRoom(code, imageId, pieces, solo, withFila) {
     hints: [HINTS, HINTS],
     spots: [SPOTS, SPOTS],
     rematch: null,
-    chat: [],
-    chatSeq: 0,
     imgReady: [false, false],   // cada celular avisa quando a imagem está carregada e preparada
     status: 'waiting', // waiting | playing | won
     createdAt: now,
@@ -539,8 +524,6 @@ function snapshot(room) {
       code: room.code,
       imageId: room.imageId,
       cfg: room.cfg,
-      chat: room.chat,
-      chatOn: CHAT_ENABLED,
       pieces: room.pieces.map((p) => ({
         id: p.id,
         col: p.col,
@@ -756,7 +739,6 @@ function sendPush(room, idx, payload) {
   const pl = room.players[idx];
   if (!webpush || !pl || !pl.push || pl.connected) return;
   const now = Date.now();
-  if (payload.tag === 'chat' && now - (pl.lastPush || 0) < 8000) return;   // não enche o celular de avisos
   pl.lastPush = now;
   webpush
     .sendNotification(pl.push, JSON.stringify(payload), { TTL: 600, urgency: 'high' })
@@ -797,24 +779,16 @@ function roomLevel() { return 0; }
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
-  io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, CHAT_ENABLED, CHAT_KEEP,
-  validImage, validPieces, cleanName, cleanAvatar, cleanPid, cleanChat, newCode, layoutFor, buildPieces, filaClient,
+  io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS,
+  validImage, validPieces, cleanName, cleanAvatar, cleanPid, newCode, layoutFor, buildPieces, filaClient,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
   levelOf: roomLevel,                                                                                 // nível mostrado na Sala Desafio: sempre 0 (privacidade)
   onFinish: (room, result) => (accHooks.duelFinish ? accHooks.duelFinish(room, result) : null),      // histórico das disputas (só com contas ativas)
-  phraseOk, joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN, phrases,
+  joinLocked, joinMiss, blockedWithRoom, codeLen: CODE_LEN,
   allowRoom: socket => protection.allowRoom(socket, rooms.size + challenge.size()),
   imageAllowed: async (socket, file) => !library.image(file) || (accounts ? accounts.libraryCanPlay(socket.data.uid, file) : !library.cat(library.image(file).categoryId).price)
 });
 
-// frase liberada? (visitante: só as básicas e as reações; conta: também as que ele já liberou jogando)
-async function phraseOk(socket, id) {
-  if (!phrases.ALWAYS.has(id)) {
-    if (!accounts || !socket.data.uid) return false;
-    try { return (await accounts.allowedPhrases(socket.data.uid)).has(id); } catch (e) { return false; }
-  }
-  return true;
-}
 // limite de tentativas de adivinhar o código da sala (por endereço de internet)
 function joinLocked(socket) { return joinGuard.check(security.ipOfSocket(socket)); }
 function joinMiss(socket, code) {
@@ -1074,32 +1048,6 @@ io.on('connection', (socket) => {
     if (!room.rematch || room.rematch.by !== idx) return reply(cb, { ok: false, error: 'none' });
     clearRematch(room);
     emitToPlayer(room, 1 - idx, 'rematch', { state: 'cancelled' });
-    reply(cb, { ok: true });
-  });
-
-  // 💬 frases prontas: ninguém digita nada. O celular manda só o CÓDIGO da frase; o servidor confere se está liberada e escreve o texto
-  socket.on('chat', async (data, cb) => {
-    if (!CHAT_ENABLED) return reply(cb, { ok: false, error: 'off' });
-    const phrase = phrases.byId(data && data.p);
-    if (!phrase) return reply(cb, { ok: false, error: 'invalid' });
-    if (!(await phraseOk(socket, phrase.id))) return reply(cb, { ok: false, error: 'locked' });
-    const c = ctx(socket);
-    if (!c) return reply(cb, { ok: false, error: 'room' });
-    if (c.room.solo) return reply(cb, { ok: false, error: 'solo' });          // no Solo não há com quem conversar
-    const now = Date.now();
-    const times = (socket.data.chatTimes || []).filter((t) => now - t < 10000);
-    if (times.length >= 12 || (times.length && now - times[times.length - 1] < 400)) {
-      socket.data.chatTimes = times;
-      return reply(cb, { ok: false, error: 'rate' });
-    }
-    times.push(now);
-    socket.data.chatTimes = times;
-    const { room, idx } = c;
-    const msg = { id: ++room.chatSeq, idx, name: room.players[idx].name, text: phrase.text, p: phrase.id, t: now };
-    room.chat.push(msg);
-    if (room.chat.length > CHAT_KEEP) room.chat.shift();
-    io.to(room.code).emit('chat', msg);
-    sendPush(room, 1 - idx, { title: msg.name, body: phrase.text, tag: 'chat', url: '/?sala=' + room.code });
     reply(cb, { ok: true });
   });
 

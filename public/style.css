@@ -589,93 +589,8 @@ html[data-motion="reduce"] .piece.locked .tile { animation: none; }
 .icon-btn.lamp.lit:disabled .badge { background: var(--deep); color: #fff; box-shadow: 0 0 0 2px var(--paper); }
 .icon-btn.lamp:disabled .badge { background: var(--line); box-shadow: 0 0 0 2px var(--paper); }
 
-/* ---------- Conversa ---------- */
+/* ---------- botões do cabeçalho da partida ---------- */
 .hud .icon-btn { width: 40px; height: 40px; border-radius: 12px; font-size: 1.1rem; }
-
-.chat-panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: var(--kb, 0px);            /* sobe junto com o teclado do celular */
-  z-index: 40;
-  height: min(48vh, 420px);
-  max-height: calc(100% - 70px);
-  display: flex;
-  flex-direction: column;
-  background: var(--card);
-  border-radius: 22px 22px 0 0;
-  box-shadow: 0 -10px 30px rgba(27, 37, 89, .28);
-  padding-bottom: env(safe-area-inset-bottom);
-  animation: sheet-in .2s ease-out;
-}
-.chat-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 4px 18px; }
-.chat-head strong { font-size: 1.05rem; font-weight: 900; }
-.chat-x { appearance: none; border: 0; width: 38px; height: 38px; border-radius: 12px; background: var(--paper); font-size: 1rem; font-weight: 900; color: var(--ink); }
-.chat-list {
-  flex: 1;
-  min-height: 0;
-  margin: 0;
-  padding: 6px 12px;
-  list-style: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  user-select: text;
-  -webkit-user-select: text;
-}
-.chat-list:empty::before { content: "Nenhuma mensagem ainda. Diga oi! 👋"; margin: auto; color: var(--ink-soft); font-weight: 700; font-size: .92rem; text-align: center; }
-.chat-msg { max-width: 82%; padding: 7px 12px; border-radius: 17px; font-size: .97rem; line-height: 1.3; overflow-wrap: anywhere; }
-.chat-msg .who { display: block; font-size: .7rem; font-weight: 900; margin-bottom: 1px; color: var(--ink-soft); }
-.chat-msg.me { align-self: flex-end; background: var(--c); color: #fff; border-bottom-right-radius: 6px; }
-.chat-msg.friend { align-self: flex-start; background: var(--paper); color: var(--ink); border-bottom-left-radius: 6px; }
-.chat-msg.big { background: transparent; color: inherit; font-size: 2rem; padding: 0 4px; line-height: 1.15; }
-.chat-quick { display: flex; gap: 6px; padding: 4px 12px; overflow-x: auto; scrollbar-width: none; }
-.chat-quick button { appearance: none; border: 0; flex: none; width: 44px; height: 44px; border-radius: 14px; background: var(--paper); font-size: 1.35rem; line-height: 1; }
-.chat-quick button:active { transform: scale(.93); }
-.chat-input-row { display: flex; gap: 8px; padding: 6px 12px 12px; }
-.chat-input-row input {
-  flex: 1;
-  min-width: 0;
-  height: 48px;
-  border: 0;
-  border-radius: 16px;
-  padding: 0 14px;
-  background: var(--paper-2);
-  box-shadow: inset 0 0 0 2px var(--line);
-  font-size: 1rem;
-  user-select: text;
-  -webkit-user-select: text;
-}
-.chat-input-row .btn { min-height: 48px; padding: 0 20px; }
-
-/* aviso de mensagem nova com a conversa fechada */
-.chat-pop {
-  appearance: none;
-  border: 0;
-  position: absolute;
-  top: calc(env(safe-area-inset-top) + 62px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 45;
-  width: max-content;
-  max-width: 88vw;
-  padding: 9px 16px;
-  border-radius: 18px;
-  background: var(--deep);
-  color: #fff;
-  font-weight: 800;
-  font-size: .95rem;
-  text-align: left;
-  box-shadow: 0 8px 20px rgba(27, 37, 89, .35);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  animation: sheet-in .2s ease-out;
-}
-.chat-pop b { color: var(--sun); margin-right: 6px; }
 
 /* ---------- Janelas (menu e vitória) ---------- */
 .modal {
@@ -1837,12 +1752,8 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 
 
 /* =========================================================
- * Frases prontas, códigos por e-mail, segurança e bloqueios
+ * Perfil, segurança e bloqueios
  * ========================================================= */
-.chat-phrases { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 12px 12px; max-height: 36vh; overflow-y: auto; overscroll-behavior: contain; }
-.chat-phrases .ph { appearance: none; border: 0; min-height: 46px; padding: 8px 10px; border-radius: 14px; background: var(--paper-2); color: var(--ink); font: 600 .92rem/1.2 "Fredoka", var(--font); text-align: center; box-shadow: 0 3px 0 var(--line-2); transition: transform .26s cubic-bezier(.34, 1.56, .64, 1); }
-.chat-phrases .ph:active { transform: translateY(2px) scale(.97); }
-.chat-phrases .ph.lock { background: transparent; color: var(--ink-soft); box-shadow: inset 0 0 0 2px var(--line); font-size: .8rem; font-weight: 600; }
 .me-link { appearance: none; border: 0; background: none; color: var(--sel); font: 700 .95rem var(--font); padding: 10px 6px; margin-top: 4px; width: 100%; text-decoration: underline; cursor: pointer; }
 .me-link[hidden] { display: none !important; }
 .me-left { text-align: left; }
@@ -1910,19 +1821,6 @@ html[data-text="xlarge"] .me-ach { grid-template-columns: minmax(0, 1fr); }
 @keyframes chip-in { from { transform: translateX(-50%) translateY(24px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
 html[data-motion="reduce"] .res-chip { animation: none; }
 
-/* bate-papo: o painel só mostra UMA visão por vez (conversa OU frases prontas); nada fica por trás */
-.chat-panel { height: clamp(250px, 48vh, 420px); overflow: hidden; }
-.chat-head { gap: 8px; }
-.chat-head strong { flex: 1; min-width: 0; }
-.chat-head .chat-x { width: 44px; height: 44px; flex: none; font-size: 1.15rem; }
-.chat-head .chat-x[hidden] { display: none; }
-.chat-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.chat-view[hidden] { display: none !important; }
-.chat-view .chat-list { flex: 1; min-height: 72px; }
-.chat-quick { flex: none; }
-.chat-more { flex: none; margin: 4px 12px 12px; min-height: 46px; width: auto; font-weight: 700; }
-#chat-view-phrases .chat-phrases { flex: 1; min-height: 0; max-height: none; }
-
 /* janela de confirmação do aplicativo */
 #modal-confirm { z-index: 85; }
 .cfm-sheet h3 { margin: 0; text-align: center; font: 700 1.3rem "Fredoka", var(--font); color: var(--ink); }
@@ -1983,7 +1881,7 @@ html[data-motion="reduce"] .wk-spin { animation: none; border-top-color: rgba(25
 .lv.t5 { --lv-a: #ffd24a; --lv-b: #e0a400; color: #3a2a00; text-shadow: 0 1px 0 rgba(255, 255, 255, .45); }
 .lv.lv-lg { font-size: .95rem; padding: .12em .7em .15em; margin-right: 0; }
 .nm { min-width: 0; overflow-wrap: anywhere; }
-.fr-info b, .lp-name, .dr-name, .chat-msg .who, #chat-pop b, #fp-name, #win-me-name, #win-friend-name { min-width: 0; }
+.fr-info b, .lp-name, .dr-name, #fp-name, #win-me-name, #win-friend-name { min-width: 0; }
 #fp-name .lv { font-size: .5em; }
 .me-field > span .lv { font-size: .8em; margin-left: .35em; margin-right: 0; vertical-align: .05em; }
 #me-chip-text .lv { font-size: .62em; margin-right: .3em; }
