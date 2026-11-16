@@ -571,7 +571,7 @@ function createAccounts(d) {
   }));
 
   r.get('/save', needUser, guard(async (req, res) => res.json({ ok: true, save: await saveSummary(req.user.id) })));
-  r.post('/save/discard', needUser, guard(async (req, res) => { await db.q('DELETE FROM saves WHERE user_id = $1', [req.user.id]); res.json({ ok: true }); }));
+  r.post('/save/discard', needUser, guard(async (req, res) => { await deleteSave(req.user.id); res.json({ ok: true }); }));      // também cancela uma gravação pendente
 
   app.use('/api/acc', express.json({ limit: '30kb' }), r);
   app.use('/api/acc', (err, req, res, next) => bad(res, 400, 'bad_request'));   // corpo inválido etc.
@@ -599,8 +599,11 @@ function createAccounts(d) {
     for (let i = 0; i < 2; i++) {
       const p = room.players[i];
       if (!p || !p.uid) continue;
+      if (p.left) continue;                      // saiu pelo botão Sair (16/11/2026): a partida acabou para ele; NÃO volta a aparecer "Continuar jogando"
       const locked = room.pieces.filter((x) => x.locked).map((x) => x.id);
       if (!locked.length || room.status === 'won') continue;
+      if (!room.savedFor) room.savedFor = new Set();
+      room.savedFor.add(p.uid);                  // o progresso salvo deste jogador é ESTA sala (sair pelo botão apaga só ele, nunca o de outra partida)
       const other = room.players[1 - i];
       const data = { imageId: room.imageId, imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, locked, elapsedMs: d.elapsedOf(room), partner: other ? other.name : '' };
       const old = timers.get(p.uid);
@@ -774,7 +777,7 @@ function createAccounts(d) {
       const same = !!(other && other.uid && other.uid === p.uid);               // a mesma conta nos dois lados não conta como "outra pessoa"
       const partnerUid = other && other.uid && !same ? other.uid : null;
       await ensureSeeded(p.uid).catch(() => {});                                 // o histórico antigo entra ANTES desta partida
-      if (!solo) await deleteSave(p.uid).catch(() => {});
+      if (!solo && !p.left) await deleteSave(p.uid).catch(() => {});    // quem saiu pelo botão já teve o seu apagado; um salvo mais novo é de OUTRA partida
       await addMatch(p.uid, { mode: solo ? 'solo' : 'coop', imageLabel: imageLabel(room.imageId), pieces: room.pieces.length, result: 'done', completed: true, custom: /^custom:/.test(room.imageId), durationMs: gameMs, opponent: other ? other.name : '' });
       await payMatch(p.uid, {
         ref: 'c:' + room.code + ':' + room.startedAt, imageId: room.imageId, label: imageLabel(room.imageId), pieces: room.pieces.length, custom: /^custom:/.test(room.imageId),
