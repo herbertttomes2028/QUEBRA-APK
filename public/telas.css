@@ -116,3 +116,32 @@ html:is([data-text="large"], [data-text="xlarge"]) #screen-home .home-inner { pa
 /* (16/11/2026) a marca fica no .home-inner — mexer na classe da tela inicial fazia o mascote se ressincronizar e o pet "tremia";
  * o "não rolar" é posto pelo game.js no estilo da própria tela */
 #screen-home .home-inner.home-fit { margin-top: 0; transform-origin: 50% 0; transform: translateY(calc(var(--fit-pad, 0px) * (1 - var(--fit, 1)))) scale(var(--fit, 1)); }
+
+/* Tela inicial SEM o pet (rodada inicio-sem-pet, 17/11/2026): quando o pet está desligado em Ajustes (ou escondido pelo movimento reduzido),
+ * o espaço que ele ocupava vira respiro entre os blocos — marca, título, mensagem, botões e código — em vez de tudo ficar apertado no meio.
+ * Os vãos maiores só valem em telas com altura sobrando (700 px ou mais); entre 600 e 700 px o acréscimo é pequeno e abaixo de 600 px nada muda, para o homeFit (game.js)
+ * não precisar encolher as letras. Com o pet aparecendo, nada disto vale. */
+@media (min-height: 600px) {
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > .natal-msg { margin-bottom: 0; }
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > #btn-continue:not([hidden]),
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > #btn-continue[hidden] + .cta-row { margin-top: 12px; }
+}
+@media (min-height: 700px) {
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home #logo { margin-bottom: clamp(12px, 2.4vh, 22px); }
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > h1 { margin-bottom: clamp(10px, 1.8vh, 16px); }
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > #btn-continue:not([hidden]),
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > #btn-continue[hidden] + .cta-row { margin-top: clamp(24px, 4.6vh, 44px); }
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > .cta-row { gap: 12px; }
+  html:is([data-mascot="off"], [data-motion="reduce"]) #screen-home .home-inner > .join-card { margin-top: clamp(18px, 3.4vh, 32px); }
+}
+@media (min-height: 720px) { html:is([data-mascot="off"], [data-motion="reduce"]):not([data-text="xlarge"]) #screen-home #logo { --u: 1; } }
+@media (prefers-reduced-motion: reduce) and (min-height: 600px) {           /* o aparelho também esconde o pet: mesmo arranjo */
+  #screen-home .home-inner > .natal-msg { margin-bottom: 0; }
+  #screen-home .home-inner > #btn-continue:not([hidden]), #screen-home .home-inner > #btn-continue[hidden] + .cta-row { margin-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) and (min-height: 700px) {
+  #screen-home #logo { margin-bottom: clamp(12px, 2.4vh, 22px); }
+  #screen-home .home-inner > h1 { margin-bottom: clamp(10px, 1.8vh, 16px); }
+  #screen-home .home-inner > #btn-continue:not([hidden]), #screen-home .home-inner > #btn-continue[hidden] + .cta-row { margin-top: clamp(24px, 4.6vh, 44px); }
+  #screen-home .home-inner > .join-card { margin-top: clamp(18px, 3.4vh, 32px); }
+}
