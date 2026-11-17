@@ -12,6 +12,7 @@ self.onmessage = function (e) {
     if (sw / sh > ar) { var nw = sh * ar; sx = (sw - nw) / 2; sw = nw; } else { var nh = sw / ar; sy = (sh - nh) / 2; sh = nh; }
     var oc = new OffscreenCanvas(W, H), c = oc.getContext('2d');
     c.imageSmoothingQuality = 'high'; c.drawImage(bm, sx, sy, sw, sh, 0, 0, W, H); bm.close();
-    oc.convertToBlob({ type: 'image/jpeg', quality: 0.9 }).then(function (blob) { self.postMessage({ id: d.id, blob: blob }); }, falha);
+    var q = d.q > 0 && d.q <= 1 ? d.q : 0.9;            // 0,95 nas quantidades grandes (64, 88 e 96 peças); 0,9 nas outras
+    oc.convertToBlob({ type: 'image/jpeg', quality: q }).then(function (blob) { self.postMessage({ id: d.id, blob: blob }); }, falha);
   } catch (err) { falha(err); }
 };

@@ -26,11 +26,13 @@ const BANDS = [            // [até X peças, XP base]
   [24, 80],                // 16–24  (20 peças)
   [36, 130],               // 25–36  (30 peças)
   [54, 220],               // 37–54  (48 peças)
-  [Infinity, 300]          // 55 ou mais
+  [64, 300],               // 55–64  (64 peças)   — rodada pecas-grandes, 17/11/2026
+  [88, 380],               // 65–88  (88 peças)
+  [Infinity, 420]          // 89 ou mais (96 peças)
 ];
 const baseXp = (pieces) => { for (const [max, xp] of BANDS) if (pieces <= max) return xp; return BANDS[BANDS.length - 1][1]; };
 // tempo mínimo plausível para montar (abaixo disso o jogo NÃO paga a conclusão: evita partida "fantasma")
-const MIN_MS = [[8, 8000], [15, 15000], [24, 25000], [36, 40000], [54, 60000], [Infinity, 90000]];
+const MIN_MS = [[8, 8000], [15, 15000], [24, 25000], [36, 40000], [54, 60000], [64, 120000], [88, 150000], [Infinity, 180000]];
 const minMs = (pieces) => { for (const [max, ms] of MIN_MS) if (pieces <= max) return ms; return 90000; };
 
 /* ---------- redução por repetição (individual: cada jogador × cada quebra-cabeça) ---------- */

@@ -31,9 +31,9 @@ test('levelFromXp e progress: limites, valores inválidos e nível máximo', () 
 });
 
 test('XP por conclusão segue as faixas de peças', () => {
-  const casos = { 6: 20, 12: 45, 20: 80, 30: 130, 48: 220, 60: 300 };
+  const casos = { 6: 20, 12: 45, 20: 80, 30: 130, 48: 220, 60: 300, 64: 300, 88: 380, 96: 420 };
   for (const [pecas, base] of Object.entries(casos)) assert.equal(xp.baseXp(Number(pecas)), base, pecas + ' peças');
-  const minimos = { 6: 8000, 12: 15000, 20: 25000, 30: 40000, 48: 60000, 60: 90000 };
+  const minimos = { 6: 8000, 12: 15000, 20: 25000, 30: 40000, 48: 60000, 64: 120000, 88: 150000, 96: 180000 };
   for (const [pecas, ms] of Object.entries(minimos)) assert.equal(xp.minMs(Number(pecas)), ms, 'mínimo ' + pecas);
 });
 

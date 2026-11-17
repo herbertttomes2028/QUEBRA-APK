@@ -72,7 +72,7 @@ O menu (☰) tem **Como jogar** (o tutorial animado), **Ajustes**, o **botão de
 
 ### A galeria
 - **Um toque na imagem** e ela já é escolhida: ganha uma borda colorida, o ✓ e uma pequena animação.
-- Logo em seguida sobe um **painel de baixo** com a prévia da imagem e as **quantidades de peças** (6 · 12 · 20 · 30 · 48, as mesmas de sempre). O jogo **lembra a última quantidade** que você usou.
+- Logo em seguida sobe um **painel de baixo** com a prévia da imagem e as **quantidades de peças** (6 · 12 · 20 · 30 · 48 na 1ª linha; 64 · 88 · 96 numa 2ª linha, desde 17/11/2026). O jogo **lembra a última quantidade** que você usou.
 - O botão amarelo do painel confirma: **Jogar** (Sozinho), **Criar sala** (Cooperativo), **Criar desafio** (Desafio Comum ou Quebrando Cabeças) ou **Recomeçar com essa escolha**, conforme de onde você veio. Não existe mais botão lá no fim da tela.
 - Tocar em outra imagem troca a escolha sem fechar o painel; o **✕** fecha o painel e volta à galeria.
 - **Miniaturas prontas:** para a galeria abrir sem pesar, cada imagem da pasta `public/imagens/` tem uma miniatura de 300 × 400 (cerca de 27 KB, com o mesmo visual de sempre) em `public/imagens/mini/`, com **o mesmo nome do arquivo**. Imagens novas que você colocar na pasta funcionam mesmo sem miniatura (o celular gera uma, uma por vez), mas a galeria fica mais leve se você incluir também a miniatura em `public/imagens/mini/`.
@@ -174,8 +174,13 @@ Com os avisos ligados, o aparelho mostra uma notificação quando **o amigo entr
 | 20 | 4 × 5 | Médio | ~374 px | ~94 px | ~61 px (fileira de 5) |
 | 30 | 5 × 6 | Difícil | ~374 px | ~75 px | ~61 px (fileira de 5) |
 | 48 | 6 × 8 | Desafio | ~374 px | ~62 px | ~61 px (fileira de 5) |
+| 64 | 8 × 8 | Avançado | ~345 px** | ~43 px** | ~43 px (fileira de 5)** |
+| 88 | 8 × 11 | Mestre | ~345 px** | ~43 px** | ~43 px (fileira de 5)** |
+| 96 | 8 × 12 | Lendário | ~345 px** | ~43 px** | ~43 px (fileira de 5)** |
 
-\* Em um celular de 390 × 844 px, com o aparelho em pé (medido no Chrome sem tela em 16/11/2026 para 20, 30 e 48 peças).
+\* Em um celular de 390 × 844 px, com o aparelho em pé (medido no Chrome sem tela em 16/11/2026 para 20, 30 e 48 peças). \*\* Em 360 × 760 px (medido em 17/11/2026).
+
+**Quantidades grandes (64, 88 e 96 peças, desde 17/11/2026), em todos os modos.** As três têm 8 colunas, então a peça tem o mesmo tamanho nas três. Só nelas: **ímã mais forte** (o raio de encaixe e o puxão ao arrastar valem 1,4 vez o normal), **lâmpada sem limite** e mais **dicas de lugar 📍** (10 em 64, 15 em 88 e 25 em 96). A imagem é preparada na resolução original do recorte (até 1080 px de largura, JPEG 0,95). Gemas: 15, 20 e 25; XP: 300, 380 e 420.
 
 **Fileira de 5 (20, 30 e 48 peças, desde 16/11/2026).** Não há bandeja grande: embaixo da grade fica **uma fileira com 5 peças** e as outras aparecem aos poucos, sempre na vaga que ficou livre. Você pode puxar até **3 peças** para a grade sem encaixar e a fileira continua sendo completada; com 3 soltas (8 peças à vista), só um **encaixe certo** traz a próxima. Vale no Sozinho, no Cooperativo (uma fileira para os dois) e no Desafio Comum (uma para cada um, com as peças na mesma ordem). O Quebrando Cabeças continua com a caixa de presentes. Para voltar à bandeja grande sem mexer no código: `FILEIRA=0` no Render. Para comparar: antes das últimas melhorias, com 12 peças, o tabuleiro tinha cerca de 227 px e cada peça montada, 75 px. Com a pinça você amplia qualquer peça escolhida para ver os detalhes.
 

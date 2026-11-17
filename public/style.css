@@ -318,7 +318,10 @@ h3 { margin: 0 0 14px; font-size: var(--fs-t2); font-weight: 900; text-align: ce
 }
 
 .pick-sub { margin: 4px 0 10px; align-self: flex-start; font-size: 1.15rem; }
-.size-grid { width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.size-grid { width: 100%; display: grid; grid-template-columns: repeat(15, 1fr); gap: 8px; }
+/* 5 tamanhos de sempre na 1ª linha (3 partes cada) e as 3 quantidades grandes (64, 88, 96) numa 2ª linha (5 partes cada) — rodada pecas-grandes */
+.size-grid > .size-btn { grid-column: span 3; }
+.size-grid > .size-btn.size-big { grid-column: span 5; }
 .size-btn {
   appearance: none;
   border: 0;
@@ -1338,6 +1341,15 @@ html[data-theme="dark"] .hand-slot { border-color: rgba(255, 255, 255, .2); }
 .pick-sheet .size-btn span { font-weight: 600; }
 .pick-sheet .size-btn[aria-checked="true"] { transform: translateY(-3px) scale(1.04); }
 .pick-sheet .size-note { min-height: 2.4em; margin: 0; font-size: var(--fs-nota); font-weight: 600; line-height: 1.25; }
+/* com a 2ª linha de quantidades (64, 88, 96), em tela baixa os botões ficam mais baixos para o "Jogar" continuar à vista (rodada pecas-grandes) */
+@media (max-height: 700px) {
+  .pick-sheet { gap: 6px; padding-top: 10px; padding-bottom: 10px; }
+  .pick-sheet .ps-thumb { width: 40px; height: 52px; }
+  .pick-sheet .size-grid { gap: 4px; }
+  .pick-sheet .size-btn { min-height: 46px; padding: 4px 2px; }
+  .pick-sheet .size-btn b { font-size: 1.15rem; }
+}
+.pick-sheet { max-height: calc(100% - 8px); overflow-y: auto; overscroll-behavior: contain; }
 .pick-sheet #btn-pick-go { font-family: "Fredoka", var(--font); font-weight: 700; min-height: var(--btn-g); margin: 0 auto; align-self: center; width: 100%; max-width: 330px; font-size: var(--fs-destaque); }
 
 @keyframes pick-new { 0% { transform: scale(.4) rotate(-8deg); opacity: 0; } 60% { transform: scale(1.1) rotate(2deg); opacity: 1; } 100% { transform: none; } }

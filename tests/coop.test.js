@@ -22,7 +22,7 @@ const fecha = (...s) => s.forEach((x) => x.close());
 test('/api/config traz os campos que o cliente lê', () => {
   for (const k of ['images', 'presets', 'defaultPieces', 'hints', 'spots', 'maxName', 'codeLen', 'avatars', 'push', 'accounts']) assert.ok(k in cfgJson, 'faltou ' + k);
   assert.equal(cfgJson.accounts.enabled, false, 'sem DATABASE_URL as contas ficam desligadas');
-  assert.deepEqual(cfgJson.presets.map((p) => p.pieces), [6, 12, 20, 30, 48]);
+  assert.deepEqual(cfgJson.presets.map((p) => p.pieces), [6, 12, 20, 30, 48, 64, 88, 96]);   // 64/88/96: rodada pecas-grandes
   assert.equal(cfgJson.codeLen, 6);
   assert.ok(cfgJson.images.length >= 1);
 });

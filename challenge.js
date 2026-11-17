@@ -27,7 +27,7 @@ const SAME_ORDER = true;   // true: os dois recebem as surpresas na mesma ordem 
 
 module.exports = function createChallenge(d) {
   const {
-    io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS,
+    io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, snapFactorFor, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, HINTS_SEM_LIMITE,
     validImage, validPieces, cleanName, cleanAvatar, cleanPid, newCode, layoutFor, buildPieces, filaClient,
     sendPush, validPushSub, webpush, clamp, rnd, shuffle, isCodeTaken, onFinish, levelOf,
     joinLocked, joinMiss, blockedWithRoom, codeLen, imageAllowed, allowRoom
@@ -54,8 +54,9 @@ module.exports = function createChallenge(d) {
       FIELD_W, FIELD_H: Math.round(stripTop + stripH),
       BOARD_W: BW, BOARD_H: boardH, BOARD_X: Math.round((FIELD_W - BW) / 2), BOARD_Y,
       TRAY_LINE: BOARD_Y + boardH + 20,
-      SNAP: Math.round(tile * SNAP_FACTOR),             // o mesmo ímã do cooperativo (valor vem do server.js)
-      MAX_ROT, HINTS,
+      SNAP: Math.round(tile * snapFactorFor(pr)),       // o mesmo ímã do cooperativo (a fórmula vem do server.js; mais forte nas quantidades grandes)
+      IMA: pr.ima > 1 ? pr.ima : 1,
+      MAX_ROT, HINTS: pr.lampadaLivre ? HINTS_SEM_LIMITE : HINTS, HINTS_INF: pr.lampadaLivre === true, SPOTS: pr.spots > 0 ? pr.spots : SPOTS,
       TRAY_TOP: stripTop, PER_ROW: 3, TRAY_ROWS: 1, ROW_GAP: 10,
       GIFT: { x: Math.round(boxW / 2 + 8), y: cy, w: boxW, slots, max: BOX_MAX }
     };
@@ -97,7 +98,7 @@ module.exports = function createChallenge(d) {
       pieces: template.map((t) => Object.assign({ rotUsed: 0, heldBy: null, locked: false, lockedBy: null, z: 10 + t.id, slot: null }, t)),
       order: SAME_ORDER ? baseOrder.slice() : shuffle(baseOrder.slice()),
       next: 0, round: [],
-      hints: HINTS, spots: SPOTS, z: 100, locked: 0, finishedAt: null, lastMove: 0, lastGift: 0
+      hints: cfg.HINTS, spots: cfg.SPOTS, z: 100, locked: 0, finishedAt: null, lastMove: 0, lastGift: 0
     }));
     if (room.mode !== 'quebra') for (const b of room.boards) fileira.init(cfg, b.pieces, b.order);     // só faz algo se o layout tiver a fileira
   }
@@ -541,7 +542,7 @@ module.exports = function createChallenge(d) {
       const c = ctx(socket);
       if (!c || c.room.status !== 'playing') return reply(cb, { ok: false, left: 0 });
       if (c.board.hints <= 0) return reply(cb, { ok: false, left: 0 });
-      c.board.hints--;
+      if (!c.room.cfg.HINTS_INF) c.board.hints--;              // lâmpada sem limite nas quantidades grandes
       reply(cb, { ok: true, left: c.board.hints });
     });
 

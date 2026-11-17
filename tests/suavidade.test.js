@@ -40,12 +40,12 @@ test('worker: só calcula (sem rede, sem armazenamento, sem DOM) e o cálculo do
 const game = read('public/game.js');
 test('game.js: o recorte tenta o worker (se o aparelho tiver Worker, OffscreenCanvas, createImageBitmap e convertToBlob) e CAI no caminho antigo se algo falhar', () => {
   assert.match(game, /if \(window\.Worker && window\.OffscreenCanvas && window\.createImageBitmap && typeof OffscreenCanvas\.prototype\.convertToBlob === 'function'\)/);
-  assert.match(game, /new Worker\(scriptUrl\('crop-worker\.js'\)\)/); assert.match(game, /w\.postMessage\(\{ id: id, bm: bm, W: W, H: H \}, \[bm\]\)/, 'o bitmap é TRANSFERIDO (não copiado)');
-  assert.match(game, /return cropInWorker\(img, W, H\)\.then\(function \(blob\) \{ return blobToUrl\(blob, fallbackUrl\); \}, function \(\) \{ return cropMain\(img, W, H, fallbackUrl\); \}\);/);
+  assert.match(game, /new Worker\(scriptUrl\('crop-worker\.js'\)\)/); assert.match(game, /w\.postMessage\(\{ id: id, bm: bm, W: W, H: H, q: q \}, \[bm\]\)/, 'o bitmap é TRANSFERIDO (não copiado)');
+  assert.match(game, /return cropInWorker\(img, W, H, q\)\.then\(function \(blob\) \{ return blobToUrl\(blob, fallbackUrl\); \}, function \(\) \{ return cropMain\(img, W, H, fallbackUrl, q\); \}\);/);
   assert.match(game, /w\.onerror = function \(\) \{ cropWorker = false; Object\.keys\(cropWait\)\.forEach\(function \(k\) \{ var p = cropWait\[k\]; delete cropWait\[k\]; p\.rej\(new Error\('worker'\)\); \}\);/, 'se o worker morrer, ninguém fica esperando para sempre');
   assert.match(game, /function blobToUrl\(blob, fallbackUrl\) \{\s+if \(!blob\) return fallbackUrl;\s+var url = URL\.createObjectURL\(blob\); ownedImageUrls\.add\(url\); return url;/, 'o endereço do blob continua registrado para ser liberado');
-  assert.match(game, /cv\.toBlob\(function \(blob\) \{ res\(blobToUrl\(blob, fallbackUrl\)\); \}, 'image\/jpeg', 0\.9\);/, 'o plano B é o mesmo JPEG 0,9');
-  const prep = game.slice(game.indexOf('function prepareImage'), game.indexOf('function prepareThumb')); assert.match(prep, /return cropToBlob\(img, W, H, item\.url\);/); assert.match(prep, /\.catch\(function \(\) \{ return item\.url; \}\)/, 'sem recorte possível: usa a imagem original, como sempre');
+  assert.match(game, /cv\.toBlob\(function \(blob\) \{ res\(blobToUrl\(blob, fallbackUrl\)\); \}, 'image\/jpeg', q > 0 && q <= 1 \? q : 0\.9\);/, 'o plano B é o mesmo JPEG (0,9; 0,95 nas quantidades grandes)');
+  const prep = game.slice(game.indexOf('function prepareImage'), game.indexOf('function prepareThumb')); assert.match(prep, /return cropToBlob\(img, W, H, item\.url, q\);/); assert.match(prep, /\.catch\(function \(\) \{ return item\.url; \}\)/, 'sem recorte possível: usa a imagem original, como sempre');
 });
 test('aquecimento: o Worker nasce ao entrar na escolha; o canvas só é aquecido em aparelho SEM worker (na thread principal atrapalharia a transição); as capas NÃO são pré-carregadas (medido: não ajuda e gasta dados)', () => {
   assert.match(game, /function idleDo\(fn, timeout\) \{ if \(window\.requestIdleCallback\) window\.requestIdleCallback\(fn, \{ timeout: timeout \|\| 3000 \}\); else setTimeout\(fn, 1200\); \}/);
