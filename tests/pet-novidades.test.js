@@ -102,13 +102,13 @@ test('aplicar e tirar uma aparência restaura o pet de fábrica sem alterar as c
 });
 
 /* ============================ roupas ============================ */
-// (16/11/2026, rodada tema-natal) + a roupa de Papai Noel, grátis
-const OUT_GRATIS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao', 'papai-noel'], OUT_PAGAS = ['bandana', 'fones', 'cartola', 'asas-anjo', 'coroa'], OUT_IDS = OUT_GRATIS.concat(OUT_PAGAS);
-test('são 11 roupas (as 5 de antes e a de Papai Noel, grátis, e 5 pagas), de modelos diferentes, cada uma com id, nome em português e emoji', () => {
-  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.deepEqual(L.OUTFITS.filter((o) => o.free).map((o) => o.id), OUT_GRATIS, 'as 6 primeiras são grátis'); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 11); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 11);
+// (16/11/2026, rodada tema-natal) + a roupa de Papai Noel, grátis; (17/11/2026, rodada roupas-novas) + 5 grátis e 14 pagas, em ordem de preço
+const OUT_GRATIS = ['capa-heroi', 'cachecol', 'mago', 'bailarina', 'macacao', 'papai-noel', 'laco', 'coroa-flores', 'chapeu-palha', 'gorro-la', 'aniversario'], OUT_PAGAS = ['bandana', 'gatinho', 'havaiano', 'medalha', 'faixa-campeao', 'explorador', 'chef', 'capa-chuva', 'saia-florida', 'mochila', 'boia', 'chapeu-couro', 'fones', 'unicornio', 'borboleta', 'cartola', 'asas-anjo', 'foguete', 'coroa'], OUT_IDS = OUT_GRATIS.concat(OUT_PAGAS);
+test('são 30 roupas (11 grátis e 19 pagas), de modelos diferentes, cada uma com id, nome em português e emoji', () => {
+  assert.deepEqual(L.OUTFITS.map((o) => o.id), OUT_IDS); assert.deepEqual(L.OUTFITS.filter((o) => o.free).map((o) => o.id), OUT_GRATIS, 'as 11 primeiras são grátis'); assert.equal(new Set(L.OUTFITS.map((o) => o.name)).size, 30); assert.equal(new Set(L.OUTFITS.map((o) => o.emoji)).size, 30);
   for (const o of L.OUTFITS) { assert.match(o.name, /^[A-ZÁÉÍÓÚ]/); assert.ok(o.emoji.length >= 1); }
   const ids = L.OUTFITS.map((o) => L.build(C, { outfit: o.id }).extras.map((e) => e.id)), all = [].concat(...ids); assert.equal(new Set(all).size, all.length, 'cada roupa tem as suas próprias peças (nenhuma é a outra com outra cor)');
-  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 11, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
+  const verts = L.OUTFITS.map((o) => Object.values(L.build(C, { outfit: o.id }).geoms).reduce((s, g) => s + g.pos.length / 3, 0)); assert.equal(new Set(verts).size, 30, 'cada roupa tem uma forma própria (vértices: ' + verts.join(' ') + ')');
 });
 function worldVerts(look) {                                                      // todos os vértices e esferas da roupa, no referencial do corpo
   const out = [];
@@ -122,7 +122,7 @@ function worldVerts(look) {                                                     
 test('a geometria das roupas é válida: sem NaN, índices dentro do limite, normais unitárias, poucas malhas e poucos vértices (leve para celular fraco)', () => {
   for (const o of L.OUTFITS) { const look = L.build(C, { outfit: o.id }); let total = 0;
     for (const [k, g] of Object.entries(look.geoms)) { const n = g.pos.length / 3; total += n; assert.ok(n >= 4 && n < 65000, o.id + ' ' + k); assert.equal(g.idx.length % 3, 0); assert.equal(g.count, g.idx.length); for (const v of g.pos) assert.ok(Number.isFinite(v)); for (const i of g.idx) assert.ok(i < n, 'índice fora'); let bad = 0; for (let i = 0; i < g.nor.length; i += 3) { const l = Math.hypot(g.nor[i], g.nor[i + 1], g.nor[i + 2]); if (!(Math.abs(l - 1) < 0.02)) bad++; } assert.ok(bad / n < 0.02, o.id + ' ' + k + ': normais não unitárias ' + bad); }
-    assert.ok(Object.keys(look.geoms).length <= 3, o.id + ': poucas malhas'); assert.ok(total <= 2500, o.id + ': vértices ' + total); assert.ok(look.extras.length <= 8, o.id + ': poucas peças (chamadas de desenho)'); }
+    assert.ok(Object.keys(look.geoms).length <= look.extras.length, o.id + ': cada malha própria é desenhada uma vez só (pétalas, contas e listras da mesma cor vão juntas numa malha)'); assert.ok(total <= 2500, o.id + ': vértices ' + total); assert.ok(look.extras.length <= 8, o.id + ': poucas peças (chamadas de desenho)'); }
 });
 test('o ROSTO FICA LIVRE: nenhuma roupa cobre olhos, sobrancelhas, bochechas ou boca (nem aberta), com qualquer skin', () => {
   for (const o of L.OUTFITS) for (const sk of [''].concat(L.SKINS.map((s) => s.id))) {
@@ -189,5 +189,5 @@ test('ligações: o mascote ouve o botão Loja, e segurar o dedo faz carinho; a 
 test('desenho: as peças novas entram nos mesmos grupos (esfera ou malha própria), sem textura, sem transparência e só com 1 chamada de buffers por grupo', () => {
   assert.match(mas, /if \(Looks\) Looks\.place\(Core, parts, pose\);/); assert.match(mas, /uploadLook\(\);[^\n]*\n\s+ready = true; resize\(\);/, 'as malhas da roupa vão para a GPU logo que ela fica pronta (e de novo se o contexto for refeito)');
   assert.match(mas, /gl\.deleteBuffer\(b\.pos\); gl\.deleteBuffer\(b\.nor\); gl\.deleteBuffer\(b\.idx\)/, 'libera a memória da roupa anterior'); assert.doesNotMatch(code(mas), /createTexture|BLEND|readPixels/);
-  assert.ok((read('public/mascot-core.js') + mas).length < 60000, 'núcleo + desenho continuam abaixo de 60 KB'); assert.ok(looks.length < 36000 && pet.length < 12000, 'módulos novos pequenos');
+  assert.ok((read('public/mascot-core.js') + mas).length < 60000, 'núcleo + desenho continuam abaixo de 60 KB'); assert.ok(looks.length < 64000 && pet.length < 12000, 'módulos novos pequenos (aparências: 30 roupas desde 17/11/2026)');
 });

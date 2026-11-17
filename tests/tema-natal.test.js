@@ -85,5 +85,5 @@ test('roupa de Papai Noel: grátis para todos (loja e mascote), com foto, e o ro
   const it = shop.ITEMS.find((i) => i.id === 'roupa-papai-noel'); assert.ok(it); assert.equal(it.price, 0); assert.equal(it.category, 'roupas'); assert.equal(it.look, 'papai-noel');
   const o = L.byId(L.OUTFITS, 'papai-noel'); assert.equal(o.free, true); assert.equal(o.emoji, '🎅');
   assert.ok(fs.existsSync(path.join(root, 'public/pet/roupa-papai-noel.webp')));
-  assert.equal(shop.ITEMS.filter((i) => i.price > 0).length, 14, 'nenhum item pago novo e nenhum preço mudou');
+  assert.equal(shop.ITEMS.filter((i) => i.price > 0).length, 28, 'nenhum item pago novo nesta rodada (as 14 roupas pagas a mais são da rodada roupas-novas, 17/11/2026)');
 });
