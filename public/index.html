@@ -512,60 +512,76 @@
       <div class="sheet set-sheet" data-janela="ajustes">
         <h3 id="set-title">Ajustes</h3>
 
-        <div class="set-row">
-          <span id="lbl-text" class="set-label">Tamanho do texto</span>
-          <div class="seg" role="radiogroup" aria-labelledby="lbl-text" data-setting="text">
-            <button type="button" role="radio" data-v="normal" aria-checked="true">A</button>
-            <button type="button" role="radio" data-v="large" aria-checked="false">A+</button>
-            <button type="button" role="radio" data-v="xlarge" aria-checked="false">A++</button>
+        <!-- Ajustes em três grupos (título + caixa sombreada); depois privacidade e segurança centralizadas (rodada ajustes-organizados) -->
+        <section class="set-group" aria-labelledby="sg-visual">
+          <h4 id="sg-visual" class="set-group-title">Visual</h4>
+          <div class="set-box">
+            <div class="set-row">
+              <span id="lbl-text" class="set-label">Tamanho do texto</span>
+              <div class="seg" role="radiogroup" aria-labelledby="lbl-text" data-setting="text">
+                <button type="button" role="radio" data-v="normal" aria-checked="true">A</button>
+                <button type="button" role="radio" data-v="large" aria-checked="false">A+</button>
+                <button type="button" role="radio" data-v="xlarge" aria-checked="false">A++</button>
+              </div>
+            </div>
+            <div class="set-row">
+              <span id="lbl-theme" class="set-label">Aparência</span>
+              <div class="seg" role="radiogroup" aria-labelledby="lbl-theme" data-setting="theme">
+                <button type="button" role="radio" data-v="auto" aria-checked="true">Automática</button>
+                <button type="button" role="radio" data-v="light" aria-checked="false">Clara</button>
+                <button type="button" role="radio" data-v="dark" aria-checked="false">Escura</button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="set-row">
-          <span id="lbl-theme" class="set-label">Aparência</span>
-          <div class="seg" role="radiogroup" aria-labelledby="lbl-theme" data-setting="theme">
-            <button type="button" role="radio" data-v="auto" aria-checked="true">Automática</button>
-            <button type="button" role="radio" data-v="light" aria-checked="false">Clara</button>
-            <button type="button" role="radio" data-v="dark" aria-checked="false">Escura</button>
+        </section>
+        <section class="set-group" aria-labelledby="sg-anim">
+          <h4 id="sg-anim" class="set-group-title">Animações</h4>
+          <div class="set-box">
+            <div class="set-row">
+              <span id="lbl-motion" class="set-label">Movimento</span>
+              <div class="seg" role="radiogroup" aria-labelledby="lbl-motion" data-setting="motion">
+                <button type="button" role="radio" data-v="auto" aria-checked="true">Automático</button>
+                <button type="button" role="radio" data-v="reduce" aria-checked="false">Reduzido</button>
+              </div>
+            </div>
+            <p id="motion-note" class="set-note">Com o movimento reduzido, o mascote da tela inicial fica escondido.</p>
+            <div class="set-row">
+              <span id="lbl-pet" class="set-label">Meu pet: skin e roupa</span>
+              <button type="button" id="btn-pet" class="btn btn-secondary btn-small" aria-describedby="lbl-pet pet-set-note">🐾 Escolher</button>
+            </div>
+            <p id="pet-set-note" class="set-note">A escolha vale na hora e fica guardada só neste aparelho.</p>
+            <div class="set-row">
+              <span id="lbl-mascot" class="set-label">Mascote na tela inicial</span>
+              <button type="button" class="switch" role="switch" aria-labelledby="lbl-mascot" aria-describedby="mascot-note" aria-checked="true" data-setting="mascot"><i></i></button>
+            </div>
+            <p id="mascot-note" class="set-note"></p>
+            <div class="set-row">
+              <span id="lbl-trayanim" class="set-label">Animações das bandejas</span>
+              <button type="button" class="switch" role="switch" aria-labelledby="lbl-trayanim" aria-describedby="trayanim-note" aria-checked="true" data-setting="trayAnim"><i></i></button>
+            </div>
+            <p id="trayanim-note" class="set-note">Os brilhos e movimentos das bandejas da loja. Com o movimento reduzido no aparelho, ficam sempre parados.</p>
           </div>
-        </div>
-        <div class="set-row">
-          <span id="lbl-motion" class="set-label">Movimento</span>
-          <div class="seg" role="radiogroup" aria-labelledby="lbl-motion" data-setting="motion">
-            <button type="button" role="radio" data-v="auto" aria-checked="true">Automático</button>
-            <button type="button" role="radio" data-v="reduce" aria-checked="false">Reduzido</button>
+        </section>
+        <section class="set-group" aria-labelledby="sg-efeitos">
+          <h4 id="sg-efeitos" class="set-group-title">Efeitos</h4>
+          <div class="set-box">
+            <div class="set-row">
+              <span id="lbl-sound" class="set-label">Sons</span>
+              <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
+            </div>
+            <div class="set-row">
+              <span id="lbl-vib" class="set-label">Vibração</span>
+              <button type="button" class="switch" role="switch" aria-labelledby="lbl-vib" aria-checked="true" data-setting="vibrate"><i></i></button>
+            </div>
+            <div class="set-row">
+              <span id="lbl-push" class="set-label">🔔 Avisos com o app fechado</span>
+              <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
+            </div>
+            <p id="push-note" class="set-note"></p>
           </div>
-        </div>
-        <p id="motion-note" class="set-note">Com o movimento reduzido, o mascote da tela inicial fica escondido.</p>
-        <div class="set-row">
-          <span id="lbl-mascot" class="set-label">Mascote na tela inicial</span>
-          <button type="button" class="switch" role="switch" aria-labelledby="lbl-mascot" aria-describedby="mascot-note" aria-checked="true" data-setting="mascot"><i></i></button>
-        </div>
-        <p id="mascot-note" class="set-note"></p>
-        <div class="set-row">
-          <span id="lbl-trayanim" class="set-label">Animações das bandejas</span>
-          <button type="button" class="switch" role="switch" aria-labelledby="lbl-trayanim" aria-describedby="trayanim-note" aria-checked="true" data-setting="trayAnim"><i></i></button>
-        </div>
-        <p id="trayanim-note" class="set-note">Os brilhos e movimentos das bandejas da loja. Com o movimento reduzido no aparelho, ficam sempre parados.</p>
-        <div class="set-row">
-          <span id="lbl-pet" class="set-label">Meu pet: skin e roupa</span>
-          <button type="button" id="btn-pet" class="btn btn-secondary btn-small" aria-describedby="lbl-pet pet-set-note">🐾 Escolher</button>
-        </div>
-        <p id="pet-set-note" class="set-note">A escolha vale na hora e fica guardada só neste aparelho.</p>
-        <div class="set-row">
-          <span id="lbl-sound" class="set-label">Sons</span>
-          <button type="button" class="switch" role="switch" aria-labelledby="lbl-sound" aria-checked="true" data-setting="sound"><i></i></button>
-        </div>
-        <div class="set-row">
-          <span id="lbl-vib" class="set-label">Vibração</span>
-          <button type="button" class="switch" role="switch" aria-labelledby="lbl-vib" aria-checked="true" data-setting="vibrate"><i></i></button>
-        </div>
-        <div class="set-row">
-          <span id="lbl-push" class="set-label">🔔 Avisos com o app fechado</span>
-          <button type="button" class="switch" role="switch" aria-labelledby="lbl-push" aria-checked="false" data-setting="push"><i></i></button>
-        </div>
-        <p id="push-note" class="set-note"></p>
+        </section>
         <p class="set-note set-about">Jogo não indicado para menores de 16 anos. <a href="/privacidade.html" data-privacy>Privacidade e exclusão de conta</a></p>
-        <div class="set-row">
+        <div class="set-row set-safe">
           <span id="lbl-safe" class="set-label">Jogue com segurança</span>
           <button type="button" id="btn-safe" class="btn btn-secondary btn-small" aria-describedby="lbl-safe">🛡️ Ver dicas</button>
         </div>

@@ -1320,6 +1320,18 @@ body.sheet-open .toast { bottom: calc(300px + env(safe-area-inset-bottom)); }
 .switch[aria-checked="true"] i { transform: translateX(24px); }
 .switch:disabled { opacity: .5; }
 .set-note { margin: 0 0 6px; font-size: .85rem; line-height: 1.3; color: var(--ink-soft); font-weight: 600; min-height: 1.2em; }
+/* Grupos dos Ajustes (rodada ajustes-organizados, 17/11/2026): título em maiúsculas e, abaixo, uma caixa sombreada com os ajustes.
+   Leve de propósito: só cor, borda e uma sombra fixa (nada animado, nada de desfoque/filtro), para a janela abrir e rolar sem travar. */
+.set-sheet > .set-group { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.set-group-title { margin: 8px 6px 0; font-size: .8rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.set-box { display: flex; flex-direction: column; padding: 2px 14px; border-radius: 18px; background: var(--paper-2); border: 1px solid var(--line); box-shadow: 0 3px 10px rgba(27, 37, 89, .1); }
+html[data-theme="dark"] .set-box { box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }
+.set-box > * + .set-row { border-top: 1px solid var(--line); }
+.set-box > .set-row { padding: 6px 0; }
+.set-box > .set-note { margin: 0 0 8px; }
+.set-box > .set-note:empty { display: none; }
+.set-sheet > .set-about { margin-top: 10px; text-align: center; }
+.set-sheet > .set-safe { flex-direction: column; justify-content: center; text-align: center; gap: 8px; padding: 2px 0 4px; }
 
 /* ---------- Tutorial animado ---------- */
 .tut-sheet { align-items: stretch; text-align: center; }
