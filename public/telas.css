@@ -110,3 +110,8 @@ html:is([data-text="large"], [data-text="xlarge"]) #screen-home .home-inner { pa
 /* para os botões não descerem para trás da barra em tela baixa, nesse caso o logotipo fica um pouco menor */
 @media (min-width: 380px) and (max-height: 760px) { #screen-home .logo { --u: .74; margin-bottom: 8px; } }
 @media (min-width: 380px) and (max-height: 680px) { #screen-home .logo { --u: .62; margin-bottom: 6px; } }
+
+/* Tela inicial fixa (sem rolar) em A, A+ e A++: o game.js (homeFit) encolhe o conteúdo por inteiro até caber entre o topo e a barra de abas.
+ * A faixa do alto (perfil e ajuda) mantém o tamanho: o translate devolve o que a escala tiraria dela. */
+#screen-home.home-fit { overflow: hidden; }
+#screen-home.home-fit .home-inner { margin-top: 0; transform-origin: 50% 0; transform: translateY(calc(var(--fit-pad, 0px) * (1 - var(--fit, 1)))) scale(var(--fit, 1)); }
