@@ -126,7 +126,7 @@ function makeService(db) {
   }
 
   async function equip(uid, itemId, category) {
-    if (typeof category === 'string' && PET_SLOT[category] && (itemId === null || itemId === '')) {        // tirar a skin/roupa: volta ao pet de fábrica (não exige nada)
+    if (typeof category === 'string' && Object.prototype.hasOwnProperty.call(PET_SLOT, category) && (itemId === null || itemId === '')) {        // tirar a skin/roupa: volta ao pet de fábrica (não exige nada). SEC-12: só as chaves PRÓPRIAS de PET_SLOT ("constructor", "__proto__" etc. não chegam ao SQL)
       const col = PET_SLOT[category];
       return withUserLock(uid, async (q) => {
         await q(`INSERT INTO shop_prefs (user_id, ${col}) VALUES ($1, NULL) ON CONFLICT (user_id) DO UPDATE SET ${col} = NULL, updated_at = now()`, [uid]);

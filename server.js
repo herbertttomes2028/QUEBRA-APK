@@ -22,6 +22,17 @@ const FILEIRA_T_MAX = 160;                       // peça na fileira: até 160 (
 const security = require('./security');
 const { makeProtection } = require('./resource-guard');
 const protection = makeProtection();
+// SEC-11, rede final: uma promessa recusada que ninguém tratou NÃO derruba o servidor (no Node atual ela encerraria o processo inteiro, com
+// todas as salas). Hoje não há caminho conhecido que chegue aqui; se um dia aparecer, fica registrado (só a mensagem, nunca dados) e o jogo segue.
+// Erros SÍNCRONOS fora dos eventos continuam encerrando o processo (o Render reinicia): esconder isso poderia deixar o servidor num estado ruim.
+let rejeicoesSemTratamento = 0, ultimoAvisoRejeicao = 0;
+process.on('unhandledRejection', (err) => {
+  rejeicoesSemTratamento++;
+  const t = Date.now(); if (t - ultimoAvisoRejeicao < 10000) return; ultimoAvisoRejeicao = t;
+  let msg = 'erro sem descrição';
+  try { msg = String((err && err.message) || err).slice(0, 160); } catch (_) { /* o próprio erro pode ser um objeto que não vira texto */ }
+  console.error('[servidor] promessa recusada sem tratamento (ignorada):', msg, '(total ' + rejeicoesSemTratamento + ')');
+});
 const { createMailer, mailerStatus } = require('./mailer');
 const express = require('express');
 const http = require('http');
@@ -132,8 +143,11 @@ console.log('[contas] e-mail: ' + (mailer ? 'LIGADO (' + mailer.provider + ')' :
 // Sem limite de imagens: todas as da pasta public/imagens aparecem. (Opcional: defina MAX_IMAGES no Render para limitar.)
 const MAX_IMAGES = Number(process.env.MAX_IMAGES) > 0 ? Math.floor(Number(process.env.MAX_IMAGES)) : Infinity;
 
+// Dados do celular podem ser QUALQUER coisa (inclusive um objeto feito para quebrar String()/Number(); SEC-11): só número e texto passam.
+const asNum = (v) => (typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN);
+const asStr = (v) => (typeof v === 'string' ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : '');
 function validPieces(n, fallback) {
-  n = Number(n);
+  n = asNum(n);
   return PRESETS.some((p) => p.pieces === n) ? n : fallback;
 }
 
@@ -190,7 +204,10 @@ function layoutFor(pieces, withFila = false) {
 
 /* ---------- Servidor HTTP ---------- */
 const app = express();
-app.set('trust proxy', 1);              // atrás do Render: pega o IP real
+app.set('trust proxy', 1);              // atrás do Render: protocolo (https) e host vêm do proxy
+// SEC-10: req.ip passa a ser o IP real do celular também atrás do Cloudflare (ver security.clientIp). Vale para TODOS os limites por endereço
+// (login, criação de perfil, envios, salas). Sem Cloudflare na frente, é exatamente o que o "trust proxy" já dava (o último endereço).
+Object.defineProperty(app.request, 'ip', { configurable: true, enumerable: true, get() { return security.clientIp(this.headers, this.socket && this.socket.remoteAddress); } });
 app.disable('x-powered-by');
 app.use(security.securityHeaders);       // cabeçalhos em todas as respostas
 app.use(protection.httpMiddleware);      // limites de abuso por IP e concorrência
@@ -290,6 +307,9 @@ app.get('/diagnostico', (req, res) => {
       cabecalhos: 'ativos (HSTS, nosniff, anti-clickjacking, Referrer-Policy, Permissions-Policy)',
       email_estado: mailer ? mailer.stats : null,      // envios desde que o servidor ligou e o ÚLTIMO erro (já sem chave, e-mails e IPs)
       csp: { modo: security.CSP_MODE, violacoes_registradas: security.cspStats.total, por_regra: security.cspStats.porRegra, ultimas: security.cspStats.ultimas },
+      ip_real: security.ipShape(req.headers),          // SEC-10: só a FORMA da cadeia de proxies deste pedido (nenhum endereço)
+      eventos_invalidos_ignorados: protection.handlerErrors(),      // SEC-11: eventos de socket com dados malformados que antes derrubariam o servidor
+      promessas_sem_tratamento: rejeicoesSemTratamento,
       tamanho_do_codigo_da_sala: CODE_LEN,
       limite_de_tentativas: joinGuard.limits,
       email: mailer ? 'configurado (' + mailer.provider + ')' : 'não configurado' + (mailInfo.missing.length ? ' — faltam as variáveis: ' + mailInfo.missing.join(', ') : (mailInfo.badEmail ? ' — BREVO_SENDER_EMAIL parece inválido' : '')) + ' (sem confirmação de e-mail nem recuperação de senha)'
@@ -449,7 +469,7 @@ function shuffle(a) {
 }
 
 function clamp(v, min, max) {
-  v = Number(v);
+  v = asNum(v);
   if (!Number.isFinite(v)) return min;
   return Math.max(min, Math.min(max, v));
 }
@@ -671,7 +691,7 @@ function ctx(socket) {
 }
 
 function pieceFrom(room, id) {
-  id = Number(id);
+  id = asNum(id);
   if (!Number.isInteger(id) || id < 0 || id >= room.pieces.length) return null;
   return room.pieces[id];
 }
@@ -945,7 +965,7 @@ io.on('connection', (socket) => {
   socket.on('join', (data, cb) => {
     data = data || {};
     const pid = cleanPid(data.pid);
-    const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LEN);
+    const code = asStr(data.code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LEN);
     if (!pid) return reply(cb, { ok: false, error: 'invalid' });
     const lk = joinLocked(socket);
     if (lk.locked) return reply(cb, { ok: false, error: 'locked', retryMs: lk.retryMs });
