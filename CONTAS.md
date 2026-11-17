@@ -21,7 +21,7 @@ O banco **só é ligado** se existir a variável `DATABASE_URL`. Sem ela o jogo 
 - Gerado no servidor com 20 símbolos de um alfabeto de 31 (sem I, L, O, 0, 1), ou seja, cerca de 99 bits de aleatoriedade (`crypto.randomInt`).
 - **Aparece uma única vez**, na resposta da criação (e quando a pessoa gera um código novo). O banco guarda só `scrypt$salt$hash` (`users.secret_hash`); o código não vai para log, não fica no aparelho e não pode ser lido por ninguém.
 - **Quem perde o código perde o perfil**: não há e-mail para recuperar. Gerar um **código novo** exige o código atual; o antigo deixa de valer na hora e as sessões de outros aparelhos são encerradas.
-- Login por ID + código com resposta **igual** para "ID inexistente" e "código errado" (e tempo parecido, com um hash de mentira), limite de tentativas por ID (8) e por endereço (20) a cada 15 minutos, e limite de criação de perfis por endereço (6 por hora).
+- Login por ID + código com resposta **igual** para "ID inexistente" e "código errado" (e tempo parecido, com um hash de mentira), limite de tentativas por ID (8) e por endereço (60; eram 20) a cada 15 minutos, e limite de criação de perfis por endereço (60 por hora e 300 por dia; eram 6 por hora até 17/11/2026, rodada `limites-ip`).
 - Sessão: token aleatório, só o hash SHA-256 fica no banco, vale 60 dias; "Sair" apaga a sessão; "Sair de todos os aparelhos" apaga todas e derruba os sockets.
 
 ## Passo 1 — Criar o banco gratuito (Neon)

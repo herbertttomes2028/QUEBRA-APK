@@ -114,6 +114,21 @@ function makeLimiter(opts) {
   };
 }
 
+/* Criar perfil (17/11/2026): antes eram 6 por hora por endereço, e numa escola a turma inteira sai pelo mesmo endereço (no Render, até a
+ * correção do IP real, o jogo inteiro). Agora: 60 por hora e 300 por dia por endereço, com o teto geral de 1500 por hora (igual). Se o
+ * servidor já criou metade do teto na última hora, cada endereço volta a 10 por hora: um ou dois endereços não esgotam o teto de todos. */
+const HOUR = 3600 * 1000;
+function profileNewGate(limiter, mult) {
+  const allow = (key, max, ms, perIp) => limiter.allow(key, perIp ? max * mult : max, ms);
+  return function profileNewAllowed(ip) {
+    const quaseCheio = limiter.tooMany('pnew:all', 750, HOUR);
+    if (!allow('pnew:' + ip, 60, HOUR, true)) return false;
+    const pouco = allow('pnewr:' + ip, 10, HOUR, true);                       // conta sempre; só barra com o servidor quase cheio
+    if (quaseCheio && !pouco) return false;
+    return allow('pnewd:' + ip, 300, 24 * HOUR, true) && allow('pnew:all', 1500, HOUR);
+  };
+}
+
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
@@ -334,15 +349,17 @@ function createAccounts(d) {
   async function userByKey(id, secretRaw, ip) {
     if (typeof id !== 'string' || typeof secretRaw !== 'string') { noteFail('kfail:ip:' + ip, LOGIN_FAIL_MS); return { bad: true }; }     // só texto (uma lista ["ABCD","2XYZ"] seria juntada pelo normalizador)
     const code = normCode(id), secret = normSecret(secretRaw);
-    if (tooMany('kfail:ip:' + ip, 20 * RATE_MULT, LOGIN_FAIL_MS) || (code && tooMany('kfail:id:' + code, 8, LOGIN_FAIL_MS))) return { limited: true };
+    // por endereço: 60 erros em 15 min (eram 20: uma turma digitando ID + código-chave na mesma rede); por ID: 8 (igual, é o que protege o perfil)
+    if (tooMany('kfail:ip:' + ip, 60 * RATE_MULT, LOGIN_FAIL_MS) || (code && tooMany('kfail:id:' + code, 8, LOGIN_FAIL_MS))) return { limited: true };
     const u = code ? await one('SELECT * FROM users WHERE friend_code = $1', [code]) : null;
     const ok = await checkPassword(secret || 'A'.repeat(KEY_LEN), u && u.secret_hash ? u.secret_hash : FAKE_HASH);
     if (!u || !u.secret_hash || !secret || !ok) { noteFail('kfail:ip:' + ip, LOGIN_FAIL_MS); if (code) noteFail('kfail:id:' + code, LOGIN_FAIL_MS); return { bad: true }; }
     return { user: u };
   }
+  const profileNewAllowed = profileNewGate(limiter, RATE_MULT);
   r.post('/profile/new', guard(async (req, res) => {
     const b = req.body || {};
-    if (!allow('pnew:' + req.ip, 6, 3600 * 1000, true) || !allow('pnew:all', 1500, 3600 * 1000)) return bad(res, 429, 'rate');
+    if (!profileNewAllowed(req.ip)) return bad(res, 429, 'rate');
     if (b.consent !== true) return bad(res, 400, 'consent');                   // leu a política de privacidade (menor de 18: responsável autorizou)
     if (b.age16 !== true) return bad(res, 400, 'age16');                       // o jogo não é indicado para menores de 16 anos (a tela de idade do aparelho já confirmou)
     const secret = newSecret();
@@ -351,7 +368,7 @@ function createAccounts(d) {
   }));
   r.post('/profile/login', guard(async (req, res) => {
     const b = req.body || {};
-    if (!allow('plogin:' + req.ip, 40, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');
+    if (!allow('plogin:' + req.ip, 200, 10 * 60 * 1000, true)) return bad(res, 429, 'rate');     // eram 40: uma turma entrando ao mesmo tempo
     const k = await userByKey(b.id, b.secret, req.ip);
     if (k.limited) return bad(res, 429, 'rate');
     if (!k.user) return bad(res, 401, 'bad_login');
@@ -937,4 +954,4 @@ function createAccounts(d) {
   };
 }
 
-module.exports = { createAccounts, makeLimiter, LIMIT_GROUP_MAX, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };
+module.exports = { createAccounts, makeLimiter, profileNewGate, LIMIT_GROUP_MAX, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };

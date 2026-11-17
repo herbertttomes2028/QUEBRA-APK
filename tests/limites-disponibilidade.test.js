@@ -12,8 +12,10 @@ const { makeProtection, HEAVY_AUTH_RE } = require('../resource-guard');
 
 const accSrc = fs.readFileSync(path.join(__dirname, '..', 'accounts.js'), 'utf8');
 
-test('limites: os números de cada limite continuam os mesmos (só mudou como o mapa guarda as chaves)', () => {
-  for (const s of ["tooMany('kfail:ip:' + ip, 20 * RATE_MULT, LOGIN_FAIL_MS)", "tooMany('kfail:id:' + code, 8, LOGIN_FAIL_MS)", "allow('pnew:' + req.ip, 6, 3600 * 1000, true)", "allow('pnew:all', 1500, 3600 * 1000)", "allow('plogin:' + req.ip, 40, 10 * 60 * 1000, true)", "allow('perase:' + req.ip, 20, 10 * 60 * 1000, true)", "allow('psec:' + req.user.id, 5, 3600 * 1000)", 'const LOGIN_FAIL_MS = 15 * 60 * 1000;'])
+// 17/11/2026 (rodada limites-ip): os limites POR ENDEREÇO foram revistos para caber uma turma atrás do mesmo endereço (ver tests/limites-ip.test.js);
+// os por ID e o teto geral continuam os mesmos.
+test('limites: os números de cada limite são os combinados (por ID e teto geral iguais; por endereço revistos em 17/11/2026)', () => {
+  for (const s of ["tooMany('kfail:ip:' + ip, 60 * RATE_MULT, LOGIN_FAIL_MS)", "tooMany('kfail:id:' + code, 8, LOGIN_FAIL_MS)", "allow('pnew:' + ip, 60, HOUR, true)", "allow('pnew:all', 1500, HOUR)", "allow('plogin:' + req.ip, 200, 10 * 60 * 1000, true)", "allow('perase:' + req.ip, 20, 10 * 60 * 1000, true)", "allow('psec:' + req.user.id, 5, 3600 * 1000)", 'const LOGIN_FAIL_MS = 15 * 60 * 1000;'])
     assert.ok(accSrc.includes(s), 'limite inalterado: ' + s);
   assert.ok(!/hits\.size >= 6000/.test(accSrc), 'o teto único que recusava todo mundo não existe mais');
 });
