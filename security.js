@@ -20,18 +20,22 @@ const CSP_MODE = ['report', 'enforce', 'off'].includes(String(process.env.CSP_MO
 const PERMISSIONS = 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=(), display-capture=(), accelerometer=(), gyroscope=(), magnetometer=(), interest-cohort=()';
 
 const MEDIA = require('./media').fromEnv(process.env);       // origem externa das imagens da biblioteca (já validada; null = só arquivos locais)
+const ADS = require('./ads').fromEnv(process.env);           // anúncios: só com ADS_MODO=teste/real as origens do Google entram (padrão: desligado, nada muda)
+const adsSrc = (k) => (ADS.rede ? ' ' + require('./ads').CSP_EXTRA[k].join(' ') : '');
+// com anúncios ligados, bloqueia também os interesses do navegador (Topics) e os grupos de remarketing: nada de anúncio por perfil
+const PERMISSIONS_ADS = ADS.rede ? ', browsing-topics=(), join-ad-interest-group=()' : '';
 
 function cspPolicy(host, withAncestors) {
   const h = /^[a-z0-9.\-]+(:\d+)?$/i.test(host || '') ? host : '';
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self'" + adsSrc('script'),
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:" + (MEDIA ? ' ' + MEDIA.origin : ''),
+    "img-src 'self' data: blob:" + (MEDIA ? ' ' + MEDIA.origin : '') + adsSrc('img'),
     "media-src 'self' blob: data:",
     "font-src 'self' data:",
-    "connect-src 'self'" + (h ? ' ws://' + h + ' wss://' + h : ''),
-    "frame-src 'none'",
+    "connect-src 'self'" + (h ? ' ws://' + h + ' wss://' + h : '') + adsSrc('connect'),
+    (ADS.rede ? "frame-src" + adsSrc('frame') : "frame-src 'none'"),
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -49,7 +53,7 @@ function securityHeaders(req, res, next) {
   const h = {
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': PERMISSIONS,
+    'Permissions-Policy': PERMISSIONS + PERMISSIONS_ADS,
     'X-Frame-Options': 'DENY',
     'Cross-Origin-Opener-Policy': 'same-origin'
   };

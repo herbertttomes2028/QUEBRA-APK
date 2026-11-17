@@ -31,4 +31,15 @@ async function creditTx(q, uid, ref, pieces, eligible, beforeXp, afterXp) {
       (await q('SELECT gems FROM users WHERE id = $1', [uid])).rows[0];
     return { match, level, balance: Number(row.gems) };
 }
-module.exports = { VALUES, forCompletion, forLevel, crossedLevels, creditTx };
+/* Anúncio recompensado assistido até o fim (rota /ads/reward de accounts.js). Também dentro de transação, após SELECT ... FOR UPDATE.
+   O valor vem da configuração do servidor (ads.js), nunca do celular; a ref é única ('ad:' + ficha), então repetir não paga duas vezes. */
+async function creditAd(q, uid, ref, amount) {
+  if (!Number.isInteger(amount) || amount <= 0) return { ad: 0, balance: null };
+  const r = await q(`INSERT INTO gem_events (user_id, ref, kind, amount, meta)
+                     VALUES ($1,$2,'ad',$3,'{}'::jsonb) ON CONFLICT (user_id, ref) DO NOTHING RETURNING amount`, [uid, ref, amount]);
+  const ad = r.rowCount ? Number(r.rows[0].amount) : 0;
+  const row = ad ? (await q('UPDATE users SET gems = gems + $1 WHERE id = $2 RETURNING gems', [ad, uid])).rows[0] :
+    (await q('SELECT gems FROM users WHERE id = $1', [uid])).rows[0];
+  return { ad, balance: Number(row.gems) };
+}
+module.exports = { VALUES, forCompletion, forLevel, crossedLevels, creditTx, creditAd };
