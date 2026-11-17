@@ -76,7 +76,7 @@ test('saldo em destaque no topo; visitante vê "Sem conta" (nunca um número inv
 });
 
 test('toque ≥ 44 px e nada cortado: seções, vitrines, botões, cores e a chave das animações', () => {
-  const minH = (sel) => { const m = css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{[^}]*min-height: (\\d+)px')); assert.ok(m, sel); return Number(m[1]); };
+  const minH = (sel) => { const m = css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\{[^}]*min-height: (\\d+px|var\\(--btn-[gmp]\\))')); assert.ok(m, sel); return ({ 'var(--btn-g)': 64, 'var(--btn-m)': 52, 'var(--btn-p)': 44 })[m[1]] || parseInt(m[1], 10); };   // aceita a régua do padrão visual
   assert.ok(minH('.shop-sec') >= 44); assert.ok(minH('.shop-card .shop-acts .btn') >= 44); assert.ok(minH('.mine-item') >= 44); assert.ok(minH('.shop-x') >= 44);
   assert.match(css, /\.mine-editor \.switch \{ width: 60px; height: 44px;/, 'a chave das animações tinha 32 px de altura');
   assert.match(css, /\.swatches \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(48px, 1fr\)\);/, 'a paleta vazava em telas de 320 px');

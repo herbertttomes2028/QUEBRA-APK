@@ -60,7 +60,7 @@ test('acessibilidade: cada cartão e botão com nome completo, alvos de toque de
   assert.match(bloco, /ring\.setAttribute\('role', 'img'\)/);
   assert.match(cssNovo, /\.ach-chip \{[^}]*min-height: 44px/);
   assert.match(cssNovo, /\.ach-chip:focus-visible[^{]*\{ outline: 3px solid var\(--sel\)/);
-  assert.match(cssNovo, /\.me-tabs \.me-tab \{ font-size: \.74rem; padding-inline: 2px; min-width: 0; \}/);       // 4 abas cabem em 320 px
+  assert.match(cssNovo, /\.me-tabs \.me-tab \{ font-size: var\(--fs-mini\); padding-inline: 2px; min-width: 0; \}/);       // 4 abas cabem em 320 px
   assert.match(cssNovo, /overflow-wrap: anywhere/);
 });
 
