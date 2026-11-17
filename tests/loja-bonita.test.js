@@ -42,7 +42,7 @@ test('o mesmo cartão em todas as seções: vitrine com etiquetas, nome, descri�
   assert.match(css, /\.shop-list \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); gap: 12px; \}/, 'mesma grade nas três seções');
   assert.match(css, /\.shop-card \.shop-acts \{ margin-top: auto;/, 'o botão fica no rodapé: os cartões da mesma linha se alinham');
   assert.match(css, /\.shop-vit \{[^}]*aspect-ratio: 4 \/ 3;/, 'a vitrine tem o mesmo tamanho em todos os cartões');
-  assert.match(css, /\.shop-card \{[^}]*border-radius: 22px;[^}]*box-shadow: 0 0 0 2px var\(--line\), 0 6px 14px/, 'cantos arredondados e sombra suave');
+  assert.match(css, /\.shop-card \{[^}]*border-radius: var\(--r-caixa\);[^}]*box-shadow: var\(--caixa-sombra\);/, 'cantos arredondados e sombra suave (caixa padrão)');
   assert.match(css, /\.shop-card \.shop-acts \.btn \{[^}]*white-space: normal;/, 'texto do botão quebra a linha em vez de ser cortado (A++ e telas de 320 px)');
 });
 
