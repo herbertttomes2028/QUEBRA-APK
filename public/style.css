@@ -36,6 +36,45 @@
   --p1: #d1245f;              /* jogador 2 (rosa) */
   --radius: 22px;
   --font: system-ui, -apple-system, Roboto, sans-serif;
+
+  /* ---------- PADRÃO VISUAL (rodada padrao-regua, 17/11/2026) ----------
+     A "régua" única do jogo. Nesta rodada as medidas só GANHAM NOME (nada na tela muda); as próximas rodadas
+     (letras, botões, caixas, espaços) trocam os valores soltos por estes nomes, tela por tela.
+     Para mudar o jogo inteiro depois, basta mudar o número aqui. Tabela completa: CONTINUIDADE.md, "Padrão visual". */
+  /* letras: 7 tamanhos */
+  --fs-marca: clamp(2.1rem, 9.6vw, 2.8rem);   /* "Quebra-cabeça a dois" na tela inicial (é logotipo) */
+  --fs-t1: 1.75rem;                           /* título de tela */
+  --fs-t2: 1.4rem;                            /* título de janela (Loja, Ajustes, Vitória...) */
+  --fs-t3: .8rem;                             /* título de grupo, em maiúsculas (VISUAL, ANIMAÇÕES...) */
+  --fs-texto: 1rem;                           /* texto e botões */
+  --fs-nota: .85rem;                          /* explicações e legendas */
+  --fs-mini: .75rem;                          /* selos, etiquetas, preços pequenos */
+  /* botões: 3 alturas; o "degrau" embaixo é a marca do jogo */
+  --btn-g: 64px;                              /* grande: Jogar, Jogar com amigos */
+  --btn-m: 52px;                              /* médio: Pronto, Entrar, Comprar, confirmações */
+  --btn-p: 44px;                              /* pequeno (mínimo para o dedo): ações dentro de caixas */
+  --btn-degrau: 5px;                          /* altura do degrau */
+  --btn-degrau-on: 2px;                       /* degrau com o botão apertado */
+  /* cantos: 4 medidas */
+  --r-peq: 12px;                              /* peças internas, campos, miniaturas */
+  --r-caixa: 18px;                            /* caixas (modelo: as caixas dos Ajustes) */
+  --r-janela: 28px;                           /* janelas */
+  --r-redondo: 999px;                         /* pílulas, selos, avatares */
+  /* sombras: 4 tipos (o degrau usa a cor do botão: box-shadow: var(--sh-degrau) var(--sun-deep)) */
+  --sh-nenhuma: none;
+  --sh-caixa: 0 3px 10px rgba(27, 37, 89, .1);
+  --sh-degrau: 0 var(--btn-degrau) 0;
+  --sh-flutua: 0 10px 28px rgba(27, 37, 89, .22);   /* avisos e janelas por cima */
+  /* caixa padrão (igual à dos Ajustes) */
+  --caixa-fundo: var(--paper-2);
+  --caixa-borda: 1px solid var(--line);
+  /* espaços: régua de 6 passos */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -1506,6 +1545,8 @@ html[data-theme="dark"] .set-box { box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }
 /* ---------- Modo escuro (Ajustes > Aparência) ---------- */
 html[data-theme="dark"] {
   color-scheme: dark;
+  --sh-caixa: 0 3px 10px rgba(0, 0, 0, .3);       /* padrão visual: no escuro a sombra é preta */
+  --sh-flutua: 0 10px 28px rgba(0, 0, 0, .45);
   --ink: #eef1ff;
   --ink-soft: #aab5e8;
   --paper: #111733;
