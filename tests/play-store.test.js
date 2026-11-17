@@ -23,7 +23,8 @@ test('galeria: só as ilustrações originais do jogo; nenhuma imagem de persona
 });
 test('galeria: o catálogo da biblioteca (migrações e lotes) também não cita personagens de terceiros nem pessoas reais', () => {
   const alvos = [...fs.readdirSync(path.join(root, 'migrations')).map((f) => 'migrations/' + f), ...(fs.existsSync(path.join(root, 'scripts/lotes')) ? fs.readdirSync(path.join(root, 'scripts/lotes')).map((f) => 'scripts/lotes/' + f) : []), 'library.js'];
-  const re = /\b(batman|superman|stitch|mickey|pikachu|lula|jesus|aparecida|disney|marvel)\b/i;
+  const re = /(?<![\p{L}\p{N}_])(batman|superman|stitch|mickey|pikachu|lula|jesus|aparecida|disney|marvel)(?![\p{L}\p{N}_])/iu;     // palavra inteira, contando letras com acento ("Célula" não é "Lula")
+  assert.match('Lula', re); assert.match('foto do Lula.', re); assert.doesNotMatch('Célula animal', re); assert.doesNotMatch('Jesusalém', re); assert.doesNotMatch('Calixto_de_Jesus_-_Rua', re);
   for (const f of alvos) assert.doesNotMatch(read(f), re, f);
 });
 test('galeria: o servidor oferece exatamente o que está na pasta (nada mais é servido como imagem padrão)', () => {
