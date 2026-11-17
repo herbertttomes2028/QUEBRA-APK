@@ -4,11 +4,58 @@
  */
 const crypto = require('crypto');
 
-/* ---------- IP real do visitante (atrás do Render: o último endereço do X-Forwarded-For) ---------- */
+/* ---------- IP real do visitante ----------
+ * SEC-10 (auditoria de 17/11/2026). No Render o caminho é: celular -> Cloudflare -> proxy do Render -> jogo, e o X-Forwarded-For chega como
+ * "<o que o celular mandou>, <IP do celular>, <IP do Cloudflare>". Antes o jogo usava o ÚLTIMO endereço, que é o do Cloudflare: todos os
+ * jogadores que passam pelo mesmo ponto do Cloudflare dividiam os mesmos limites (tentativas de login, criação de perfil e de sala, conexões).
+ * Agora: se o último endereço é do Cloudflare, vale o CF-Connecting-IP (o Cloudflare sempre o reescreve, o celular não consegue forjar) ou,
+ * na falta dele, o penúltimo endereço (o que o próprio Cloudflare acrescentou). Se o último NÃO é do Cloudflare (sem Cloudflare na frente,
+ * ou em testes locais), nada muda: vale o último, como sempre. Faixas oficiais: https://www.cloudflare.com/ips/ (última mudança: 28/09/2023). */
+const net = require('net');
+const CLOUDFLARE_V4 = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20',
+  '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22'];
+const CLOUDFLARE_V6 = ['2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32'];
+const cloudflareList = new net.BlockList();
+for (const c of CLOUDFLARE_V4) { const [a, b] = c.split('/'); cloudflareList.addSubnet(a, Number(b), 'ipv4'); }
+for (const c of CLOUDFLARE_V6) { const [a, b] = c.split('/'); cloudflareList.addSubnet(a, Number(b), 'ipv6'); }
+function isCloudflare(ip) {
+  const s = String(ip || '').trim().replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/i, ''), v = net.isIP(s);
+  if (!v) return false;
+  try { return cloudflareList.check(s, v === 4 ? 'ipv4' : 'ipv6'); } catch (e) { return false; }
+}
+// IPv6: cada celular costuma receber um bloco /64 inteiro (bilhões de endereços). Trocar de endereço dentro do bloco não pode escapar dos
+// limites, então o endereço IPv6 que vem do Cloudflare conta pelo bloco /64 (IPv4, inclusive o escrito como ::ffff:a.b.c.d, continua inteiro).
+function limitKey(ip) {
+  const s = String(ip || '').trim().toLowerCase();
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(s);
+  if (mapped) return mapped[1];
+  if (net.isIP(s) !== 6) return s;
+  const [head, tail] = s.split('::'), h = head ? head.split(':') : [], t = tail === undefined ? null : (tail ? tail.split(':') : []);
+  const parts = t === null ? h : h.concat(new Array(Math.max(0, 8 - h.length - t.length)).fill('0'), t);
+  return parts.slice(0, 4).map((x) => (parseInt(x, 16) || 0).toString(16)).join(':') + '::/64';
+}
+function clientIp(headers, remote) {
+  const h = headers || {};
+  const xff = String(h['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const last = xff.length ? xff[xff.length - 1] : String(remote || '');
+  if (xff.length && isCloudflare(last)) {
+    const cf = typeof h['cf-connecting-ip'] === 'string' ? h['cf-connecting-ip'].trim() : '';
+    if (net.isIP(cf)) return limitKey(cf);
+    if (xff.length >= 2 && net.isIP(xff[xff.length - 2])) return limitKey(xff[xff.length - 2]);
+    return last;                                                  // corrente estranha: fica o endereço do Cloudflare (como era antes), nunca um valor livre
+  }
+  return last || 'desconhecido';
+}
+// formato da cadeia (para o /diagnostico do proprietário): NUNCA devolve endereços, só a forma
+function ipShape(headers) {
+  const h = headers || {}, xff = String(h['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const viaCloudflare = xff.length > 0 && isCloudflare(xff[xff.length - 1]);
+  return { enderecos_no_x_forwarded_for: xff.length, ultimo_e_cloudflare: viaCloudflare, tem_cf_connecting_ip: net.isIP(typeof h['cf-connecting-ip'] === 'string' ? h['cf-connecting-ip'].trim() : '') > 0,
+    fonte_usada: viaCloudflare ? 'IP do celular informado pelo Cloudflare' : (xff.length ? 'último endereço (sem Cloudflare na frente)' : 'conexão direta') };
+}
 function ipOfSocket(socket) {
   const h = socket.handshake || {};
-  const xff = String((h.headers && h.headers['x-forwarded-for']) || '').split(',').map((s) => s.trim()).filter(Boolean);
-  return xff.length ? xff[xff.length - 1] : (h.address || 'desconhecido');
+  return clientIp(h.headers, h.address);
 }
 
 /* ---------- cabeçalhos de segurança ---------- */
@@ -181,4 +228,4 @@ function createDiagGate(env, nowFn) {
   };
 }
 
-module.exports = { TRUSTED_TYPES_REPORT, ipOfSocket, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE, createDiagGate };
+module.exports = { TRUSTED_TYPES_REPORT, ipOfSocket, clientIp, limitKey, isCloudflare, ipShape, CLOUDFLARE_V4, CLOUDFLARE_V6, securityHeaders, cspReportHandler, createJoinGuard, cspPolicy, cspStats, CSP_MODE, createDiagGate };

@@ -83,6 +83,35 @@ function makeProtection(env = process.env) {
       return origin.protocol === 'https:' || (origin.protocol === 'http:' && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host));
     } catch (_) { return false; }
   }
+  // SEC-11 (auditoria de 17/11/2026): um evento com dados malformados (ex.: um objeto cujo toString/valueOf não são funções) lançava erro
+  // dentro do ouvinte e DERRUBAVA o processo inteiro (todas as salas, e os contadores de tentativas na memória voltavam a zero).
+  // Todo ouvinte registrado DESTE ponto em diante roda dentro de try/catch, e promessas recusadas também são pegas. Nada muda para o
+  // evento que funciona: mesmos argumentos, mesmo "this", mesmo retorno. O registro anota só o NOME do evento e a mensagem (nunca os dados).
+  let handlerErrors = 0, lastHandlerLog = 0;
+  function handlerFail(event, err) {
+    handlerErrors++;
+    const t = Date.now();
+    if (t - lastHandlerLog < 10000) return;                    // no máximo uma linha a cada 10 s (quem envia lixo não enche o registro)
+    lastHandlerLog = t;
+    let msg = 'erro sem descrição';
+    try { msg = String((err && err.message) || err).slice(0, 120); } catch (_) { /* o próprio erro pode ser um objeto que não vira texto */ }
+    console.error('[socket] evento com dados inválidos ignorado:', String(event).slice(0, 40), '-', msg, '(total ' + handlerErrors + ')');
+  }
+  function guardHandlers(socket) {
+    const on = socket.on;
+    socket.on = function (event, fn) {
+      if (typeof fn !== 'function') return on.call(this, event, fn);
+      const guarded = function (...args) {
+        try {
+          const r = fn.apply(this, args);
+          if (r && typeof r.then === 'function') r.then(undefined, (e) => handlerFail(event, e));
+          return r;
+        } catch (e) { handlerFail(event, e); return undefined; }
+      };
+      guarded.listener = fn;                                     // como o Node marca ouvintes embrulhados: socket.off(fn) e o "once" continuam removendo o ouvinte
+      return on.call(this, event, guarded);
+    };
+  }
   function installSocketShield(io) {
     io.use((socket, next) => {
       const ip = keyOfSocket(socket);
@@ -99,6 +128,7 @@ function makeProtection(env = process.env) {
       socket.once('disconnect', release);
       // Rejected packets must never generate an unhandled EventEmitter error.
       socket.on('error', () => {});
+      guardHandlers(socket);
       // Also release a reservation if the handshake fails after middleware admission.
       if (socket.conn && typeof socket.conn.once === 'function') socket.conn.once('close', release);
       socket.use((packet, pass) => {
@@ -111,7 +141,7 @@ function makeProtection(env = process.env) {
       next();
     });
   }
-  return { allowRoom, httpMiddleware, installSocketShield, sameOrigin, roomLimit: roomsMax, socketLimit: socketsMax,
+  return { allowRoom, httpMiddleware, installSocketShield, sameOrigin, roomLimit: roomsMax, socketLimit: socketsMax, handlerErrors: () => handlerErrors,
     stats: () => ({ activeSockets, activeApi, costlyAuth, distinctIps: socketIps.size }), close: () => {
       for (const gate of [createRoomGate, apiGate, downloadGate, staticGate, diagGate, motionGate, controlGate]) gate.close();
     } };

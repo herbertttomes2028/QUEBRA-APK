@@ -342,7 +342,7 @@ module.exports = function createChallenge(d) {
     return { room, idx: ch.idx, board: room.boards[ch.idx] };
   }
   function pieceOf(board, id) {
-    id = Number(id);
+    id = typeof id === 'number' ? id : typeof id === 'string' ? Number(id) : NaN;          // SEC-11: objeto no lugar do número não quebra mais
     if (!board || !Number.isInteger(id) || id < 0 || id >= board.pieces.length) return null;
     return board.pieces[id];
   }
@@ -430,7 +430,7 @@ module.exports = function createChallenge(d) {
     socket.on('ch:join', (data, cb) => {
       data = data || {};
       const pid = cleanPid(data.pid);
-      const code = String(data.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, codeLen || 6);
+      const code = (typeof data.code === 'string' ? data.code : typeof data.code === 'number' && Number.isFinite(data.code) ? String(data.code) : '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, codeLen || 6);     // SEC-11
       if (!pid) return reply(cb, { ok: false, error: 'invalid' });
       const lk = joinLocked(socket);
       if (lk.locked) return reply(cb, { ok: false, error: 'locked', retryMs: lk.retryMs });

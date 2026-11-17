@@ -184,3 +184,49 @@ Auditoria feita por um assistente de IA, só com leitura do código da `main` `0
 - **H-07:** sockets sem `Origin` são aceitos (necessário para clientes nativos; os limites continuam valendo).
 - **Não testado:** Android real, Render/Neon/Brevo reais, carga, fuzzing amplo.
 
+
+## 11. Auditoria final de 17/11/2026 (SEC-10 a SEC-13) e correções
+
+Auditoria feita por um assistente de IA sobre a `main` `6adbddc`, com testes e provas **somente em servidor e PostgreSQL locais** (nenhum serviço publicado foi testado). Mesmas ressalvas do topo: **não é** teste de intrusão independente nem parecer jurídico. As correções foram autorizadas pelo proprietário e entregues como pacote (branch `seguranca-final`); deploy e publicação são feitos por ele.
+
+### 11.1 Aproveitamento do que já existia
+- **Não repetidos (continuam válidos, o código envolvido não mudou):** CSP em `enforce` no navegador (com anúncios desligados a política é idêntica), tempo de resposta do login, mutações de 14/11, Node 18.
+- **Repetidos porque o código mudou depois de 14/11 (24 arquivos de código em 18 PRs):** suíte completa (inclui o teste dinâmico `seguranca-perfil`, 12 grupos), varredura de segredos, `npm audit`, ESLint.
+- **Novos (eram NÃO TESTADO em §7, ou superfície nova):** fuzzing de Socket.IO, objetos "venenosos" em todos os campos de todos os eventos, fuzzing HTTP de todas as rotas, estresse de 9.000 conexões, `eslint-plugin-security` + `eslint-plugin-no-unsanitized`, revisão de SQL, anúncios, economia de gemas, fileira de 5, ímã e IP real atrás do proxy.
+
+### 11.2 Achados
+| ID | Gravidade (estimativa) | Achado | Situação |
+| --- | --- | --- | --- |
+| **SEC-11** | **Alta** | Um evento de socket com um objeto cujo `toString`/`valueOf` não são funções (ex.: `{"code":{"toString":1}}`) fazia `String()`/`Number()` lançarem erro dentro do ouvinte e **o processo terminava**: todas as partidas perdidas e os contadores de tentativas na memória voltavam a zero (R3). Sem login. 6 pontos: `validPieces`, `clamp`, `pieceFrom`, código do `join` (`server.js`), `pieceOf` e código do `ch:join` (`challenge.js`); 4 derrubaram o servidor no teste e 2 só eram alcançáveis segurando uma peça / com o Desafio em andamento | **Corrigido** em duas camadas independentes (11.3) |
+| **SEC-10** | Média (cresce com o número de jogadores) | No Render o X-Forwarded-For chega como "IP do celular, IP do Cloudflare" e o jogo usava o último: **todos os limites por endereço contavam pelo IP do Cloudflare** (login, criação de perfil 6/h, criação de sala 12/10 min, 32 conexões); jogadores legítimos eram barrados juntos e uma pessoa poderia trancar todos os que passam pelo mesmo ponto | **Corrigido** (11.3); conferir `ip_real` no `/diagnostico` depois do deploy |
+| **SEC-12** | Baixa | `constructor`, `__proto__`, `toString`… como `category` em `/shop/equip` escolhiam uma propriedade herdada e o texto chegava ao SQL (erro 500). **Não era injeção** (o texto não é controlado por quem ataca) | **Corrigido** |
+| **SEC-13** | Informativa (só com anúncios ligados) | Com `ADS_MODO=teste/real`, a CSP libera `https://*.google.com` e `https://*.gstatic.com` em `script-src`, o que enfraquece a CSP como barreira contra XSS | **Não corrigido** (anúncios desligados hoje); revisar antes de ligar |
+| — | Informativa | Sem `NODE_ENV=production`, um corpo malformado em `/api/csp-report` devolve a pilha do erro do Express. O Render define `NODE_ENV=production` em tempo de execução para Node.js: no jogo publicado a resposta é só "Bad Request" | Sem ação |
+
+**Verificado e aprovado (sem achado):** segredos (gitleaks 8.21.2: 0 no histórico e 0 na árvore); dependências (`npm audit`: 0); SQL (só constantes do código interpoladas; nenhum dado do jogador); trava contra HTML injetado cobre todos os `.js` de `public/` (inclusive os novos); fuzzing HTTP (0 respostas 5xx, nenhuma resposta com segredo, nenhum arquivo interno servido: `.env`, `.git/config`, `server.js`, migrações, `node_modules`); poluição de protótipo (`Object.prototype` intacto em todos os testes; `/import` aceita a chave `__proto__` mas atribuir número a ela não tem efeito); economia (quantidades 64/88/96 não aumentaram o ganho máximo de um robô: 7,2–8,3 gemas/min em todas as quantidades, como a de 48; gemas só com tempo mínimo conferido pelo servidor e `ON CONFLICT`); lâmpada sem limite (só desconta o contador, não encaixa); anúncios (ficha única com comparação em tempo constante, valor do servidor, limite diário e intervalo, transação com trava); fileira de 5 (peça guardada não pode ser pega nem marcada, nos dois modos); ímã (`WeakMap`, temporizadores conferem se a sala ainda existe); plugins de segurança do ESLint (só falsos positivos, revisados).
+
+### 11.3 Correções
+- **SEC-11 (a) conversões seguras:** `asNum`/`asStr` (`server.js`) só aceitam número e texto; o mesmo teste de tipo em `challenge.js`. Número ou texto continuam funcionando como antes.
+- **SEC-11 (b) proteção central:** `guardHandlers` em `resource-guard.js`, ligada na blindagem dos sockets (antes de qualquer `socket.on` do jogo, de `accounts.js` e de `challenge.js`). Todo ouvinte roda em `try/catch` e a promessa recusada é pega; mesmos argumentos, `this` e retorno; `guarded.listener = fn` mantém `socket.off(fn)` e o `once` funcionando (falha achada na revisão do próprio diff e corrigida: sem isso o ouvinte "once" ficava registrado para sempre). Segunda falha achada na mesma revisão e corrigida: o registro do erro fazia `String(err)` e um erro "venenoso" quebraria o próprio tratamento; agora a conversão também fica em `try/catch` (o mesmo na rede final de promessas). Registro: só o nome do evento e a mensagem, no máximo 1 linha a cada 10 s. Contador em `/diagnostico` (`eventos_invalidos_ignorados`).
+- **SEC-11 (c) rede final:** `process.on('unhandledRejection')` só registra (contador `promessas_sem_tratamento`). Nenhum caminho conhecido chega lá (todas as promessas soltas nos eventos têm `.catch`). Erro síncrono fora dos eventos continua encerrando o processo de propósito.
+- **SEC-10:** `security.clientIp(headers, remoto)` é a regra única de HTTP (`req.ip`, por `Object.defineProperty(app.request, 'ip', …)`) e de sockets (`ipOfSocket`). Se o último endereço é do Cloudflare (15 faixas IPv4 + 7 IPv6 oficiais, embutidas), vale o `CF-Connecting-IP` (o Cloudflare sempre o reescreve) ou, na falta, o penúltimo endereço (o que o próprio Cloudflare acrescentou); IPv6 conta pelo bloco /64; corrente estranha = endereço do Cloudflare (como antes). **Sem Cloudflare, exatamente o comportamento anterior.** `/diagnostico` (com token) mostra `ip_real` só com a forma da corrente, nunca endereços.
+- **SEC-12:** `Object.prototype.hasOwnProperty.call(PET_SLOT, category)`.
+
+### 11.4 Provas (antes → depois)
+| Prova | `main` 6adbddc | Corrigida |
+| --- | --- | --- |
+| Objetos venenosos: 2.520 cargas (todos os campos × todos os eventos × fora/coop/Desafio) | **15 quedas** em 4 pontos | 0 (também 0 só com a camada a, e só com a camada b) |
+| Fuzzing Socket.IO (cargas malformadas, poluição de protótipo, argumentos a mais/a menos) | caiu na 1ª rodada | ~16 mil eventos, 0 quedas, partida legítima jogando o tempo todo |
+| Fuzzing HTTP (todas as rotas, com/sem sessão, corpos e tipos inválidos, travessia de caminho) | 0 respostas 5xx | 0 respostas 5xx |
+| Estresse: 60 salas/120 jogadores + 9.000 conexões | memória estável (~10,4 MB) | memória estável (~10,5 MB), 0 recusas |
+| IP real simulado: 8 celulares atrás do mesmo Cloudflare criam perfil | 6 criados, 2 barrados sem motivo | 8 criados |
+| 14 celulares atrás do mesmo Cloudflare criam sala | 12 criadas, 2 barradas | 14 criadas |
+| 1 celular forjando o X-Forwarded-For / girando IPv6 no mesmo /64 | (todos já barrados juntos) | continua limitado |
+| Sem Cloudflare na frente | — | idêntico à `main` |
+| `/shop/equip` com `constructor` etc. | 500 (erro de SQL) | 400 "invalid", sem tocar no banco |
+| Suíte completa com banco | 624/624 | 631/631 (+7 de `tests/seguranca-final.test.js`, que reprovam na `main`) |
+
+### 11.5 Riscos que continuam
+- **SEC-13** (CSP larga com anúncios ligados), **H-01** (robô monta quebra-cabeças; o tempo mínimo é o único freio; ganho máximo inalterado), **R2** (8 erros por ID trancam o login daquele ID), **R3** (limites na memória: o deploy zera; a derrubada por mensagem, que também zerava, foi eliminada), **R4** (token no `localStorage`; CSP `report` por padrão no código), **R8** (colunas/tabelas e perfis legados com e-mail).
+- **SEC-10, residual:** a correção se apoia na arquitetura do Render documentada pela comunidade e pela equipe dele (Cloudflare na frente), não verificada no ambiente publicado: conferir `ip_real` no `/diagnostico` (com token). Usuários atrás do mesmo NAT de operadora (CGNAT, comum em IPv4 no celular) continuam dividindo os limites. Um ataque que passe pela própria infraestrutura do Cloudflare (por exemplo, Workers) **não foi testado**; os tetos globais (criação de perfis por hora, conexões e salas no total) e o travamento por ID continuam valendo. As faixas do Cloudflare estão embutidas: se mudarem, atualizar `security.js`.
+- **Não testado:** Android real; Render/Neon/Brevo reais; ZAP/Burp/Semgrep/CodeQL (foram usados os plugins de segurança do ESLint); restauração do Neon; revisão independente de segurança e revisão jurídica (continuam recomendadas antes de divulgar para escolas e menores).
