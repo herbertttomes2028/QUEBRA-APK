@@ -74,6 +74,7 @@ module.exports = function createChallenge(d) {
       goAt: null, startedAt: null, finishedAt: null, winner: null, result: null,
       rematch: [false, false],
       countdownTimer: null,
+      prepared: false,                    // tabuleiros já montados na contagem (ver startCountdown)
       grace: [null, null],                // temporizadores de desistência
       graceUntil: [0, 0],
       createdAt: now, lastActive: now
@@ -265,12 +266,18 @@ module.exports = function createChallenge(d) {
     room.goAt = Date.now() + COUNTDOWN_MS;
     clearTimeout(room.countdownTimer);
     room.countdownTimer = setTimeout(() => beginMatch(room), COUNTDOWN_MS);
-    io.to(room.code).emit('ch:countdown', { ms: COUNTDOWN_MS, match: room.match + 1 });
+    // Montagem antecipada (17/11/2026): os tabuleiros da partida são montados JÁ na contagem e cada celular recebe o SEU junto com ela,
+    // para montar as peças por trás da contagem. Antes, tudo (até 96 peças) era montado no celular no instante da largada: ele ficava
+    // parado no "1" e cada aparelho largava quando terminava. Ninguém mexe nas peças antes da largada (todo evento de peça exige 'playing').
+    buildBoards(room);
+    room.prepared = true;
+    for (let i = 0; i < 2; i++) emitTo(room, i, 'ch:countdown', { ms: COUNTDOWN_MS, match: room.match + 1, snapshot: boardSnapshot(room, i) });
     emitLobby(room);
   }
 
   function cancelCountdown(room, reason) {
     clearTimeout(room.countdownTimer); room.countdownTimer = null;
+    room.prepared = false;                // a próxima contagem monta tabuleiros novos
     if (room.status !== 'countdown') return;
     room.status = 'lobby';
     io.to(room.code).emit('ch:cancel', { reason });
@@ -283,7 +290,8 @@ module.exports = function createChallenge(d) {
     if (!bothConnected(room)) { cancelCountdown(room, 'dropped'); return; }
     if (!room.players.every((p) => p.imgReady)) { room.players.forEach((p) => { p.ready = false; }); cancelCountdown(room, 'img'); return; }
     room.match++;
-    buildBoards(room);
+    if (!room.prepared) buildBoards(room);          // normalmente já montados na contagem: são os mesmos que os celulares receberam
+    room.prepared = false;
     room.status = 'playing';
     room.startedAt = Date.now();
     room.finishedAt = null; room.winner = null; room.result = null;

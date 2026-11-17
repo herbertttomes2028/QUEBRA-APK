@@ -1035,7 +1035,22 @@
     });
   }
 
+  /* "Já tem um código?" (17/11/2026): depois que a pessoa ENTRA numa sala, o código sai do campo (e o aviso de convite some), para que, ao
+   * sair da partida, o espaço esteja livre para outro código. Antes, na Sala Desafio (sair não recarrega a página), o código antigo ficava
+   * escrito e o convite continuava escondendo os botões "Jogar". Se a sala não abre (código errado), nada disso roda: o código fica para corrigir. */
+  function clearJoinBox() {
+    var ic = $('#input-code');
+    ic.value = '';
+    ic.parentNode.classList.remove('ready');
+    showError($('#home-error'), '');
+    $('#home-invite').hidden = true;
+    $('#cta-row').hidden = false;
+    $('#btn-join').classList.remove('btn-primary');
+    $('#btn-join').classList.add('btn-secondary');
+  }
+
   function enterRoom(res) {
+    clearJoinBox();
     state.idx = res.idx;
     if (res.snapshot && res.snapshot.code && !res.snapshot.solo) saveCoopLocal(res.snapshot.code); else clearCoopLocal();
     if (window.QC && window.QC.afterEnter) window.QC.afterEnter('coop');
@@ -1261,7 +1276,7 @@
       el.style.height = T + 'px';
       var tile = document.createElement('div');
       tile.className = 'tile puzzle-shaped-tile';
-      tile.appendChild(pieceArt(d.col, d.row, cfg, d.id));
+      tile.appendChild(prebuiltArt(d, cfg) || pieceArt(d.col, d.row, cfg, d.id));
       el.appendChild(tile);
       var tag = document.createElement('span');
       tag.className = 'tag';
@@ -1282,7 +1297,18 @@
       classify(p);
       return p;
     });
+    artCache = null;                                   // as peças adiantadas valem para UMA montagem
     if (snap.mode === 'quebra' && cfg.GIFT) buildHand(cfg);
+  }
+  // peças desenhadas com antecedência (montagem antecipada da Sala Desafio): só se forem da mesma imagem, da mesma grade e da mesma casa
+  var artCache = null;
+  function prebuiltArt(d, cfg) {
+    var c = artCache;
+    if (!c || c.key !== state.imageUrl + '|' + cfg.COLS + 'x' + cfg.ROWS) return null;
+    var a = c.arts[d.id];
+    if (!a || a.col !== d.col || a.row !== d.row) return null;
+    c.arts[d.id] = null;
+    return a.svg;
   }
 
   // FILEIRA DE 5: só o desenho das vagas (atrás das peças, sem toque). Quem decide qual peça aparece e quando é o servidor.
@@ -2999,6 +3025,7 @@
   }
 
   function enterDuel(res) {
+    clearJoinBox();
     var l = res.lobby;
     state.idx = res.idx;
     if (window.QC && window.QC.afterEnter) window.QC.afterEnter('duel');
@@ -3118,7 +3145,9 @@
   }
 
   /* ----- contagem regressiva ----- */
-  var cd = { timers: [], on: false };
+  var cd = { timers: [], on: false, left: 0, waiters: [] };
+  // avisa quem espera o próximo número (a montagem antecipada roda logo DEPOIS de um número aparecer: até o seguinte há ~1 s)
+  function cdTick() { var w = cd.waiters; cd.waiters = []; w.forEach(function (f) { f(); }); }
   function setCd(txt, go) {
     var n = $('#cd-num');
     n.textContent = txt;
@@ -3141,9 +3170,10 @@
     $('#countdown').hidden = false;
     cd.on = true;
     var steps = Math.max(1, Math.round(ms / 1000)), per = ms / steps;
+    cd.left = steps;
     for (var i = 0; i < steps; i++) {
       (function (n, delay) {
-        cd.timers.push(setTimeout(function () { setCd(String(n)); playSound(n === 1 ? 'tick2' : 'tick'); }, delay));
+        cd.timers.push(setTimeout(function () { setCd(String(n)); playSound(n === 1 ? 'tick2' : 'tick'); cd.left--; cdTick(); }, delay));
       })(steps - i, i * per);
     }
     announce('A disputa começa em ' + steps + ' segundos.');
@@ -3151,6 +3181,7 @@
   function hideCountdown(flash) {
     cd.timers.forEach(clearTimeout);
     cd.timers = [];
+    cd.left = 0; cdTick();
     if (!cd.on) return;
     cd.on = false;
     if (flash) {
@@ -3163,55 +3194,89 @@
   }
 
   /* ----- a disputa ----- */
+  /* MONTAGEM ANTECIPADA (rodada inicio-sem-travar, 17/11/2026). Antes, o tabuleiro inteiro (até 96 peças em SVG, as guias, o estilo e o
+   * layout) era montado no INSTANTE da largada: o celular ficava parado no "1" e cada aparelho largava quando terminava (o mais lento, depois;
+   * medido com a CPU a 1/6: até ~0,3 s de tela parada; no celular fraco, bem mais). Agora o servidor manda o tabuleiro JUNTO com a contagem
+   * (ch:countdown.snapshot) e o celular monta tudo por trás da contagem (as peças em pedaços curtos, para os números não pararem); na
+   * largada (ch:start) só tira a contagem da frente. Se o tabuleiro da largada não for o mesmo, ou a montagem não terminou, faz como antes. */
+  function duelSig(snap) {
+    var s = {};
+    Object.keys(snap).forEach(function (k) { if (k !== 'elapsedMs') s[k] = snap[k]; });       // o relógio muda entre a contagem e a largada
+    return JSON.stringify(s);
+  }
+  function prebuildDuel(snap) {
+    var d = state.duel;
+    if (!d || !snap || !snap.cfg || !Array.isArray(snap.pieces)) return;
+    var prep = { sig: duelSig(snap), done: false, promise: null };
+    d.prep = prep;
+    var vivo = function () { return state.duel === d && d.prep === prep && d.phase === 'countdown'; };
+    prep.promise = imagesReady.then(function () {
+      return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
+    }).then(function (url) {
+      return new Promise(function (res) { setTimeout(res, 60); }).then(function () {      // primeiro o "3" aparece
+        return vivo() ? prebuildArts(snap, url, vivo) : null;
+      }).then(function () {
+        return vivo() ? afterNextCd() : null;
+      }).then(function () {
+        if (!vivo()) return;
+        mountDuelBoard(snap, url, false, false);          // por trás da contagem (ela cobre a tela inteira)
+        prep.done = true;
+      });
+    }).catch(function () { /* qualquer falha: a largada monta como antes */ });
+  }
+  // a parte que não dá para picar (pôr as peças na tela: estilo e layout) roda logo depois do próximo número da contagem, para não atrasar
+  // nenhum número (no celular lento ela leva algumas centenas de ms; entre um número e outro há ~1 s). Sem número pela frente, roda já.
+  function afterNextCd() {
+    return new Promise(function (res) {
+      if (!cd.on || cd.left <= 0) { res(); return; }
+      cd.waiters.push(function () { setTimeout(res, 50); });
+    });
+  }
+  // desenha as peças (a parte mais pesada da montagem) em pedaços de ~10 ms, deixando a contagem seguir entre um pedaço e outro
+  function prebuildArts(snap, url, vivo) {
+    var cfg = snap.cfg, list = snap.pieces, i = 0;
+    var cache = { key: url + '|' + cfg.COLS + 'x' + cfg.ROWS, arts: {} };
+    return new Promise(function (res) {
+      (function fatia() {
+        if (!vivo()) { res(); return; }
+        var t0 = performance.now(), antes = state.imageUrl;
+        state.imageUrl = url;                              // pieceArt (desenho travado por teste) lê a imagem daqui: só durante este pedaço
+        try {
+          while (i < list.length && performance.now() - t0 < 10) {
+            var p = list[i++];
+            cache.arts[p.id] = { col: p.col, row: p.row, svg: pieceArt(p.col, p.row, cfg, p.id) };
+          }
+        } finally { state.imageUrl = antes; }
+        if (i < list.length) { setTimeout(fatia, 0); return; }
+        artCache = cache;
+        res();
+      })();
+    });
+  }
   function startDuelBoard(snap, resume) {
     if (resume) setLoading(true, 'Voltando para a disputa…');
-    return imagesReady.then(function () {
+    var d0 = state.duel, prep = !resume && d0 ? d0.prep : null;
+    // largada: espera a montagem antecipada terminar (no máximo 2,5 s; depois disso, monta como antes)
+    var espera = prep && prep.promise ? Promise.race([prep.promise, new Promise(function (r) { setTimeout(r, 2500); })]) : null;
+    return Promise.resolve(espera).then(function () { return imagesReady; }).then(function () {
       return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
     }).then(function (url) {
       var d = state.duel;
       if (!d) { setLoading(false); return; }
-      d.phase = 'game';
-      d.mode = snap.mode;
-      d.box = snap.box;
-      if (resume) d.giftQ = [];                          // quem volta de uma queda já recebe as peças no lugar (snapshot)
-      d.prog = snap.progress;
-      d.lead = 'tie';
-      d.alerted = false;
-      state.cfg = snap.cfg;
-      state.code = snap.code;
-      state.imageId = snap.imageId;
-      state.imageUrl = url;
-      state.total = snap.total;
-      state.locked = snap.locked;
-      state.hints = snap.hints;
-      state.spots = snap.spots;
-      state.counts = [0, 0];
-      state.selectedId = null;
-      state.drag = null;
-      state.status = 'playing';
-      state.timerBase = Date.now() - snap.elapsedMs;
-      clearTimeout(state.idleTimer);
-      buildField(snap);
-      currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
-      trimPreparedImages();
-      setSolo(false);
-      ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
-      hideRematchWait();
-      $('#field').classList.remove('won');
-      $('#confetti').textContent = '';
-      closeHint();
-      clearSpot();
-      markMilestones();
-      state.inGame = true;
-      $('#duel-strip').hidden = false;
-      $('#banner-wait').hidden = true;
-      $('#menu-change').hidden = true;
-      $('#menu-restart').hidden = true;
-      showScreen('game');
-      layout();
-      updateUi();
-      updateGift();
-      updateDuelPresence();
+      var pronto = !!(prep && d.prep === prep && prep.done && prep.sig === duelSig(snap) && state.imageUrl === url && state.pieces.length === snap.pieces.length);
+      d.prep = null;                                     // uma montagem antecipada que ainda estivesse rodando para aqui
+      if (pronto) {                                      // o tabuleiro já está na tela, por trás da contagem
+        if (currentScreen() !== 'game') showScreen('game');
+        d.phase = 'game';
+        state.status = 'playing';
+        state.timerBase = Date.now() - snap.elapsedMs;
+        state.inGame = true;
+        layout();
+        wakeFrame();
+        updateUi();
+        updateGift();
+        updateDuelPresence();
+      } else mountDuelBoard(snap, url, resume, true);
       ensurePush();
       keepAwake();
       setLoading(false);
@@ -3219,6 +3284,54 @@
       else hideCountdown(false);
       if (!resume) flushGifts();                         // Quebrando Cabeças: a caixa já cuspiu a 1ª rodada; anima agora que o tabuleiro existe
     });
+  }
+  // monta o tabuleiro da disputa. largada = true: como sempre foi (vale a partir de agora); false: montagem antecipada, ainda na contagem
+  function mountDuelBoard(snap, url, resume, largada) {
+    var d = state.duel;
+    if (largada) d.phase = 'game';
+    d.mode = snap.mode;
+    d.box = snap.box;
+    if (resume) d.giftQ = [];                          // quem volta de uma queda já recebe as peças no lugar (snapshot)
+    d.prog = snap.progress;
+    d.lead = 'tie';
+    d.alerted = false;
+    state.cfg = snap.cfg;
+    state.code = snap.code;
+    state.imageId = snap.imageId;
+    state.imageUrl = url;
+    state.total = snap.total;
+    state.locked = snap.locked;
+    state.hints = snap.hints;
+    state.spots = snap.spots;
+    state.counts = [0, 0];
+    state.selectedId = null;
+    state.drag = null;
+    if (largada) {
+      state.status = 'playing';
+      state.timerBase = Date.now() - snap.elapsedMs;
+    } else state.status = 'countdown';                 // ninguém mexe nas peças antes da largada (onPointerDown confere)
+    clearTimeout(state.idleTimer);
+    buildField(snap);
+    currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
+    trimPreparedImages();
+    setSolo(false);
+    ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
+    hideRematchWait();
+    $('#field').classList.remove('won');
+    $('#confetti').textContent = '';
+    closeHint();
+    clearSpot();
+    markMilestones();
+    if (largada) state.inGame = true;
+    $('#duel-strip').hidden = false;
+    $('#banner-wait').hidden = true;
+    $('#menu-change').hidden = true;
+    $('#menu-restart').hidden = true;
+    showScreen('game');
+    layout();
+    updateUi();
+    updateGift();
+    updateDuelPresence();
   }
 
   // faixa da corrida: mostra o seu progresso e o do adversário (só a porcentagem; nunca o tabuleiro dele)
@@ -3481,11 +3594,12 @@
   }
 
   socket.on('ch:lobby', function (l) { applyLobby(l); });
-  socket.on('ch:countdown', function (c) { showCountdown(c.ms); });
+  socket.on('ch:countdown', function (c) { showCountdown(c.ms); if (c && c.snapshot) prebuildDuel(c.snapshot); });
   socket.on('ch:cancel', function (c) {
     var d = state.duel;
     if (!d) return;
     hideCountdown(false);
+    d.prep = null;                                     // a montagem antecipada desta contagem não vale mais
     var why = { img: 'A imagem não ficou pronta nos dois celulares. Toquem em "pronto" de novo.', dropped: friendName() + ' desconectou. A contagem foi cancelada.', unready: 'Alguém desmarcou "pronto". A contagem foi cancelada.', left: friendName() + ' saiu da sala.' }[c && c.reason];
     if (why) toast(why, 2600);
     d.phase = 'lobby';
