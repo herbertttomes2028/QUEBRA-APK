@@ -113,5 +113,6 @@ html:is([data-text="large"], [data-text="xlarge"]) #screen-home .home-inner { pa
 
 /* Tela inicial fixa (sem rolar) em A, A+ e A++: o game.js (homeFit) encolhe o conteúdo por inteiro até caber entre o topo e a barra de abas.
  * A faixa do alto (perfil e ajuda) mantém o tamanho: o translate devolve o que a escala tiraria dela. */
-#screen-home.home-fit { overflow: hidden; }
-#screen-home.home-fit .home-inner { margin-top: 0; transform-origin: 50% 0; transform: translateY(calc(var(--fit-pad, 0px) * (1 - var(--fit, 1)))) scale(var(--fit, 1)); }
+/* (16/11/2026) a marca fica no .home-inner — mexer na classe da tela inicial fazia o mascote se ressincronizar e o pet "tremia";
+ * o "não rolar" é posto pelo game.js no estilo da própria tela */
+#screen-home .home-inner.home-fit { margin-top: 0; transform-origin: 50% 0; transform: translateY(calc(var(--fit-pad, 0px) * (1 - var(--fit, 1)))) scale(var(--fit, 1)); }

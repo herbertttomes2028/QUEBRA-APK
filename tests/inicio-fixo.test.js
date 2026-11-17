@@ -13,11 +13,11 @@ const game = read('public/game.js'), telas = read('public/telas.css'), natal = r
 test('tela inicial fixa: o conteúdo que passa da altura é encolhido por inteiro (sem rolar), recalculado só quando o tamanho muda', () => {
   const b = game.slice(game.indexOf('(function homeFit() {'), game.indexOf('(function homeKeyboard() {')); assert.ok(b.length > 200);
   assert.match(b, /new ResizeObserver\(fit\); ro\.observe\(home\); ro\.observe\(inner\);/);
-  assert.match(b, /s = h <= avail \? 1 : Math\.max\(0\.5, \(avail - pad - 2\) \/ \(h - pad\)\)/, 'a faixa do alto (perfil) não entra na conta da escala');
+  assert.match(b, /s = Math\.max\(0\.5, Math\.floor\(\(avail - pad - 2\) \/ \(h - pad\) \* 200\) \/ 200\)/, 'a faixa do alto (perfil) não entra na conta da escala');
   assert.match(b, /code\.addEventListener\('focus', function \(\) \{ typing = true; fit\(\); \}\);/, 'digitando o código, volta a rolar (o campo fica visível acima do teclado)');
   assert.doesNotMatch(b, /requestAnimationFrame|setInterval/, 'nada roda a cada quadro');
-  assert.match(telas, /#screen-home\.home-fit \{ overflow: hidden; \}/);
-  assert.match(telas, /#screen-home\.home-fit \.home-inner \{ margin-top: 0; transform-origin: 50% 0; transform: translateY\(calc\(var\(--fit-pad, 0px\) \* \(1 - var\(--fit, 1\)\)\)\) scale\(var\(--fit, 1\)\); \}/, 'só transform: não mexe no layout nem nos toques; a faixa do perfil mantém o tamanho');
+  assert.match(game, /home\.style\.overflowY = typing \? '' : 'hidden';/, 'a tela inicial não rola (o estilo vai na tela, não a classe)');
+  assert.match(telas, /#screen-home \.home-inner\.home-fit \{ margin-top: 0; transform-origin: 50% 0; transform: translateY\(calc\(var\(--fit-pad, 0px\) \* \(1 - var\(--fit, 1\)\)\)\) scale\(var\(--fit, 1\)\); \}/, 'só transform: não mexe no layout nem nos toques; a faixa do perfil mantém o tamanho');
 });
 
 test('o gorro do Natal mora no bloco azul do logotipo e se mexe junto com ele', () => {
@@ -25,10 +25,14 @@ test('o gorro do Natal mora no bloco azul do logotipo e se mexe junto com ele', 
   assert.doesNotMatch(natal, /\.logo::before/, 'não fica mais parado no logotipo');
 });
 
-test('o pet não "treme" ao voltar para o início: a tela só é regravada quando a escala MUDA, e as mudanças da carga viram uma só', () => {
+test('o pet não "treme" ao voltar para o início: o encaixe nunca mexe na classe da tela inicial (que o mascote observa) e não fica liga-desliga', () => {
   const b = game.slice(game.indexOf('(function homeFit() {'), game.indexOf('(function homeKeyboard() {'));
+  assert.doesNotMatch(b, /home\.classList/, 'a classe da tela inicial é do mascote: o encaixe não toca nela');
+  assert.match(b, /inner\.classList\.add\('home-fit'\)/);
+  assert.match(b, /if \(typing \|\| over <= \(on \? -8 : 2\)\) s = 1;/, 'folga: só encaixa se passar 2 px e só desencaixa se sobrarem 8 px');
+  assert.match(b, /else if \(over <= 0\) s = curS;/, 'dentro da folga, mantém');
   assert.match(b, /if \(m\.s === curS && \(m\.s === 1 \|\| m\.pad === curPad\)\) return;/, 'nada é escrito se a escala não mudou');
-  assert.match(b, /if \(was === 1\) \{ home\.classList\.add\('home-fit'\);/, 'a classe da tela (que o mascote observa) só é posta ao LIGAR o encaixe');
-  assert.match(b, /waitT = setTimeout\(function \(\) \{ var n = measure\(\);[^}]*n\.s < curS \|\| n\.s > curS \+ 0\.02/, 'mudanças seguidas viram uma só (200 ms); aumentos pequenos são ignorados');
-  assert.match(b, /Math\.floor\(s \* 200\) \/ 200/, 'variações menores que 0,5% não contam');
+  assert.match(b, /waitT = setTimeout\(function \(\) \{ var n = measure\(\);[^}]*n\.s < curS \|\| n\.s > curS \+ 0\.02/, 'mudanças seguidas viram uma só (200 ms)');
+  const mascot = fs.readFileSync(path.join(__dirname, '..', 'public/mascot.js'), 'utf8');
+  assert.match(mascot, /new MutationObserver\(function \(\) \{ sync\(\); \}\)\.observe\(home, \{ attributes: true, attributeFilter: \['class'\] \}\)/, 'é por isso: o mascote se ressincroniza a cada mudança na classe da tela inicial');
 });
