@@ -33,6 +33,11 @@ html[data-natal] .natal-neve i { position: absolute; left: 0; right: 0; top: -26
 @keyframes natalNeve { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 260px, 0); } }
 
 /* ---------- gorro no logotipo, estrelinha no título e neve nos botões principais ---------- */
+/* o gorro sobe ~30 px acima do logotipo: com o tema, o conteúdo da tela inicial desce mais um pouco para o gorro também não encostar no perfil */
+@media (min-width: 380px) { html[data-natal] #screen-home .home-inner { padding-top: calc(max(0px, 10px - env(safe-area-inset-top, 0px)) + 78px); } }
+html[data-natal]:is([data-text="large"], [data-text="xlarge"]) #screen-home .home-inner { padding-top: calc(max(0px, 10px - env(safe-area-inset-top, 0px)) + 78px); }
+@media (min-width: 380px) and (max-height: 760px) { html[data-natal] #screen-home .logo { --u: .66; } }
+@media (min-width: 380px) and (max-height: 680px) { html[data-natal] #screen-home .logo { --u: .54; } html[data-natal] #screen-home .natal-msg { display: none; } }
 html[data-natal] #screen-home .logo::before { content: ""; position: absolute; z-index: 3; left: calc(-20px * var(--u)); top: calc(-30px * var(--u)); width: calc(70px * var(--u)); height: calc(56px * var(--u)); pointer-events: none; transform: rotate(-16deg);
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 70 56'%3E%3Cpath d='M8 42 Q14 10 44 8 Q60 7 63 22 Q55 15 50 22 Q47 32 54 42 Z' fill='%23d62839'/%3E%3Cpath d='M14 40 Q22 20 42 15' fill='none' stroke='%23ff6b7d' stroke-width='3' stroke-linecap='round' opacity='.6'/%3E%3Crect x='3' y='38' width='56' height='13' rx='6.5' fill='%23fffaf2' stroke='%23d9dce8' stroke-width='1.5'/%3E%3Ccircle cx='63' cy='22' r='6.5' fill='%23fffaf2' stroke='%23d9dce8' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat center / contain; }
 html[data-natal] #screen-home .h1-two::after { content: "⭐" / ""; display: inline-block; margin-left: .18em; font-size: .62em; vertical-align: .55em; }

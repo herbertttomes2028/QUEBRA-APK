@@ -99,3 +99,14 @@ html[data-theme="dark"] .library-gate.feito { background: #0f4b3a; color: #b8f5d
 .age-row label { display: block; margin: 0 0 4px 2px; font-weight: 700; font-size: .85rem; color: var(--ink-soft); }
 .age-row select { width: 100%; min-height: 48px; padding: 0 10px; font: inherit; color: var(--ink); background: var(--card); border: 2px solid var(--line); border-radius: 14px; }
 .age-sheet .btn[disabled] { opacity: .55; }
+
+/* O perfil (à direita) e a ajuda (à esquerda) ficam no alto da tela inicial, onde sempre estiveram; o conteúdo (logotipo, título…) começa
+ * ABAIXO deles, para nunca ficarem um por cima do outro (acontecia com nome + nível + gemas no perfil, em telas de 393–430 px de largura e
+ * altura até ~640 px, e com letra grande; correção de 16/11/2026). Os botões ficam a max(10px, área segura) do topo e têm 44 px + 4 px de sombra. */
+/* Só onde há risco: a partir de 380 px de largura o perfil mostra nome, nível e gemas (fica largo); com letra grande, em qualquer largura.
+ * Abaixo de 380 px, com letra normal, o perfil é só o círculo do avatar no canto e não alcança o logotipo (sem espaço extra, nada muda). */
+@media (min-width: 380px) { #screen-home .home-inner { padding-top: calc(max(0px, 10px - env(safe-area-inset-top, 0px)) + 54px); } }
+html:is([data-text="large"], [data-text="xlarge"]) #screen-home .home-inner { padding-top: calc(max(0px, 10px - env(safe-area-inset-top, 0px)) + 54px); }
+/* para os botões não descerem para trás da barra em tela baixa, nesse caso o logotipo fica um pouco menor */
+@media (min-width: 380px) and (max-height: 760px) { #screen-home .logo { --u: .74; margin-bottom: 8px; } }
+@media (min-width: 380px) and (max-height: 680px) { #screen-home .logo { --u: .62; margin-bottom: 6px; } }
