@@ -6,7 +6,7 @@ function boundedInt(value, fallback, min, max) {
   return Number.isSafeInteger(n) && n >= min && n <= max ? n : fallback;
 }
 const HEAVY_AUTH_RE = /^\/api\/acc\/(profile\/(login|new|erase|new-secret)|delete)$/;
-function windowGate({ max, windowMs, entries = 6000, now = Date.now }) {
+function windowGate({ max, windowMs, entries = 6000, now = Date.now, openWhenFull = false }) {
   const map = new Map();
   function allow(key) {
     const t = now();
@@ -14,7 +14,8 @@ function windowGate({ max, windowMs, entries = 6000, now = Date.now }) {
     if (item && t - item.at >= windowMs) { map.delete(key); item = null; }
     if (!item) {
       // Do not evict live counters: eviction would let attackers reset a quota by changing IPs.
-      if (map.size >= entries) return false;
+      // openWhenFull: contadores de APARELHO (a conexão muda a cada reabertura) não barram ninguém se o mapa encher; o limite por endereço continua.
+      if (map.size >= entries) { if (!openWhenFull) return false; sweep(); if (map.size >= entries) return true; }
       item = { at: t, n: 0 }; map.set(key, item);
     }
     if (item.n >= max) return false;
@@ -23,16 +24,30 @@ function windowGate({ max, windowMs, entries = 6000, now = Date.now }) {
   }
   function sweep() { const t = now(); for (const [key, item] of map) if (t - item.at >= windowMs) map.delete(key); }
   const timer = setInterval(sweep, Math.min(windowMs, 60000)); timer.unref?.();
-  return { allow, sweep, count: () => map.size, close: () => clearInterval(timer) };
+  // quantas vezes a chave já usou na janela atual (sem contar nada)
+  function used(key) { const item = map.get(key); return item && now() - item.at < windowMs ? item.n : 0; }
+  return { allow, used, sweep, max, count: () => map.size, close: () => clearInterval(timer) };
 }
+/* Limites por ENDEREÇO (17/11/2026). Um endereço não é uma pessoa: numa escola a turma inteira sai pelo mesmo endereço, e na rede móvel
+ * centenas de celulares dividem um. Os valores abaixo cabem uma turma (ou duas) jogando ao mesmo tempo; quem abusa continua barrado por:
+ *   - limites por APARELHO (conexão ou perfil) onde existe ação repetível (criar sala; palpites de código ficam em security.createJoinGuard);
+ *   - RESERVA quando o servidor está quase cheio (75% do teto): um endereço que já tem muitas conexões (ou já criou muitas salas na janela)
+ *     não abre mais, e as vagas que sobram ficam para quem tem pouco. Assim um ou dois endereços não esgotam o jogo para todo mundo;
+ *   - os tetos gerais e a concorrência máxima da API, que não mudaram.
+ * Tudo continua ajustável pelo Render (MAX_SOCKETS_PER_IP, ROOM_CREATES_PER_10MIN, MAX_LIVE_SOCKETS, MAX_ACTIVE_ROOMS...). */
+const FULLISH = 0.75;
 function makeProtection(env = process.env) {
   const roomsMax = boundedInt(env.MAX_ACTIVE_ROOMS, 240, 20, 1500);
   const socketsMax = boundedInt(env.MAX_LIVE_SOCKETS, 500, 50, 2000);
-  const socketsPerIp = boundedInt(env.MAX_SOCKETS_PER_IP, 32, 4, 128);
-  const createRoomGate = windowGate({ max: boundedInt(env.ROOM_CREATES_PER_10MIN, 12, 3, 100), windowMs: 600000 });
-  const apiGate = windowGate({ max: 360, windowMs: 60000 });
+  const socketsPerIp = boundedInt(env.MAX_SOCKETS_PER_IP, 120, 4, 400);
+  const socketsFair = Math.min(socketsPerIp, boundedInt(env.MAX_SOCKETS_PER_IP_WHEN_FULL, 32, 4, 400));     // reserva: acima de 75% do teto
+  const roomsPerIp = boundedInt(env.ROOM_CREATES_PER_10MIN, 60, 3, 300);
+  const createRoomGate = windowGate({ max: roomsPerIp, windowMs: 600000 });
+  const roomsFair = Math.min(roomsPerIp, boundedInt(env.ROOM_CREATES_PER_10MIN_WHEN_FULL, 12, 3, 300));   // reserva: acima de 75% do teto de salas
+  const createRoomDevGate = windowGate({ max: boundedInt(env.ROOM_CREATES_PER_DEVICE_10MIN, 20, 3, 300), windowMs: 600000, entries: 20000, openWhenFull: true });
+  const apiGate = windowGate({ max: boundedInt(env.API_PER_IP_PER_MIN, 1500, 100, 20000), windowMs: 60000 });
   const downloadGate = windowGate({ max: 150, windowMs: 60000 });
-  const staticGate = windowGate({ max: 1500, windowMs: 60000 });
+  const staticGate = windowGate({ max: boundedInt(env.STATIC_PER_IP_PER_MIN, 6000, 300, 60000), windowMs: 60000 });
   const diagGate = windowGate({ max: 25, windowMs: 60000 });
   const motionGate = windowGate({ max: 240, windowMs: 3000 });
   const controlGate = windowGate({ max: 90, windowMs: 3000 });
@@ -43,8 +58,13 @@ function makeProtection(env = process.env) {
   const maxInflightApi = boundedInt(env.MAX_API_INFLIGHT, 80, 10, 200);
   const maxCostlyAuth = boundedInt(env.MAX_AUTH_INFLIGHT, 8, 2, 32);
   const keyOfSocket = socket => String(ipOfSocket(socket) || 'unknown').slice(0, 100);
+  // aparelho: o perfil (se logado) ou a conexão
+  const devOfSocket = socket => (socket.data && socket.data.uid ? 'u:' + socket.data.uid : 's:' + socket.id);
   function allowRoom(socket, activeRooms) {
-    return activeRooms < roomsMax && createRoomGate.allow(keyOfSocket(socket));
+    if (activeRooms >= roomsMax) return false;
+    const ip = keyOfSocket(socket);
+    if (activeRooms >= roomsMax * FULLISH && createRoomGate.used(ip) >= roomsFair) return false;   // quase cheio: quem já criou muitas espera
+    return createRoomDevGate.allow(devOfSocket(socket)) && createRoomGate.allow(ip);            // o aparelho primeiro: quem insiste não gasta a cota da rede
   }
   function httpMiddleware(req, res, next) {
     const pathname = req.path || '';
@@ -115,7 +135,8 @@ function makeProtection(env = process.env) {
   function installSocketShield(io) {
     io.use((socket, next) => {
       const ip = keyOfSocket(socket);
-      if (activeSockets >= socketsMax || (socketIps.get(ip) || 0) >= socketsPerIp) return next(new Error('busy'));
+      const mine = socketIps.get(ip) || 0;
+      if (activeSockets >= socketsMax || mine >= socketsPerIp || (activeSockets >= socketsMax * FULLISH && mine >= socketsFair)) return next(new Error('busy'));
       activeSockets++;
       socketIps.set(ip, (socketIps.get(ip) || 0) + 1);
       let released = false;
@@ -141,9 +162,16 @@ function makeProtection(env = process.env) {
       next();
     });
   }
-  return { allowRoom, httpMiddleware, installSocketShield, sameOrigin, roomLimit: roomsMax, socketLimit: socketsMax, handlerErrors: () => handlerErrors,
+  // os números em vigor (para o /diagnostico; nenhum endereço)
+  const limits = {
+    conexoes: { por_endereco: socketsPerIp, por_endereco_com_servidor_quase_cheio: socketsFair, total: socketsMax },
+    criar_sala_em_10_min: { por_endereco: roomsPerIp, por_aparelho: createRoomDevGate.max, por_endereco_com_servidor_quase_cheio: roomsFair, salas_ao_mesmo_tempo: roomsMax },
+    pedidos_por_minuto: { api: apiGate.max, arquivos: staticGate.max },
+    quase_cheio_a_partir_de: Math.round(FULLISH * 100) + '%'
+  };
+  return { allowRoom, httpMiddleware, installSocketShield, sameOrigin, roomLimit: roomsMax, socketLimit: socketsMax, limits, handlerErrors: () => handlerErrors,
     stats: () => ({ activeSockets, activeApi, costlyAuth, distinctIps: socketIps.size }), close: () => {
-      for (const gate of [createRoomGate, apiGate, downloadGate, staticGate, diagGate, motionGate, controlGate]) gate.close();
+      for (const gate of [createRoomGate, createRoomDevGate, apiGate, downloadGate, staticGate, diagGate, motionGate, controlGate]) gate.close();
     } };
 }
 module.exports = { boundedInt, windowGate, makeProtection, HEAVY_AUTH_RE };

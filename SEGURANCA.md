@@ -70,7 +70,7 @@ O plano gratuito do Brevo tem limite diário de envios (esses limites mudam: con
 - **Suspeita de vazamento:** Perfil > Segurança > *Gerar código novo* (pede o código atual; o antigo deixa de valer na hora e os outros aparelhos saem).
 - **Sair de todos os aparelhos:** Perfil > Segurança.
 - **Apagar:** Perfil > *Apagar meus dados…* (digite EXCLUIR + código-chave).
-- Limites: 8 erros por ID e 20 por endereço a cada 15 minutos; 6 perfis novos por hora por endereço. Detalhes e testes: `docs/AUDITORIA_SEGURANCA.md`.
+- Limites: 8 erros por ID e 60 por endereço a cada 15 minutos; 60 perfis novos por hora e 300 por dia por endereço (10 por hora quando o jogo já criou 750 na última hora; 1500 por hora no total). Por endereço eram 20 erros e 6 perfis por hora até 17/11/2026 (rodada `limites-ip`: uma turma sai pelo mesmo endereço). Detalhes e testes: `docs/AUDITORIA_SEGURANCA.md` §12.
 - **No máximo 5 aparelhos por perfil** (desde 15/11/2026): ao entrar no sexto, o que entrou há mais tempo sai do perfil (a conexão do jogo dele também perde o acesso). Logins vencidos são apagados do banco a cada hora.
 - **Muitos acessos ao mesmo tempo:** no máximo 8 conferências de código-chave rodam juntas (`MAX_AUTH_INFLIGHT`); acima disso a resposta é "O jogo está com muitos acessos agora. Tente de novo em alguns segundos." Os contadores de tentativas ficam separados por tipo: uma enxurrada de tentativas erradas não impede mais que um aparelho novo entre.
 
@@ -123,19 +123,19 @@ O relatório da auditoria (somente leitura) está resumido em `docs/AUDITORIA_SE
 ## 8. Código da sala, tentativas, bate-papo e bloqueios
 
 **Código da sala:** agora tem **6 caracteres** (antes 4). São 32 caracteres possíveis: 1.073.741.824 combinações (antes 1.048.576).
-**Limite de tentativas (por endereço de internet):**
+**Limite de tentativas (desde 17/11/2026, rodada `limites-ip`, em duas contagens):** por **aparelho** (o perfil, se estiver logado; senão, a conexão) e, com números maiores, por **endereço de internet**. Antes era só por endereço, e numa escola a turma inteira sai pelo mesmo endereço (no Render, até esta rodada, o jogo inteiro aparecia com o mesmo endereço): 6 erros de qualquer pessoa travavam todo mundo.
 
-| Situação | Resultado |
-|---|---|
-| 6 códigos errados em 15 minutos | bloqueio de **15 min** |
-| volta a errar depois do bloqueio | **1 h**, depois **6 h**, depois **24 h** |
-| 30 erros em um dia | bloqueio de **24 h** |
-| código certo durante o bloqueio | **também é recusado** |
-| tentar de novo o mesmo código em poucos segundos | conta como 1 erro só (evita punir toque duplo) |
+| Situação | Por aparelho | Por endereço (a rede: casa, escola, operadora) |
+|---|---|---|
+| códigos errados em 15 minutos | 6 → bloqueio de **15 min** | 40 → bloqueio de **10 min** |
+| volta a errar depois do bloqueio | **1 h**, depois **6 h**, depois **24 h** | **30 min**, depois **2 h**, depois **6 h** |
+| erros em um dia | 30 → bloqueio de **24 h** | 200 → bloqueio de **6 h** |
+| código certo durante o bloqueio | **também é recusado** | **também é recusado** |
+| tentar de novo o mesmo código em poucos segundos | conta como 1 erro só (evita punir toque duplo) | idem |
 
-Conta de risco: com 50 salas abertas e no máximo 30 palpites por dia por endereço, a chance de acertar alguma sala é de cerca de **0,0001% por dia por endereço**,
-e de uns **0,14% por dia** mesmo que alguém use **1.000 endereços diferentes**. Não é zero, é muito pouco provável. (Com 4 caracteres seriam ~100%.)
-Ajustes pelo Render (opcionais): `CODE_LEN` (4 a 8), `JOIN_MAX_FAILS`, `JOIN_DAILY_MAX`.
+Conta de risco: o freio de quem fecha e reabre o aplicativo para escapar da trava do aparelho é o limite por endereço. Com 50 salas abertas e no máximo 200 palpites por dia por endereço, a chance de acertar alguma sala é de cerca de **0,0009% por dia por endereço**,
+e de cerca de **0,9% por dia** se alguém usar **1.000 endereços diferentes** (com o limite antigo de 30 por dia eram 0,14%: o preço de a turma não ser travada por erros de digitação dos colegas). Quem acerta só cai numa sala de quebra-cabeça com vaga livre: não há bate-papo e os jogadores aparecem como "Jogador 1/2". (Com 4 caracteres seriam ~100%.)
+Ajustes pelo Render (opcionais): `CODE_LEN` (4 a 8), `JOIN_MAX_FAILS` e `JOIN_DAILY_MAX` (por aparelho), `JOIN_IP_MAX_FAILS` e `JOIN_IP_DAILY_MAX` (por endereço).
 
 **Bate-papo: não existe.** A conversa livre acabou primeiro; as frases prontas ficaram desligadas desde 15/11/2026 e, em 16/11/2026, todo o código do bate-papo foi **apagado** (`phrases.js`, eventos `chat`/`ch:chat`, painel 💬, reações com emoji e o aviso "Nova frase liberada"). Nenhuma mensagem, frase ou reação passa de um jogador para o outro, com qualquer valor de `CHAT_ENABLED`. Não reintroduzir.
 

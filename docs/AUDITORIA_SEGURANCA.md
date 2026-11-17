@@ -230,3 +230,47 @@ Auditoria feita por um assistente de IA sobre a `main` `6adbddc`, com testes e p
 - **SEC-13** (CSP larga com anúncios ligados), **H-01** (robô monta quebra-cabeças; o tempo mínimo é o único freio; ganho máximo inalterado), **R2** (8 erros por ID trancam o login daquele ID), **R3** (limites na memória: o deploy zera; a derrubada por mensagem, que também zerava, foi eliminada), **R4** (token no `localStorage`; CSP `report` por padrão no código), **R8** (colunas/tabelas e perfis legados com e-mail).
 - **SEC-10, residual:** a correção se apoia na arquitetura do Render documentada pela comunidade e pela equipe dele (Cloudflare na frente), não verificada no ambiente publicado: conferir `ip_real` no `/diagnostico` (com token). Usuários atrás do mesmo NAT de operadora (CGNAT, comum em IPv4 no celular) continuam dividindo os limites. Um ataque que passe pela própria infraestrutura do Cloudflare (por exemplo, Workers) **não foi testado**; os tetos globais (criação de perfis por hora, conexões e salas no total) e o travamento por ID continuam valendo. As faixas do Cloudflare estão embutidas: se mudarem, atualizar `security.js`.
 - **Não testado:** Android real; Render/Neon/Brevo reais; ZAP/Burp/Semgrep/CodeQL (foram usados os plugins de segurança do ESLint); restauração do Neon; revisão independente de segurança e revisão jurídica (continuam recomendadas antes de divulgar para escolas e menores).
+
+## 12. Rodada `limites-ip` (17/11/2026): IP real na corrente do Render e limites que cabem uma turma
+
+### 12.1 O que o Render mostrou
+O `/diagnostico` publicado (com token; só a FORMA, sem endereços) trouxe `ip_real`: **3 endereços** no X-Forwarded-For, **o último fora do Cloudflare** e `CF-Connecting-IP` presente. A regra do SEC-10 (§11.3) só reconhecia "último = Cloudflare" e, fora disso, ficava com o último endereço: no Render ele é um salto do próprio Render, igual para todo mundo. Na prática **o SEC-10 não valia no jogo publicado** e todos os limites por endereço continuavam sendo do jogo inteiro: 6 códigos de sala errados de qualquer pessoa travavam a entrada em salas de todos por 15 min (até 24 h reincidente), 6 perfis por hora, 32 conexões, 12 salas a cada 10 min. Mesmo com o IP certo, esses números não cabem uma turma: numa escola todos saem pelo mesmo endereço (e na rede móvel, o CGNAT junta centenas de celulares).
+
+### 12.2 Correção
+| Parte | Antes | Agora |
+| --- | --- | --- |
+| IP real | último = Cloudflare → `CF-Connecting-IP`; senão o último | do fim para o começo: pula saltos INTERNOS (faixas privadas, CGNAT, link-local, IPv6 privado); Cloudflare no lugar que sobrou, **ou** um salto público no fim logo depois de um Cloudflare (com alguém antes dele) → `CF-Connecting-IP` (ou o endereço que o Cloudflare acrescentou); sem Cloudflare → o primeiro não interno a partir do fim. IPv6 por /64 |
+| `/diagnostico` › `ip_real` | quantidade, último é Cloudflare, tem CF-Connecting-IP | + `tipos_do_primeiro_ao_ultimo`, `cf_connecting_ip_igual_a_posicao`, `regra_usada` (nunca endereços) |
+| Código de sala errado | 6/15 min e 30/dia **por endereço** | **6/15 min e 30/dia por aparelho** (perfil logado ou conexão) **+ 40/15 min e 200/dia por endereço** (travas 10 min, 30 min, 2 h, 6 h) |
+| Criar perfil | 6/h por endereço; 1500/h no total | 60/h e 300/dia por endereço; 1500/h no total; com 750 na última hora, 10/h por endereço |
+| Conexões | 32 por endereço; 500 no total | 120 por endereço; 500 no total; acima de 375, endereço com 32 ou mais não abre outra |
+| Criar sala | 12/10 min por endereço; 240 ativas | 60/10 min por endereço e 20 por aparelho; 240 ativas; acima de 180, endereço que já criou 12 na janela espera |
+| API / arquivos | 360 / 1500 por minuto por endereço | 1500 / 6000 (uma abertura do jogo faz ~34 pedidos) |
+| Login por ID + código-chave | 40 por 10 min e 20 erros por 15 min por endereço; 8 erros por ID | 200 e 60 por endereço; **8 erros por ID (igual)** |
+| Mapas na memória | endereços: cheio (8 mil) trava os novos | aparelhos (20 mil): descarta os mais antigos; endereços: descarta só quem errou uma vez e nunca foi travado (olha os 500 mais antigos), senão trava os novos |
+
+Ordem das checagens onde há aparelho e endereço: **o aparelho primeiro**, para quem insiste não gastar a cota da rede. Todos os números são ajustáveis por variável (CONTINUIDADE §6) e aparecem no `/diagnostico` (`seguranca.limites_por_endereco`, `seguranca.limite_de_tentativas`).
+
+### 12.3 Provas (local; servidor descartável; PostgreSQL local; nada no Render, Neon ou Brevo)
+| Prova | `main` 583294a | Esta rodada |
+| --- | --- | --- |
+| Corrente "celular, Cloudflare, salto interno do Render": dois celulares | os dois com o MESMO endereço (o do Render) | cada um com o seu |
+| `tests/limites-ip.test.js` (14 testes) rodado contra a `main` | 14 reprovam | 14 passam |
+| Simulação com banco, corrente de 3 endereços — escola: 62 perfis / 125 conexões / 65 salas | 6 criados / 32 / 12 | 60 (2 barrados) / 120 / 60 |
+| ...outra escola, ao mesmo tempo: 5 perfis / 1 conexão | **5 barrados / recusada** (o limite era do jogo inteiro) | 5 criados / aceita |
+| 20 alunos digitam um código errado; 1 insiste; colegas entram nas salas certas | (só 32 conectaram) | 20 sem trava; quem insiste trava no 6º; 20 de 20 entram |
+| Atacante reabrindo conexões para chutar códigos; depois, a escola vizinha tenta | trava no 6º e **a escola vizinha fica travada também** | trava no 40º; a escola vizinha não é afetada |
+| Forjar: `CF-Connecting-IP` sem Cloudflare (girando, 65×); IPv6 girando no /64 (65×) | todos barrados (chave única) | 60 criados e 5 barrados nos dois (a chave não muda) |
+| Objetos venenosos (2.520 cargas) / fuzzing Socket.IO (24 mil eventos) | 0 quedas / 0 quedas (rodada anterior, mesmo código) | 0 / 0 |
+| Fuzzing HTTP (3.868 pedidos) | 0 respostas 5xx | 0 respostas 5xx (contagem por código idêntica à `main`) |
+| Estresse 60 salas + 9.000 conexões | memória estável (rodada anterior) | memória estável (~10,6 MB), 0 falhas |
+| Navegador (abertura, partida Solo de 20 peças) | — | mesmos números da medição anterior, 0 erros |
+| Custo de um palpite com o mapa de endereços cheio | — | ~0,03 ms |
+
+### 12.4 Riscos que continuam
+- **Forma "Cloudflare + 1 salto público":** se o Render acrescentar um salto PÚBLICO (e não interno) depois do Cloudflare, a regra confia no `CF-Connecting-IP`. Esse formato é indistinguível de alguém que conseguisse falar direto com o último proxy do Render, sem passar pelo Cloudflare (não há notícia de que seja possível). Conferir no `/diagnostico` depois do deploy: com "saltos internos" esse risco não existe.
+- **Mesma rede:** dentro de uma escola, quem reabre o aplicativo de propósito ainda consegue travar a entrada em salas daquela rede por 10 min (não a do jogo inteiro); e criar 60 salas ou perfis por hora gasta a cota daquela rede.
+- **Tetos gerais:** com muitos endereços (centenas), alguém ainda esgota os tetos gerais (500 conexões, 240 salas, 1500 perfis/h); a reserva só impede que um ou dois endereços façam isso.
+- **Limites na memória:** o deploy zera as contagens (R3, igual).
+- **Não testado:** o Render de verdade, uma turma real, Android real.
+

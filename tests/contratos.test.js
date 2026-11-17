@@ -209,7 +209,7 @@ test('Solo: o progresso salvo do cooperativo (saves) e a entrada pelo código t�
   assert.equal((srv.match(/accounts && !room\.solo\) accounts\.noteCoop\(/g) || []).length, 2, 'as duas chamadas a noteCoop do servidor precisam da guarda');
   assert.ok(/accounts && !room\.solo\) for \(const p of room\.players\) if \(p && p\.uid && !p\.left\) accounts\.deleteSave/.test(srv), 'reiniciar não pode apagar o progresso salvo no Solo (nem o de outra partida de quem saiu pelo botão)');
   assert.ok(/if \(room\.solo && !room\.players\.some\(\(p\) => p && p\.pid === pid\)\)/.test(srv), 'join precisa recusar quem não é o dono da sala Solo');
-  assert.ok(/joinGuard\.fail\(security\.ipOfSocket\(socket\), code\)/.test(srv), 'a recusa do Solo precisa contar como palpite errado (joinMiss não conta salas que existem)');
+  assert.ok(/joinGuard\.fail\(security\.ipOfSocket\(socket\), code, joinDev\(socket\)\)/.test(srv), 'a recusa do Solo precisa contar como palpite errado (joinMiss não conta salas que existem; desde 17/11/2026 conta por endereço E por aparelho)');
   assert.ok(!/socket\.on\('chat'/.test(srv), 'não existe bate-papo (nem no Solo, nem em sala nenhuma; apagado em 16/11/2026)');
 });
 

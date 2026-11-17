@@ -347,20 +347,20 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
 
     /* ============ 9) força bruta com os limites reais ============ */
     S2 = await startServer(dbUrl, { ACC_RATE_MULT: '1' });
-    await t.test('9) força bruta: trava por ID (8 erros) e por endereço (20 erros); um perfil bloqueado não afeta os outros; criação limitada por endereço', async () => {
+    await t.test('9) força bruta: trava por ID (8 erros) e por endereço (60 erros desde 17/11/2026); um perfil bloqueado não afeta os outros; criação limitada por endereço', async () => {
       const ipC = '10.55.0.1'; const mk = async () => { const r = await http(S2, 'POST', '/profile/new', { ip: nextIp(), body: { consent: true, age16: true } }); assert.equal(r.status, 200, JSON.stringify(r.body)); return r.body; };
       const X = await mk(), Y = await mk();
       for (let i = 1; i <= 8; i++) { const r = await http(S2, 'POST', '/profile/login', { ip: nextIp(), body: { id: X.id, secret: randId() + randId() + 'AAAA' } }); assert.equal(r.status, 401, 'tentativa ' + i); }
       const dep = await http(S2, 'POST', '/profile/login', { ip: nextIp(), body: { id: X.id, secret: X.secret } });
       assert.deepEqual([dep.status, dep.body.error], [429, 'rate'], 'depois de 8 erros o ID trava, mesmo com o código certo (e de outro endereço)');
       assert.equal((await http(S2, 'POST', '/profile/login', { ip: nextIp(), body: { id: Y.id, secret: Y.secret } })).status, 200, 'o outro perfil continua entrando');
-      for (let i = 1; i <= 20; i++) { const r = await http(S2, 'POST', '/profile/login', { ip: ipC, body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); assert.equal(r.status, 401, 'palpite ' + i); }
+      for (let i = 1; i <= 60; i++) { const r = await http(S2, 'POST', '/profile/login', { ip: ipC, body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); assert.equal(r.status, 401, 'palpite ' + i); }
       const ipTrava = await http(S2, 'POST', '/profile/login', { ip: ipC, body: { id: Y.id, secret: Y.secret } });
-      assert.deepEqual([ipTrava.status, ipTrava.body.error], [429, 'rate'], 'um endereço que erra 20 vezes é travado, até com o código certo');
+      assert.deepEqual([ipTrava.status, ipTrava.body.error], [429, 'rate'], 'um endereço que erra 60 vezes é travado, até com o código certo');
       assert.equal((await http(S2, 'POST', '/profile/login', { ip: nextIp(), body: { id: Y.id, secret: Y.secret } })).status, 200, 'outro endereço não é afetado');
       const er = await http(S2, 'POST', '/profile/erase', { ip: nextIp(), body: { id: X.id, secret: X.secret, confirm: 'EXCLUIR' } }); assert.equal(er.status, 429, 'apagar por ID+código também respeita a trava');
-      const mesmo = '10.66.6.6'; let n429 = 0, n200 = 0; for (let i = 0; i < 9; i++) { const r = await http(S2, 'POST', '/profile/new', { ip: mesmo, body: { consent: true, age16: true } }); if (r.status === 200) n200++; if (r.status === 429) n429++; }
-      t.diagnostic('criação de perfis do MESMO endereço em sequência: ' + n200 + ' criados, ' + n429 + ' barrados'); assert.ok(n200 <= 6 && n429 >= 3, 'criação em massa por endereço é limitada');
+      const mesmo = '10.66.6.6'; let n429 = 0, n200 = 0; for (let i = 0; i < 63; i++) { const r = await http(S2, 'POST', '/profile/new', { ip: mesmo, body: { consent: true, age16: true } }); if (r.status === 200) n200++; if (r.status === 429) n429++; }
+      t.diagnostic('criação de perfis do MESMO endereço em sequência: ' + n200 + ' criados, ' + n429 + ' barrados'); assert.ok(n200 <= 60 && n429 >= 3, 'criação em massa por endereço é limitada (60 por hora: cabe uma turma)');
     });
 
     /* ============ 9c) mapa de limites cheio NÃO barra quem chega depois (auditoria SEC-02) ============ */
@@ -375,8 +375,8 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
         assert.equal(ok.status, 200, 'o login CORRETO de um aparelho novo continua funcionando (antes: 429)');
         assert.equal((await http(S3, 'POST', '/profile/new', { ip: nextIp(), body: { consent: true, age16: true } })).status, 200, 'criar perfil de um aparelho novo continua funcionando');
         const ip = nextIp(); let n = 0;
-        for (let i = 0; i < 21; i++) { const r = await http(S3, 'POST', '/profile/login', { ip, body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); if (r.status === 429) n++; }
-        assert.ok(n >= 1, 'o limite por endereço (20 erros) continua valendo com o grupo cheio');
+        for (let i = 0; i < 61; i++) { const r = await http(S3, 'POST', '/profile/login', { ip, body: { id: randId(), secret: randId() + randId() + 'AAAA' } }); if (r.status === 429) n++; }
+        assert.ok(n >= 1, 'o limite por endereço (60 erros) continua valendo com o grupo cheio');
       } finally { await S3.stop(); }
     });
 

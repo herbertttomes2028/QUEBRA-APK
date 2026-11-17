@@ -54,12 +54,12 @@ test('HTTP: APIs e diagnóstico limitados; arquivos e health permanecem acessív
   try {
     for (let n = 0; n < 25; n++) assert.equal(call('/diagnostico').next, true);
     assert.deepEqual(call('/diagnostico').result, { ok: false, error: 'rate' });
-    for (let n = 0; n < 360; n++) assert.equal(call('/api/acc/me').next, true);
+    for (let n = 0; n < 1500; n++) assert.equal(call('/api/acc/me').next, true);       // 17/11/2026: 1500/min por endereço (eram 360; uma turma atrás do mesmo endereço)
     assert.equal(call('/api/acc/me').code, 429);
     assert.equal(call('/health').next, true);
     assert.equal(call('/biblioteca/lib-fauna-01.webp').next, true);
     assert.equal(call('/api/acc/me', 'outro-ip').next, true);
-    for (let n = 0; n < 1500; n++) assert.equal(call('/style.css', 'large-client').next, true);
+    for (let n = 0; n < 6000; n++) assert.equal(call('/style.css', 'large-client').next, true);   // 17/11/2026: 6000/min (eram 1500)
     assert.equal(call('/style.css', 'large-client').code, 429);
   } finally { shield.close(); }
 });
@@ -120,7 +120,8 @@ test('admissão de salas vale para os dois modos; limite por IP e teto global', 
 test('proteção de adivinhação de salas tem mapa de IPs limitado em vez de crescer indefinidamente', () => {
   const { createJoinGuard } = require('../security');
   const guard = createJoinGuard({});
-  for (let i = 0; i < 8000; i++) assert.equal(guard.fail('100.1.' + i, 'XXXXXX').locked, false);
+  // 17/11/2026: cada endereço com DOIS erros (quem erra uma vez só pode sair do mapa cheio; ver tests/limites-ip.test.js)
+  for (let i = 0; i < 8000; i++) { assert.equal(guard.fail('100.1.' + i, 'XXXXXX').locked, false); assert.equal(guard.fail('100.1.' + i, 'YYYYYY').locked, false); }
   const blocked = guard.fail('novo-ip', 'XXXXXX');
   assert.equal(blocked.locked, true);
   assert.ok(blocked.retryMs > 0);

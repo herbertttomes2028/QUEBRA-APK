@@ -311,7 +311,8 @@ app.get('/diagnostico', (req, res) => {
       eventos_invalidos_ignorados: protection.handlerErrors(),      // SEC-11: eventos de socket com dados malformados que antes derrubariam o servidor
       promessas_sem_tratamento: rejeicoesSemTratamento,
       tamanho_do_codigo_da_sala: CODE_LEN,
-      limite_de_tentativas: joinGuard.limits,
+      limite_de_tentativas: joinGuard.limits,          // palpites de código de sala: MAX/DAILY por aparelho, IP_MAX/IP_DAILY por endereço
+      limites_por_endereco: protection.limits,        // conexões, criação de salas e pedidos por endereço (números em vigor; nenhum endereço)
       email: mailer ? 'configurado (' + mailer.provider + ')' : 'não configurado' + (mailInfo.missing.length ? ' — faltam as variáveis: ' + mailInfo.missing.join(', ') : (mailInfo.badEmail ? ' — BREVO_SENDER_EMAIL parece inválido' : '')) + ' (sem confirmação de e-mail nem recuperação de senha)'
     },
     contas: {
@@ -854,11 +855,12 @@ const challenge = require('./challenge')({
   imageAllowed: async (socket, file) => !library.image(file) || (accounts ? accounts.libraryCanPlay(socket.data.uid, file) : !library.cat(library.image(file).categoryId).price)
 });
 
-// limite de tentativas de adivinhar o código da sala (por endereço de internet)
-function joinLocked(socket) { return joinGuard.check(security.ipOfSocket(socket)); }
+// limite de tentativas de adivinhar o código da sala: conta por APARELHO (o perfil, se logado; senão, a conexão) e, com limite bem maior, por ENDEREÇO (ver security.createJoinGuard)
+function joinDev(socket) { return socket.data.uid ? 'u:' + socket.data.uid : 's:' + socket.id; }
+function joinLocked(socket) { return joinGuard.check(security.ipOfSocket(socket), joinDev(socket)); }
 function joinMiss(socket, code) {
-  if (rooms.has(code) || (challenge && challenge.has(code))) return joinGuard.check(security.ipOfSocket(socket));   // existe: não é palpite errado
-  return joinGuard.fail(security.ipOfSocket(socket), code);
+  if (rooms.has(code) || (challenge && challenge.has(code))) return joinLocked(socket);   // existe: não é palpite errado
+  return joinGuard.fail(security.ipOfSocket(socket), code, joinDev(socket));
 }
 function blockedWithRoom(socket, players) {
   const uid = socket.data.uid;
@@ -972,11 +974,11 @@ io.on('connection', (socket) => {
     const room = rooms.get(code);
     if (!room) { const m = joinMiss(socket, code); return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' }); }
     if (room.solo && !room.players.some((p) => p && p.pid === pid)) {      // sala Solo: só o dono volta; os outros recebem a MESMA resposta de "sala inexistente"
-      const m = joinGuard.fail(security.ipOfSocket(socket), code);             // e a tentativa conta como palpite errado (joinMiss não contaria, porque a sala existe): sem diferença que revele a sala
+      const m = joinGuard.fail(security.ipOfSocket(socket), code, joinDev(socket));             // e a tentativa conta como palpite errado (joinMiss não contaria, porque a sala existe): sem diferença que revele a sala
       return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' });
     }
     if (room.closed && !room.players.some((p) => p && p.pid === pid && !p.left)) {   // alguém saiu de propósito: o código não serve mais (só quem ficou volta)
-      const m = joinGuard.fail(security.ipOfSocket(socket), code);                     // mesma resposta (e mesma contagem) de código inexistente
+      const m = joinGuard.fail(security.ipOfSocket(socket), code, joinDev(socket));                     // mesma resposta (e mesma contagem) de código inexistente
       return reply(cb, m.locked ? { ok: false, error: 'locked', retryMs: m.retryMs } : { ok: false, error: 'notfound' });
     }
     if (blockedWithRoom(socket, room.players)) return reply(cb, { ok: false, error: 'notfound' });    // alguém da sala bloqueou esta pessoa
