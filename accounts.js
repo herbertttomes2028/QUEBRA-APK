@@ -129,6 +129,31 @@ function profileNewGate(limiter, mult) {
   };
 }
 
+/* liga cada partida do histórico ao XP que ela rendeu: o registro de XP da partida (mesma imagem e peças) gravado logo DEPOIS dela (até 5 s;
+ * o pagamento roda em seguida à gravação da partida): vale o mais próximo depois dela. Cada registro vale para UMA partida só, e as
+ * partidas vêm da mais nova para a mais antiga. Função pura (testada à parte). */
+const REWARD_WINDOW_MS = 5000;
+// melhor tempo só conta acima do tempo mínimo plausível de cada quantidade (o mesmo das conquistas e do XP: xp.MIN_MS); números do código
+const MIN_MS_SQL = 'CASE ' + xpm.MIN_MS.filter((r) => Number.isFinite(r[0])).map((r) => 'WHEN pieces <= ' + Number(r[0]) + ' THEN ' + Number(r[1])).join(' ') +
+  ' ELSE ' + Number(xpm.MIN_MS[xpm.MIN_MS.length - 1][1]) + ' END';
+function matchRewards(matches, events) {
+  const used = new Set();
+  return matches.map((m) => {
+    const at = new Date(m.at).getTime();
+    let hit = -1, score = Infinity;
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i], t = new Date(e.created_at).getTime();
+      if (used.has(i) || e.label !== m.imageLabel || String(e.pieces) !== String(m.pieces)) continue;
+      if (t < at - 1000 || t > at + REWARD_WINDOW_MS) continue;
+      const sc = t >= at ? t - at : REWARD_WINDOW_MS + (at - t);          // depois da partida e mais perto dela, primeiro
+      if (sc < score) { score = sc; hit = i; }
+    }
+    if (hit < 0) return Object.assign({}, m, { xp: 0, gems: 0 });
+    used.add(hit);
+    return Object.assign({}, m, { xp: Number(events[hit].amount) || 0, gems: Number(events[hit].gems) || 0 });
+  });
+}
+
 function createAccounts(d) {
   const { app, express, io, db, cleanName, cleanAvatar, roomInfo, roomOfSocket, imageLabel, onAuth, mailer, peerOf } = d;
   const libraryService = library.makeService(db);
@@ -544,9 +569,46 @@ function createAccounts(d) {
     res.json({ ok: true });
   }));
 
+  /* Minhas partidas (17/11/2026, pedido do proprietário): as 10 mais recentes (eram 6) e, para o card da imagem que abre ao tocar numa
+   * partida, o que cada uma rendeu (XP e gemas) e, por imagem, o total ganho jogando com ela e os melhores tempos por quantidade de peças.
+   * Tudo SÓ do dono da sessão. As recompensas não ficam na tabela de partidas: vêm do registro de XP (kind 'match', com a imagem e as peças
+   * em meta), gravado logo depois da partida (payMatch, na mesma hora); as gemas são as da mesma concessão (ref 'match:' + ref do XP) e o
+   * bônus de nível que ela gerou (mesma transação, mesmo instante). Nada é gravado nem recalculado aqui. */
+  const HISTORY_MAX = 10;
   r.get('/matches', needUser, guard(async (req, res) => {
-    const rows = (await db.q('SELECT mode, image_label, pieces, result, completed, duration_ms, opponent, created_at FROM matches WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 6', [req.user.id])).rows;
-    res.json({ ok: true, matches: rows.map((m) => ({ mode: m.mode, imageLabel: m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, durationMs: m.duration_ms == null ? null : Number(m.duration_ms), opponent: m.opponent, at: m.created_at })) });
+    const uid = req.user.id;
+    const rows = (await db.q('SELECT mode, image_label, pieces, result, completed, duration_ms, opponent, created_at FROM matches WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT ' + HISTORY_MAX, [uid])).rows;
+    let matches = rows.map((m) => ({ mode: m.mode, imageLabel: m.image_label, pieces: m.pieces, result: m.result, completed: m.completed, durationMs: m.duration_ms == null ? null : Number(m.duration_ms), opponent: m.opponent, at: m.created_at, xp: 0, gems: 0 }));
+    const images = {};
+    if (rows.length) {
+      const oldest = new Date(new Date(rows[rows.length - 1].created_at).getTime() - 2000);
+      const ev = (await db.q(`SELECT e.amount, e.created_at, e.meta->>'label' AS label, e.meta->>'pieces' AS pieces,
+            (SELECT COALESCE(sum(g.amount), 0) FROM gem_events g WHERE g.user_id = e.user_id AND (g.ref = 'match:' || e.ref OR (g.kind = 'level' AND g.created_at = e.created_at)))::int AS gems
+          FROM xp_events e WHERE e.user_id = $1 AND e.kind = 'match' AND e.created_at >= $2 ORDER BY e.created_at, e.id`, [uid, oldest])).rows;
+      matches = matchRewards(matches, ev);
+      const labels = [...new Set(rows.map((m) => m.image_label))];
+      for (const l of labels) images[l] = { plays: 0, done: 0, xp: 0, gems: 0, best: {} };
+      for (const t of (await db.q('SELECT image_label, count(*)::int AS plays, count(*) FILTER (WHERE completed)::int AS done FROM matches WHERE user_id = $1 AND image_label = ANY($2::text[]) GROUP BY 1', [uid, labels])).rows) {
+        images[t.image_label].plays = t.plays; images[t.image_label].done = t.done;
+      }
+      for (const t of (await db.q('SELECT image_label, pieces, min(duration_ms) AS ms FROM matches WHERE user_id = $1 AND completed AND duration_ms >= ' + MIN_MS_SQL + ' AND image_label = ANY($2::text[]) GROUP BY 1, 2', [uid, labels])).rows) {
+        images[t.image_label].best[t.pieces] = Number(t.ms);
+      }
+      for (const t of (await db.q(`SELECT e.meta->>'label' AS label, sum(e.amount)::int AS xp,
+            sum((SELECT COALESCE(sum(g.amount), 0) FROM gem_events g WHERE g.user_id = e.user_id AND (g.ref = 'match:' || e.ref OR (g.kind = 'level' AND g.created_at = e.created_at))))::int AS gems
+          FROM xp_events e WHERE e.user_id = $1 AND e.kind = 'match' AND e.meta->>'label' = ANY($2::text[]) GROUP BY 1`, [uid, labels])).rows) {
+        if (images[t.label]) { images[t.label].xp = t.xp || 0; images[t.label].gems = t.gems || 0; }
+      }
+    }
+    res.json({ ok: true, matches, images });
+  }));
+  // melhores tempos de cada imagem por quantidade de peças, de todas as partidas concluídas do perfil (a tela de escolha junta com os do aparelho);
+  // tempo abaixo do mínimo plausível ("partida fantasma") não conta, como nas conquistas
+  r.get('/bests', needUser, guard(async (req, res) => {
+    const rows = (await db.q('SELECT image_label, pieces, min(duration_ms) AS ms FROM matches WHERE user_id = $1 AND completed AND duration_ms >= ' + MIN_MS_SQL + ' GROUP BY 1, 2', [req.user.id])).rows;
+    const bests = {};
+    for (const t of rows) bests[t.image_label + '|' + t.pieces] = Number(t.ms);
+    res.json({ ok: true, bests });
   }));
 
   /* Biblioteca pessoal: progresso e desbloqueios somente do titular da sessão. */
@@ -954,4 +1016,4 @@ function createAccounts(d) {
   };
 }
 
-module.exports = { createAccounts, makeLimiter, profileNewGate, LIMIT_GROUP_MAX, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };
+module.exports = { createAccounts, makeLimiter, profileNewGate, matchRewards, LIMIT_GROUP_MAX, hashPassword, checkPassword, normCode, fmtCode, normSecret, newSecret, fmtSecret, maskEmail, ACHIEVEMENTS };

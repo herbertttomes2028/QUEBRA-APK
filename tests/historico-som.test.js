@@ -1,5 +1,5 @@
 'use strict';
-// Regressões específicas: histórico visível de 6 partidas e mesmo som nos botões.
+// Regressões específicas: histórico visível das partidas mais recentes (eram 6; 10 desde 17/11/2026, pedido do proprietário) e mesmo som nos botões.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,8 +10,9 @@ const accounts = read('accounts.js');
 const game = read('public/game.js');
 const conta = read('public/conta.js');
 
-test('Minhas partidas: API retorna somente as 6 mais recentes, em ordem estável', () => {
-  assert.match(accounts, /r\.get\('\/matches'[\s\S]*?FROM matches WHERE user_id = \$1 ORDER BY created_at DESC, id DESC LIMIT 6/);
+test('Minhas partidas: API retorna somente as 10 mais recentes, em ordem estável', () => {
+  assert.match(accounts, /const HISTORY_MAX = 10;/);
+  assert.match(accounts, /r\.get\('\/matches'[\s\S]*?FROM matches WHERE user_id = \$1 ORDER BY created_at DESC, id DESC LIMIT ' \+ HISTORY_MAX/);
   assert.doesNotMatch(accounts, /r\.get\('\/matches'[\s\S]*?LIMIT 30/);
   assert.match(conta, /api\('GET', '\/matches'\)/);
   assert.match(conta, /j\.matches\.forEach\(function \(m, i\)/); // visual original permanece

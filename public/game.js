@@ -858,17 +858,32 @@
     updateSizeNote();
   }
 
+  /* Melhor tempo da imagem escolhida, NA QUANTIDADE escolhida, em destaque logo abaixo do nome (17/11/2026, pedido do proprietário: antes
+   * ficava no fim do painel, misturado com o tamanho da grade e com as regras das quantidades grandes, que saíram daqui). Vale o menor entre
+   * o deste aparelho e o das partidas concluídas do perfil (conta.js manda pelo QC.setServerBests). */
   function updateSizeNote() {
     var p = state.presets.filter(function (x) { return x.pieces === state.pickPieces; })[0];
     if (!p) return;
-    var note = p.pieces + ' peças (' + p.cols + ' × ' + p.rows + ').';
-    if (p.grande) note += ' Ímã mais forte, lâmpada sem limite e ' + (p.spots || 5) + ' dicas de lugar 📍.';
-    else if (p.pieces >= 48) note += ' As peças ficam pequenas no celular: melhor para telas grandes.';
-    else if (p.pieces <= 6) note += ' Peças grandes, ótimas para começar.';
-    var bt = state.bests[state.pickChoice + '|' + state.pickPieces];
-    if (typeof bt === 'number') note += ' 🏆 Seu melhor tempo: ' + fmtTime(bt) + '.';
-    $('#size-note').textContent = note;
+    var box = $('#size-note'), bt = state.pickChoice ? bestFor(state.pickChoice, p.pieces) : null;
+    box.textContent = '';
+    box.classList.toggle('tem', bt !== null);
+    var ico = document.createElement('span'); ico.className = 'psb-ico'; ico.setAttribute('aria-hidden', 'true'); ico.textContent = bt !== null ? '🏆' : '⏱️';
+    var txt = document.createElement('span'); txt.className = 'psb-txt';
+    var t1 = document.createElement('b'); t1.textContent = bt !== null ? 'Seu melhor tempo' : 'Ainda sem tempo';
+    var t2 = document.createElement('small'); t2.textContent = 'com ' + p.pieces + ' peças';
+    txt.appendChild(t1); txt.appendChild(t2);
+    var val = document.createElement('strong'); val.className = 'psb-time'; val.textContent = bt !== null ? fmtTime(bt) : '--:--';
+    box.appendChild(ico); box.appendChild(txt); box.appendChild(val);
   }
+  // melhores tempos: os DESTE aparelho (state.bests, por arquivo|peças, gravados ao concluir) e os do PERFIL (todas as partidas concluídas,
+  // por nome da imagem|peças; vêm do servidor quando há conta). Mostra o menor.
+  var serverBests = {};
+  function bestFor(file, pieces) {
+    var ok = function (v) { return typeof v === 'number' && isFinite(v) && v > 0; };
+    var a = state.bests[file + '|' + pieces], b = serverBests[imageItem(file).label + '|' + pieces];
+    return ok(a) && ok(b) ? Math.min(a, b) : ok(a) ? a : ok(b) ? b : null;
+  }
+  function imageByLabel(label) { return state.images.filter(function (i) { return i.label === label; })[0] || null; }
 
   /* ---------------------------------------------------------
    * Entrar / criar partida
@@ -4209,7 +4224,14 @@
       state.avatar = avatar || '';
       store.set('avatar', state.avatar);
     },
-    afterEnter: null, onScreen: null, canBlock: false
+    afterEnter: null, onScreen: null, canBlock: false,
+    // histórico de partidas e melhores tempos (conta.js): a mesma conta de tempo, a mesma imagem e o mesmo "melhor" da tela de escolha
+    fmtTime: fmtTime, bestFor: bestFor, imageByLabel: imageByLabel,
+    setServerBests: function (map) {
+      serverBests = {};
+      if (map && typeof map === 'object') Object.keys(map).forEach(function (k) { var v = Number(map[k]); if (isFinite(v) && v > 0) serverBests[k] = v; });
+      if (!$('#pick-sheet').hidden) updateSizeNote();
+    }
   };
 
   wakeFrame();
