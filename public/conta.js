@@ -85,6 +85,8 @@
   function saveSession(token) { acc.token = token || ''; store.set('token', acc.token); }
   function logoutLocal(msg) {
     saveSession('');
+    if (QC.setServerBests) QC.setServerBests({});                   // os tempos do perfil saem junto com ele
+    bestsAt = 0;
     acc.me = null; acc.ach = null; acc.achStale = true; acc.achAt = 0; acc.meAt = 0; acc.dirty = false; acc.newKey = null;
     QC.setLevelAccount(null, 0);
     acc.mode = 'up';                                        // depois de sair, a tela volta para "Criar perfil"
@@ -621,7 +623,19 @@
     return r;
   }
 
-  /* ---------- partidas ---------- */
+  /* ---------- partidas ----------
+   * (17/11/2026, pedido do proprietário) as 10 mais recentes (eram 6), cada uma com a miniatura da imagem; tocar numa abre o card da imagem:
+   * a imagem, o melhor tempo (o mesmo "melhor" da tela de escolha: aparelho + perfil), o tempo daquela partida e as recompensas (XP e gemas)
+   * daquela partida e de todas as partidas com essa imagem. Nada de outra pessoa além do nome que já aparecia ("com Jogador 2"). */
+  var hist = { data: null };
+  function tempo(ms) { return QC.fmtTime ? QC.fmtTime(ms) : fmtTime(ms); }
+  function imgOf(label) { return QC.imageByLabel ? QC.imageByLabel(label) : null; }
+  function bgOf(item, big) {                                // miniatura primeiro; no card, a imagem inteira por cima quando carregar
+    if (!item) return '';
+    var mini = item.thumb || item.url;
+    return big && item.url && item.url !== mini ? 'url("' + item.url + '"), url("' + mini + '")' : 'url("' + mini + '")';
+  }
+  var RESULT = { win: 'Vitória', loss: 'Derrota', done: 'Concluído' };
   function loadHistory() {
     var box = $('#hist-list');
     box.textContent = '';
@@ -629,21 +643,81 @@
     api('GET', '/matches').then(function (j) {
       box.textContent = '';
       if (!j || !j.ok) { box.appendChild(el('p', 'me-small', errText(j && j.error))); return; }
+      hist.data = j;
       if (!j.matches.length) {
         var empty = el('div', 'fr-empty'); empty.appendChild(el('span', '', '🧩')); empty.appendChild(el('p', '', 'Suas partidas vão aparecer aqui. Que tal montar um quebra-cabeça?'));
         box.appendChild(empty); return;
       }
+      box.appendChild(el('p', 'me-small hi-note', 'Suas ' + j.matches.length + ' partidas mais recentes. Toque numa para ver a imagem.'));
       j.matches.forEach(function (m, i) {
-        var r = el('div', 'fr-row hi-row'); r.style.animationDelay = Math.min(i, 8) * 40 + 'ms';
-        r.appendChild(el('span', 'fr-av', KIND_ICO[m.mode] || '🧩'));
+        var r = el('button', 'fr-row hi-row'); r.type = 'button'; r.style.animationDelay = Math.min(i, 8) * 40 + 'ms';
+        var item = imgOf(m.imageLabel), av = el('span', 'fr-av hi-thumb' + (item ? ' img' : ''), item ? null : (KIND_ICO[m.mode] || '🧩'));
+        if (item) { av.style.backgroundImage = bgOf(item, false); av.appendChild(el('i', 'hi-kind', KIND_ICO[m.mode] || '🧩')); }
+        av.setAttribute('aria-hidden', 'true');
+        r.appendChild(av);
         var info = el('div', 'fr-info');
-        info.appendChild(el('b', '', m.imageLabel + ' · ' + m.pieces + ' peças'));
-        info.appendChild(el('small', '', (KIND[m.mode] || 'Partida') + (m.opponent ? ' com ' + m.opponent : '') + (m.durationMs ? ' · ' + fmtTime(m.durationMs) : '') + ' · ' + fmtDay(m.at)));
+        info.appendChild(el('b', '', m.imageLabel));
+        info.appendChild(el('small', '', m.pieces + ' peças · ' + (KIND[m.mode] || 'Partida') + (m.opponent ? ' com ' + m.opponent : '') + (m.durationMs ? ' · ' + tempo(m.durationMs) : '') + ' · ' + fmtDay(m.at)));
         r.appendChild(info);
-        r.appendChild(el('span', 'hi-pill ' + m.result, { win: 'Vitória', loss: 'Derrota', done: 'Concluído' }[m.result]));
+        r.appendChild(el('span', 'hi-pill ' + m.result, RESULT[m.result]));
+        r.setAttribute('aria-label', m.imageLabel + ', ' + m.pieces + ' peças, ' + (RESULT[m.result] || '') + ', ' + fmtDay(m.at) + '. Ver a imagem');
+        r.addEventListener('click', function () { openHistCard(m); });
         box.appendChild(r);
       });
     });
+  }
+  // o card da imagem da partida
+  function openHistCard(m) {
+    var item = imgOf(m.imageLabel), info = (hist.data && hist.data.images && hist.data.images[m.imageLabel]) || { plays: 0, done: 0, xp: 0, gems: 0, best: {} };
+    var bestOf = function (n) {
+      var a = info.best && info.best[n], b = item && QC.bestFor ? QC.bestFor(item.file, n) : null;
+      a = typeof a === 'number' && a > 0 ? a : null;
+      return a && b ? Math.min(a, b) : (a || b || null);
+    };
+    var art = $('#hc-art');
+    art.style.backgroundImage = bgOf(item, true);
+    art.classList.toggle('vazio', !item);
+    art.textContent = item ? '' : '🧩';
+    art.setAttribute('aria-label', 'Imagem: ' + m.imageLabel);
+    $('#hc-title').textContent = m.imageLabel;
+    var tags = $('#hc-tags'); tags.textContent = '';
+    tags.appendChild(el('span', 'hc-tag', (KIND_ICO[m.mode] || '🧩') + ' ' + (KIND[m.mode] || 'Partida') + (m.opponent ? ' com ' + m.opponent : '')));
+    tags.appendChild(el('span', 'hc-tag', m.pieces + ' peças'));
+    tags.appendChild(el('span', 'hc-tag', fmtDay(m.at)));
+    tags.appendChild(el('span', 'hi-pill ' + m.result, RESULT[m.result]));
+    // melhor tempo na quantidade desta partida (em destaque) e o tempo desta partida
+    var best = bestOf(m.pieces), bb = $('#hc-best');
+    bb.classList.toggle('tem', !!best);
+    $('#hc-best-ico').textContent = best ? '🏆' : '⏱️';
+    $('#hc-best-label').textContent = best ? 'Melhor tempo' : 'Ainda sem tempo';
+    $('#hc-best-n').textContent = 'com ' + m.pieces + ' peças';
+    $('#hc-best-time').textContent = best ? tempo(best) : '--:--';
+    $('#hc-best-now').textContent = !m.completed || !m.durationMs ? 'nesta partida: não concluída' : best && m.durationMs <= best ? '🎉 recorde nesta partida' : 'nesta partida: ' + tempo(m.durationMs);
+    // melhores tempos nas outras quantidades (só as que têm tempo)
+    var others = $('#hc-others'), presets = (QC.state && QC.state.presets) || [];
+    others.textContent = '';
+    presets.forEach(function (p) {
+      if (p.pieces === m.pieces) return;
+      var t = bestOf(p.pieces);
+      if (!t) return;
+      var c = el('span', 'hc-chip'); c.appendChild(el('b', '', p.pieces + ' peças')); c.appendChild(document.createTextNode(' ' + tempo(t))); others.appendChild(c);
+    });
+    $('#hc-others-box').hidden = !others.childNodes.length;
+    // recompensas: desta partida e de todas com esta imagem
+    var num = function (n) { return Number(n || 0).toLocaleString('pt-BR'); };
+    $('#hc-rw-now-xp').textContent = '⭐ +' + num(m.xp) + ' XP'; $('#hc-rw-now-gems').textContent = '💎 +' + num(m.gems) + (m.gems === 1 ? ' gema' : ' gemas');
+    $('#hc-rw-all-xp').textContent = '⭐ +' + num(info.xp) + ' XP'; $('#hc-rw-all-gems').textContent = '💎 +' + num(info.gems) + (info.gems === 1 ? ' gema' : ' gemas');
+    $('#hc-rw-plays').textContent = info.plays === 1 ? '1 partida com esta imagem' : info.plays + ' partidas com esta imagem' + (info.done ? ' · ' + info.done + (info.done === 1 ? ' concluída' : ' concluídas') : '');
+    QC.openModal('#modal-hist', '.sheet-x');
+  }
+
+  /* ---------- melhores tempos do perfil (para a tela de escolha: junta com os do aparelho) ---------- */
+  var bestsAt = 0;
+  function loadBests() {
+    if (!acc.token || !QC.setServerBests || Date.now() - bestsAt < 30000) return;
+    bestsAt = Date.now();
+    var tk = acc.token;                                             // a resposta só vale para o perfil que pediu
+    api('GET', '/bests', undefined, true).then(function (j) { if (j && j.ok && j.bests && acc.token === tk) QC.setServerBests(j.bests); });
   }
 
   QC.api = api;                                  // a loja usa a mesma chamada (com o crachá da sessão)
@@ -656,6 +730,8 @@
   QC.onScreen = function (name) {
     if (name === 'home') { if (acc.me && !meFresh()) loadMe(); }
     else if (name !== 'me') acc.dirty = true;                       // jogou ou mexeu em algo: a próxima volta ao início atualiza (uma consulta leve)
+    if (name === 'game') bestsAt = 0;                               // depois de uma partida, a tela de escolha busca os tempos de novo
+    if (name === 'pick') loadBests();
   };
 
   /* ---------- botão voltar do Android ---------- */

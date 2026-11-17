@@ -282,8 +282,8 @@
           <div class="ps-title"><b id="ps-name">Imagem</b><small>Quantas peças?</small></div>
           <button id="ps-close" class="ps-x" type="button" aria-label="Escolher outra imagem">✕</button>
         </div>
-        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
         <p id="size-note" class="size-note" aria-live="polite"></p>
+        <div id="size-grid" class="size-grid" role="radiogroup" aria-label="Quantidade de peças"></div>
         <button id="btn-pick-go" class="btn btn-primary btn-xl" type="button" disabled>Criar partida</button>
       </div>
     </section>
@@ -656,6 +656,33 @@
 
     <!-- ========== PEDIDO PARA RECOMEÇAR ========== -->
     <!-- ========== PERFIL DO AMIGO ========== -->
+    <!-- ========== MINHAS PARTIDAS: CARD DA IMAGEM (abre ao tocar numa partida) ========== -->
+    <div id="modal-hist" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="hc-title">
+      <div class="sheet hist-card">
+        <button class="sheet-x" type="button" data-back aria-label="Fechar">✕</button>
+        <div id="hc-art" class="hc-art" role="img" aria-label="Imagem"></div>
+        <h3 id="hc-title">Imagem</h3>
+        <div id="hc-tags" class="hc-tags"></div>
+        <div id="hc-best" class="hc-best" role="status">
+          <span id="hc-best-ico" class="hc-best-ico" aria-hidden="true">🏆</span>
+          <span class="hc-best-txt"><b id="hc-best-label">Melhor tempo</b><small id="hc-best-n"></small><small id="hc-best-now"></small></span>
+          <strong id="hc-best-time" class="hc-best-time">--:--</strong>
+        </div>
+        <div id="hc-others-box" class="hc-box" hidden>
+          <b class="hc-box-title">Outras quantidades</b>
+          <div id="hc-others" class="hc-chips"></div>
+        </div>
+        <div class="hc-box hc-rewards">
+          <b class="hc-box-title">Recompensas</b>
+          <div class="hc-rw-cols">
+            <div class="hc-rw"><span>Nesta partida</span><strong id="hc-rw-now-xp"></strong><strong id="hc-rw-now-gems"></strong></div>
+            <div class="hc-rw"><span>Com esta imagem</span><strong id="hc-rw-all-xp"></strong><strong id="hc-rw-all-gems"></strong></div>
+          </div>
+          <small id="hc-rw-plays" class="hc-plays"></small>
+        </div>
+      </div>
+    </div>
+
     <!-- Denúncia de jogador (apelido, avatar ou comportamento): só quem cuida do jogo lê; a outra pessoa não é avisada. -->
     <div id="modal-report" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="rp-title" aria-describedby="rp-help">
       <div class="sheet">

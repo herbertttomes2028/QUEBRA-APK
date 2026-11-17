@@ -1342,7 +1342,15 @@ html[data-theme="dark"] .hand-slot { border-color: rgba(255, 255, 255, .2); }
 .pick-sheet .size-btn b { font-weight: 700; }
 .pick-sheet .size-btn span { font-weight: 600; }
 .pick-sheet .size-btn[aria-checked="true"] { transform: translateY(-3px) scale(1.04); }
-.pick-sheet .size-note { min-height: 2.4em; margin: 0; font-size: var(--fs-nota); font-weight: 600; line-height: 1.25; }
+/* melhor tempo da imagem escolhida, na quantidade escolhida (17/11/2026): em destaque, logo abaixo do nome; amarelo quando há tempo */
+.pick-sheet .size-note { min-height: 0; margin: 0; display: flex; align-items: center; gap: var(--sp-3); padding: 8px 14px; border-radius: var(--r-caixa); background: var(--caixa-fundo); box-shadow: var(--caixa-sombra); text-align: left; color: var(--ink-soft); line-height: 1.15; }
+.pick-sheet .size-note.tem { background: var(--sun); color: var(--on-sun); box-shadow: var(--sh-caixa); }
+.psb-ico { flex: none; font-size: 1.55rem; line-height: 1; }
+.psb-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.psb-txt b { font-size: var(--fs-texto); font-weight: 700; }
+.psb-txt small { font-size: var(--fs-nota); font-weight: 600; }
+.psb-time { flex: none; font: 700 1.65rem/1 "Fredoka", var(--font); font-variant-numeric: tabular-nums; }
+.pick-sheet .size-note:not(.tem) .psb-time { font-size: var(--fs-destaque); opacity: .55; }
 /* com a 2ª linha de quantidades (64, 88, 96), em tela baixa os botões ficam mais baixos para o "Jogar" continuar à vista (rodada pecas-grandes) */
 @media (max-height: 700px) {
   .pick-sheet { gap: 6px; padding-top: 10px; padding-bottom: 10px; }
@@ -1350,6 +1358,9 @@ html[data-theme="dark"] .hand-slot { border-color: rgba(255, 255, 255, .2); }
   .pick-sheet .size-grid { gap: 4px; }
   .pick-sheet .size-btn { min-height: 46px; padding: 4px 2px; }
   .pick-sheet .size-btn b { font-size: 1.15rem; }
+  .pick-sheet .size-note { padding: 6px 12px; }
+  .psb-ico { font-size: 1.3rem; }
+  .psb-time { font-size: 1.4rem; }
 }
 .pick-sheet { max-height: calc(100% - 8px); overflow-y: auto; overscroll-behavior: contain; }
 .pick-sheet #btn-pick-go { font-family: "Fredoka", var(--font); font-weight: 700; min-height: var(--btn-g); margin: 0 auto; align-self: center; width: 100%; max-width: 330px; font-size: var(--fs-destaque); }
@@ -1764,6 +1775,43 @@ html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-mo
 .fr-empty { text-align: center; color: var(--ink-soft); font-weight: 700; padding: 18px 12px; }
 .fr-empty span { font-size: 2.4rem; display: block; margin-bottom: 4px; }
 .fr-empty p { margin: 0; line-height: 1.4; }
+/* Minhas partidas (17/11/2026): a linha é um botão (abre o card da imagem) com a miniatura da imagem e o modo num selinho */
+.hi-row { width: 100%; border: 0; font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.hi-row:active { transform: scale(.98); }
+.hi-note { margin: -4px 0 10px; text-align: center; }
+.fr-av.hi-thumb.img { border-radius: 12px; width: 44px; height: 58px; background: var(--paper-3) center / cover no-repeat; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(27, 37, 89, .2); }
+.hi-kind { position: absolute; right: -7px; bottom: -6px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--card); box-shadow: 0 1px 4px rgba(27, 37, 89, .25); font-style: normal; font-size: var(--fs-mini); line-height: 1; }
+/* o card da imagem: mesmo modelo da janela de vitória (imagem com moldura branca, título t2, caixas da régua, destaque amarelo) */
+#modal-hist { align-items: center; padding: 14px; }
+.sheet.hist-card { border-radius: var(--r-janela); align-items: stretch; gap: 10px; font-family: "Fredoka", var(--font); }
+.hc-art { --ar: .75; width: min(54%, calc(27vh * var(--ar))); aspect-ratio: var(--ar); align-self: center; border-radius: 16px; background: var(--paper-3) center / cover no-repeat; box-shadow: 0 0 0 5px #fff, 0 10px 26px rgba(27, 37, 89, .3); display: grid; place-items: center; font-size: 3rem; }
+.hist-card h3 { margin: 4px 0 0; text-align: center; overflow-wrap: anywhere; }
+.hc-tags { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.hc-tag { padding: 4px 10px; border-radius: var(--r-redondo); background: var(--paper-2); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-soft); font-size: var(--fs-mini); font-weight: 700; }
+.hc-best { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 14px; border-radius: var(--r-caixa); background: var(--caixa-fundo); box-shadow: var(--caixa-sombra); color: var(--ink-soft); }
+.hc-best.tem { background: var(--sun); color: var(--on-sun); box-shadow: var(--sh-caixa); }
+.hc-best-ico { flex: none; font-size: 1.6rem; line-height: 1; }
+.hc-best-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
+.hc-best-txt b { font-size: var(--fs-texto); font-weight: 700; }
+.hc-best-txt small { font-size: var(--fs-nota); font-weight: 600; }
+.hc-best-time { flex: none; font: 700 1.75rem/1 "Fredoka", var(--font); font-variant-numeric: tabular-nums; }
+.hc-best:not(.tem) .hc-best-time { font-size: var(--fs-destaque); opacity: .55; }
+@media (max-width: 359px) {                    /* tela estreita (ou letra A++): o tempo fica na 1ª linha, ao lado do troféu, e o texto embaixo */
+  .hc-best { flex-wrap: wrap; row-gap: 4px; }
+  .hc-best-time { margin-left: auto; }
+  .hc-best-txt { order: 3; flex-basis: 100%; }
+}
+.hc-box { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: var(--r-caixa); background: var(--caixa-fundo); box-shadow: var(--caixa-sombra); }
+.hc-box[hidden] { display: none; }
+.hc-box-title { font-size: var(--fs-mini); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.hc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hc-chip { padding: 5px 10px; border-radius: var(--r-redondo); background: var(--card); box-shadow: inset 0 0 0 1px var(--line); font-size: var(--fs-nota); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.hc-chip b { font-weight: 700; color: var(--ink-soft); }
+.hc-rw-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hc-rw { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 8px 10px; border-radius: var(--r-peq); background: var(--card); box-shadow: inset 0 0 0 1px var(--line); }
+.hc-rw span { font-size: var(--fs-mini); font-weight: 700; color: var(--ink-soft); }
+.hc-rw strong { font-size: var(--fs-texto); font-weight: 700; color: var(--cobalt); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.hc-plays { font-size: var(--fs-mini); font-weight: 600; color: var(--ink-soft); }
 .hi-pill { flex: none; font: 700 .76rem "Fredoka", var(--font); padding: 5px 10px; border-radius: 999px; color: #fff; }
 .hi-pill.win { background: var(--on-ok); } .hi-pill.loss { background: var(--p1); } .hi-pill.done { background: var(--p0); }
 html[data-theme="dark"] .hi-pill.win { color: #07281f; }
