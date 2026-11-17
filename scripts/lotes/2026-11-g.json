@@ -1,0 +1,181 @@
+{
+  "lote": "2026-11-g",
+  "imagens": [
+    {
+      "arquivo": "lib-espaco-12.webp",
+      "categoria": "espaco",
+      "rotulo": "Planetas do Sistema Solar",
+      "ordem": 12,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Pôster Infográfico dos Planetas do Sistema Solar-4.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-13.webp",
+      "categoria": "espaco",
+      "rotulo": "Mercúrio sob o brilho do Sol",
+      "ordem": 13,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Mercúrio sob o Brilho Solar-2.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-14.webp",
+      "categoria": "espaco",
+      "rotulo": "Vênus entre nuvens",
+      "ordem": 14,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Vênus entre Nuvens Cósmicas-5.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-15.webp",
+      "categoria": "espaco",
+      "rotulo": "Terra com aurora dourada",
+      "ordem": 15,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Terra Vista do Espaço com Aurora Dourada-8.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-16.webp",
+      "categoria": "espaco",
+      "rotulo": "Marte em detalhes",
+      "ordem": 16,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Marte em Detalhes Cósmicos-9.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-17.webp",
+      "categoria": "espaco",
+      "rotulo": "Júpiter e seus redemoinhos",
+      "ordem": 17,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Júpiter e Seus Redemoinhos Cósmicos-11.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-18.webp",
+      "categoria": "espaco",
+      "rotulo": "Lua congelada diante de Júpiter",
+      "ordem": 18,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Lua Congelada diante de Júpiter-5_1.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-19.webp",
+      "categoria": "espaco",
+      "rotulo": "Lua gelada diante de Júpiter",
+      "ordem": 19,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Lua Gelada Diante de Júpiter-1.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-20.webp",
+      "categoria": "espaco",
+      "rotulo": "Calisto e Júpiter",
+      "ordem": 20,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Calisto em Primeiro Plano com Júpiter ao Fundo-7.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-21.webp",
+      "categoria": "espaco",
+      "rotulo": "Saturno entre estrelas",
+      "ordem": 21,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Saturno Majestoso entre Estrelas-13.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-22.webp",
+      "categoria": "espaco",
+      "rotulo": "Titã e os anéis de Saturno",
+      "ordem": 22,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Titã Diante dos Anéis de Saturno-3.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-23.webp",
+      "categoria": "espaco",
+      "rotulo": "Sonda sobrevoando Saturno",
+      "ordem": 23,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Sonda Dourada Sobrevoando Saturno-12.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-24.webp",
+      "categoria": "espaco",
+      "rotulo": "Tritão e Netuno",
+      "ordem": 24,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Paisagem Cósmica de Tritão e Netuno-11.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-25.webp",
+      "categoria": "espaco",
+      "rotulo": "Estação Espacial Internacional",
+      "ordem": 25,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Estação Espacial Internacional sobre a Terra-10.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-26.webp",
+      "categoria": "espaco",
+      "rotulo": "Satélite sobre a Terra",
+      "ordem": 26,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Satélite sobre a Terra azul-4.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-27.webp",
+      "categoria": "espaco",
+      "rotulo": "Telescópio Hubble",
+      "ordem": 27,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Telescópio Hubble sobre a Terra-6.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-28.webp",
+      "categoria": "espaco",
+      "rotulo": "Telescópio espacial",
+      "ordem": 28,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Telescópio Espacial Sob o Céu Estrelado-8.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-29.webp",
+      "categoria": "espaco",
+      "rotulo": "Célula animal",
+      "ordem": 29,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Célula Animal em Detalhes Vibrantes-1.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-30.webp",
+      "categoria": "espaco",
+      "rotulo": "Hélice de DNA",
+      "ordem": 30,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Hélice de DNA em laboratório futurista-5_1.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-31.webp",
+      "categoria": "espaco",
+      "rotulo": "Microscópio eletrônico",
+      "ordem": 31,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Microscópio eletrônico em laboratório moderno-6.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-32.webp",
+      "categoria": "espaco",
+      "rotulo": "Tiranossauro",
+      "ordem": 32,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Tiranossauro na Selva Pré-Histórica-9.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    },
+    {
+      "arquivo": "lib-espaco-33.webp",
+      "categoria": "espaco",
+      "rotulo": "Escavação arqueológica",
+      "ordem": 33,
+      "fonte": "Enviada pelo proprietário do jogo (arquivo original: Escavação Arqueológica com Esqueleto e Artefatos-8.webp)",
+      "licenca": "Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso"
+    }
+  ]
+}

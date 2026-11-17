@@ -22,11 +22,11 @@ function linhas() {
 }
 const rows = linhas();
 
-test('as migrações trazem as 25 imagens originais e as dos lotes (193), sem repetição', () => {
-  assert.equal(rows.length, 193);
-  assert.equal(new Set(rows.map((r) => r.file)).size, 193);
+test('as migrações trazem as 25 imagens originais e as dos lotes (215), sem repetição', () => {
+  assert.equal(rows.length, 215);
+  assert.equal(new Set(rows.map((r) => r.file)).size, 215);
   const porCat = {}; for (const r of rows) (porCat[r.cat] = porCat[r.cat] || []).push(r);
-  assert.deepEqual(Object.fromEntries(Object.entries(porCat).map(([c, l]) => [c, l.length])), { fauna: 55, biomas: 20, espaco: 11, cultura: 15, fantasia: 63, 'bau-maravilhas': 29 });
+  assert.deepEqual(Object.fromEntries(Object.entries(porCat).map(([c, l]) => [c, l.length])), { fauna: 55, biomas: 20, espaco: 33, cultura: 15, fantasia: 63, 'bau-maravilhas': 29 });
   for (const [c, l] of Object.entries(porCat)) assert.deepEqual(l.map((r) => r.ordem).sort((a, b) => a - b), l.map((_, i) => i + 1), 'ordem 1..N sem buracos em ' + c);
 });
 
@@ -53,9 +53,9 @@ test('nenhum arquivo sobrando na pasta e nenhum arquivo do lote sem linha na mig
 
 test('proveniência: toda imagem nova tem origem rastreável (Wikimedia em domínio público, ou as do proprietário na coleção própria); rótulos únicos por categoria', () => {
   const novas = rows.filter((r) => !r.mig.startsWith('008'));
-  assert.equal(novas.length, 168);
+  assert.equal(novas.length, 190);
   // 1) as 103 imagens da Wikimedia: fonte com o endereço da página e licença de domínio público (regra original, sem exceção)
-  const dono8 = (r) => r.mig.startsWith('017'), dono28 = (r) => r.mig.startsWith('019'), wiki = novas.filter((r) => r.cat !== 'bau-maravilhas' && !dono8(r) && !dono28(r)); assert.equal(wiki.length, 103);
+  const dono8 = (r) => r.mig.startsWith('017'), dono28 = (r) => r.mig.startsWith('019'), dono22 = (r) => r.mig.startsWith('021'), wiki = novas.filter((r) => r.cat !== 'bau-maravilhas' && !dono8(r) && !dono28(r) && !dono22(r)); assert.equal(wiki.length, 103);
   for (const r of wiki) {
     assert.match(r.fonte, /^Wikimedia Commons: .+ commons\.wikimedia\.org\/wiki\/File:/, r.file + ': fonte sem a página de origem');
     assert.match(r.lic, /^Domínio público/, r.file);
@@ -86,6 +86,16 @@ test('proveniência: toda imagem nova tem origem rastreável (Wikimedia em domí
     assert.ok(r.label.length >= 3 && r.label.length <= 60, r.file);
   }
   assert.equal(new Set(fauna28.map((r) => r.fonte)).size, 28, 'cada imagem nova veio de um arquivo original diferente');
+  // 5) as 22 de "Espaço e ciência" (lote 2026-11-g, migração 021, 17/11/2026): enviadas pelo proprietário (zip NOVAS_IMAGENS_CIENCIA_E_NATUREZA),
+  //    com o MESMO texto exato de responsabilidade e o nome do arquivo original (título + número). Também só nesse lote e nessa categoria.
+  const espaco22 = novas.filter(dono22); assert.equal(espaco22.length, 22); assert.ok(espaco22.every((r) => r.cat === 'espaco'));
+  assert.deepEqual(espaco22.map((r) => r.file), Array.from({ length: 22 }, (_, i) => 'lib-espaco-' + (12 + i) + '.webp'));
+  for (const r of espaco22) {
+    assert.match(r.fonte, /^Enviada pelo proprietário do jogo \(arquivo original: [A-Za-zÀ-ÿ -]+-\d{1,2}(_1)?\.webp\)$/, r.file);
+    assert.equal(r.lic, 'Fornecida pelo proprietário do jogo, que responde pela autoria e pelos direitos de uso', r.file);
+    assert.ok(r.label.length >= 3 && r.label.length <= 60, r.file);
+  }
+  assert.equal(new Set(espaco22.map((r) => r.fonte)).size, 22, 'cada imagem nova veio de um arquivo original diferente');
   const rot = new Set(); for (const r of rows) { const k = r.cat + '|' + r.label; assert.ok(!rot.has(k), 'rótulo repetido: ' + k); rot.add(k); }
   const manifestos = fs.readdirSync(path.join(ROOT, 'scripts', 'lotes')).filter((n) => n.endsWith('.json')).sort().flatMap((n) => JSON.parse(fs.readFileSync(path.join(ROOT, 'scripts', 'lotes', n), 'utf8')).imagens);
   assert.deepEqual(manifestos.map((i) => i.arquivo), novas.map((r) => r.file), 'os manifestos versionados (em ordem) são os que geraram as migrações');
