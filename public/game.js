@@ -3740,22 +3740,28 @@
   (function homeFit() {
     var home = $('#screen-home'), inner = home && home.querySelector('.home-inner'), code = $('#input-code'), typing = false;
     if (!home || !inner) return;
-    // Só escreve no DOM quando algo MUDA. Antes, cada medida (várias durante a carga: fontes, imagens, saudação, mascote) regravava a classe da
-    // tela; o mascote observa a classe da tela inicial e, a cada regravação, refazia a sua sincronização (tamanho do canvas, troca do desenho
-    // pelo 3D) — o pet "tremia" algumas vezes ao voltar para o início (16/11/2026). Também ignora variações menores que 0,5%.
-    var curS = 1, curPad = -1, waitT = 0, first = true;
+    // O mascote observa a CLASSE da tela inicial (para saber se ela está ativa) e, a cada mudança nela, refaz a sua sincronização (tamanho do
+    // canvas, redesenho). Por isso o encaixe NUNCA mexe na classe da tela: a marca vai no .home-inner e o "não rolar" vai no estilo da tela.
+    // Em muitos celulares, com letra normal, o conteúdo fica a poucos px do limite: qualquer variação da carga (fontes, imagens, saudação)
+    // ligava e desligava o encaixe — o pet era redesenhado e "tremia" (16/11/2026). Agora há uma folga: só encaixa se passar 2 px e só
+    // desencaixa se sobrarem 8 px; entre os dois, mantém. Mudanças seguidas viram uma só (200 ms) e variações menores que 0,5% não contam.
+    var curS = 1, curPad = -1, waitT = 0, first = true, on = false;
     function measure() {
       var hs = getComputedStyle(home), avail = home.clientHeight - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom), h = inner.offsetHeight;
       if (!avail || !h) return null;                                              // tela escondida: nada a fazer
-      var pad = parseFloat(getComputedStyle(inner).paddingTop) || 0, s = h <= avail ? 1 : Math.max(0.5, (avail - pad - 2) / (h - pad));
-      return { s: typing || s >= 1 ? 1 : Math.floor(s * 200) / 200, pad: pad };
+      var pad = parseFloat(getComputedStyle(inner).paddingTop) || 0, over = h - avail, s;
+      if (typing || over <= (on ? -8 : 2)) s = 1;                                 // cabe (com folga para não ficar liga-desliga)
+      else if (over <= 0) s = curS;                                               // encaixado e dentro da folga: mantém como está
+      else s = Math.max(0.5, Math.floor((avail - pad - 2) / (h - pad) * 200) / 200);
+      return { s: s, pad: pad };
     }
     function apply(m) {
+      home.style.overflowY = typing ? '' : 'hidden';                              // a tela inicial não rola (só com o teclado aberto, para mostrar o campo)
       if (m.s === curS && (m.s === 1 || m.pad === curPad)) return;
-      var was = curS; curS = m.s; curPad = m.pad;
-      if (m.s === 1) { home.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); return; }
+      curS = m.s; curPad = m.pad;
+      if (m.s === 1) { if (on) { on = false; inner.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); } return; }
       inner.style.setProperty('--fit', String(m.s)); inner.style.setProperty('--fit-pad', m.pad + 'px');
-      if (was === 1) { home.classList.add('home-fit'); home.scrollTop = 0; }
+      if (!on) { on = true; inner.classList.add('home-fit'); home.scrollTop = 0; }
     }
     // a 1ª medida vale na hora; as seguintes (fontes, imagens, saudação, mascote chegando durante a carga) são juntadas em UMA só, 200 ms depois
     // da última, e mudanças pequenas para MAIOR (< 2%) são ignoradas: o conteúdo não fica "pulando" várias vezes seguidas
@@ -3763,12 +3769,12 @@
       var m = measure(); if (!m) return;
       if (first || typing) { first = false; apply(m); return; }
       clearTimeout(waitT);
-      waitT = setTimeout(function () { var n = measure(); if (n && (n.s < curS || n.s > curS + 0.02 || (n.s === 1) !== (curS === 1) || n.pad !== curPad)) apply(n); }, 200);
+      waitT = setTimeout(function () { var n = measure(); if (n && (n.s < curS || n.s > curS + 0.02 || (n.s === 1) !== (curS === 1) || (n.s !== 1 && n.pad !== curPad))) apply(n); }, 200);
     }
     if (window.ResizeObserver) { var ro = new ResizeObserver(fit); ro.observe(home); ro.observe(inner); } else window.addEventListener('resize', fit);
     if (code) {
       code.addEventListener('focus', function () { typing = true; fit(); });
-      code.addEventListener('blur', function () { setTimeout(function () { typing = false; fit(); }, 160); });
+      code.addEventListener('blur', function () { setTimeout(function () { typing = false; home.style.overflowY = 'hidden'; fit(); }, 160); });
     }
   })();
 
