@@ -1,7 +1,7 @@
 'use strict';
 /* Gemas são gratuitas, acumuladas somente no servidor. Nenhuma compra ou gasto existe nesta versão. */
 const xpm = require('./xp');
-const VALUES = Object.freeze({ 6: 1, 12: 2, 20: 3, 30: 5, 48: 8 });
+const VALUES = Object.freeze({ 6: 1, 12: 2, 20: 3, 30: 5, 48: 8, 64: 15, 88: 20, 96: 25 });   // 64/88/96: rodada pecas-grandes (o proprietário pediu valores maiores)
 function forCompletion(pieces) { return VALUES[Number(pieces)] || 0; }
 function forLevel(level) {
   if (!Number.isInteger(level) || level < 2 || level > 100) return 0;

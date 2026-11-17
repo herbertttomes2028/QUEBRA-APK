@@ -266,6 +266,6 @@ test('código: o cliente só desenha o que o servidor manda; contratos preservad
   assert.doesNotMatch(body, /socket\.emit|gameEmit|\.locked\s*=/, 'o celular não decide nada da fileira');
   assert.match(sv, /if \(!p \|\| room\.status === 'won' \|\| p\.out === false\) return;/, 'servidor recusa pegar peça guardada');
   assert.match(ch, /if \(!p \|\| !p\.out\) return;/, 'Sala Desafio recusa pegar peça guardada');
-  assert.equal((sv.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length, 1);
+  assert.equal((sv.match(/SNAP: Math\.round\(tile \* snapFactorFor\(pr\)\)/g) || []).length, 1);
   assert.match(sv, /FILEIRA=0/, 'há um jeito de desligar no Render sem mexer no código');
 });

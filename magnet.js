@@ -23,7 +23,8 @@ const DRAG_FACTOR = num(process.env.DRAG_MAGNET_FACTOR, 0.15, 0.5, DRAG_FACTOR_D
 const DWELL_MS = Math.round(num(process.env.DRAG_MAGNET_MS, 0, 1000, DWELL_MS_DEFAULT));
 
 // raio do ímã ao ARRASTAR (nunca maior que o raio ao soltar)
-function dragRadius(cfg) { return Math.min(cfg.SNAP, Math.max(2, Math.round(cfg.TILE * DRAG_FACTOR))); }
+// nas quantidades grandes (64, 88, 96) o ímã ao arrastar também é mais forte: DRAG_FACTOR × cfg.IMA (no máximo meia casa)
+function dragRadius(cfg) { return Math.min(cfg.SNAP, Math.max(2, Math.round(cfg.TILE * Math.min(0.5, DRAG_FACTOR * (cfg.IMA > 1 ? cfg.IMA : 1))))); }
 function near(cfg, p, x, y) { const t = target(cfg, p); return Math.hypot(x - t.x, y - t.y) <= dragRadius(cfg); }
 
 /* "Ficou perto por um instante". Um por servidor/sala de jogo; o estado fica FORA da peça (a peça vai inteira nas fotos da sala).

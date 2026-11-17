@@ -263,8 +263,15 @@
     if (imgCache[key]) return imgCache[key];
     imgCache[key] = loadImage(item.url).then(function (img) {
       var W = 720;
+      var q = 0.9;
+      // Quantidades grandes (8 colunas: 64, 88 e 96 peças, rodada pecas-grandes): a imagem fica na resolução ORIGINAL do recorte
+      // (sem reduzir nem ampliar; no máximo 1080 px de largura) e o JPEG sai com qualidade 0,95, para cada peça pequena continuar nítida.
+      if (cols >= 8) {
+        var nw = img.naturalWidth || 720, nh = img.naturalHeight || 960;
+        W = Math.max(320, Math.min(1080, Math.round(Math.min(nw, nh * cols / rows)))); q = 0.95;
+      }
       var H = Math.round(W * rows / cols);
-      return cropToBlob(img, W, H, item.url);
+      return cropToBlob(img, W, H, item.url, q);
     }).catch(function () { return item.url; });
     preparedKeys.push(key);
     return imgCache[key];
@@ -299,21 +306,21 @@
     } catch (e) { cropWorker = false; }
     return cropWorker;
   }
-  function cropInWorker(img, W, H) {
+  function cropInWorker(img, W, H, q) {
     var w = cropWorkerGet();
     if (!w) return Promise.reject(new Error('sem worker'));
     return createImageBitmap(img).then(function (bm) {
-      return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+      return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H, q: q }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
     });
   }
   function blobToUrl(blob, fallbackUrl) {
     if (!blob) return fallbackUrl;
     var url = URL.createObjectURL(blob); ownedImageUrls.add(url); return url;
   }
-  function cropToBlob(img, W, H, fallbackUrl) {
-    return cropInWorker(img, W, H).then(function (blob) { return blobToUrl(blob, fallbackUrl); }, function () { return cropMain(img, W, H, fallbackUrl); });
+  function cropToBlob(img, W, H, fallbackUrl, q) {
+    return cropInWorker(img, W, H, q).then(function (blob) { return blobToUrl(blob, fallbackUrl); }, function () { return cropMain(img, W, H, fallbackUrl, q); });
   }
-  function cropMain(img, W, H, fallbackUrl) {
+  function cropMain(img, W, H, fallbackUrl, q) {
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -324,7 +331,7 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
     return new Promise(function (res) {
-      cv.toBlob(function (blob) { res(blobToUrl(blob, fallbackUrl)); }, 'image/jpeg', 0.9);
+      cv.toBlob(function (blob) { res(blobToUrl(blob, fallbackUrl)); }, 'image/jpeg', q > 0 && q <= 1 ? q : 0.9);
     });
   }
 
@@ -839,7 +846,7 @@
     state.presets.forEach(function (p) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'size-btn';
+      b.className = p.grande ? 'size-btn size-big' : 'size-btn';      // 64, 88 e 96: linha própria, embaixo das outras
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', p.pieces === state.pickPieces ? 'true' : 'false');
       b.dataset.pieces = p.pieces;
@@ -855,7 +862,8 @@
     var p = state.presets.filter(function (x) { return x.pieces === state.pickPieces; })[0];
     if (!p) return;
     var note = p.pieces + ' peças (' + p.cols + ' × ' + p.rows + ').';
-    if (p.pieces >= 48) note += ' As peças ficam pequenas no celular: melhor para telas grandes.';
+    if (p.grande) note += ' Ímã mais forte, lâmpada sem limite e ' + (p.spots || 5) + ' dicas de lugar 📍.';
+    else if (p.pieces >= 48) note += ' As peças ficam pequenas no celular: melhor para telas grandes.';
     else if (p.pieces <= 6) note += ' Peças grandes, ótimas para começar.';
     var bt = state.bests[state.pickChoice + '|' + state.pickPieces];
     if (typeof bt === 'number') note += ' 🏆 Seu melhor tempo: ' + fmtTime(bt) + '.';
@@ -1664,14 +1672,16 @@
    * 💡 Lâmpada: mostra a imagem esmaecida no tabuleiro (atrás das peças) por 4 segundos.
    * Cada jogador pode usar 10 vezes por partida (o servidor conta).
    * --------------------------------------------------------- */
+  // Nas quantidades grandes (64, 88 e 96 peças) a lâmpada não tem limite: o servidor manda HINTS_INF e não desconta (o contador fica em 999).
+  function hintsLivres() { return !!(state.cfg && state.cfg.HINTS_INF); }
   function useHint() {
     if (state.hintActive) return;
-    if (state.hints <= 0) { toast('Suas dicas acabaram'); return; }
+    if (state.hints <= 0 && !hintsLivres()) { toast('Suas dicas acabaram'); return; }
     gameEmit('hint', null, function (res) {
       if (!res || !res.ok) { state.hints = 0; updateUi(); toast('Suas dicas acabaram'); return; }
       state.hints = res.left;
       showHint();
-      if (state.hints === 0) toast('Essa foi a sua última dica');
+      if (state.hints === 0 && !hintsLivres()) toast('Essa foi a sua última dica');
       updateUi();
     });
   }
@@ -2546,11 +2556,12 @@
   function refreshLamp() {
     var hint = $('#btn-hint'), spot = $('#btn-spot');
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    $('#hint-badge').textContent = state.hints;
+    var livre = !!(state.cfg && state.cfg.HINTS_INF);       // lâmpada sem limite (quantidades grandes)
+    $('#hint-badge').textContent = livre ? '∞' : state.hints;
     $('#spot-badge').textContent = state.spots;
-    hint.disabled = state.hints <= 0 || state.hintActive;
+    hint.disabled = (state.hints <= 0 && !livre) || state.hintActive;
     spot.disabled = !sel || sel.locked || state.spots <= 0 || state.spotActive;
-    hint.setAttribute('aria-label', 'Mostrar a imagem completa por 4 segundos. Restam ' + state.hints + ' usos');
+    hint.setAttribute('aria-label', 'Mostrar a imagem completa por 4 segundos. ' + (livre ? 'Sem limite nesta partida' : 'Restam ' + state.hints + ' usos'));
     spot.setAttribute('aria-label', 'Indicar onde a peça escolhida encaixa. Restam ' + state.spots + ' usos' + (!sel || sel.locked ? '. Selecione uma peça primeiro' : ''));
   }
 

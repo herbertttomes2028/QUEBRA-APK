@@ -44,7 +44,7 @@ test('regra de encaixe: as duas cópias de tryLock continuam iguais', () => {
 });
 
 test('SNAP = round(TILE × SNAP_FACTOR) nos dois layouts (cooperativo e Desafio), com o fator definido uma única vez no servidor', () => {
-  const n = (s) => (s.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length;
+  const n = (s) => (s.match(/SNAP: Math\.round\(tile \* snapFactorFor\(pr\)\)/g) || []).length;
   assert.equal(n(server), 1, 'layoutFor em server.js');
   assert.equal(n(challenge), 1, 'layoutQuebra em challenge.js');
 });

@@ -44,7 +44,9 @@ Valor da **primeira vez** que o jogador conclui aquele quebra-cabeça:
 | 20 | 16 a 24 | 80 |
 | 30 | 25 a 36 | 130 |
 | 48 | 37 a 54 | 220 |
-| 55 ou mais | 55+ | 300 |
+| 64 | 55 a 64 | 300 |
+| 88 | 65 a 88 | 380 |
+| 96 | 89 ou mais | 420 |
 
 Quebra-cabeças maiores pagam **mais do que proporcionalmente**: cada peça vale mais nos grandes (48 peças = 11 vezes o XP de 6 peças com 8 vezes as peças), o que estimula experimentar desafios maiores.
 
@@ -64,6 +66,9 @@ Exemplos (XP recebido na 1ª / 2ª / 3ª / 4ª / 7ª conclusão do mesmo quebra-
 | 20 peças | 80 | 80 / 64 / 52 / 40 / 20 | 25 s |
 | 30 peças | 130 | 130 / 104 / 85 / 65 / 33 | 40 s |
 | 48 peças | 220 | 220 / 176 / 143 / 110 / 55 | 60 s |
+| 64 peças | 300 | 300 / 240 / 195 / 150 / 75 | 2 min |
+| 88 peças | 380 | 380 / 304 / 247 / 190 / 95 | 2 min 30 s |
+| 96 peças | 420 | 420 / 336 / 273 / 210 / 105 | 3 min |
 
 Regras de contagem:
 - O **mesmo desenho em outro tamanho** é outro quebra-cabeça (começa do 100%).

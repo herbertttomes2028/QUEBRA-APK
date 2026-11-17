@@ -100,14 +100,27 @@ const PRESETS = [
   { pieces: 12, cols: 3, rows: 4, bw: 960, t: 160, label: 'Fácil' },
   { pieces: 20, cols: 4, rows: 5, bw: 960, t: 135, label: 'Médio' },
   { pieces: 30, cols: 5, rows: 6, bw: 950, t: 120, label: 'Difícil' },
-  { pieces: 48, cols: 6, rows: 8, bw: 780, t: 110, label: 'Desafio' }
+  { pieces: 48, cols: 6, rows: 8, bw: 780, t: 110, label: 'Desafio' },
+  // QUANTIDADES GRANDES (rodada pecas-grandes, 17/11/2026, pedido do proprietário): 8 colunas em todas, então a peça tem o MESMO tamanho
+  // nas três (a 88 e a 96 só ganham linhas). Valem em todos os modos. Só nelas: ímã mais forte (ima = multiplica o SNAP_FACTOR e o ímã ao
+  // arrastar), lâmpada sem limite (lampadaLivre) e mais dicas de lugar 📍 (spots). As outras quantidades continuam exatamente como antes.
+  { pieces: 64, cols: 8, rows: 8,  bw: 980, t: 100, label: 'Avançado', grande: true, ima: 1.4, lampadaLivre: true, spots: 10 },
+  { pieces: 88, cols: 8, rows: 11, bw: 980, t: 100, label: 'Mestre',   grande: true, ima: 1.4, lampadaLivre: true, spots: 15 },
+  { pieces: 96, cols: 8, rows: 12, bw: 980, t: 100, label: 'Lendário', grande: true, ima: 1.4, lampadaLivre: true, spots: 25 }
 ];
 const DEFAULT_PIECES = 12;
+const presetOf = (pieces) => PRESETS.find((p) => p.pieces === pieces) || PRESETS.find((p) => p.pieces === DEFAULT_PIECES);
+// lâmpada "sem limite": o contador fica neste número e não desce (um celular com a cópia antiga do jogo mostra 999 e continua funcionando)
+const HINTS_SEM_LIMITE = 999;
 // ÍMÃ DE ENCAIXE: a peça solta encaixa sozinha quando o CENTRO dela fica a até SNAP_FACTOR × (tamanho da casa) do centro da casa certa.
 // Padrão 0,35 desde 15/11/2026 (o proprietário pediu um ímã mais fraco: com 0,5 a peça encaixava longe demais da casa; foi 0,33 até
 // 10/11/2026 e 0,5 entre 10 e 15/11). Ajustável no Render com SNAP_FACTOR (aceita de 0,25 a 0,75; qualquer outro valor é ignorado e vale
 // o padrão). A MESMA fórmula vale na Sala Desafio (challenge.js recebe este valor daqui). Ao ARRASTAR o raio é menor (magnet.js).
 const SNAP_FACTOR_DEFAULT = 0.35;
+// fator do ímã de uma quantidade: o normal (SNAP_FACTOR) ou, nas quantidades grandes, SNAP_FACTOR × ima (nunca acima de 0,75 casa)
+function snapFactorFor(pr) { return Math.min(0.75, SNAP_FACTOR * (pr && pr.ima > 1 ? pr.ima : 1)); }
+const hintsFor = (pr) => (pr && pr.lampadaLivre ? HINTS_SEM_LIMITE : HINTS);
+const spotsFor = (pr) => (pr && pr.spots > 0 ? pr.spots : SPOTS);
 const SNAP_FACTOR = (() => { const v = Number(process.env.SNAP_FACTOR); return process.env.SNAP_FACTOR !== undefined && process.env.SNAP_FACTOR !== '' && Number.isFinite(v) && v >= 0.25 && v <= 0.75 ? v : SNAP_FACTOR_DEFAULT; })();
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sem O/0/I/1 para não confundir
 // 6 caracteres = ~1,07 bilhão de códigos (com 4 eram ~1 milhão): junto do limite de tentativas, ninguém consegue adivinhar uma sala
@@ -127,7 +140,7 @@ function validPieces(n, fallback) {
 // calcula o desenho do campo para a quantidade de peças escolhida.
 // Todas as posições das peças (x, y) são o CENTRO da peça, em unidades lógicas.
 function layoutFor(pieces, withFila = false) {
-  const pr = PRESETS.find((p) => p.pieces === pieces) || PRESETS.find((p) => p.pieces === DEFAULT_PIECES);
+  const pr = presetOf(pieces);
   // FILEIRA DE 5 (15/11/2026): 20, 30 e 48 peças têm UMA fileira de 5 vagas (as outras peças aparecem aos poucos, ver fila.js),
   // então a grade ganha a altura que a bandeja grande ocupava e fica mais larga. 6 e 12 peças continuam como sempre.
   // withFila: só quando TODOS os celulares da sala já têm o jogo novo (filaClient); um celular com a cópia antiga do jogo
@@ -160,9 +173,12 @@ function layoutFor(pieces, withFila = false) {
     BOARD_X: Math.round((FIELD_W - bw) / 2),
     BOARD_Y,
     TRAY_LINE: BOARD_Y + boardH + 20,                   // abaixo desta linha a peça solta fica pequena
-    SNAP: Math.round(tile * SNAP_FACTOR),               // distância (entre centros) para a peça encaixar (ímã)
+    SNAP: Math.round(tile * snapFactorFor(pr)),         // distância (entre centros) para a peça encaixar (ímã; mais forte nas quantidades grandes)
+    IMA: pr.ima > 1 ? pr.ima : 1,                       // multiplicador do ímã (também o ímã ao arrastar, magnet.js)
     MAX_ROT,
-    HINTS,
+    HINTS: hintsFor(pr),
+    HINTS_INF: pr.lampadaLivre === true,                // lâmpada sem limite (quantidades grandes)
+    SPOTS: spotsFor(pr),
     TRAY_TOP: trayTop,
     PER_ROW: perRow,
     TRAY_ROWS: trayRows,
@@ -482,8 +498,8 @@ function createRoom(code, imageId, pieces, solo, withFila) {
     solo: solo === true,          // modo Solo: sala de 1 pessoa (sem amigo, sem bate-papo, sem progresso salvo)
     imageId,
     cfg,
-    hints: [HINTS, HINTS],
-    spots: [SPOTS, SPOTS],
+    hints: [cfg.HINTS, cfg.HINTS],
+    spots: [cfg.SPOTS, cfg.SPOTS],
     rematch: null,
     imgReady: [false, false],   // cada celular avisa quando a imagem está carregada e preparada
     status: 'waiting', // waiting | playing | won
@@ -740,8 +756,8 @@ function performRestart(room, params) {
   room.cfg = layoutFor(params.pieces, filaRoomOk(room));
   room.pieces = buildPieces(room.cfg, true);
   fileira.init(room.cfg, room.pieces);
-  room.hints = [HINTS, HINTS];
-  room.spots = [SPOTS, SPOTS];
+  room.hints = [room.cfg.HINTS, room.cfg.HINTS];
+  room.spots = [room.cfg.SPOTS, room.cfg.SPOTS];
   room.z = 100;
   room.finishedAt = null;
   room.roundStart = Date.now();
@@ -808,7 +824,7 @@ function roomLevel() { return 0; }
 
 /* ---------- Sala Desafio (módulo separado: salas, tabuleiros e eventos "ch:" próprios) ---------- */
 const challenge = require('./challenge')({
-  io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS,
+  io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR, snapFactorFor, FIELD_W, BOARD_Y, MAX_ROT, HINTS, SPOTS, HINTS_SEM_LIMITE,
   validImage, validPieces, cleanName, cleanAvatar, cleanPid, newCode, layoutFor, buildPieces, filaClient,
   sendPush, validPushSub, webpush, clamp, rnd, shuffle,
   levelOf: roomLevel,                                                                                 // nível mostrado na Sala Desafio: sempre 0 (privacidade)
@@ -1096,7 +1112,7 @@ io.on('connection', (socket) => {
     if (!c) return reply(cb, { ok: false, left: 0 });
     const { room, idx } = c;
     if (room.hints[idx] <= 0) return reply(cb, { ok: false, left: 0 });
-    room.hints[idx]--;
+    if (!room.cfg.HINTS_INF) room.hints[idx]--;                 // lâmpada sem limite nas quantidades grandes
     reply(cb, { ok: true, left: room.hints[idx] });
     socket.emit('meta', meta(room));
   });

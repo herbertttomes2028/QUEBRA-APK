@@ -109,7 +109,7 @@ test('ajuste pelo painel do Render: SNAP_FACTOR de 0,25 a 0,75 vale; qualquer ou
 test('código: o fator é definido UMA vez no servidor e usado nos dois layouts; a regra de encaixe e o cliente não mudaram', () => {
   const sv = read('server.js'), ch = read('challenge.js'), gm = read('public/game.js');
   assert.equal((sv.match(/const SNAP_FACTOR = /g) || []).length, 1, 'definido uma vez'); assert.match(sv, /const SNAP_FACTOR_DEFAULT = 0\.35;/); assert.match(sv, /v >= 0\.25 && v <= 0\.75/);
-  assert.equal((sv.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length, 1); assert.equal((ch.match(/SNAP: Math\.round\(tile \* SNAP_FACTOR\)/g) || []).length, 1);
+  assert.equal((sv.match(/SNAP: Math\.round\(tile \* snapFactorFor\(pr\)\)/g) || []).length, 1); assert.equal((ch.match(/SNAP: Math\.round\(tile \* snapFactorFor\(pr\)\)/g) || []).length, 1);
   assert.match(sv, /createChallenge|require\('\.\/challenge'\)\(\{\s*io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR,/); assert.match(ch, /io, PRESETS, DEFAULT_PIECES, SNAP_FACTOR,/);
   assert.doesNotMatch(ch, /const SNAP_FACTOR/, 'o Desafio recebe o valor do servidor (não tem cópia própria)');
   for (const src of [sv, ch]) { assert.match(src, /if \(p\.rot !== 0\) return false;\n\s+if \(Math\.hypot\(p\.x - tx, p\.y - ty\) > cfg\.SNAP\) return false;/, 'tryLock igual: giro 0 e distância ≤ SNAP'); assert.match(src, /p\.x = tx;/); }
