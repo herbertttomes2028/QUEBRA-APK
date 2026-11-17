@@ -3733,6 +3733,28 @@
     Array.prototype.forEach.call(this.children, function (el) { el.style.animation = ''; });
   });
 
+  /* Tela inicial FIXA, sem rolar, em qualquer tamanho de letra (A, A+, A++) e de tela (16/11/2026): quando o conteúdo passa da altura
+   * disponível (entre o topo e a barra de abas), ele é encolhido por inteiro (transform: scale, que não mexe no layout nem nos toques) até caber.
+   * A faixa reservada no alto para o perfil e a ajuda NÃO encolhe (o perfil nunca cobre o logotipo). Com o teclado aberto (digitando o código),
+   * volta a rolar como antes, para o campo ficar visível. Recalcula só quando o tamanho muda (ResizeObserver): nada roda a cada quadro. */
+  (function homeFit() {
+    var home = $('#screen-home'), inner = home && home.querySelector('.home-inner'), code = $('#input-code'), typing = false;
+    if (!home || !inner) return;
+    function fit() {
+      var hs = getComputedStyle(home), avail = home.clientHeight - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom), h = inner.offsetHeight;
+      if (!avail || !h) return;                                                   // tela escondida: nada a fazer
+      var pad = parseFloat(getComputedStyle(inner).paddingTop) || 0, s = h <= avail ? 1 : Math.max(0.5, (avail - pad - 2) / (h - pad));
+      if (typing || s >= 1) { home.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); return; }
+      inner.style.setProperty('--fit', s.toFixed(4)); inner.style.setProperty('--fit-pad', pad + 'px');
+      home.classList.add('home-fit'); home.scrollTop = 0;
+    }
+    if (window.ResizeObserver) { var ro = new ResizeObserver(fit); ro.observe(home); ro.observe(inner); } else window.addEventListener('resize', fit);
+    if (code) {
+      code.addEventListener('focus', function () { typing = true; fit(); });
+      code.addEventListener('blur', function () { setTimeout(function () { typing = false; fit(); }, 160); });
+    }
+  })();
+
   // teclado aberto na tela inicial: dá espaço para rolar e deixa o campo (e o cartão dele) na parte que sobra acima do teclado
   (function homeKeyboard() {
     var home = $('#screen-home'), vv = window.visualViewport;

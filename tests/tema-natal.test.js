@@ -46,7 +46,7 @@ test('nunca toca na partida: nada de peças, tabuleiro, encaixe ou tela de monta
   const c = semComentarios(css);
   assert.doesNotMatch(c, /#board|#field|\.piece|\.tile|\.tray-|#screen-game|\.locked|\.puzzle/, 'o CSS do Natal não estiliza nada da partida');
   assert.match(c, /html\[data-natal\]\[data-natal-tela="game"\] \.natal-luzes \{ display: none; \}/);
-  for (const sel of ['.natal-luzes', '.natal-neve', '#screen-home .logo::before', '#btn-play::before']) assert.match(c, new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^{]*\\{[^}]*pointer-events: none;'), 'sem toque: ' + sel);
+  for (const sel of ['.natal-luzes', '.natal-neve', '#screen-home .lg.a::before', '#btn-play::before']) assert.match(c, new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[^{]*\\{[^}]*pointer-events: none;'), 'sem toque: ' + sel);
   assert.doesNotMatch(c, /pointer-events: (auto|all)/);
   assert.doesNotMatch(semComentarios(js), /innerHTML|insertAdjacentHTML|fetch\(|XMLHttpRequest|localStorage|sessionStorage|socket|emit\(|QC\.state|gems|price|\beval\(|new Function/, 'o tema não lê nem grava nada do jogo');
   assert.match(js, /setAttribute\('aria-hidden', 'true'\)/, 'enfeites escondidos dos leitores de tela');
