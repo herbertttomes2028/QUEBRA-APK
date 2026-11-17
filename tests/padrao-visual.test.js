@@ -33,7 +33,7 @@ test('cada nome é definido uma vez só (fora o ajuste do tema escuro para as so
   assert.match(dark.slice(0, 400), /--sh-flutua: 0 10px 28px rgba\(0, 0, 0, \.45\);/);
 });
 test('a régua bate com o modelo (a caixa dos Ajustes) e os botões usam a régua', () => {
-  assert.match(css, /\.set-box \{[^}]*border-radius: 18px; background: var\(--paper-2\); border: 1px solid var\(--line\); box-shadow: 0 3px 10px rgba\(27, 37, 89, \.1\);/);
+  assert.match(css, /\.set-box \{[^}]*border-radius: var\(--r-caixa\); background: var\(--caixa-fundo\); border: var\(--caixa-borda\); box-shadow: var\(--sh-caixa\);/);
   assert.match(css, /\.btn-xl \{ min-height: var\(--btn-g\);/); assert.match(css, /\.btn-small \{ min-height: var\(--btn-p\);/);
   assert.match(css, /\.btn-primary \{[^}]*box-shadow: var\(--sh-degrau\) var\(--sun-deep\)/);
 });
@@ -69,4 +69,33 @@ test('botões: 3 alturas, mesmo degrau, perigo com classe própria', () => {
   const lj = read('public/loja.css'); assert.match(lj, /\.shop-x \{ min-width: var\(--btn-p\); min-height: var\(--btn-p\);/); assert.match(lj, /\.shop-ads-btn \{ min-height: var\(--btn-p\);[^}]*box-shadow: var\(--sh-degrau\) var\(--line\)/);
   // o degrau dos botões não volta a ter alturas diferentes (6 e 7 px eram do Jogar e do Jogar com amigos)
   assert.doesNotMatch(css, /box-shadow: 0 [67]px 0 (var\(--sun-deep\)|#3a2fa8)/);
+});
+
+// Rodada padrao-caixas (parte 4, opção A do proprietário): todas as caixas iguais às dos Ajustes — canto de 18px e sombra suave.
+test('caixas: canto --r-caixa e sombra suave (sem o "degrau" embaixo); destaques coloridos continuam por cima', () => {
+  const lj = read('public/loja.css'), pt = read('public/pet.css');
+  assert.match(css, /--caixa-sombra: var\(--sh-caixa\), inset 0 0 0 1px var\(--line\);/);
+  const regra = (txt, sel) => { const i = txt.indexOf('\n' + sel + ' {'); assert.ok(i >= 0, sel); return txt.slice(i, txt.indexOf('}', i)); };
+  for (const sel of ['.me-card', '.me-stat', '.me-a', '.fr-row', '.fr-box', '.chal-opt', '.me-notice', '.fp-codebox', '.xp-line', '.ach-card', '.col-card', '.duel-row', '.lobby-image']) {
+    const r = regra(css, sel); assert.match(r, /border-radius: var\(--r-caixa\);/, sel); assert.match(r, /box-shadow: var\(--caixa-sombra\);/, sel);
+  }
+  for (const sel of ['.shop-card', '.mine-editor', '.shop-note', '.shop-ads']) { const r = regra(lj, sel); assert.match(r, /border-radius: var\(--r-caixa\);/, sel); assert.match(r, /box-shadow: var\(--caixa-sombra\);/, sel); }
+  assert.match(regra(pt, '.pet-opts'), /border-radius: var\(--r-caixa\);/);
+  // nenhum "degrau" de caixa sobrou (o degrau agora é só dos botões)
+  // (os botões de quantidade e os ícones do "Como jogar" são botão/ilustração: ficam com o degrau)
+  for (const [nome, txt] of [['style.css', css], ['loja.css', lj]]) {
+    const semBotoes = txt.split('\n').filter((l) => !/size-btn|tut-icons|^\s{2}box-shadow: 0 4px 0 var\(--line-2\);$/.test(l)).join('\n');
+    assert.doesNotMatch(semBotoes, /box-shadow: 0 [3-9]px 0 (\d+px )?var\(--line-2\)/, nome + ': caixa com degrau');
+    assert.doesNotMatch(txt, /0 6px 14px rgba/, nome + ': sombra antiga da Loja');
+  }
+  assert.match(css, /\n\.ach-pop \{[^}]*border-radius: var\(--r-caixa\);[^}]*box-shadow: var\(--sh-caixa\)/);
+  // destaques continuam, junto com a sombra padrão
+  assert.match(css, /\.pick-card\[aria-selected="true"\] \{[^}]*box-shadow: 0 0 0 4px var\(--sel\), var\(--sh-caixa\);/);
+  assert.match(css, /\.lobby-player \{[^}]*box-shadow: var\(--sh-caixa\), inset 0 0 0 3px var\(--c\);/);
+  assert.match(css, /\.ach-card\.fresh \{ box-shadow: 0 0 0 3px #ffbe36, var\(--sh-caixa\); \}/);
+  assert.match(lj, /\.shop-card\.is-on \{[^}]*0 0 0 3px #0b7a5c, var\(--sh-caixa\)/);
+});
+test('"MUNDOS FANTÁSTICOS" (e qualquer categoria) só quebra entre palavras', () => {
+  assert.match(css, /\.library-name \{[^}]*overflow-wrap: normal; word-break: normal;/);
+  assert.match(css, /html\[data-text="xlarge"\] \.library-name \{ font-size: clamp\(\.7rem, 3\.2vw, \.84rem\); letter-spacing: 0; \}/);
 });

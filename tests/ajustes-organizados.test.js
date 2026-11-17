@@ -28,6 +28,6 @@ test('privacidade e "Jogue com segurança" centralizados; caixa leve (sem anima�
   assert.match(css, /\.set-sheet > \.set-about \{ margin-top: 10px; text-align: center; \}/);
   assert.match(css, /\.set-sheet > \.set-safe \{ flex-direction: column; justify-content: center; text-align: center;/);
   const box = css.slice(css.indexOf('.set-box {'), css.indexOf('.set-sheet > .set-safe'));
-  assert.match(box, /box-shadow: 0 3px 10px/); assert.doesNotMatch(box, /animation|transition|filter|backdrop|will-change/);
+  assert.match(box, /box-shadow: var\(--sh-caixa\)/);   // padrão visual: a sombra é o nome da régua (0 3px 10px) assert.doesNotMatch(box, /animation|transition|filter|backdrop|will-change/);
   assert.match(css, /\.set-group-title \{[^}]*text-transform: uppercase/);
 });
