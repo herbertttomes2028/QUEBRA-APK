@@ -3740,13 +3740,30 @@
   (function homeFit() {
     var home = $('#screen-home'), inner = home && home.querySelector('.home-inner'), code = $('#input-code'), typing = false;
     if (!home || !inner) return;
-    function fit() {
+    // Só escreve no DOM quando algo MUDA. Antes, cada medida (várias durante a carga: fontes, imagens, saudação, mascote) regravava a classe da
+    // tela; o mascote observa a classe da tela inicial e, a cada regravação, refazia a sua sincronização (tamanho do canvas, troca do desenho
+    // pelo 3D) — o pet "tremia" algumas vezes ao voltar para o início (16/11/2026). Também ignora variações menores que 0,5%.
+    var curS = 1, curPad = -1, waitT = 0, first = true;
+    function measure() {
       var hs = getComputedStyle(home), avail = home.clientHeight - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom), h = inner.offsetHeight;
-      if (!avail || !h) return;                                                   // tela escondida: nada a fazer
+      if (!avail || !h) return null;                                              // tela escondida: nada a fazer
       var pad = parseFloat(getComputedStyle(inner).paddingTop) || 0, s = h <= avail ? 1 : Math.max(0.5, (avail - pad - 2) / (h - pad));
-      if (typing || s >= 1) { home.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); return; }
-      inner.style.setProperty('--fit', s.toFixed(4)); inner.style.setProperty('--fit-pad', pad + 'px');
-      home.classList.add('home-fit'); home.scrollTop = 0;
+      return { s: typing || s >= 1 ? 1 : Math.floor(s * 200) / 200, pad: pad };
+    }
+    function apply(m) {
+      if (m.s === curS && (m.s === 1 || m.pad === curPad)) return;
+      var was = curS; curS = m.s; curPad = m.pad;
+      if (m.s === 1) { home.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); return; }
+      inner.style.setProperty('--fit', String(m.s)); inner.style.setProperty('--fit-pad', m.pad + 'px');
+      if (was === 1) { home.classList.add('home-fit'); home.scrollTop = 0; }
+    }
+    // a 1ª medida vale na hora; as seguintes (fontes, imagens, saudação, mascote chegando durante a carga) são juntadas em UMA só, 200 ms depois
+    // da última, e mudanças pequenas para MAIOR (< 2%) são ignoradas: o conteúdo não fica "pulando" várias vezes seguidas
+    function fit() {
+      var m = measure(); if (!m) return;
+      if (first || typing) { first = false; apply(m); return; }
+      clearTimeout(waitT);
+      waitT = setTimeout(function () { var n = measure(); if (n && (n.s < curS || n.s > curS + 0.02 || (n.s === 1) !== (curS === 1) || n.pad !== curPad)) apply(n); }, 200);
     }
     if (window.ResizeObserver) { var ro = new ResizeObserver(fit); ro.observe(home); ro.observe(inner); } else window.addEventListener('resize', fit);
     if (code) {

@@ -24,3 +24,11 @@ test('o gorro do Natal mora no bloco azul do logotipo e se mexe junto com ele', 
   assert.match(natal, /html\[data-natal\] #screen-home \.lg\.a::before \{ content: ""; position: absolute;/);
   assert.doesNotMatch(natal, /\.logo::before/, 'não fica mais parado no logotipo');
 });
+
+test('o pet não "treme" ao voltar para o início: a tela só é regravada quando a escala MUDA, e as mudanças da carga viram uma só', () => {
+  const b = game.slice(game.indexOf('(function homeFit() {'), game.indexOf('(function homeKeyboard() {'));
+  assert.match(b, /if \(m\.s === curS && \(m\.s === 1 \|\| m\.pad === curPad\)\) return;/, 'nada é escrito se a escala não mudou');
+  assert.match(b, /if \(was === 1\) \{ home\.classList\.add\('home-fit'\);/, 'a classe da tela (que o mascote observa) só é posta ao LIGAR o encaixe');
+  assert.match(b, /waitT = setTimeout\(function \(\) \{ var n = measure\(\);[^}]*n\.s < curS \|\| n\.s > curS \+ 0\.02/, 'mudanças seguidas viram uma só (200 ms); aumentos pequenos são ignorados');
+  assert.match(b, /Math\.floor\(s \* 200\) \/ 200/, 'variações menores que 0,5% não contam');
+});
