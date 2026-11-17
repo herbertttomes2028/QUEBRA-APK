@@ -570,6 +570,58 @@ function createAccounts(d) {
     res.json(out);
   }));
 
+  /* ----- anúncios recompensados (ads.js; DESLIGADOS por padrão) -----
+   * O celular nunca diz quantas gemas ganha: o valor, o limite por dia e o intervalo vêm do servidor. Fluxo: /ads/start entrega uma ficha
+   * de uso único; /ads/reward troca a ficha por gemas, dentro de uma transação que trava a linha do jogador (gem_events kind 'ad', ref única).
+   * Limite honesto: a API do Google na web não tem confirmação servidor-a-servidor; por isso a recompensa é pequena e limitada por dia. */
+  const ADS = require('./ads').fromEnv(process.env);
+  const adTickets = new Map();                                   // uid -> { nonce, at } (uma ficha por perfil; uma nova substitui a anterior)
+  setInterval(() => { const lim = Date.now() - 15 * 60 * 1000; for (const [k, v] of adTickets) if (v.at < lim) adTickets.delete(k); }, 5 * 60 * 1000).unref();
+  async function adStatus(q, uid) {
+    const x = (await q(`SELECT count(*) FILTER (WHERE created_at >= ${DAY_START})::int AS hoje,
+                               EXTRACT(EPOCH FROM now() - max(created_at))::float8 AS desde
+                          FROM gem_events WHERE user_id = $1 AND kind = 'ad'`, [uid])).rows[0] || {};
+    const desde = x.desde == null ? Infinity : Number(x.desde);
+    return { restantes: Math.max(0, ADS.limite - Number(x.hoje || 0)), esperar: Math.max(0, Math.ceil(ADS.intervalo - desde)) };
+  }
+  const adPublic = (st) => Object.assign(require('./ads').publicInfo(ADS), st ? { restantes: st.restantes, esperar: st.esperar } : {});
+  r.get('/ads', needUser, guard(async (req, res) => {
+    if (!ADS.ligado) return res.json({ ok: true, modo: 'desligado' });
+    if (!allow('ads:get:' + req.user.id, 60, 60 * 1000)) return bad(res, 429, 'rate');
+    res.json(Object.assign({ ok: true }, adPublic(await adStatus(db.q.bind(db), req.user.id))));
+  }));
+  r.post('/ads/start', needUser, guard(async (req, res) => {
+    if (!ADS.ligado) return bad(res, 404, 'off');
+    if (!allow('ads:start:' + req.user.id, 12, 10 * 60 * 1000)) return bad(res, 429, 'rate');
+    const st = await adStatus(db.q.bind(db), req.user.id);
+    if (!st.restantes) return res.status(409).json(Object.assign({ ok: false, error: 'limite' }, adPublic(st)));
+    if (st.esperar > 0) return res.status(409).json(Object.assign({ ok: false, error: 'cedo' }, adPublic(st)));
+    const nonce = crypto.randomBytes(18).toString('base64url');
+    adTickets.set(req.user.id, { nonce, at: Date.now() });
+    res.json(Object.assign({ ok: true, nonce }, adPublic(st)));
+  }));
+  r.post('/ads/reward', needUser, guard(async (req, res) => {
+    if (!ADS.ligado) return bad(res, 404, 'off');
+    if (!allow('ads:reward:' + req.user.id, 12, 10 * 60 * 1000)) return bad(res, 429, 'rate');
+    const uid = req.user.id, nonce = String((req.body || {}).nonce || ''), t = adTickets.get(uid);
+    if (!t || nonce.length !== t.nonce.length || !crypto.timingSafeEqual(Buffer.from(nonce), Buffer.from(t.nonce))) return bad(res, 400, 'ficha');
+    const passou = Date.now() - t.at;
+    adTickets.delete(uid);                                        // uso único, dê certo ou não
+    if (passou < ADS.minSegundos * 1000) return bad(res, 400, 'cedo');
+    if (passou > 15 * 60 * 1000) return bad(res, 400, 'ficha');
+    const out = await tx(async (q) => {
+      const u = (await q('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
+      if (!u) return { ok: false, error: 'auth' };
+      const st = await adStatus(q, uid);
+      // o intervalo conta a partir do início deste anúncio (ele já foi conferido no /ads/start; aqui só impede duas recompensas juntas)
+      if (!st.restantes || st.esperar - Math.floor(passou / 1000) > 2) return Object.assign({ ok: false, error: st.restantes ? 'cedo' : 'limite' }, adPublic(st));
+      const c = await gemm.creditAd(q, uid, 'ad:' + t.nonce, ADS.gemas);
+      return Object.assign({ ok: true, ganhou: c.ad, gems: c.balance }, adPublic({ restantes: Math.max(0, st.restantes - (c.ad ? 1 : 0)), esperar: c.ad ? ADS.intervalo : st.esperar }));
+    });
+    if (!out.ok) return res.status(out.error === 'auth' ? 401 : 409).json(out);
+    res.json(out);
+  }));
+
   r.get('/save', needUser, guard(async (req, res) => res.json({ ok: true, save: await saveSummary(req.user.id) })));
   r.post('/save/discard', needUser, guard(async (req, res) => { await deleteSave(req.user.id); res.json({ ok: true }); }));      // também cancela uma gravação pendente
 

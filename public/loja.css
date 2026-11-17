@@ -249,3 +249,18 @@ html[data-motion="reduce"] .shop-card.just::after, html[data-motion="reduce"] .s
 #modal-shop .shop-sheet { animation: sheet-in .24s ease-out .07s both; will-change: transform; }
 html[data-motion="reduce"] #modal-shop .shop-sheet { animation: none; }
 @media (prefers-reduced-motion: reduce) { #modal-shop .shop-sheet { animation: none; } }
+
+/* ---------- anúncio recompensado OPCIONAL (anuncios.js; só com a chave ADS_MODO ligada) ---------- */
+/* Discreto de propósito: sem brilho, sem pulsar, sem cor de alerta. Fica abaixo do cabeçalho e não muda nada quando está escondido. */
+.shop-ads { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 8px; border-radius: 14px; background: rgba(27, 37, 89, .05); }
+.shop-ads[hidden] { display: none; }
+.shop-ads-btn { min-height: 44px; padding: 0 14px; font-size: .92rem; background: #fff; color: #1b2559; box-shadow: 0 2px 0 rgba(27, 37, 89, .18); border: 2px solid rgba(27, 37, 89, .14); }
+.shop-ads-btn:disabled { opacity: .55; }
+.shop-ads-note { flex: 1 1 140px; min-width: 0; font-size: .8rem; font-weight: 700; color: #3f4a78; line-height: 1.25; }
+.ad-sim { max-width: 380px; text-align: center; gap: 10px; }
+.ad-sim-box { margin: 0; padding: 18px 12px; border-radius: 14px; border: 2px dashed rgba(27, 37, 89, .25); background: #f4f6ff; color: #1b2559; font-weight: 700; line-height: 1.35; }
+.ad-sim-count { margin: 0; font-size: 2rem; font-weight: 900; color: #1b2559; }
+html[data-theme="dark"] .shop-ads { background: rgba(255, 255, 255, .07); }
+html[data-theme="dark"] .shop-ads-note { color: #d9def5; }
+html[data-theme="dark"] .ad-sim-box { background: #2c2f5a; color: #f1f3ff; border-color: rgba(255, 255, 255, .3); }
+html[data-theme="dark"] .ad-sim-count { color: #f1f3ff; }

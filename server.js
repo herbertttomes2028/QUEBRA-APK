@@ -295,6 +295,26 @@ app.set('trust proxy', 1);              // atrás do Render: pega o IP real (par
 app.all('/api/upload', (req, res) => { res.set('Cache-Control', 'no-store'); res.status(410).json({ ok: false, error: 'gone' }); });
 app.all('/api/up/:token', (req, res) => { res.set('Cache-Control', 'no-store'); res.status(410).type('text').send('removido'); });
 
+// Anúncios recompensados (ads.js): DESLIGADOS por padrão. A política de privacidade traz o trecho sobre anúncios SÓ quando a chave está ligada,
+// e o /ads.txt só existe com ADS_MODO=teste/real e um ADS_CLIENT válido.
+const ADS = require('./ads').fromEnv(process.env);
+if (ADS.aviso) console.warn('[anúncios]', ADS.aviso);
+else if (ADS.ligado) console.log('[anúncios] modo ' + ADS.modo + ', ' + ADS.gemas + ' gemas por anúncio, até ' + ADS.limite + ' por dia');
+const privacyPages = new Map();
+app.get('/privacidade.html', (req, res, next) => {
+  fs.readFile(path.join(PUBLIC_DIR, 'privacidade.html'), 'utf8', (err, html) => {
+    if (err) return next();
+    if (!privacyPages.has(html)) { privacyPages.clear(); privacyPages.set(html, require('./ads').privacyHtml(html, ADS.ligado)); }
+    res.set('Cache-Control', 'no-cache');
+    res.type('html').send(privacyPages.get(html));
+  });
+});
+app.get('/ads.txt', (req, res) => {
+  const txt = require('./ads').adsTxt(ADS);
+  if (!txt) return res.status(404).type('text').send('');
+  res.set('Cache-Control', 'public, max-age=3600'); res.type('text').send(txt);
+});
+
 app.use(
   express.static(PUBLIC_DIR, {
     maxAge: '1d',

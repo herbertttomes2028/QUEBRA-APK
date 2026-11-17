@@ -181,6 +181,27 @@ O servidor pode levar até 60 segundos para responder na primeira abertura.
 
 A última linha das instruções deixa de ser necessária se a hospedagem passar para um plano que não dorme.
 
+### Se ligar os anúncios (`ADS_MODO`)
+
+As respostas acima ("O app contém anúncios? Não") valem **enquanto `ADS_MODO` estiver desligado** (padrão). Desde a rodada `anuncios-teste` o servidor tem anúncios recompensados opcionais na Loja (AdSense H5 Games). Valores de `ADS_MODO`:
+
+| `ADS_MODO` | O que acontece | Muda a Play Store? |
+| --- | --- | --- |
+| (vazio) ou `desligado` | Nada: igual a antes | Não |
+| `simulado` | Um anúncio de mentira feito pelo próprio jogo, sem internet e sem Google, só para testar o botão e as gemas | Não há anúncio de verdade; se for usar no teste fechado, avise os testadores |
+| `teste` | Script do Google com anúncios de teste (`data-adbreak-test="on"`), exige `ADS_CLIENT` | Sim, assim que o app publicado puder mostrar o Google |
+| `real` | Anúncios de verdade, exige `ADS_CLIENT` e site aprovado no AdSense | Sim |
+
+Com `teste` ou `real` no servidor usado pelo app publicado, **antes** de ligar, atualize na Play Console:
+
+- **Público-alvo e conteúdo › Anúncios:** "Contém anúncios: Sim". A loja passa a mostrar o selo "Contém anúncios".
+- **Segurança dos dados:** os anúncios vêm de um script do Google carregado na página. Declare o que o Google recebe ao mostrar o anúncio, como o identificador do aparelho/navegador e dados de interação com o anúncio, para a finalidade "Publicidade ou marketing", e responda que os anúncios são **não personalizados**. Confira as perguntas na tela: elas mudam com o tempo (não verificado na conta).
+- **ID de publicidade:** o pacote continua sem a permissão `AD_ID` e a página web não tem acesso ao ID de publicidade do Android. A resposta segue "não usa" (não verificado com o PWABuilder).
+- **Política de privacidade:** com a chave ligada, o servidor já entrega a versão com a seção "Anúncios" no mesmo endereço; nada a trocar no link.
+- **Família:** o app é 16+ e não está no programa Família. Mesmo assim os pedidos vão marcados como público menor de idade e não personalizados (ECA Digital, art. 22).
+
+Ao **desligar** de novo, volte as respostas para "Não" na próxima atualização da ficha.
+
 ## 7. AAB: envio, assinatura e assetlinks
 
 O arquivo a enviar é `quebra-cabeca-a-dois-v2.aab`, do pacote `app-para-a-play.zip`. Foi gerado com o Bubblewrap 1.27.0 e validado com o `bundletool` 1.18.3 (código de saída 0).

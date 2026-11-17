@@ -704,9 +704,23 @@
         <div id="shop-wallet" class="shop-wallet" role="status" aria-live="polite"><span class="shop-wallet-gem" aria-hidden="true">💎</span><b id="shop-gems" class="shop-gems"></b><small id="shop-gems-lbl">gemas</small></div>
         <button id="shop-close" data-back class="btn btn-ghost shop-x" type="button" aria-label="Fechar a loja">✕</button>
       </header>
+      <!-- Anúncio recompensado OPCIONAL (anuncios.js): só aparece com a chave ADS_MODO ligada no servidor e para quem tem perfil -->
+      <div id="shop-ads" class="shop-ads" hidden>
+        <button id="shop-ads-btn" class="btn shop-ads-btn" type="button" disabled><span aria-hidden="true">🎬</span> <span id="shop-ads-txt">Ver um anúncio</span></button>
+        <small id="shop-ads-note" class="shop-ads-note" aria-live="polite"></small>
+      </div>
       <p class="natal-loja" data-natal-msg hidden>🎅 Boas festas! A roupa de Papai Noel é grátis em Roupas.</p>
       <div id="shop-nav" class="shop-nav" role="tablist" aria-label="Seções da loja"></div>
       <div id="shop-body" class="shop-body" role="tabpanel" aria-label="Itens da loja"></div>
+    </div>
+  </div>
+  <!-- Anúncio SIMULADO (ADS_MODO=simulado): feito pelo próprio jogo, sem internet e sem Google, só para testar o fluxo das gemas -->
+  <div id="modal-ad-sim" class="modal shop-modal shop-modal-top" hidden role="dialog" aria-modal="true" aria-labelledby="adsim-title" aria-describedby="adsim-help">
+    <div class="sheet ad-sim">
+      <h3 id="adsim-title">Anúncio de teste</h3>
+      <p id="adsim-help" class="ad-sim-box">Este é um anúncio <b>simulado</b> pelo próprio jogo, sem Google. Espere a contagem terminar para ganhar as gemas.</p>
+      <p class="ad-sim-count"><b id="adsim-count" aria-live="polite">5</b></p>
+      <button id="adsim-close" data-back class="btn btn-ghost" type="button">Fechar sem gemas</button>
     </div>
   </div>
   <div id="modal-tray-preview" class="modal shop-modal shop-modal-top" hidden role="dialog" aria-modal="true" aria-labelledby="tp-title">
@@ -748,5 +762,6 @@
   <script src="mascot-looks.js"></script>
   <script src="mascot.js"></script>
   <script src="pet.js"></script>
+  <script src="anuncios.js"></script>
 </body>
 </html>
