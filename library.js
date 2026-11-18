@@ -115,25 +115,20 @@ function configureMedia(raw) {                  // chamado uma vez ao ligar o se
 }
 
 function image(file) { return cur.byFile.get(file) || null; }
-function cat(id) { return cur.catById.get(id) || null; }
+// Política de acesso (novembro/2026): TODAS as imagens ativas são gratuitas, inclusive para visitantes.
+// O catálogo e as compras históricas continuam intactos no banco; só a visão de acesso é livre.
+function freeCategory(c) { return c ? Object.freeze({ ...c, unlock: 'free', requires: null, price: 0, gate: null }) : null; }
+function cat(id) { return freeCategory(cur.catById.get(id)); }
 function assets() { return cur.ALL.map(i => ({ ...i })); }
 function catalog() {
-  return cur.CATEGORIES.map(c => ({ ...c, images: cur.byCat.get(c.id).map(i => ({ file: i.file, label: i.label, url: i.url, thumb: i.thumb, categoryId: c.id })) }));
+  return cur.CATEGORIES.map(c => ({ ...freeCategory(c), images: cur.byCat.get(c.id).map(i => ({ file: i.file, label: i.label, url: i.url, thumb: i.thumb, categoryId: c.id })) }));
 }
-// imagens de uma categoria que precisam estar concluídas para liberar as que dependem dela: as N primeiras (unlock_gate), ou todas
-function gateImages(catId) { const c = cur.catById.get(catId), imgs = cur.byCat.get(catId); return c.gate ? imgs.slice(0, c.gate) : imgs; }
+// O progresso continua sendo contabilizado; não é requisito para abrir nenhuma categoria.
 function unlocksFrom(clears, purchases) {
-  const done = new Set(clears), bought = new Set(purchases), out = {};
-  for (const c of cur.CATEGORIES) {
-    out[c.id] = c.unlock === 'free' ? true :
-      c.unlock === 'after' ? gateImages(c.requires).every(i => done.has(i.file)) :
-      bought.has(c.id);
-  }
-  return out;
+  return Object.fromEntries(cur.CATEGORIES.map((c) => [c.id, true]));
 }
 function canOpen(file, clears, purchases) {
-  const i = image(file);
-  return !i || !!unlocksFrom(clears, purchases)[i.categoryId];
+  return true; // a validação de existência e formato continua no servidor
 }
 
 /* ---------- Carga do banco (leitura somente; nenhum caminho do jogo escreve nessas tabelas) ----------
@@ -159,11 +154,9 @@ function makeService(db) {
     return { clears, purchases, unlocked: unlocksFrom(clears, purchases), gems: Number(u.rows[0] && u.rows[0].gems || 0) };
   }
   async function canPlay(uid, file) {
-    const i = image(file);
-    if (!i) return true; // imagens clássicas e convites antigos
-    if (!uid) return cat(i.categoryId).unlock !== 'gems'; // visitante: progressão local das categorias grátis, jamais compras
-    const s = await status(uid);
-    return !!s.unlocked[i.categoryId];
+    // Só imagens existentes no catálogo chegam aqui; a autorização não depende mais de login ou conquistas.
+    // O servidor continua validando imageId e salas antes de criar qualquer partida.
+    return true;
   }
   // Chamar somente na MESMA transação do crédito da partida e após rw.earnedCompletion.
   async function recordTx(q, uid, file) {
@@ -172,23 +165,8 @@ function makeService(db) {
     return !!r.rowCount;
   }
   async function buy(uid, categoryId) {
-    const c = cat(categoryId);
-    if (!c || c.unlock !== 'gems' || !c.price) return { ok: false, error: 'invalid' };
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
-      const q = (sql, args) => client.query(sql, args);
-      const row = (await q('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [uid])).rows[0];
-      if (!row) { await client.query('ROLLBACK'); return { ok: false, error: 'auth' }; }
-      const existing = await q('SELECT 1 FROM library_unlocks WHERE user_id=$1 AND category_id=$2', [uid, c.id]);
-      if (existing.rowCount) { await client.query('COMMIT'); return { ok: true, already: true, gems: Number(row.gems) }; }
-      if (Number(row.gems) < c.price) { await client.query('ROLLBACK'); return { ok: false, error: 'gems', gems: Number(row.gems), price: c.price }; }
-      await q('INSERT INTO library_unlocks (user_id, category_id, gems_spent) VALUES ($1,$2,$3)', [uid, c.id, c.price]);
-      const next = (await q('UPDATE users SET gems = gems - $1 WHERE id = $2 RETURNING gems', [c.price, uid])).rows[0];
-      await client.query('COMMIT');
-      return { ok: true, already: false, gems: Number(next.gems), price: c.price };
-    } catch (e) { try { await client.query('ROLLBACK'); } catch (_) {} throw e; }
-    finally { client.release(); }
+    // Endpoint antigo segue acessível por compatibilidade, mas não debita gemas para liberar imagens já livres.
+    return { ok: false, error: 'invalid' };
   }
   return { status, canPlay, recordTx, buy };
 }

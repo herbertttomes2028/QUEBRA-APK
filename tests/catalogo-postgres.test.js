@@ -29,8 +29,8 @@ test('PostgreSQL: migração 008, carga do catálogo, lote gerado pelo script, r
     const fauna5 = lib.ALL.filter((i) => i.categoryId === 'fauna').slice(0, 5).map((i) => i.file);
     assert.equal(lib.ALL.filter((i) => i.categoryId === 'fauna').length, 19);
     assert.equal(lib.unlocksFrom(fauna5, []).biomas, true, 'as 5 primeiras de fauna (o gate) liberam biomas, mesmo havendo 19');
-    assert.equal(lib.unlocksFrom(fauna5.slice(0, 4), []).biomas, false);
-    assert.equal(lib.unlocksFrom(lib.ALL.filter((i) => i.categoryId === 'fauna').slice(5).map((i) => i.file), []).biomas, false, 'só as extras não liberam');
+    assert.equal(lib.unlocksFrom(fauna5.slice(0, 4), []).biomas, true, 'aberta mesmo antes do gate');
+    assert.equal(lib.unlocksFrom(lib.ALL.filter((i) => i.categoryId === 'fauna').slice(5).map((i) => i.file), []).biomas, true, 'qualquer progresso mantém aberta');
     await client.query("DELETE FROM library_images WHERE source = 'teste'");        // volta ao estado só-008 para a comparação com o embutido abaixo
 
     // 1) a carga do banco entrega o MESMO catálogo do embutido (mesmos ids, rótulos, ordem, regras e preços)
@@ -38,7 +38,7 @@ test('PostgreSQL: migração 008, carga do catálogo, lote gerado pelo script, r
     const doBanco = JSON.stringify(lib.catalog().map((c) => ({ ...c, images: c.images.map((i) => ({ file: i.file, label: i.label, categoryId: i.categoryId })) })));
     assert.equal(doBanco, embutido, 'catálogo do banco == catálogo embutido');
     assert.ok(lib.ALL.every((i) => /^biblioteca\/lib-[a-z]+-0\d\.webp$/.test(i.url)), 'sem MEDIA_BASE_URL: arquivos locais');
-    assert.deepEqual(lib.unlocksFrom([], []), { fauna: true, biomas: false, espaco: false, cultura: false, fantasia: false });
+    assert.deepEqual(lib.unlocksFrom([], []), { fauna: true, biomas: true, espaco: true, cultura: true, fantasia: true });
 
     // 2) RLS ligado nas duas tabelas e as regras do próprio banco recusam dado ruim
     const rls = (await client.query("SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('library_categories','library_images') AND relnamespace = $1::regnamespace", [schema])).rows;
@@ -62,7 +62,7 @@ test('PostgreSQL: migração 008, carga do catálogo, lote gerado pelo script, r
     assert.equal(await lib.loadFromDb(db, log), true);
     assert.deepEqual(lib.CATEGORIES.map((c) => c.id), ['fauna', 'biomas', 'espaco', 'cultura', 'fantasia', 'oceano']);
     assert.equal(lib.image('lib-oceano-01.webp').label, 'Tartaruga 1');
-    assert.equal(lib.unlocksFrom([], []).oceano, false, 'nova categoria "after espaco" começa fechada');
+    assert.equal(lib.unlocksFrom([], []).oceano, true, 'nova categoria fica aberta mesmo sem progresso');
     const espaco = lib.ALL.filter((i) => i.categoryId === 'espaco').map((i) => i.file);
     assert.equal(lib.unlocksFrom(espaco, []).oceano, true, '…e abre quando "espaco" está toda concluída');
     assert.ok(lib.image('lib-oceano-01.webp').thumb.startsWith('biblioteca/mini/'));

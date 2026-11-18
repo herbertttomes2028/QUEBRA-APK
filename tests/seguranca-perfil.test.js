@@ -241,10 +241,12 @@ test('SEGURANÇA dinâmica (local): perfil gerado, sessões, acesso indevido, ge
       t.diagnostic('10 compras simultâneas da mesma bandeja (250 gemas, saldo 400): ' + oks + ' aprovada(s); saldo final ' + (await gem()).gems);
       assert.equal(oks, 1, 'só UMA das 10 compras simultâneas passa'); assert.equal((await gem()).gems, 150, 'cobrado uma vez só');
       assert.equal((await dbq("SELECT count(*)::int AS n FROM shop_purchases WHERE user_id = $1 AND item_id = 'estrela'", [A.uid]).catch(() => ({ rows: [{ n: 1 }] }))).rows[0].n, 1, 'um único registro de compra');
-      const cats = cfg.library.filter((c) => c.price > 0); assert.ok(cats.length, 'há categoria paga no catálogo');
-      await dbq('UPDATE users SET gems = $2 WHERE id = $1', [A.uid, cats[0].price + 10]);
-      const par2 = await Promise.all(Array.from({ length: 8 }, () => http(S1, 'POST', '/library/unlock', { token: A.token, body: { categoryId: cats[0].id } })));
-      assert.equal((await dbq('SELECT count(*)::int AS n FROM library_unlocks WHERE user_id = $1 AND category_id = $2', [A.uid, cats[0].id])).rows[0].n, 1, 'um único desbloqueio gravado'); assert.equal((await gem()).gems, 10, 'categoria cobrada uma vez só (' + par2.filter((r) => r.status === 200).length + ' respostas ok, as outras "já é seu")');
+      // Biblioteca liberada: não há compra de categorias, nem mesmo usando o endpoint legado em paralelo.
+      assert.ok(cfg.library.every((c) => c.price === 0 && c.unlock === 'free'), 'todas as categorias públicas e gratuitas');
+      const par2 = await Promise.all(Array.from({ length: 8 }, () => http(S1, 'POST', '/library/unlock', { token: A.token, body: { categoryId: 'cultura' } })));
+      assert.ok(par2.every((r) => r.status === 400 && r.body.error === 'invalid'), 'endpoint antigo nunca cobra imagens gratuitas');
+      assert.equal((await dbq("SELECT count(*)::int AS n FROM library_unlocks WHERE user_id = $1", [A.uid])).rows[0].n, 0, 'nenhuma compra de coleção gravada');
+      assert.equal((await gem()).gems, 150, 'as oito tentativas antigas não mexeram nas gemas após a compra da bandeja');
       assert.ok((await dbq('SELECT gems FROM users WHERE id = $1', [A.uid])).rows[0].gems >= 0, 'saldo nunca negativo');
     });
 

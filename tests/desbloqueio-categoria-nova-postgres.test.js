@@ -10,7 +10,7 @@ const enabled = process.env.GEMAS_TEST_DB === '1';
 const connection = process.env.DATABASE_URL || '';
 const root = path.join(__dirname, '..');
 
-test('PostgreSQL: categoria paga nova ("Baú das Maravilhas") pode ser comprada; uma cobrança só; saldo curto recusa; antigas seguem; quem já tinha Cultura não perde nada', { skip: !enabled }, async () => {
+test('PostgreSQL: catálogo antigo, compras históricas preservadas e todas as imagens agora livres sem débito', { skip: !enabled }, async () => {
   const url = new URL(connection);
   if (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.pathname !== '/qc_test') throw Error('PROTEÇÃO: só qc_test em localhost; nunca Neon/produção');
   const { Pool } = require('pg'); const library = require('../library');
@@ -43,32 +43,28 @@ test('PostgreSQL: categoria paga nova ("Baú das Maravilhas") pode ser comprada;
     assert.equal(library.CATEGORIES.length, 6);
     const api = library.makeService(db); const imagem = library.ALL.find((i) => i.categoryId === 'bau-maravilhas').file;
 
-    /* ---- comprar ---- */
+    /* ---- acesso público gratuito sem comprometer as compras históricas ---- */
+    assert.deepEqual([library.cat('bau-maravilhas').unlock, library.cat('bau-maravilhas').price], ['free', 0]);
+    assert.deepEqual([library.catalog().find(c => c.id === 'bau-maravilhas').unlock,
+      library.catalog().find(c => c.id === 'bau-maravilhas').price], ['free', 0]);
     const ana = await mk('Ana', 100);
-    assert.equal(await api.canPlay(ana, imagem), false, 'bloqueada antes de comprar');
-    const r1 = await api.buy(ana, 'bau-maravilhas'); assert.deepEqual([r1.ok, r1.already, r1.gems, r1.price], [true, false, 70, 30], JSON.stringify(r1));
-    assert.equal(await api.canPlay(ana, imagem), true, 'liberada depois de comprar');
-    assert.equal((await q('SELECT count(*)::int AS n FROM library_unlocks WHERE user_id = $1', [ana])).rows[0].n, 1);
-    const r2 = await api.buy(ana, 'bau-maravilhas'); assert.deepEqual([r2.ok, r2.already, r2.gems], [true, true, 70], 'comprar de novo não cobra outra vez');
-    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [ana])).rows[0].gems), 70);
-
-    /* ---- dois toques ao mesmo tempo: uma cobrança só ---- */
-    const bia = await mk('Bia', 100);
-    const par = await Promise.all([api.buy(bia, 'bau-maravilhas'), api.buy(bia, 'bau-maravilhas'), api.buy(bia, 'bau-maravilhas')]);
-    assert.equal(par.filter((r) => r.ok && !r.already).length, 1, 'só uma compra de verdade'); assert.ok(par.every((r) => r.ok));
-    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [bia])).rows[0].gems), 70, 'debitou 30, uma vez');
-    assert.equal((await q('SELECT count(*)::int AS n FROM library_unlocks WHERE user_id = $1', [bia])).rows[0].n, 1);
-
-    /* ---- saldo curto: nada muda ---- */
-    const duda = await mk('Duda', 29);
-    const r3 = await api.buy(duda, 'bau-maravilhas'); assert.deepEqual([r3.ok, r3.error, r3.gems, r3.price], [false, 'gems', 29, 30]);
-    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [duda])).rows[0].gems), 29); assert.equal((await q('SELECT count(*)::int AS n FROM library_unlocks WHERE user_id = $1', [duda])).rows[0].n, 0);
-
-    /* ---- as antigas seguem funcionando; a gratuita e a inexistente seguem recusadas ---- */
+    for (const id of ['fauna', 'biomas', 'espaco', 'cultura', 'fantasia', 'bau-maravilhas']) {
+      const f = library.ALL.find(i => i.categoryId === id).file;
+      assert.equal(await api.canPlay(ana, f), true, id + ' aberto com conta sem progresso');
+      assert.equal(await api.canPlay(null, f), true, id + ' aberto como visitante');
+      assert.equal((await api.status(ana)).unlocked[id], true, 'API não pede sessão concluída');
+    }
+    const antes = await q('SELECT gems FROM users WHERE id = $1', [ana]);
+    const paralelo = await Promise.all(Array.from({ length: 3 }, () => api.buy(ana, 'bau-maravilhas')));
+    assert.ok(paralelo.every(r => r.ok === false && r.error === 'invalid'), 'API antiga não cobra por imagem livre');
+    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [ana])).rows[0].gems), Number(antes.rows[0].gems));
+    assert.equal((await q('SELECT count(*)::int AS n FROM library_unlocks WHERE user_id=$1', [ana])).rows[0].n, 0);
     const edu = await mk('Edu', 200);
-    assert.deepEqual([(await api.buy(edu, 'cultura')).gems, (await api.buy(edu, 'fantasia')).gems], [175, 135]);
-    for (const c of ['fauna', 'biomas', 'espaco', 'nao-existe']) { const r = await api.buy(edu, c); assert.deepEqual([r.ok, r.error], [false, 'invalid'], c); }
-    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [edu])).rows[0].gems), 135, 'recusadas não cobram');
+    for (const id of ['fauna', 'biomas', 'espaco', 'cultura', 'fantasia', 'bau-maravilhas', 'nao-existe']) {
+      assert.deepEqual([ (await api.buy(edu, id)).ok, (await api.buy(edu, id)).error ], [false, 'invalid'], id);
+    }
+    assert.equal(Number((await q('SELECT gems FROM users WHERE id = $1', [edu])).rows[0].gems), 200);
+    assert.deepEqual((await q('SELECT category_id FROM library_unlocks WHERE user_id=$1 ORDER BY category_id', [antigo])).rows.map(r => r.category_id), ['cultura', 'fantasia'], 'compras anteriores não apagadas');
 
     /* ---- o banco é a última defesa ---- */
     await assert.rejects(q("INSERT INTO library_unlocks (user_id, category_id, gems_spent) VALUES ($1, 'categoria-que-nao-existe', 5)", [edu]), /foreign key|violates/i);
