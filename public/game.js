@@ -257,21 +257,28 @@
     });
   }
 
-  // recorta o centro da imagem na proporção da grade (cols:rows) e reduz o tamanho
+  // tamanho do recorte da partida (o mesmo nos dois caminhos de prepareImage)
+  function cropSizeOf(nw, nh, cols, rows) {
+    var W = 720;
+    var q = 0.9;
+    // Quantidades grandes (8 colunas: 64, 88 e 96 peças, rodada pecas-grandes): a imagem fica na resolução ORIGINAL do recorte
+    // (sem reduzir nem ampliar; no máximo 1080 px de largura) e o JPEG sai com qualidade 0,95, para cada peça pequena continuar nítida.
+    if (cols >= 8) {
+      nw = nw || 720; nh = nh || 960;
+      W = Math.max(320, Math.min(1080, Math.round(Math.min(nw, nh * cols / rows)))); q = 0.95;
+    }
+    return { W: W, H: Math.round(W * rows / cols), q: q };
+  }
+  // recorta o centro da imagem na proporção da grade (cols:rows) e reduz o tamanho.
+  // 1º caminho: a imagem é decodificada FORA da thread principal e recortada no worker (cropFromFile); se não der, o caminho de sempre (<img>).
   function prepareImage(item, cols, rows) {
     var key = item.file + '|' + cols + 'x' + rows;
     if (imgCache[key]) return imgCache[key];
-    imgCache[key] = loadImage(item.url).then(function (img) {
-      var W = 720;
-      var q = 0.9;
-      // Quantidades grandes (8 colunas: 64, 88 e 96 peças, rodada pecas-grandes): a imagem fica na resolução ORIGINAL do recorte
-      // (sem reduzir nem ampliar; no máximo 1080 px de largura) e o JPEG sai com qualidade 0,95, para cada peça pequena continuar nítida.
-      if (cols >= 8) {
-        var nw = img.naturalWidth || 720, nh = img.naturalHeight || 960;
-        W = Math.max(320, Math.min(1080, Math.round(Math.min(nw, nh * cols / rows)))); q = 0.95;
-      }
-      var H = Math.round(W * rows / cols);
-      return cropToBlob(img, W, H, item.url, q);
+    imgCache[key] = cropFromFile(item.url, cols, rows).catch(function () {
+      return loadImage(item.url).then(function (img) {
+        var s = cropSizeOf(img.naturalWidth, img.naturalHeight, cols, rows), W = s.W, H = s.H, q = s.q;
+        return cropToBlob(img, W, H, item.url, q);
+      });
     }).catch(function () { return item.url; });
     preparedKeys.push(key);
     return imgCache[key];
@@ -306,11 +313,30 @@
     } catch (e) { cropWorker = false; }
     return cropWorker;
   }
+  function postCrop(bm, W, H, q) {
+    var w = cropWorkerGet();
+    if (!w) { try { bm.close(); } catch (e) { /* ok */ } return Promise.reject(new Error('sem worker')); }
+    return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H, q: q }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+  }
   function cropInWorker(img, W, H, q) {
     var w = cropWorkerGet();
     if (!w) return Promise.reject(new Error('sem worker'));
-    return createImageBitmap(img).then(function (bm) {
-      return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H, q: q }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+    return createImageBitmap(img).then(function (bm) { return postCrop(bm, W, H, q); });
+  }
+  /* Decodificar a imagem da partida FORA da thread principal (suavidade-geral, 17/11/2026). createImageBitmap(<img>) decodifica a imagem
+   * inteira NA HORA, na thread principal (rastro do Chrome: 40 a 60 ms de "Decode Image" com a CPU a 1/4, ao abrir o painel da imagem e ao
+   * começar a partida); createImageBitmap(Blob) decodifica numa thread de fundo. Só para endereços do PRÓPRIO site (http/https): a política
+   * de segurança (connect-src 'self') bloquearia os outros (e mandaria um relatório). Para eles, sem worker, ou se algo falhar: o caminho de sempre. */
+  function bitmapOfUrl(url) {
+    var u; try { u = new URL(url, location.href); } catch (e) { return Promise.reject(e); }
+    if (!window.fetch || !cropWorkerGet() || u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return Promise.reject(new Error('sem caminho de fundo'));
+    return fetch(u.href, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.blob(); })
+      .then(function (blob) { return createImageBitmap(blob); });
+  }
+  function cropFromFile(url, cols, rows) {
+    return bitmapOfUrl(url).then(function (bm) {
+      var s = cropSizeOf(bm.width, bm.height, cols, rows);
+      return postCrop(bm, s.W, s.H, s.q).then(function (blob) { return blobToUrl(blob, url); });
     });
   }
   function blobToUrl(blob, fallbackUrl) {
@@ -2199,9 +2225,13 @@
   /* ---------------------------------------------------------
    * Ajustes: texto maior, modo escuro, movimento reduzido, sons, vibração, avisos
    * --------------------------------------------------------- */
-  function prefersDark() { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  // cada consulta ao celular é criada UMA vez e reaproveitada (o .matches acompanha as mudanças sozinho). reducedMotion() roda durante a
+  // partida e cada matchMedia() novo refazia a consulta (medido: ~20 ms numa partida de 20 peças com a CPU a 1/4; suavidade-geral, 17/11/2026)
+  function mqOf(q) { var c = mqOf.c || (mqOf.c = {}); if (!(q in c)) c[q] = window.matchMedia ? window.matchMedia(q) : null; return c[q]; }
+  function prefersDark() { var m = mqOf('(prefers-color-scheme: dark)'); return !!(m && m.matches); }
   function reducedMotion() {
-    return state.settings.motion === 'reduce' || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var m = mqOf('(prefers-reduced-motion: reduce)');
+    return state.settings.motion === 'reduce' || !!(m && m.matches);
   }
 
   function applySettings() {
