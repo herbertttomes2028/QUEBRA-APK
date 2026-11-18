@@ -12,8 +12,13 @@ const quebra = (cats, imgs, msg) => assert.throws(() => lib.build(cats, imgs, nu
 test('o catálogo embutido (reserva) é o de sempre: 5 categorias, 25 imagens, regras e preços iguais', () => {
   assert.deepEqual(lib.CATEGORIES.map((c) => [c.id, c.unlock, c.requires, c.price]), [['fauna', 'free', null, 0], ['biomas', 'after', 'fauna', 0], ['espaco', 'after', 'biomas', 0], ['cultura', 'gems', null, 25], ['fantasia', 'gems', null, 40]]);
   assert.equal(lib.ALL.length, 25);
-  assert.deepEqual(lib.unlocksFrom([], []), { fauna: true, biomas: false, espaco: false, cultura: false, fantasia: false });
-  assert.deepEqual(lib.unlocksFrom([], ['cultura']), { fauna: true, biomas: false, espaco: false, cultura: true, fantasia: false });
+  const todas = { fauna: true, biomas: true, espaco: true, cultura: true, fantasia: true };
+  assert.deepEqual(lib.unlocksFrom([], []), todas, 'sem progresso, tudo aberto');
+  assert.deepEqual(lib.unlocksFrom([], ['cultura']), todas, 'compra antiga não muda o acesso');
+  for (const c of lib.catalog()) {
+    assert.deepEqual([c.unlock, c.requires, c.price], ['free', null, 0], c.id + ' livre no cliente');
+    assert.equal(lib.cat(c.id).price, 0, c.id + ' livre na autorização do visitante');
+  }
 });
 
 test('catálogo válido: ordena, congela e monta as regras de liberação genéricas (free / after / gems)', () => {
@@ -106,10 +111,11 @@ test('unlock_gate: acrescentar imagens a uma categoria NÃO trava de novo a cate
   return lib.loadFromDb(rows(cats.map((x) => ({ id: x.id, name: 'N', subtitle: '', icon: '', sort_order: x.order, unlock: x.unlock, requires: x.requires, price: 0, unlock_gate: x.gate == null ? null : x.gate })),
     imgs.map((x) => ({ file: x.file, category_id: x.categoryId, label: 'L', sort_order: x.order, width: 768, height: 1024, sha256: '', thumb_sha256: null }))), log).then(() => {
     try {
-      assert.equal(lib.unlocksFrom([], []).b2, false);
-      assert.equal(lib.unlocksFrom(['a1-01.webp'], []).b2, false, 'só 1 de 2 do gate');
-      assert.equal(lib.unlocksFrom(['a1-01.webp', 'a1-02.webp'], []).b2, true, 'as 2 primeiras abrem a próxima, mesmo havendo 4 imagens');
-      assert.equal(lib.unlocksFrom(['a1-03.webp', 'a1-04.webp'], []).b2, false, 'imagens extras não substituem as do gate');
+      assert.equal(lib.unlocksFrom([], []).b2, true, 'sem partidas concluídas, a categoria abre');
+      assert.equal(lib.unlocksFrom(['a1-01.webp'], []).b2, true, 'progresso parcial não bloqueia');
+      assert.equal(lib.unlocksFrom(['a1-01.webp', 'a1-02.webp'], []).b2, true, 'concluída, continua aberta');
+      assert.equal(lib.unlocksFrom(['a1-03.webp', 'a1-04.webp'], []).b2, true, 'não depende de quais imagens concluiu');
+      assert.equal(lib.catalog().find(c => c.id === 'b2').unlock, 'free', 'catálogo do banco adaptado para acesso gratuito');
     } finally { lib.build(lib.SEED_CATEGORIES, lib.SEED_IMAGES, null); }
   });
 });
