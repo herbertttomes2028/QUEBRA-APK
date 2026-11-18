@@ -77,6 +77,9 @@
   function resize() {
     if (!canvas) return;
     var r = btn.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, quality >= 1 ? 1 : 2);
+    // tela inicial escondida (o botão fica com 0 px): o canvas fica como está. Antes ele encolhia para 64×48 ao SAIR da tela inicial (e era
+    // redesenhado escondido) e voltava ao tamanho cheio na VOLTA: duas realocações da área de desenho do WebGL a cada ida e volta (suavidade-geral, 17/11/2026)
+    if (!r.width || !r.height) return;
     var w = Math.max(64, Math.min(640, Math.round(r.width * dpr))), h = Math.max(48, Math.min(480, Math.round(r.height * dpr)));
     var changed = canvas.width !== w || canvas.height !== h;
     if (changed) { canvas.width = w; canvas.height = h; }                       // mudar o tamanho apaga o canvas: por isso redesenha logo abaixo
@@ -246,7 +249,17 @@
   covered = coveredNow();
   var coverObs = new MutationObserver(function () { var c = coveredNow(); if (c === covered) return; covered = c; if (c) stopLoop(); else startLoop(); });
   Array.prototype.forEach.call(document.querySelectorAll('.modal, #go-splash, #loading'), function (el) { coverObs.observe(el, { attributes: true, attributeFilter: ['hidden'] }); });
-  if (window.IntersectionObserver) new IntersectionObserver(function (en) { inView = en[0].isIntersecting; if (inView) startLoop(); else stopLoop(); }).observe(btn);
+  // O "saiu de vista" só é vigiado com a tela inicial ROLADA (ela é fixa; só rola com o teclado aberto, digitando o código). No topo, o
+  // mascote (logo abaixo do título) está sempre à vista. Motivo, medido (suavidade-geral, 17/11/2026): com um IntersectionObserver ligado, o
+  // navegador refaz o quadro da página INTEIRA (estilo, montagem e cálculo das interseções) a cada 1/60 s enquanto QUALQUER animação CSS roda
+  // (ex.: a neve do Natal, ~32 s cada vez que a tela inicial aparece). A tela inicial parada ia a 60 quadros/s em vez dos 12 do mascote.
+  if (window.IntersectionObserver) {
+    var io = new IntersectionObserver(function (en) { inView = en[0].isIntersecting; if (inView) startLoop(); else stopLoop(); }), ioOn = false;
+    home.addEventListener('scroll', function () {
+      var need = home.scrollTop > 0; if (need === ioOn) return; ioOn = need;
+      if (need) io.observe(btn); else { io.disconnect(); if (!inView) { inView = true; startLoop(); } }      // de volta ao topo: à vista de novo
+    }, { passive: true });
+  }
   if (window.ResizeObserver) new ResizeObserver(function () { resize();  }).observe(btn);
   setMode('fallback');
 
