@@ -35,19 +35,17 @@ test('25 originais 768x1024 e 25 miniaturas 240x320, sem imagens ausentes', () =
     assert.ok(fs.statSync(original).size>10000, 'imagem principal vazia: '+img.file);
   }
 });
-test('todas as categorias são acessíveis desde o início, independentemente do progresso ou das gemas', () => {
-  const ids = lib.CATEGORIES.map(c => c.id);
-  const todas = Object.fromEntries(ids.map(id => [id, true]));
-  assert.deepEqual(lib.unlocksFrom([], []), todas);
-  assert.deepEqual(lib.unlocksFrom(['lib-fauna-01.webp'], []), todas);
-  assert.deepEqual(lib.unlocksFrom([], ['cultura']), todas);
-  for (const c of lib.catalog()) {
-    assert.equal(c.unlock, 'free', c.id);
-    assert.equal(c.price, 0, c.id);
-    assert.equal(c.requires, null, c.id);
-    assert.ok(c.images.length > 0, c.id);
-    assert.equal(lib.cat(c.id).price, 0, c.id);
-  }
+test('progresso libera categorias 2 e 3 só com 5/5; premium independente', () => {
+  const cat=lib.CATEGORIES;
+  const all=(id)=>lib.ALL.filter(i=>i.categoryId===id).map(i=>i.file);
+  assert.deepEqual(lib.unlocksFrom([],[]),{fauna:true,biomas:false,espaco:false,cultura:false,fantasia:false});
+  assert.equal(lib.unlocksFrom(all('fauna').slice(0,4),[]).biomas,false);
+  assert.equal(lib.unlocksFrom(all('fauna'),[]).biomas,true);
+  assert.equal(lib.unlocksFrom(all('fauna'),[]).espaco,false);
+  assert.equal(lib.unlocksFrom(all('fauna').concat(all('biomas').slice(0,4)),[]).espaco,false);
+  assert.equal(lib.unlocksFrom(all('fauna').concat(all('biomas')),[]).espaco,true);
+  assert.deepEqual(lib.unlocksFrom([],['fantasia']),{fauna:true,biomas:false,espaco:false,cultura:false,fantasia:true});
+  assert.deepEqual(lib.unlocksFrom([],['cultura']),{fauna:true,biomas:false,espaco:false,cultura:true,fantasia:false});
 });
 test('HTML reutiliza tela de seleção, sem quebrar sala, controles ou conteúdo antigo', () => {
   const html=read('public/index.html'),js=read('public/game.js'),css=read('public/style.css');
