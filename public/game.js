@@ -257,14 +257,28 @@
     });
   }
 
-  // recorta o centro da imagem na proporção da grade (cols:rows) e reduz o tamanho
+  // tamanho do recorte da partida (o mesmo nos dois caminhos de prepareImage)
+  function cropSizeOf(nw, nh, cols, rows) {
+    var W = 720;
+    var q = 0.9;
+    // Quantidades grandes (8 colunas: 64, 88 e 96 peças, rodada pecas-grandes): a imagem fica na resolução ORIGINAL do recorte
+    // (sem reduzir nem ampliar; no máximo 1080 px de largura) e o JPEG sai com qualidade 0,95, para cada peça pequena continuar nítida.
+    if (cols >= 8) {
+      nw = nw || 720; nh = nh || 960;
+      W = Math.max(320, Math.min(1080, Math.round(Math.min(nw, nh * cols / rows)))); q = 0.95;
+    }
+    return { W: W, H: Math.round(W * rows / cols), q: q };
+  }
+  // recorta o centro da imagem na proporção da grade (cols:rows) e reduz o tamanho.
+  // 1º caminho: a imagem é decodificada FORA da thread principal e recortada no worker (cropFromFile); se não der, o caminho de sempre (<img>).
   function prepareImage(item, cols, rows) {
     var key = item.file + '|' + cols + 'x' + rows;
     if (imgCache[key]) return imgCache[key];
-    imgCache[key] = loadImage(item.url).then(function (img) {
-      var W = 720;
-      var H = Math.round(W * rows / cols);
-      return cropToBlob(img, W, H, item.url);
+    imgCache[key] = cropFromFile(item.url, cols, rows).catch(function () {
+      return loadImage(item.url).then(function (img) {
+        var s = cropSizeOf(img.naturalWidth, img.naturalHeight, cols, rows), W = s.W, H = s.H, q = s.q;
+        return cropToBlob(img, W, H, item.url, q);
+      });
     }).catch(function () { return item.url; });
     preparedKeys.push(key);
     return imgCache[key];
@@ -299,21 +313,40 @@
     } catch (e) { cropWorker = false; }
     return cropWorker;
   }
-  function cropInWorker(img, W, H) {
+  function postCrop(bm, W, H, q) {
+    var w = cropWorkerGet();
+    if (!w) { try { bm.close(); } catch (e) { /* ok */ } return Promise.reject(new Error('sem worker')); }
+    return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H, q: q }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+  }
+  function cropInWorker(img, W, H, q) {
     var w = cropWorkerGet();
     if (!w) return Promise.reject(new Error('sem worker'));
-    return createImageBitmap(img).then(function (bm) {
-      return new Promise(function (res, rej) { var id = ++cropSeq; cropWait[id] = { res: res, rej: rej }; try { w.postMessage({ id: id, bm: bm, W: W, H: H }, [bm]); } catch (e) { delete cropWait[id]; rej(e); } });
+    return createImageBitmap(img).then(function (bm) { return postCrop(bm, W, H, q); });
+  }
+  /* Decodificar a imagem da partida FORA da thread principal (suavidade-geral, 17/11/2026). createImageBitmap(<img>) decodifica a imagem
+   * inteira NA HORA, na thread principal (rastro do Chrome: 40 a 60 ms de "Decode Image" com a CPU a 1/4, ao abrir o painel da imagem e ao
+   * começar a partida); createImageBitmap(Blob) decodifica numa thread de fundo. Só para endereços do PRÓPRIO site (http/https): a política
+   * de segurança (connect-src 'self') bloquearia os outros (e mandaria um relatório). Para eles, sem worker, ou se algo falhar: o caminho de sempre. */
+  function bitmapOfUrl(url) {
+    var u; try { u = new URL(url, location.href); } catch (e) { return Promise.reject(e); }
+    if (!window.fetch || !cropWorkerGet() || u.origin !== location.origin || !/^https?:$/.test(u.protocol)) return Promise.reject(new Error('sem caminho de fundo'));
+    return fetch(u.href, { credentials: 'same-origin' }).then(function (r) { if (!r.ok) throw new Error('http ' + r.status); return r.blob(); })
+      .then(function (blob) { return createImageBitmap(blob); });
+  }
+  function cropFromFile(url, cols, rows) {
+    return bitmapOfUrl(url).then(function (bm) {
+      var s = cropSizeOf(bm.width, bm.height, cols, rows);
+      return postCrop(bm, s.W, s.H, s.q).then(function (blob) { return blobToUrl(blob, url); });
     });
   }
   function blobToUrl(blob, fallbackUrl) {
     if (!blob) return fallbackUrl;
     var url = URL.createObjectURL(blob); ownedImageUrls.add(url); return url;
   }
-  function cropToBlob(img, W, H, fallbackUrl) {
-    return cropInWorker(img, W, H).then(function (blob) { return blobToUrl(blob, fallbackUrl); }, function () { return cropMain(img, W, H, fallbackUrl); });
+  function cropToBlob(img, W, H, fallbackUrl, q) {
+    return cropInWorker(img, W, H, q).then(function (blob) { return blobToUrl(blob, fallbackUrl); }, function () { return cropMain(img, W, H, fallbackUrl, q); });
   }
-  function cropMain(img, W, H, fallbackUrl) {
+  function cropMain(img, W, H, fallbackUrl, q) {
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -324,7 +357,7 @@
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
     return new Promise(function (res) {
-      cv.toBlob(function (blob) { res(blobToUrl(blob, fallbackUrl)); }, 'image/jpeg', 0.9);
+      cv.toBlob(function (blob) { res(blobToUrl(blob, fallbackUrl)); }, 'image/jpeg', q > 0 && q <= 1 ? q : 0.9);
     });
   }
 
@@ -839,7 +872,7 @@
     state.presets.forEach(function (p) {
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'size-btn';
+      b.className = p.grande ? 'size-btn size-big' : 'size-btn';      // 64, 88 e 96: linha própria, embaixo das outras
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', p.pieces === state.pickPieces ? 'true' : 'false');
       b.dataset.pieces = p.pieces;
@@ -851,16 +884,32 @@
     updateSizeNote();
   }
 
+  /* Melhor tempo da imagem escolhida, NA QUANTIDADE escolhida, em destaque logo abaixo do nome (17/11/2026, pedido do proprietário: antes
+   * ficava no fim do painel, misturado com o tamanho da grade e com as regras das quantidades grandes, que saíram daqui). Vale o menor entre
+   * o deste aparelho e o das partidas concluídas do perfil (conta.js manda pelo QC.setServerBests). */
   function updateSizeNote() {
     var p = state.presets.filter(function (x) { return x.pieces === state.pickPieces; })[0];
     if (!p) return;
-    var note = p.pieces + ' peças (' + p.cols + ' × ' + p.rows + ').';
-    if (p.pieces >= 48) note += ' As peças ficam pequenas no celular: melhor para telas grandes.';
-    else if (p.pieces <= 6) note += ' Peças grandes, ótimas para começar.';
-    var bt = state.bests[state.pickChoice + '|' + state.pickPieces];
-    if (typeof bt === 'number') note += ' 🏆 Seu melhor tempo: ' + fmtTime(bt) + '.';
-    $('#size-note').textContent = note;
+    var box = $('#size-note'), bt = state.pickChoice ? bestFor(state.pickChoice, p.pieces) : null;
+    box.textContent = '';
+    box.classList.toggle('tem', bt !== null);
+    var ico = document.createElement('span'); ico.className = 'psb-ico'; ico.setAttribute('aria-hidden', 'true'); ico.textContent = bt !== null ? '🏆' : '⏱️';
+    var txt = document.createElement('span'); txt.className = 'psb-txt';
+    var t1 = document.createElement('b'); t1.textContent = bt !== null ? 'Seu melhor tempo' : 'Ainda sem tempo';
+    var t2 = document.createElement('small'); t2.textContent = 'com ' + p.pieces + ' peças';
+    txt.appendChild(t1); txt.appendChild(t2);
+    var val = document.createElement('strong'); val.className = 'psb-time'; val.textContent = bt !== null ? fmtTime(bt) : '--:--';
+    box.appendChild(ico); box.appendChild(txt); box.appendChild(val);
   }
+  // melhores tempos: os DESTE aparelho (state.bests, por arquivo|peças, gravados ao concluir) e os do PERFIL (todas as partidas concluídas,
+  // por nome da imagem|peças; vêm do servidor quando há conta). Mostra o menor.
+  var serverBests = {};
+  function bestFor(file, pieces) {
+    var ok = function (v) { return typeof v === 'number' && isFinite(v) && v > 0; };
+    var a = state.bests[file + '|' + pieces], b = serverBests[imageItem(file).label + '|' + pieces];
+    return ok(a) && ok(b) ? Math.min(a, b) : ok(a) ? a : ok(b) ? b : null;
+  }
+  function imageByLabel(label) { return state.images.filter(function (i) { return i.label === label; })[0] || null; }
 
   /* ---------------------------------------------------------
    * Entrar / criar partida
@@ -1027,7 +1076,22 @@
     });
   }
 
+  /* "Já tem um código?" (17/11/2026): depois que a pessoa ENTRA numa sala, o código sai do campo (e o aviso de convite some), para que, ao
+   * sair da partida, o espaço esteja livre para outro código. Antes, na Sala Desafio (sair não recarrega a página), o código antigo ficava
+   * escrito e o convite continuava escondendo os botões "Jogar". Se a sala não abre (código errado), nada disso roda: o código fica para corrigir. */
+  function clearJoinBox() {
+    var ic = $('#input-code');
+    ic.value = '';
+    ic.parentNode.classList.remove('ready');
+    showError($('#home-error'), '');
+    $('#home-invite').hidden = true;
+    $('#cta-row').hidden = false;
+    $('#btn-join').classList.remove('btn-primary');
+    $('#btn-join').classList.add('btn-secondary');
+  }
+
   function enterRoom(res) {
+    clearJoinBox();
     state.idx = res.idx;
     if (res.snapshot && res.snapshot.code && !res.snapshot.solo) saveCoopLocal(res.snapshot.code); else clearCoopLocal();
     if (window.QC && window.QC.afterEnter) window.QC.afterEnter('coop');
@@ -1253,7 +1317,7 @@
       el.style.height = T + 'px';
       var tile = document.createElement('div');
       tile.className = 'tile puzzle-shaped-tile';
-      tile.appendChild(pieceArt(d.col, d.row, cfg, d.id));
+      tile.appendChild(prebuiltArt(d, cfg) || pieceArt(d.col, d.row, cfg, d.id));
       el.appendChild(tile);
       var tag = document.createElement('span');
       tag.className = 'tag';
@@ -1274,7 +1338,18 @@
       classify(p);
       return p;
     });
+    artCache = null;                                   // as peças adiantadas valem para UMA montagem
     if (snap.mode === 'quebra' && cfg.GIFT) buildHand(cfg);
+  }
+  // peças desenhadas com antecedência (montagem antecipada da Sala Desafio): só se forem da mesma imagem, da mesma grade e da mesma casa
+  var artCache = null;
+  function prebuiltArt(d, cfg) {
+    var c = artCache;
+    if (!c || c.key !== state.imageUrl + '|' + cfg.COLS + 'x' + cfg.ROWS) return null;
+    var a = c.arts[d.id];
+    if (!a || a.col !== d.col || a.row !== d.row) return null;
+    c.arts[d.id] = null;
+    return a.svg;
   }
 
   // FILEIRA DE 5: só o desenho das vagas (atrás das peças, sem toque). Quem decide qual peça aparece e quando é o servidor.
@@ -1664,14 +1739,16 @@
    * 💡 Lâmpada: mostra a imagem esmaecida no tabuleiro (atrás das peças) por 4 segundos.
    * Cada jogador pode usar 10 vezes por partida (o servidor conta).
    * --------------------------------------------------------- */
+  // Nas quantidades grandes (64, 88 e 96 peças) a lâmpada não tem limite: o servidor manda HINTS_INF e não desconta (o contador fica em 999).
+  function hintsLivres() { return !!(state.cfg && state.cfg.HINTS_INF); }
   function useHint() {
     if (state.hintActive) return;
-    if (state.hints <= 0) { toast('Suas dicas acabaram'); return; }
+    if (state.hints <= 0 && !hintsLivres()) { toast('Suas dicas acabaram'); return; }
     gameEmit('hint', null, function (res) {
       if (!res || !res.ok) { state.hints = 0; updateUi(); toast('Suas dicas acabaram'); return; }
       state.hints = res.left;
       showHint();
-      if (state.hints === 0) toast('Essa foi a sua última dica');
+      if (state.hints === 0 && !hintsLivres()) toast('Essa foi a sua última dica');
       updateUi();
     });
   }
@@ -2148,9 +2225,13 @@
   /* ---------------------------------------------------------
    * Ajustes: texto maior, modo escuro, movimento reduzido, sons, vibração, avisos
    * --------------------------------------------------------- */
-  function prefersDark() { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+  // cada consulta ao celular é criada UMA vez e reaproveitada (o .matches acompanha as mudanças sozinho). reducedMotion() roda durante a
+  // partida e cada matchMedia() novo refazia a consulta (medido: ~20 ms numa partida de 20 peças com a CPU a 1/4; suavidade-geral, 17/11/2026)
+  function mqOf(q) { var c = mqOf.c || (mqOf.c = {}); if (!(q in c)) c[q] = window.matchMedia ? window.matchMedia(q) : null; return c[q]; }
+  function prefersDark() { var m = mqOf('(prefers-color-scheme: dark)'); return !!(m && m.matches); }
   function reducedMotion() {
-    return state.settings.motion === 'reduce' || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var m = mqOf('(prefers-reduced-motion: reduce)');
+    return state.settings.motion === 'reduce' || !!(m && m.matches);
   }
 
   function applySettings() {
@@ -2546,11 +2627,12 @@
   function refreshLamp() {
     var hint = $('#btn-hint'), spot = $('#btn-spot');
     var sel = state.selectedId !== null ? state.pieces[state.selectedId] : null;
-    $('#hint-badge').textContent = state.hints;
+    var livre = !!(state.cfg && state.cfg.HINTS_INF);       // lâmpada sem limite (quantidades grandes)
+    $('#hint-badge').textContent = livre ? '∞' : state.hints;
     $('#spot-badge').textContent = state.spots;
-    hint.disabled = state.hints <= 0 || state.hintActive;
+    hint.disabled = (state.hints <= 0 && !livre) || state.hintActive;
     spot.disabled = !sel || sel.locked || state.spots <= 0 || state.spotActive;
-    hint.setAttribute('aria-label', 'Mostrar a imagem completa por 4 segundos. Restam ' + state.hints + ' usos');
+    hint.setAttribute('aria-label', 'Mostrar a imagem completa por 4 segundos. ' + (livre ? 'Sem limite nesta partida' : 'Restam ' + state.hints + ' usos'));
     spot.setAttribute('aria-label', 'Indicar onde a peça escolhida encaixa. Restam ' + state.spots + ' usos' + (!sel || sel.locked ? '. Selecione uma peça primeiro' : ''));
   }
 
@@ -2927,7 +3009,17 @@
   function coopPidFor(code) { var c = coopStored(); return c && c.code === code ? c.pid : state.pid; }
   function saveCoopLocal(code) { store.set(COOP_KEY, { code: code, pid: state.pid, t: Date.now() }); }
   function clearCoopLocal() { store.set(COOP_KEY, null); }
-  function leaveCoop() { clearCoopLocal(); socket.disconnect(); reloadClean(); }      // saída DE PROPÓSITO: o servidor fecha a sala para novos
+  // saída DE PROPÓSITO (botão Sair): o servidor fecha a sala para novos e apaga o "Continuar jogando" desta partida. Espera a resposta
+  // ('leave', até 1,5 s) antes de recarregar, para a tela inicial já voltar SEM o botão verde (16/11/2026). Sem conexão, sai na hora.
+  function leaveCoop() {
+    clearCoopLocal();
+    var feito = false;
+    var sair = function () { if (feito) return; feito = true; socket.disconnect(); reloadClean(); };
+    if (!socket.connected) { sair(); return; }
+    setLoading(true, 'Saindo da partida…');
+    socket.emit('leave', {}, sair);
+    setTimeout(sair, 1500);
+  }
   function maybeResumeCoop() {
     var c = coopStored();
     if (!c) return false;
@@ -2978,6 +3070,7 @@
   }
 
   function enterDuel(res) {
+    clearJoinBox();
     var l = res.lobby;
     state.idx = res.idx;
     if (window.QC && window.QC.afterEnter) window.QC.afterEnter('duel');
@@ -3097,7 +3190,9 @@
   }
 
   /* ----- contagem regressiva ----- */
-  var cd = { timers: [], on: false };
+  var cd = { timers: [], on: false, left: 0, waiters: [] };
+  // avisa quem espera o próximo número (a montagem antecipada roda logo DEPOIS de um número aparecer: até o seguinte há ~1 s)
+  function cdTick() { var w = cd.waiters; cd.waiters = []; w.forEach(function (f) { f(); }); }
   function setCd(txt, go) {
     var n = $('#cd-num');
     n.textContent = txt;
@@ -3120,9 +3215,10 @@
     $('#countdown').hidden = false;
     cd.on = true;
     var steps = Math.max(1, Math.round(ms / 1000)), per = ms / steps;
+    cd.left = steps;
     for (var i = 0; i < steps; i++) {
       (function (n, delay) {
-        cd.timers.push(setTimeout(function () { setCd(String(n)); playSound(n === 1 ? 'tick2' : 'tick'); }, delay));
+        cd.timers.push(setTimeout(function () { setCd(String(n)); playSound(n === 1 ? 'tick2' : 'tick'); cd.left--; cdTick(); }, delay));
       })(steps - i, i * per);
     }
     announce('A disputa começa em ' + steps + ' segundos.');
@@ -3130,6 +3226,7 @@
   function hideCountdown(flash) {
     cd.timers.forEach(clearTimeout);
     cd.timers = [];
+    cd.left = 0; cdTick();
     if (!cd.on) return;
     cd.on = false;
     if (flash) {
@@ -3142,55 +3239,89 @@
   }
 
   /* ----- a disputa ----- */
+  /* MONTAGEM ANTECIPADA (rodada inicio-sem-travar, 17/11/2026). Antes, o tabuleiro inteiro (até 96 peças em SVG, as guias, o estilo e o
+   * layout) era montado no INSTANTE da largada: o celular ficava parado no "1" e cada aparelho largava quando terminava (o mais lento, depois;
+   * medido com a CPU a 1/6: até ~0,3 s de tela parada; no celular fraco, bem mais). Agora o servidor manda o tabuleiro JUNTO com a contagem
+   * (ch:countdown.snapshot) e o celular monta tudo por trás da contagem (as peças em pedaços curtos, para os números não pararem); na
+   * largada (ch:start) só tira a contagem da frente. Se o tabuleiro da largada não for o mesmo, ou a montagem não terminou, faz como antes. */
+  function duelSig(snap) {
+    var s = {};
+    Object.keys(snap).forEach(function (k) { if (k !== 'elapsedMs') s[k] = snap[k]; });       // o relógio muda entre a contagem e a largada
+    return JSON.stringify(s);
+  }
+  function prebuildDuel(snap) {
+    var d = state.duel;
+    if (!d || !snap || !snap.cfg || !Array.isArray(snap.pieces)) return;
+    var prep = { sig: duelSig(snap), done: false, promise: null };
+    d.prep = prep;
+    var vivo = function () { return state.duel === d && d.prep === prep && d.phase === 'countdown'; };
+    prep.promise = imagesReady.then(function () {
+      return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
+    }).then(function (url) {
+      return new Promise(function (res) { setTimeout(res, 60); }).then(function () {      // primeiro o "3" aparece
+        return vivo() ? prebuildArts(snap, url, vivo) : null;
+      }).then(function () {
+        return vivo() ? afterNextCd() : null;
+      }).then(function () {
+        if (!vivo()) return;
+        mountDuelBoard(snap, url, false, false);          // por trás da contagem (ela cobre a tela inteira)
+        prep.done = true;
+      });
+    }).catch(function () { /* qualquer falha: a largada monta como antes */ });
+  }
+  // a parte que não dá para picar (pôr as peças na tela: estilo e layout) roda logo depois do próximo número da contagem, para não atrasar
+  // nenhum número (no celular lento ela leva algumas centenas de ms; entre um número e outro há ~1 s). Sem número pela frente, roda já.
+  function afterNextCd() {
+    return new Promise(function (res) {
+      if (!cd.on || cd.left <= 0) { res(); return; }
+      cd.waiters.push(function () { setTimeout(res, 50); });
+    });
+  }
+  // desenha as peças (a parte mais pesada da montagem) em pedaços de ~10 ms, deixando a contagem seguir entre um pedaço e outro
+  function prebuildArts(snap, url, vivo) {
+    var cfg = snap.cfg, list = snap.pieces, i = 0;
+    var cache = { key: url + '|' + cfg.COLS + 'x' + cfg.ROWS, arts: {} };
+    return new Promise(function (res) {
+      (function fatia() {
+        if (!vivo()) { res(); return; }
+        var t0 = performance.now(), antes = state.imageUrl;
+        state.imageUrl = url;                              // pieceArt (desenho travado por teste) lê a imagem daqui: só durante este pedaço
+        try {
+          while (i < list.length && performance.now() - t0 < 10) {
+            var p = list[i++];
+            cache.arts[p.id] = { col: p.col, row: p.row, svg: pieceArt(p.col, p.row, cfg, p.id) };
+          }
+        } finally { state.imageUrl = antes; }
+        if (i < list.length) { setTimeout(fatia, 0); return; }
+        artCache = cache;
+        res();
+      })();
+    });
+  }
   function startDuelBoard(snap, resume) {
     if (resume) setLoading(true, 'Voltando para a disputa…');
-    return imagesReady.then(function () {
+    var d0 = state.duel, prep = !resume && d0 ? d0.prep : null;
+    // largada: espera a montagem antecipada terminar (no máximo 2,5 s; depois disso, monta como antes)
+    var espera = prep && prep.promise ? Promise.race([prep.promise, new Promise(function (r) { setTimeout(r, 2500); })]) : null;
+    return Promise.resolve(espera).then(function () { return imagesReady; }).then(function () {
       return prepareImage(imageItem(snap.imageId), snap.cfg.COLS, snap.cfg.ROWS);
     }).then(function (url) {
       var d = state.duel;
       if (!d) { setLoading(false); return; }
-      d.phase = 'game';
-      d.mode = snap.mode;
-      d.box = snap.box;
-      if (resume) d.giftQ = [];                          // quem volta de uma queda já recebe as peças no lugar (snapshot)
-      d.prog = snap.progress;
-      d.lead = 'tie';
-      d.alerted = false;
-      state.cfg = snap.cfg;
-      state.code = snap.code;
-      state.imageId = snap.imageId;
-      state.imageUrl = url;
-      state.total = snap.total;
-      state.locked = snap.locked;
-      state.hints = snap.hints;
-      state.spots = snap.spots;
-      state.counts = [0, 0];
-      state.selectedId = null;
-      state.drag = null;
-      state.status = 'playing';
-      state.timerBase = Date.now() - snap.elapsedMs;
-      clearTimeout(state.idleTimer);
-      buildField(snap);
-      currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
-      trimPreparedImages();
-      setSolo(false);
-      ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
-      hideRematchWait();
-      $('#field').classList.remove('won');
-      $('#confetti').textContent = '';
-      closeHint();
-      clearSpot();
-      markMilestones();
-      state.inGame = true;
-      $('#duel-strip').hidden = false;
-      $('#banner-wait').hidden = true;
-      $('#menu-change').hidden = true;
-      $('#menu-restart').hidden = true;
-      showScreen('game');
-      layout();
-      updateUi();
-      updateGift();
-      updateDuelPresence();
+      var pronto = !!(prep && d.prep === prep && prep.done && prep.sig === duelSig(snap) && state.imageUrl === url && state.pieces.length === snap.pieces.length);
+      d.prep = null;                                     // uma montagem antecipada que ainda estivesse rodando para aqui
+      if (pronto) {                                      // o tabuleiro já está na tela, por trás da contagem
+        if (currentScreen() !== 'game') showScreen('game');
+        d.phase = 'game';
+        state.status = 'playing';
+        state.timerBase = Date.now() - snap.elapsedMs;
+        state.inGame = true;
+        layout();
+        wakeFrame();
+        updateUi();
+        updateGift();
+        updateDuelPresence();
+      } else mountDuelBoard(snap, url, resume, true);
       ensurePush();
       keepAwake();
       setLoading(false);
@@ -3198,6 +3329,54 @@
       else hideCountdown(false);
       if (!resume) flushGifts();                         // Quebrando Cabeças: a caixa já cuspiu a 1ª rodada; anima agora que o tabuleiro existe
     });
+  }
+  // monta o tabuleiro da disputa. largada = true: como sempre foi (vale a partir de agora); false: montagem antecipada, ainda na contagem
+  function mountDuelBoard(snap, url, resume, largada) {
+    var d = state.duel;
+    if (largada) d.phase = 'game';
+    d.mode = snap.mode;
+    d.box = snap.box;
+    if (resume) d.giftQ = [];                          // quem volta de uma queda já recebe as peças no lugar (snapshot)
+    d.prog = snap.progress;
+    d.lead = 'tie';
+    d.alerted = false;
+    state.cfg = snap.cfg;
+    state.code = snap.code;
+    state.imageId = snap.imageId;
+    state.imageUrl = url;
+    state.total = snap.total;
+    state.locked = snap.locked;
+    state.hints = snap.hints;
+    state.spots = snap.spots;
+    state.counts = [0, 0];
+    state.selectedId = null;
+    state.drag = null;
+    if (largada) {
+      state.status = 'playing';
+      state.timerBase = Date.now() - snap.elapsedMs;
+    } else state.status = 'countdown';                 // ninguém mexe nas peças antes da largada (onPointerDown confere)
+    clearTimeout(state.idleTimer);
+    buildField(snap);
+    currentPreparedKey = imageItem(snap.imageId).file + '|' + snap.cfg.COLS + 'x' + snap.cfg.ROWS;
+    trimPreparedImages();
+    setSolo(false);
+    ['#modal-win', '#modal-menu', '#modal-settings', '#modal-rematch', '#modal-duel'].forEach(closeModal);
+    hideRematchWait();
+    $('#field').classList.remove('won');
+    $('#confetti').textContent = '';
+    closeHint();
+    clearSpot();
+    markMilestones();
+    if (largada) state.inGame = true;
+    $('#duel-strip').hidden = false;
+    $('#banner-wait').hidden = true;
+    $('#menu-change').hidden = true;
+    $('#menu-restart').hidden = true;
+    showScreen('game');
+    layout();
+    updateUi();
+    updateGift();
+    updateDuelPresence();
   }
 
   // faixa da corrida: mostra o seu progresso e o do adversário (só a porcentagem; nunca o tabuleiro dele)
@@ -3460,11 +3639,12 @@
   }
 
   socket.on('ch:lobby', function (l) { applyLobby(l); });
-  socket.on('ch:countdown', function (c) { showCountdown(c.ms); });
+  socket.on('ch:countdown', function (c) { showCountdown(c.ms); if (c && c.snapshot) prebuildDuel(c.snapshot); });
   socket.on('ch:cancel', function (c) {
     var d = state.duel;
     if (!d) return;
     hideCountdown(false);
+    d.prep = null;                                     // a montagem antecipada desta contagem não vale mais
     var why = { img: 'A imagem não ficou pronta nos dois celulares. Toquem em "pronto" de novo.', dropped: friendName() + ' desconectou. A contagem foi cancelada.', unready: 'Alguém desmarcou "pronto". A contagem foi cancelada.', left: friendName() + ' saiu da sala.' }[c && c.reason];
     if (why) toast(why, 2600);
     d.phase = 'lobby';
@@ -3723,6 +3903,51 @@
     Array.prototype.forEach.call(this.children, function (el) { el.style.animation = ''; });
   });
 
+  /* Tela inicial FIXA, sem rolar, em qualquer tamanho de letra (A, A+, A++) e de tela (16/11/2026): quando o conteúdo passa da altura
+   * disponível (entre o topo e a barra de abas), ele é encolhido por inteiro (transform: scale, que não mexe no layout nem nos toques) até caber.
+   * A faixa reservada no alto para o perfil e a ajuda NÃO encolhe (o perfil nunca cobre o logotipo). Com o teclado aberto (digitando o código),
+   * volta a rolar como antes, para o campo ficar visível. Recalcula só quando o tamanho muda (ResizeObserver): nada roda a cada quadro. */
+  (function homeFit() {
+    var home = $('#screen-home'), inner = home && home.querySelector('.home-inner'), code = $('#input-code'), typing = false;
+    if (!home || !inner) return;
+    // O mascote observa a CLASSE da tela inicial (para saber se ela está ativa) e, a cada mudança nela, refaz a sua sincronização (tamanho do
+    // canvas, redesenho). Por isso o encaixe NUNCA mexe na classe da tela: a marca vai no .home-inner e o "não rolar" vai no estilo da tela.
+    // Em muitos celulares, com letra normal, o conteúdo fica a poucos px do limite: qualquer variação da carga (fontes, imagens, saudação)
+    // ligava e desligava o encaixe — o pet era redesenhado e "tremia" (16/11/2026). Agora há uma folga: só encaixa se passar 2 px e só
+    // desencaixa se sobrarem 8 px; entre os dois, mantém. Mudanças seguidas viram uma só (200 ms) e variações menores que 0,5% não contam.
+    var curS = 1, curPad = -1, waitT = 0, first = true, on = false;
+    function measure() {
+      var hs = getComputedStyle(home), avail = home.clientHeight - parseFloat(hs.paddingTop) - parseFloat(hs.paddingBottom), h = inner.offsetHeight;
+      if (!avail || !h) return null;                                              // tela escondida: nada a fazer
+      var pad = parseFloat(getComputedStyle(inner).paddingTop) || 0, over = h - avail, s;
+      if (typing || over <= (on ? -8 : 2)) s = 1;                                 // cabe (com folga para não ficar liga-desliga)
+      else if (over <= 0) s = curS;                                               // encaixado e dentro da folga: mantém como está
+      else s = Math.max(0.5, Math.floor((avail - pad - 2) / (h - pad) * 200) / 200);
+      return { s: s, pad: pad };
+    }
+    function apply(m) {
+      home.style.overflowY = typing ? '' : 'hidden';                              // a tela inicial não rola (só com o teclado aberto, para mostrar o campo)
+      if (m.s === curS && (m.s === 1 || m.pad === curPad)) return;
+      curS = m.s; curPad = m.pad;
+      if (m.s === 1) { if (on) { on = false; inner.classList.remove('home-fit'); inner.style.removeProperty('--fit'); inner.style.removeProperty('--fit-pad'); } return; }
+      inner.style.setProperty('--fit', String(m.s)); inner.style.setProperty('--fit-pad', m.pad + 'px');
+      if (!on) { on = true; inner.classList.add('home-fit'); home.scrollTop = 0; }
+    }
+    // a 1ª medida vale na hora; as seguintes (fontes, imagens, saudação, mascote chegando durante a carga) são juntadas em UMA só, 200 ms depois
+    // da última, e mudanças pequenas para MAIOR (< 2%) são ignoradas: o conteúdo não fica "pulando" várias vezes seguidas
+    function fit() {
+      var m = measure(); if (!m) return;
+      if (first || typing) { first = false; apply(m); return; }
+      clearTimeout(waitT);
+      waitT = setTimeout(function () { var n = measure(); if (n && (n.s < curS || n.s > curS + 0.02 || (n.s === 1) !== (curS === 1) || (n.s !== 1 && n.pad !== curPad))) apply(n); }, 200);
+    }
+    if (window.ResizeObserver) { var ro = new ResizeObserver(fit); ro.observe(home); ro.observe(inner); } else window.addEventListener('resize', fit);
+    if (code) {
+      code.addEventListener('focus', function () { typing = true; fit(); });
+      code.addEventListener('blur', function () { setTimeout(function () { typing = false; home.style.overflowY = 'hidden'; fit(); }, 160); });
+    }
+  })();
+
   // teclado aberto na tela inicial: dá espaço para rolar e deixa o campo (e o cartão dele) na parte que sobra acima do teclado
   (function homeKeyboard() {
     var home = $('#screen-home'), vv = window.visualViewport;
@@ -3906,7 +4131,7 @@
     var d = state.duel, inMatch = !!(d && d.phase === 'game');
     askConfirm({
       title: d ? (inMatch ? 'Sair da disputa?' : 'Sair da sala?') : 'Sair da partida?',
-      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : state.solo ? 'Você vai sair da partida e o progresso será perdido.' : 'Você vai sair da partida. Seu amigo pode continuar na sala.',
+      text: d ? (inMatch ? 'Se você sair agora, seu adversário vence.' : 'Você vai sair da sala.') : state.solo ? 'Você vai sair da partida e o progresso será perdido.' : 'Você vai sair da partida e ela não fica guardada para continuar depois. Seu amigo pode continuar na sala.',
       ok: 'Sair', cancel: 'Continuar jogando', danger: true
     }).then(function (ok) {
       if (!ok) return;
@@ -4029,7 +4254,14 @@
       state.avatar = avatar || '';
       store.set('avatar', state.avatar);
     },
-    afterEnter: null, onScreen: null, canBlock: false
+    afterEnter: null, onScreen: null, canBlock: false,
+    // histórico de partidas e melhores tempos (conta.js): a mesma conta de tempo, a mesma imagem e o mesmo "melhor" da tela de escolha
+    fmtTime: fmtTime, bestFor: bestFor, imageByLabel: imageByLabel,
+    setServerBests: function (map) {
+      serverBests = {};
+      if (map && typeof map === 'object') Object.keys(map).forEach(function (k) { var v = Number(map[k]); if (isFinite(v) && v > 0) serverBests[k] = v; });
+      if (!$('#pick-sheet').hidden) updateSizeNote();
+    }
   };
 
   wakeFrame();
