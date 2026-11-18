@@ -96,7 +96,8 @@ test('PostgreSQL: conquistas — estatísticas, pagamento em passadas, permanên
     assert.equal(fauna1.done, 1); assert.equal(fauna1.total, 5); assert.equal(fauna1.open, true); assert.equal(fauna1.ach.done, 1);
     const seg = me1.achievements.find((a) => a.id === 'seg_devagar');
     assert.deepEqual([seg.title, seg.icon, seg.done, seg.goal], ['???', '❔', false, null], 'segredo não ganho aparece mascarado');
-    assert.equal(me1.collections.find((c) => c.id === 'espaco').open, false);
+    // Todas as imagens agora são livres (PR #115); a categoria Espaço permanece aberta mesmo sem concluir Fauna/Biomas.
+    assert.equal(me1.collections.find((c) => c.id === 'espaco').open, true);
     await q('DELETE FROM library_clears WHERE user_id = $1', [P]);                    // o progresso some (ex.: catálogo mudou)...
     const me2 = (await call('/me', tokP)).body.me;
     assert.equal(me2.achievements.find((a) => a.id === 'cat_fauna_1').done, true, '...mas a conquista continua ganha');
