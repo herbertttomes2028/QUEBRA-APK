@@ -35,7 +35,9 @@
     { id: 'cereja', free: false, name: 'Cereja', swatch: '#e0305e', body: '#e0305e', knob: '#3ecf6e', hands: '#ffffff', feet: '#ffd23f', cheek: '#ffa3b5',
       dots: [[-0.36, 0.62, 0.055, '#ffffff'], [-0.18, 0.655, 0.045, '#ffffff'], [0.3, 0.63, 0.05, '#ffb3c0'], [-0.7, 0.2, 0.07, '#ffb3c0'], [0.71, 0.2, 0.06, '#ffffff'], [-0.7, -0.28, 0.05, '#ffffff'], [0.7, -0.28, 0.055, '#ffb3c0']] },
     { id: 'ouro', free: false, name: 'Ouro', swatch: '#ffcc2e', body: '#ffcc2e', knob: '#fff3a0', hands: '#ffffff', feet: '#c77700', cheek: '#ff8a5c',
-      dots: [[-0.38, 0.625, 0.05, '#ffffff'], [-0.19, 0.655, 0.045, '#c77700'], [0, 0.665, 0.06, '#ffffff'], [0.19, 0.655, 0.045, '#c77700'], [0.38, 0.625, 0.05, '#ffffff'], [-0.71, 0.18, 0.05, '#ffffff'], [0.71, 0.18, 0.05, '#c77700'], [-0.3, -0.64, 0.05, '#ffffff'], [0.3, -0.64, 0.05, '#c77700']] }
+      dots: [[-0.38, 0.625, 0.05, '#ffffff'], [-0.19, 0.655, 0.045, '#c77700'], [0, 0.665, 0.06, '#ffffff'], [0.19, 0.655, 0.045, '#c77700'], [0.38, 0.625, 0.05, '#ffffff'], [-0.71, 0.18, 0.05, '#ffffff'], [0.71, 0.18, 0.05, '#c77700'], [-0.3, -0.64, 0.05, '#ffffff'], [0.3, -0.64, 0.05, '#c77700']] },
+    { id: 'oceano', free: false, name: 'Azul Oceano', swatch: '#1688e8', body: '#1688e8', knob: '#66d9ff', hands: '#ffffff', feet: '#ffb347', cheek: '#ff8fa3',
+      dots: [[-0.30, 0.64, 0.06, '#ffffff'], [0.30, 0.64, 0.06, '#ffffff']] }
   ];
 
   /* ===================== malhas que acompanham o corpo ===================== */
