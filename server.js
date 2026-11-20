@@ -127,7 +127,7 @@ const HINTS_SEM_LIMITE = 999;
 // Padrão 0,35 desde 15/11/2026 (o proprietário pediu um ímã mais fraco: com 0,5 a peça encaixava longe demais da casa; foi 0,33 até
 // 10/11/2026 e 0,5 entre 10 e 15/11). Ajustável no Render com SNAP_FACTOR (aceita de 0,25 a 0,75; qualquer outro valor é ignorado e vale
 // o padrão). A MESMA fórmula vale na Sala Desafio (challenge.js recebe este valor daqui). Ao ARRASTAR o raio é menor (magnet.js).
-const SNAP_FACTOR_DEFAULT = 0.35;
+const SNAP_FACTOR_DEFAULT = 0.40;
 // fator do ímã de uma quantidade: o normal (SNAP_FACTOR) ou, nas quantidades grandes, SNAP_FACTOR × ima (nunca acima de 0,75 casa)
 function snapFactorFor(pr) { return Math.min(0.75, SNAP_FACTOR * (pr && pr.ima > 1 ? pr.ima : 1)); }
 const hintsFor = (pr) => (pr && pr.lampadaLivre ? HINTS_SEM_LIMITE : HINTS);
