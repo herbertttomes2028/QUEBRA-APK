@@ -18,7 +18,7 @@ function num(v, min, max, def) {
   return v !== undefined && v !== '' && Number.isFinite(n) && n >= min && n <= max ? n : def;
 }
 const ENABLED = process.env.DRAG_MAGNET !== '0';
-const DRAG_FACTOR_DEFAULT = 0.30, DWELL_MS_DEFAULT = 180;
+const DRAG_FACTOR_DEFAULT = 0.30, DWELL_MS_DEFAULT = 200;
 const DRAG_FACTOR = num(process.env.DRAG_MAGNET_FACTOR, 0.15, 0.5, DRAG_FACTOR_DEFAULT);
 const DWELL_MS = Math.round(num(process.env.DRAG_MAGNET_MS, 0, 1000, DWELL_MS_DEFAULT));
 
