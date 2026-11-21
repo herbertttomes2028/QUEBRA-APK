@@ -12,7 +12,7 @@
  * Para conferir antes de dezembro, sem mudar a chave: abra o endereço com ?natal=1 (?natal=0 desliga). Vale só para aquela abertura. */
 (function () {
   'use strict';
-  var MODO = 'ligado';
+  var MODO = 'auto';
 
   function epoca(d) { var m = d.getMonth(), dia = d.getDate(); return m === 11 || (m === 0 && dia <= 6); }      // 1º/12 a 31/12 e 1º/01 a 6/01
   function ligado(modo, d, q) {
